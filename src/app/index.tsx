@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlameIcon, LogoMark, PlayIcon } from '@/components/icons';
 import { Bar, Card } from '@/components/ui';
-import { useStore } from '@/lib/store';
+import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
 const greeting = () => {
@@ -21,12 +21,32 @@ export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [customMin, setCustomMin] = useState('');
+  const [pastOpen, setPastOpen] = useState(false);
+  const [pastDate, setPastDate] = useState<string | null>(null);
+  const [pastMin, setPastMin] = useState('');
 
   const quickLog = (min: number) => {
     if (!min) return;
-    store.logMinutes(min, 'Quick log', 'Today · Logged');
+    store.logMinutes(min, 'Quick log', 'Logged');
     store.showToast(`Added ${min} minutes`);
     setCustomMin('');
+  };
+
+  // yesterday back through 7 days ago
+  const pastDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (i + 1));
+    return dateKey(d);
+  });
+
+  const logPast = () => {
+    const min = Number(pastMin);
+    if (!min || !pastDate) return;
+    store.logMinutes(min, 'Quick log', 'Logged', pastDate);
+    store.showToast(`Added ${min} min · ${dayLabel(pastDate)}`);
+    setPastOpen(false);
+    setPastMin('');
+    setPastDate(null);
   };
 
   return (
@@ -85,6 +105,9 @@ export default function Home() {
             <Text style={s.plusText}>+</Text>
           </Pressable>
         </View>
+        <Pressable onPress={() => setPastOpen(true)}>
+          <Text style={s.pastLink}>Forgot a day? Log past practice</Text>
+        </Pressable>
       </View>
 
       {store.sessions.length > 0 && (
@@ -93,7 +116,9 @@ export default function Home() {
             <View key={sess.id} style={[s.sessRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
               <View style={{ flex: 1 }}>
                 <Text style={s.sessTitle}>{sess.title}</Text>
-                <Text style={s.sessMeta}>{sess.meta}</Text>
+                <Text style={s.sessMeta}>
+                  {sess.meta.includes('·') ? sess.meta : `${dayLabel(sess.date)} · ${sess.meta}`}
+                </Text>
               </View>
               <Text style={s.sessMin}>{sess.min} min</Text>
               <Pressable style={s.delBtn} onPress={() => store.deleteSession(sess.id)} hitSlop={8}>
@@ -103,6 +128,36 @@ export default function Home() {
           ))}
         </Card>
       )}
+
+      <Modal visible={pastOpen} transparent animationType="fade" onRequestClose={() => setPastOpen(false)}>
+        <Pressable style={s.backdrop} onPress={() => setPastOpen(false)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <Text style={s.sheetTitle}>Log past practice</Text>
+            <View style={s.dayWrap}>
+              {pastDays.map((k) => (
+                <Pressable
+                  key={k}
+                  style={[s.dayChip, pastDate === k && s.dayChipSel]}
+                  onPress={() => setPastDate(k)}>
+                  <Text style={[s.dayChipText, pastDate === k && { color: C.accent }]}>{dayLabel(k)}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <TextInput
+              style={s.sheetInput}
+              value={pastMin}
+              onChangeText={(t) => setPastMin(t.replace(/\D/g, '').slice(0, 3))}
+              placeholder="Minutes"
+              placeholderTextColor={C.tertiary}
+              keyboardType="number-pad"
+              onSubmitEditing={logPast}
+            />
+            <Pressable style={[s.saveBtn, (!pastDate || !Number(pastMin)) && { opacity: 0.4 }]} onPress={logPast}>
+              <Text style={s.saveBtnText}>Add</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -134,4 +189,15 @@ const s = StyleSheet.create({
   sessMin: { fontFamily: F.bodySemi, fontSize: 14, color: C.ink, marginRight: 10 },
   delBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   delText: { fontSize: 18, color: C.sub, lineHeight: 20 },
+  pastLink: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub, marginTop: 12, textDecorationLine: 'underline' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
+  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink },
+  dayWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  dayChip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  dayChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
+  dayChipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },
+  sheetInput: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
+  saveBtn: { height: 52, borderRadius: 14, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  saveBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.bg },
 });

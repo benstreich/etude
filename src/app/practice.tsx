@@ -22,12 +22,12 @@ export default function Practice() {
     return () => clearInterval(t);
   }, [running, paused]);
 
-  const pieces = store.pieces.filter((p) => p.status !== 'Ready');
+  const pieces = store.pieces.filter((p) => p.status !== 'Ready' && !p.archived);
 
   const endSave = () => {
     if (!focus) return;
     const min = Math.max(1, Math.round(seconds / 60));
-    store.logMinutes(min, focus.name, `Today · ${focus.kind}`);
+    store.logMinutes(min, focus.name, focus.kind);
     store.showToast(`Session saved — ${min} min of ${focus.name}`);
     setRunning(false);
     setPaused(false);

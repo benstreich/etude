@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Bar, Card, ScreenTitle } from '@/components/ui';
-import { PieceStatus, useStore } from '@/lib/store';
+import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
+import { dayLabel, Piece, PieceStatus, useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
 const statusColor: Record<PieceStatus, string> = {
@@ -21,6 +21,23 @@ export default function Repertoire() {
   const [artist, setArtist] = useState('');
   const [creating, setCreating] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
+
+  const active = store.pieces.filter((p) => !p.archived);
+  const archived = store.pieces.filter((p) => p.archived);
+
+  // invested time per piece from the session log (matched by title)
+  const stats = (p: Piece) => {
+    let min = 0;
+    let last: string | null = null;
+    for (const sess of store.sessions) {
+      if (sess.title === p.name) {
+        min += sess.min;
+        if (!last || sess.date > last) last = sess.date;
+      }
+    }
+    return { min, last };
+  };
 
   // song/artist suggestions from the iTunes Search API (public, no key)
   useEffect(() => {
@@ -123,24 +140,85 @@ export default function Repertoire() {
       )}
 
       <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
-        {store.pieces.map((p, i) => (
-          <Pressable
-            key={p.id}
-            style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-            onPress={() => store.cyclePiece(p.id)}>
-            <View style={s.rowTop}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.pieceName}>{p.name}</Text>
-                {!!p.by && <Text style={s.composer}>{p.by}</Text>}
+        {active.map((p, i) => {
+          const st = stats(p);
+          return (
+            <Pressable
+              key={p.id}
+              style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+              onPress={() => store.cyclePiece(p.id)}>
+              <View style={s.rowTop}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.pieceName}>{p.name}</Text>
+                  {!!p.by && <Text style={s.composer}>{p.by}</Text>}
+                  {st.min > 0 && st.last && (
+                    <Text style={s.invested}>
+                      {st.min} min invested · last {dayLabel(st.last)}
+                    </Text>
+                  )}
+                </View>
+                <Text style={[s.tag, { color: statusColor[p.status] }]}>{p.status}</Text>
+                <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
+                  <Text style={s.moreText}>⋯</Text>
+                </Pressable>
               </View>
-              <Text style={[s.tag, { color: statusColor[p.status] }]}>{p.status}</Text>
-            </View>
-            <Bar pct={p.pct} color={p.status === 'Ready' ? C.success : C.ink} />
-          </Pressable>
-        ))}
+              <Bar pct={p.pct} color={p.status === 'Ready' ? C.success : C.ink} />
+            </Pressable>
+          );
+        })}
       </Card>
 
       <Text style={s.hint}>Tap a piece to advance its status</Text>
+
+      {archived.length > 0 && (
+        <View style={{ gap: 12 }}>
+          <Overline>Archived</Overline>
+          <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
+            {archived.map((p, i) => (
+              <Pressable
+                key={p.id}
+                style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+                onPress={() => setMenuPiece(p)}>
+                <View style={s.rowTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.pieceName, { color: C.sub }]}>{p.name}</Text>
+                    {!!p.by && <Text style={s.composer}>{p.by}</Text>}
+                  </View>
+                  <Text style={s.moreText}>⋯</Text>
+                </View>
+              </Pressable>
+            ))}
+          </Card>
+        </View>
+      )}
+
+      <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={() => setMenuPiece(null)}>
+        <Pressable style={s.backdrop} onPress={() => setMenuPiece(null)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            {menuPiece && (
+              <>
+                <Text style={s.sheetTitle}>{menuPiece.name}</Text>
+                <Pressable
+                  style={s.sheetRow}
+                  onPress={() => {
+                    store.setArchived(menuPiece.id, !menuPiece.archived);
+                    setMenuPiece(null);
+                  }}>
+                  <Text style={s.sheetRowText}>{menuPiece.archived ? 'Restore to repertoire' : 'Archive'}</Text>
+                </Pressable>
+                <Pressable
+                  style={s.sheetRow}
+                  onPress={() => {
+                    store.removePiece(menuPiece.id);
+                    setMenuPiece(null);
+                  }}>
+                  <Text style={[s.sheetRowText, { color: C.accent }]}>Remove</Text>
+                </Pressable>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -160,4 +238,12 @@ const s = StyleSheet.create({
   composer: { fontFamily: F.body, fontSize: 12.5, color: C.sub, marginTop: 2 },
   tag: { fontFamily: F.bodySemi, fontSize: 11.5, letterSpacing: 0.8, textTransform: 'uppercase' },
   hint: { fontFamily: F.body, fontSize: 12.5, color: C.tertiary, textAlign: 'center' },
+  invested: { fontFamily: F.body, fontSize: 12, color: C.tertiary, marginTop: 3 },
+  moreBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  moreText: { fontSize: 18, color: C.faint, lineHeight: 20 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 4 },
+  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink, marginBottom: 8 },
+  sheetRow: { height: 52, justifyContent: 'center' },
+  sheetRowText: { fontFamily: F.bodyMed, fontSize: 16, color: C.ink },
 });

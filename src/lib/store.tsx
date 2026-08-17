@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 
 export type Session = { id: string; title: string; meta: string; min: number; date: string };
 export type PieceStatus = 'Learning' | 'Polishing' | 'Ready';
-export type Piece = { id: string; name: string; by: string; status: PieceStatus; pct: number };
+export type Piece = { id: string; name: string; by: string; status: PieceStatus; pct: number; archived?: boolean };
 
 export type WeekStart = 'Monday' | 'Sunday';
 
@@ -19,9 +19,7 @@ type Settings = {
 type State = Settings & {
   minutesByDate: Record<string, number>;
   sessions: Session[];
-  streak: number;
   bestStreak: number;
-  lastPracticeDate: string | null;
   totalMin: number;
   pieces: Piece[];
   techniques: string[];
@@ -47,12 +45,10 @@ function seed(): State {
   return {
     minutesByDate,
     sessions: [
-      { id: uid(), title: 'Clair de Lune', meta: 'Today · Piece', min: 20, date: today },
-      { id: uid(), title: 'Scales & arpeggios', meta: 'Today · Technique', min: 12, date: today },
+      { id: uid(), title: 'Clair de Lune', meta: 'Piece', min: 20, date: today },
+      { id: uid(), title: 'Scales & arpeggios', meta: 'Technique', min: 12, date: today },
     ],
-    streak: 12,
     bestStreak: 21,
-    lastPracticeDate: today,
     totalMin: 86 * 60,
     pieces: [
       { id: uid(), name: 'Clair de Lune', by: 'Debussy', status: 'Polishing', pct: 70 },
@@ -73,15 +69,30 @@ function seed(): State {
 
 const dayName = (d: Date) => d.toLocaleDateString('en-US', { weekday: 'long' });
 
-// Most recent day before today that isn't a break day — the day the streak
-// must reach back to. Capped walk so all-break-days can't loop forever.
-function prevExpectedKey(breakDays: string[]): string {
+// Streak derived from history so backdated logs count too. A practiced break
+// day extends it; an unpracticed break day is skipped; a 0-minute today
+// doesn't break it (the day isn't over yet).
+function computeStreak(minutesByDate: Record<string, number>, breakDays: string[]): number {
+  let streak = 0;
   const d = new Date();
-  for (let i = 0; i < 8; i++) {
+  if (!((minutesByDate[dateKey(d)] ?? 0) > 0)) d.setDate(d.getDate() - 1);
+  for (let i = 0; i < 3650; i++) {
+    if ((minutesByDate[dateKey(d)] ?? 0) > 0) streak++;
+    else if (!breakDays.includes(dayName(d))) break;
     d.setDate(d.getDate() - 1);
-    if (!breakDays.includes(dayName(d))) break;
   }
-  return dateKey(d);
+  return streak;
+}
+
+// "Today", "Yesterday", or "Aug 12" for a dateKey
+export function dayLabel(key: string): string {
+  const today = dateKey();
+  if (key === today) return 'Today';
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  if (key === dateKey(y)) return 'Yesterday';
+  const [yy, mm, dd] = key.split('-').map(Number);
+  return new Date(yy, mm - 1, dd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 type Store = State & {
@@ -90,10 +101,12 @@ type Store = State & {
   week: { day: string; min: number; isToday: boolean }[];
   toast: string | null;
   showToast: (msg: string) => void;
-  logMinutes: (min: number, title: string, meta: string) => void;
+  logMinutes: (min: number, title: string, meta: string, date?: string) => void;
   deleteSession: (id: string) => void;
   addPiece: (name: string, by?: string) => void;
   cyclePiece: (id: string) => void;
+  removePiece: (id: string) => void;
+  setArchived: (id: string, archived: boolean) => void;
   updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
 };
 
@@ -121,25 +134,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const logMinutes = (min: number, title: string, meta: string) => {
+  const logMinutes = (min: number, title: string, meta: string, date = dateKey()) => {
     setState((s) => {
       if (!s) return s;
-      const today = dateKey();
-      // streak survives gaps made only of break days
-      const streak =
-        s.lastPracticeDate === today
-          ? s.streak
-          : s.lastPracticeDate && s.lastPracticeDate >= prevExpectedKey(s.breakDays)
-            ? s.streak + 1
-            : 1;
+      const minutesByDate = { ...s.minutesByDate, [date]: (s.minutesByDate[date] ?? 0) + min };
       return {
         ...s,
-        minutesByDate: { ...s.minutesByDate, [today]: (s.minutesByDate[today] ?? 0) + min },
+        minutesByDate,
         totalMin: s.totalMin + min,
-        streak,
-        bestStreak: Math.max(s.bestStreak, streak),
-        lastPracticeDate: today,
-        sessions: [{ id: uid(), title, meta, min, date: today }, ...s.sessions],
+        bestStreak: Math.max(s.bestStreak, computeStreak(minutesByDate, s.breakDays)),
+        sessions: [{ id: uid(), title, meta, min, date }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
       };
     });
   };
@@ -182,11 +186,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const today = dateKey();
   const todayMin = state.minutesByDate[today] ?? 0;
 
-  const displayStreak =
-    state.lastPracticeDate === today ||
-    (state.lastPracticeDate !== null && state.lastPracticeDate >= prevExpectedKey(state.breakDays))
-      ? state.streak
-      : 0;
+  const displayStreak = computeStreak(state.minutesByDate, state.breakDays);
+
+  const removePiece = (id: string) => {
+    setState((s) => (s ? { ...s, pieces: s.pieces.filter((p) => p.id !== id) } : s));
+    showToast('Removed from repertoire');
+  };
+
+  const setArchived = (id: string, archived: boolean) => {
+    setState((s) => (s ? { ...s, pieces: s.pieces.map((p) => (p.id === id ? { ...p, archived } : p)) } : s));
+    showToast(archived ? 'Archived' : 'Restored');
+  };
 
   const updateSettings: Store['updateSettings'] = (patch) => {
     setState((s) => (s ? { ...s, ...patch } : s));
@@ -210,6 +220,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteSession,
     addPiece,
     cyclePiece,
+    removePiece,
+    setArchived,
     updateSettings,
   };
 
