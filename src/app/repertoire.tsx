@@ -19,6 +19,7 @@ export default function Repertoire() {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [artist, setArtist] = useState('');
+  const [creating, setCreating] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   // song/artist suggestions from the iTunes Search API (public, no key)
@@ -54,11 +55,12 @@ export default function Repertoire() {
     };
   }, [name]);
 
-  const add = (n = name.trim(), by = artist.trim()) => {
+  const add = (n: string, by: string) => {
     if (!n) return;
     store.addPiece(n, by);
     setName('');
     setArtist('');
+    setCreating(null);
     setSuggestions([]);
   };
 
@@ -66,31 +68,38 @@ export default function Repertoire() {
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <ScreenTitle>Repertoire</ScreenTitle>
 
-      <View style={s.addRow}>
-        <TextInput
-          style={[s.input, { flex: 1.4 }]}
-          value={name}
-          onChangeText={setName}
-          placeholder="Add a piece…"
-          placeholderTextColor={C.tertiary}
-          onSubmitEditing={() => add()}
-          returnKeyType="done"
-        />
+      {creating === null ? (
         <TextInput
           style={s.input}
-          value={artist}
-          onChangeText={setArtist}
-          placeholder="Artist"
+          value={name}
+          onChangeText={setName}
+          placeholder="Search songs & artists…"
           placeholderTextColor={C.tertiary}
-          onSubmitEditing={() => add()}
+          onSubmitEditing={() => name.trim() && setCreating(name.trim())}
           returnKeyType="done"
         />
-        <Pressable style={s.plusBtn} onPress={() => add()}>
-          <Text style={s.plusText}>+</Text>
-        </Pressable>
-      </View>
+      ) : (
+        <View>
+          <Text style={s.creatingLabel}>Adding “{creating}”</Text>
+          <View style={s.addRow}>
+            <TextInput
+              style={s.input}
+              value={artist}
+              onChangeText={setArtist}
+              placeholder="Artist (optional)"
+              placeholderTextColor={C.tertiary}
+              autoFocus
+              onSubmitEditing={() => add(creating, artist.trim())}
+              returnKeyType="done"
+            />
+            <Pressable style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
+              <Text style={s.plusText}>+</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
-      {suggestions.length > 0 && (
+      {creating === null && name.trim().length > 0 && (
         <Card style={{ paddingVertical: 4, paddingHorizontal: 16, marginTop: -8 }}>
           {suggestions.map((sug, i) => (
             <Pressable
@@ -105,6 +114,11 @@ export default function Repertoire() {
               </Text>
             </Pressable>
           ))}
+          <Pressable
+            style={[s.sugRow, suggestions.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+            onPress={() => setCreating(name.trim())}>
+            <Text style={s.createText}>+ Create “{name.trim()}”</Text>
+          </Pressable>
         </Card>
       )}
 
@@ -135,6 +149,8 @@ const s = StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 20 },
   addRow: { flexDirection: 'row', gap: 8 },
   sugRow: { paddingVertical: 10 },
+  createText: { fontFamily: F.bodySemi, fontSize: 14, color: C.accent },
+  creatingLabel: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub, marginBottom: 8 },
   input: { flex: 1, minWidth: 0, height: 48, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
   plusBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   plusText: { color: C.bg, fontSize: 24, lineHeight: 26, fontFamily: F.bodyMed },
