@@ -94,7 +94,6 @@ type Store = State & {
   deleteSession: (id: string) => void;
   addPiece: (name: string, by?: string) => void;
   cyclePiece: (id: string) => void;
-  addTechnique: (name: string) => void;
   updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
 };
 
@@ -189,11 +188,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ? state.streak
       : 0;
 
-  const addTechnique = (name: string) => {
-    setState((s) => (s && !s.techniques.includes(name) ? { ...s, techniques: [...s.techniques, name] } : s));
-    showToast('Technique added');
-  };
-
   const updateSettings: Store['updateSettings'] = (patch) => {
     setState((s) => (s ? { ...s, ...patch } : s));
   };
@@ -216,7 +210,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteSession,
     addPiece,
     cyclePiece,
-    addTechnique,
     updateSettings,
   };
 
