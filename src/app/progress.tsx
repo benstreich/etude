@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
-import { useStore } from '@/lib/store';
+import { dateKey, useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
 // ponytail: skills are static per the handoff — no tracking UI exists yet
@@ -18,7 +18,15 @@ export default function Progress() {
   const store = useStore();
   const insets = useSafeAreaInsets();
 
-  const weekTotal = store.week.reduce((a, d) => a + d.min, 0);
+  // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days
+  const start = store.weekStart === 'Monday' ? 1 : 0;
+  const elapsed = ((new Date().getDay() - start + 7) % 7) + 1;
+  let weekTotal = 0;
+  for (let i = 0; i < elapsed; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    weekTotal += store.minutesByDate[dateKey(d)] ?? 0;
+  }
   const max = Math.max(...store.week.map((d) => d.min), 1);
 
   return (
@@ -36,7 +44,7 @@ export default function Progress() {
         <Card style={s.stat}>
           <Overline style={{ marginBottom: 10 }}>Avg / day</Overline>
           <Text style={s.statNum}>
-            {Math.round(weekTotal / 7)}
+            {Math.round(weekTotal / elapsed)}
             <Text style={s.statUnit}> min</Text>
           </Text>
         </Card>
