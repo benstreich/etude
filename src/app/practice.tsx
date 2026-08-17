@@ -1,13 +1,30 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Overline } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
-const TECHNIQUES = ['Scales & arpeggios', 'Sight reading'];
+function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (name: string) => void }) {
+  const [text, setText] = useState('');
+  return (
+    <TextInput
+      style={s.addRow}
+      value={text}
+      onChangeText={setText}
+      placeholder={placeholder}
+      placeholderTextColor={C.tertiary}
+      returnKeyType="done"
+      onSubmitEditing={() => {
+        const n = text.trim();
+        if (n) onAdd(n);
+        setText('');
+      }}
+    />
+  );
+}
 
 export default function Practice() {
   const store = useStore();
@@ -80,12 +97,14 @@ export default function Practice() {
           {pieces.map((p) => (
             <Option key={p.id} name={p.name} kind="Piece" />
           ))}
+          <AddRow placeholder="+ Add a piece…" onAdd={store.addPiece} />
         </View>
         <Overline style={{ marginBottom: 10, marginTop: 22 }}>Techniques</Overline>
         <View style={s.group}>
-          {TECHNIQUES.map((t) => (
+          {store.techniques.map((t) => (
             <Option key={t} name={t} kind="Technique" />
           ))}
+          <AddRow placeholder="+ Add a technique…" onAdd={store.addTechnique} />
         </View>
       </ScrollView>
       <View style={{ paddingHorizontal: 24, paddingBottom: 16 }}>
@@ -110,6 +129,7 @@ const s = StyleSheet.create({
   group: { gap: 10 },
   option: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
   optionText: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
+  addRow: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: C.inputBorder, borderStyle: 'dashed', paddingHorizontal: 16, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
   startBtn: { height: 60, borderRadius: 14, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   startBtnText: { fontFamily: F.bodySemi, fontSize: 17, color: C.bg },
   runPage: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },

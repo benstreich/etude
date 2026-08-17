@@ -67,8 +67,8 @@ export default function Home() {
       <View>
         <Text style={s.helper}>Practiced without the timer? Log it in one tap.</Text>
         <View style={s.quickRow}>
-          {[15, 30, 45].map((m) => (
-            <Pressable key={m} style={s.chip} onPress={() => quickLog(m)}>
+          {store.quickLog.map((m, i) => (
+            <Pressable key={i} style={s.chip} onPress={() => quickLog(m)}>
               <Text style={s.chipText}>+{m} min</Text>
             </Pressable>
           ))}

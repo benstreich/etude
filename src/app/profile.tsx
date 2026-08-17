@@ -14,7 +14,7 @@ const GOALS = [15, 30, 45, 60, 90];
 // needs expo-notifications + a dev build (Expo Go can't show them)
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
 
-type EditKey = 'name' | 'instruments' | 'goal' | 'breakDays' | 'reminder' | 'weekStart';
+type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'breakDays' | 'reminder' | 'weekStart';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
@@ -39,6 +39,7 @@ export default function Profile() {
     if (key === 'goal') setText(String(store.dailyGoal));
     if (key === 'instruments') setList(store.instruments);
     if (key === 'breakDays') setList(store.breakDays);
+    if (key === 'quickLog') setList(store.quickLog.map(String));
     setEditing(key);
   };
 
@@ -52,6 +53,10 @@ export default function Profile() {
     }
     if (editing === 'instruments' && list.length) store.updateSettings({ instruments: list });
     if (editing === 'breakDays') store.updateSettings({ breakDays: list });
+    if (editing === 'quickLog') {
+      const nums = list.map(Number).filter((n) => n > 0 && n < 1000);
+      if (nums.length) store.updateSettings({ quickLog: nums });
+    }
     setEditing(null);
     store.showToast('Saved');
   };
@@ -65,6 +70,7 @@ export default function Profile() {
   const rows: { key: EditKey; label: string; value: string }[] = [
     { key: 'instruments', label: 'Instruments', value: store.instruments.join(', ') },
     { key: 'goal', label: 'Daily goal', value: `${store.dailyGoal} min` },
+    { key: 'quickLog', label: 'Quick log presets', value: store.quickLog.map((n) => `${n}`).join(', ') + ' min' },
     { key: 'breakDays', label: 'Break days', value: store.breakDays.length ? store.breakDays.join(', ') : 'None' },
     { key: 'reminder', label: 'Practice reminders', value: store.reminder },
     { key: 'weekStart', label: 'Week starts on', value: store.weekStart },
@@ -74,6 +80,7 @@ export default function Profile() {
     name: 'Your name',
     instruments: 'Instruments',
     goal: 'Daily goal',
+    quickLog: 'Quick log presets',
     breakDays: 'Break days',
     reminder: 'Practice reminders',
     weekStart: 'Week starts on',
@@ -144,6 +151,23 @@ export default function Profile() {
               <View style={s.chipWrap}>
                 {GOALS.map((g) => (
                   <Chip key={g} label={`${g} min`} selected={Number(text) === g} onPress={() => setText(String(g))} />
+                ))}
+              </View>
+            )}
+            {editing === 'quickLog' && (
+              <View style={s.chipWrap}>
+                {list.map((v, i) => (
+                  <TextInput
+                    key={i}
+                    style={[s.input, { width: 90, textAlign: 'center' }]}
+                    value={v}
+                    onChangeText={(t) =>
+                      setList((l) => l.map((x, j) => (j === i ? t.replace(/\D/g, '').slice(0, 3) : x)))
+                    }
+                    keyboardType="number-pad"
+                    placeholder="min"
+                    placeholderTextColor={C.tertiary}
+                  />
                 ))}
               </View>
             )}

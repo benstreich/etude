@@ -13,6 +13,7 @@ type Settings = {
   breakDays: string[];
   reminder: string;
   weekStart: WeekStart;
+  quickLog: number[];
 };
 
 type State = Settings & {
@@ -23,6 +24,7 @@ type State = Settings & {
   lastPracticeDate: string | null;
   totalMin: number;
   pieces: Piece[];
+  techniques: string[];
   dailyGoal: number;
 };
 
@@ -58,12 +60,14 @@ function seed(): State {
       { id: uid(), name: 'Prelude in C', by: 'Bach', status: 'Ready', pct: 100 },
       { id: uid(), name: 'Blue Bossa', by: 'Dorham', status: 'Learning', pct: 20 },
     ],
+    techniques: ['Scales & arpeggios', 'Sight reading'],
     dailyGoal: 45,
     name: 'Alex Rivera',
     instruments: ['Piano', 'Guitar'],
     breakDays: ['Sunday'],
     reminder: '7:00 PM',
     weekStart: 'Monday',
+    quickLog: [15, 30, 45],
   };
 }
 
@@ -88,8 +92,9 @@ type Store = State & {
   showToast: (msg: string) => void;
   logMinutes: (min: number, title: string, meta: string) => void;
   deleteSession: (id: string) => void;
-  addPiece: (name: string) => void;
+  addPiece: (name: string, by?: string) => void;
   cyclePiece: (id: string) => void;
+  addTechnique: (name: string) => void;
   updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
 };
 
@@ -157,9 +162,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast('Session deleted');
   };
 
-  const addPiece = (name: string) => {
+  const addPiece = (name: string, by = '') => {
     setState((s) =>
-      s ? { ...s, pieces: [{ id: uid(), name, by: '', status: 'Learning' as const, pct: 10 }, ...s.pieces] } : s
+      s ? { ...s, pieces: [{ id: uid(), name, by, status: 'Learning' as const, pct: 10 }, ...s.pieces] } : s
     );
     showToast('Added to repertoire');
   };
@@ -184,6 +189,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ? state.streak
       : 0;
 
+  const addTechnique = (name: string) => {
+    setState((s) => (s && !s.techniques.includes(name) ? { ...s, techniques: [...s.techniques, name] } : s));
+    showToast('Technique added');
+  };
+
   const updateSettings: Store['updateSettings'] = (patch) => {
     setState((s) => (s ? { ...s, ...patch } : s));
   };
@@ -206,6 +216,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteSession,
     addPiece,
     cyclePiece,
+    addTechnique,
     updateSettings,
   };
 
