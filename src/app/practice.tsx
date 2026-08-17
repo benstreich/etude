@@ -97,6 +97,7 @@ export default function Practice() {
           {pieces.map((p) => (
             <Option key={p.id} name={p.name} kind="Piece" />
           ))}
+          <AddRow placeholder="+ Add a piece…" onAdd={store.addPiece} />
         </View>
         <Overline style={{ marginBottom: 10, marginTop: 22 }}>Techniques</Overline>
         <View style={s.group}>
