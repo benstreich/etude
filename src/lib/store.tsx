@@ -1,14 +1,18 @@
 // ponytail: SQLite via kv-store — real .db file, AsyncStorage-compatible API.
 // Move to relational tables if per-row queries ever matter.
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Paths } from 'expo-file-system';
 import Storage from 'expo-sqlite/kv-store';
+import { AppState } from 'react-native';
 
 import type { RampUnit } from './metronome-math';
-import { computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
+import { migrate } from './migrate';
+import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
+import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
 
-export type Session = { id: string; title: string; meta: string; min: number; date: string };
+export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
 export type Recording = {
   id: string;
@@ -31,6 +35,11 @@ type Settings = {
   instruments: string[];
   breakDays: string[];
   streakMode: StreakMode;
+  theme: ThemeMode;
+  accent: AccentName;
+  fontScale: number;
+  radius: RadiusMode;
+  reduceMotion: boolean;
   reminder: string;
   weekStart: WeekStart;
   quickLog: number[];
@@ -62,36 +71,27 @@ const KEY = 'etude-state-v1';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+// The user's data starts empty — a fresh install must never show someone else's
+// stats. Only settings carry real defaults (migrate backfills them on upgrades).
 function seed(): State {
-  const minutesByDate: Record<string, number> = {};
-  const mins = [42, 15, 0, 38, 45, 25, 32];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    minutesByDate[dateKey(d)] = mins[i];
-  }
-  const today = dateKey();
   return {
-    minutesByDate,
-    sessions: [
-      { id: uid(), title: 'Clair de Lune', meta: 'Piece', min: 20, date: today },
-      { id: uid(), title: 'Scales & arpeggios', meta: 'Technique', min: 12, date: today },
-    ],
-    bestStreak: 21,
-    totalMin: 86 * 60,
-    pieces: [
-      { id: uid(), name: 'Clair de Lune', by: 'Debussy', stage: 1, pct: 70 },
-      { id: uid(), name: 'Autumn Leaves', by: 'Kosma', stage: 0, pct: 35 },
-      { id: uid(), name: 'Prelude in C', by: 'Bach', stage: 2, pct: 100 },
-      { id: uid(), name: 'Blue Bossa', by: 'Dorham', stage: 0, pct: 20 },
-    ],
+    minutesByDate: {},
+    sessions: [],
+    bestStreak: 0,
+    totalMin: 0,
+    pieces: [],
     techniques: ['Scales & arpeggios', 'Sight reading'],
     recordings: [],
     dailyGoal: 45,
-    name: 'Alex Rivera',
-    instruments: ['Piano', 'Guitar'],
+    name: '',
+    instruments: [],
     breakDays: ['Sunday'],
     streakMode: 'strict',
+    theme: 'system',
+    accent: 'terracotta',
+    fontScale: 1,
+    radius: 'soft',
+    reduceMotion: false,
     reminder: '7:00 PM',
     weekStart: 'Monday',
     quickLog: [15, 30, 45],
@@ -107,25 +107,46 @@ function seed(): State {
   };
 }
 
-// "Today", "Yesterday", or "Aug 12" for a dateKey
-export function dayLabel(key: string): string {
-  const today = dateKey();
-  if (key === today) return 'Today';
-  const y = new Date();
-  y.setDate(y.getDate() - 1);
-  if (key === dateKey(y)) return 'Yesterday';
+// "Today", "Yesterday", or "Aug 12" for a dateKey. todayKey comes from the
+// store so callers re-render (and re-memoize) when the day rolls over.
+export function dayLabel(key: string, todayKey: string): string {
+  if (key === todayKey) return 'Today';
+  const [ty, tm, td] = todayKey.split('-').map(Number);
+  if (key === dateKey(new Date(ty, tm - 1, td - 1))) return 'Yesterday';
   const [yy, mm, dd] = key.split('-').map(Number);
   return new Date(yy, mm - 1, dd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// Recordings persist a documents-relative path: absolute URIs rot on iOS, where
+// the app container UUID changes on every update. Anything that still has a
+// scheme (blob:, http:, a legacy file:// not under documents) passes through.
+const docUri = () => {
+  try {
+    const d = Paths.document.uri;
+    return d.endsWith('/') ? d : `${d}/`;
+  } catch {
+    return ''; // web
+  }
+};
+export const toStoredUri = (uri: string) => {
+  const d = docUri();
+  return d && uri.startsWith(d) ? uri.slice(d.length) : uri;
+};
+export const resolveRecordingUri = (stored: string) => (stored.includes(':') ? stored : docUri() + stored);
+
 type Store = State & {
+  /** Wall clock, refreshed on foreground and at midnight — the reactive "now" for date math. */
+  now: number;
+  /** dateKey of the current day, derived from `now`. */
+  today: string;
   todayMin: number;
   displayStreak: number;
   week: { day: string; min: number; isToday: boolean; date: string }[];
   toast: string | null;
   showToast: (msg: string) => void;
-  logMinutes: (min: number, title: string, meta: string, date?: string) => void;
+  logMinutes: (min: number, title: string, meta: string, date?: string) => string;
   deleteSession: (id: string) => void;
+  setSessionNote: (id: string, note: string) => void;
   addPiece: (name: string, by?: string) => void;
   addTechnique: (name: string) => void;
   removeTechnique: (name: string) => void;
@@ -145,6 +166,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Reactive clock: without it, render-body dates freeze (react-compiler caches
+  // zero-dep expressions) and the whole UI shows yesterday after midnight.
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const refresh = () => setNow(Date.now());
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') refresh();
+    });
+    // ponytail: one timer re-armed each midnight; clock jumps are caught by the foreground refresh
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      const next = new Date();
+      next.setHours(24, 0, 0, 500);
+      timer = setTimeout(() => {
+        refresh();
+        arm();
+      }, next.getTime() - Date.now());
+    };
+    arm();
+    return () => {
+      sub.remove();
+      clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     // one-time move from AsyncStorage to SQLite for existing installs
@@ -156,26 +202,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           raw = await legacy.getItem(KEY);
         } catch {}
       }
-      if (!raw) return setState(seed());
-      const saved = JSON.parse(raw);
-      // merge over seed so states saved before new settings existed pick up defaults
-      const merged: State = { ...seed(), ...saved };
-      // legacy: pieces stored a named status before stages became a list
-      const legacyStage: Record<string, number> = { Learning: 0, Polishing: 1, Ready: 2 };
-      if (saved.stageLabels)
-        merged.stages = (['Learning', 'Polishing', 'Ready'] as const).map((k) => saved.stageLabels[k] || k);
-      if (saved.metroBeatsPerBar && !saved.metroTimeSig) merged.metroTimeSig = `${saved.metroBeatsPerBar}/4`;
-      merged.pieces = merged.pieces.map((p: Piece & { status?: string }) => ({
-        ...p,
-        stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
-      }));
-      setState(merged);
+      setState(migrate(raw, seed()));
     };
-    load();
+    // a storage read that throws must never leave the app on a blank screen forever
+    load().catch(() => setState(seed()));
   }, []);
 
   useEffect(() => {
-    if (state) Storage.setItem(KEY, JSON.stringify(state));
+    if (state)
+      Storage.setItem(KEY, JSON.stringify(state)).catch(() =>
+        setToast('Save failed — device storage may be full')
+      );
   }, [state]);
 
   if (!state) return null;
@@ -187,6 +224,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logMinutes = (min: number, title: string, meta: string, date = dateKey()) => {
+    const id = uid();
     setState((s) => {
       if (!s) return s;
       const minutesByDate = { ...s.minutesByDate, [date]: (s.minutesByDate[date] ?? 0) + min };
@@ -194,10 +232,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         minutesByDate,
         totalMin: s.totalMin + min,
-        bestStreak: Math.max(s.bestStreak, computeStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
-        sessions: [{ id: uid(), title, meta, min, date }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
+        // full-history scan so streaks assembled from backdated logs count too
+        bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
+        sessions: [{ id, title, meta, min, date }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
       };
     });
+    return id;
+  };
+
+  const setSessionNote = (id: string, note: string) => {
+    setState((s) =>
+      s ? { ...s, sessions: s.sessions.map((x) => (x.id === id ? { ...x, note: note.trim() || undefined } : x)) } : s
+    );
   };
 
   const deleteSession = (id: string) => {
@@ -218,10 +264,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addPiece = (name: string, by = '') => {
-    setState((s) =>
-      s ? { ...s, pieces: [{ id: uid(), name, by, stage: 0, pct: 10 }, ...s.pieces] } : s
-    );
-    showToast('Added to repertoire');
+    const clean = name.trim();
+    // piece identity elsewhere is the display name — a duplicate doubles stats and recordings
+    const dup = state.pieces.some((p) => p.name.trim().toLowerCase() === clean.toLowerCase());
+    if (!dup)
+      setState((s) =>
+        s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10 }, ...s.pieces] } : s
+      );
+    showToast(dup ? 'Already in repertoire' : 'Added to repertoire');
   };
 
   const addTechnique = (name: string) => {
@@ -232,8 +282,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast('Technique added');
   };
 
+  // a removed focus target must not keep collecting quick-log sessions
+  const clearFocus = (s: State, name: string, kind: 'Piece' | 'Technique') =>
+    s.quickLogFocus?.kind === kind && s.quickLogFocus.name === name ? null : s.quickLogFocus;
+
   const removeTechnique = (name: string) => {
-    setState((s) => (s ? { ...s, techniques: s.techniques.filter((t) => t !== name) } : s));
+    setState((s) =>
+      s
+        ? { ...s, techniques: s.techniques.filter((t) => t !== name), quickLogFocus: clearFocus(s, name, 'Technique') }
+        : s
+    );
   };
 
   const cyclePiece = (id: string) => {
@@ -251,18 +309,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const today = dateKey();
+  const todayDate = new Date(now);
+  const today = dateKey(todayDate);
   const todayMin = state.minutesByDate[today] ?? 0;
 
-  const displayStreak = computeStreak(state.minutesByDate, state.breakDays, graceFor(state.streakMode));
+  const displayStreak = computeStreak(state.minutesByDate, state.breakDays, graceFor(state.streakMode), todayDate);
 
   const removePiece = (id: string) => {
-    setState((s) => (s ? { ...s, pieces: s.pieces.filter((p) => p.id !== id) } : s));
+    setState((s) => {
+      if (!s) return s;
+      const gone = s.pieces.find((p) => p.id === id);
+      return {
+        ...s,
+        pieces: s.pieces.filter((p) => p.id !== id),
+        quickLogFocus: gone ? clearFocus(s, gone.name, 'Piece') : s.quickLogFocus,
+      };
+    });
     showToast('Removed from repertoire');
   };
 
   const setArchived = (id: string, archived: boolean) => {
-    setState((s) => (s ? { ...s, pieces: s.pieces.map((p) => (p.id === id ? { ...p, archived } : p)) } : s));
+    setState((s) => {
+      if (!s) return s;
+      const target = s.pieces.find((p) => p.id === id);
+      return {
+        ...s,
+        pieces: s.pieces.map((p) => (p.id === id ? { ...p, archived } : p)),
+        quickLogFocus: archived && target ? clearFocus(s, target.name, 'Piece') : s.quickLogFocus,
+      };
+    });
     showToast(archived ? 'Archived' : 'Restored');
   };
 
@@ -305,7 +380,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const week = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
+    const d = new Date(now);
     d.setDate(d.getDate() - (6 - i));
     const key = dateKey(d);
     return { day: letters[d.getDay()], min: state.minutesByDate[key] ?? 0, isToday: i === 6, date: key };
@@ -313,6 +388,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const store: Store = {
     ...state,
+    now,
+    today,
     todayMin,
     displayStreak,
     week,
@@ -320,6 +397,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast,
     logMinutes,
     deleteSession,
+    setSessionNote,
     addPiece,
     addTechnique,
     removeTechnique,

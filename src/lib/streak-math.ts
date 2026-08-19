@@ -8,7 +8,8 @@ export const graceFor = (mode: StreakMode) => (mode === 'relaxed' ? 1 : 0);
 export const dateKey = (d: Date = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const dayName = (d: Date) => d.toLocaleDateString('en-US', { weekday: 'long' });
+const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayName = (d: Date) => NAMES[d.getDay()];
 
 // Streak derived from history so backdated logs count too. A practiced break
 // day extends it; an unpracticed break day is skipped; a 0-minute today
@@ -38,4 +39,22 @@ export function computeStreak(
     d.setDate(d.getDate() - 1);
   }
   return streak;
+}
+
+// Longest streak anywhere in history, so runs assembled purely from backdated
+// logs count toward "best" too. Only run ends need checking: if the next day
+// was practiced, the streak ending there is strictly longer.
+export function computeBestStreak(
+  minutesByDate: Record<string, number>,
+  breakDays: string[],
+  graceDays = 0,
+): number {
+  let best = 0;
+  for (const key of Object.keys(minutesByDate)) {
+    if (!((minutesByDate[key] ?? 0) > 0)) continue;
+    const [y, m, d] = key.split('-').map(Number);
+    if ((minutesByDate[dateKey(new Date(y, m - 1, d + 1))] ?? 0) > 0) continue;
+    best = Math.max(best, computeStreak(minutesByDate, breakDays, graceDays, new Date(y, m - 1, d)));
+  }
+  return best;
 }

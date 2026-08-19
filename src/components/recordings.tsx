@@ -1,20 +1,23 @@
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { File } from 'expo-file-system';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { dayLabel, Recording, useStore } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { applyAudioMode } from '@/lib/audio-mode';
+import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 // "Today, 2:35 PM" — older recordings without a timestamp just show the day
-const when = (r: Recording) =>
-  dayLabel(r.date) +
+const when = (r: Recording, today: string) =>
+  dayLabel(r.date, today) +
   (r.at ? `, ${new Date(r.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : '');
 
 // one player per list — starting a row stops whichever row was playing
 export function RecordingsList({ recordings, showPiece = false }: { recordings: Recording[]; showPiece?: boolean }) {
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const player = useAudioPlayer();
   const status = useAudioPlayerStatus(player);
@@ -32,8 +35,8 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
       else player.play();
       return;
     }
-    setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-    player.replace(r.uri);
+    applyAudioMode({ playsInSilentMode: true, allowsRecording: false });
+    player.replace(resolveRecordingUri(r.uri));
     player.play();
     setCurrentId(r.id);
   };
@@ -44,7 +47,7 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
       setCurrentId(null);
     }
     try {
-      new File(r.uri).delete();
+      new File(resolveRecordingUri(r.uri)).delete();
     } catch {}
     store.deleteRecording(r.id);
   };
@@ -94,7 +97,7 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
                     {r.name || (showPiece ? r.piece : 'Untitled')}
                   </Text>
                   <Text style={s.meta}>
-                    {when(r)} · {fmt(r.sec)}
+                    {when(r, store.today)} · {fmt(r.sec)}
                   </Text>
                 </Pressable>
               )}
@@ -128,14 +131,14 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  playBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  playText: { color: C.bg, fontSize: 12 },
-  piece: { fontFamily: F.bodyMed, fontSize: 14.5, color: C.ink },
-  meta: { fontFamily: F.body, fontSize: 12.5, color: C.sub, marginTop: 1 },
-  nameInput: { fontFamily: F.bodyMed, fontSize: 14.5, color: C.ink, padding: 0, borderBottomWidth: 1, borderBottomColor: C.accent },
-  delete: { fontFamily: F.bodyMed, fontSize: 13, color: C.accent },
-  star: { fontSize: 18, color: C.faint, lineHeight: 22 },
+  playBtn: { width: 34, height: 34, borderRadius: r(17), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  playText: { color: C.bg, fontSize: fs(12) },
+  piece: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
+  meta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+  nameInput: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink, padding: 0, borderBottomWidth: 1, borderBottomColor: C.accent },
+  delete: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.accent },
+  star: { fontSize: fs(18), color: C.faint, lineHeight: fs(22) },
   wave: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 32, marginBottom: 10 },
-});
+}));

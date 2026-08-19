@@ -1,16 +1,20 @@
-import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import { RecordingPresets, requestNotificationPermissionsAsync, requestRecordingPermissionsAsync, useAudioRecorder } from 'expo-audio';
+import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeButton } from '@/components/metronome';
 import { Overline } from '@/components/ui';
-import { useStore } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
+import { toStoredUri, useStore } from '@/lib/store';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function Practice() {
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -21,15 +25,27 @@ export default function Practice() {
   const [accum, setAccum] = useState(0); // seconds banked across pauses
   const [seconds, setSeconds] = useState(0);
   const [pastOpen, setPastOpen] = useState(false);
+  const [noteFor, setNoteFor] = useState<string | null>(null); // session id awaiting an optional note
+  const [note, setNote] = useState('');
   const paused = startedAt === null;
+  const jsStop = useRef(false); // a JS-initiated stop; mutes the status listener below
+  const finishRef = useRef<() => void>(() => {});
   // directory: 'document' so recordings survive cache cleanup; 48kHz/256kbps AAC (~2MB/min)
-  const recorder = useAudioRecorder({
-    ...RecordingPresets.HIGH_QUALITY,
-    sampleRate: 48000,
-    bitRate: 256000,
-    isMeteringEnabled: true,
-    directory: 'document',
-  });
+  // The status listener catches stops we didn't ask for — the foreground-service
+  // notification's Stop button, an interruption, a recorder error — and finalizes
+  // instead of letting the UI keep "recording" a recorder that's already dead.
+  const recorder = useAudioRecorder(
+    {
+      ...RecordingPresets.HIGH_QUALITY,
+      sampleRate: 48000,
+      bitRate: 256000,
+      isMeteringEnabled: true,
+      directory: 'document',
+    },
+    (st) => {
+      if (st.isFinished && !jsStop.current) finishRef.current();
+    }
+  );
   const [recording, setRecording] = useState(false);
   const [recPaused, setRecPaused] = useState(false);
   const recStart = useRef(0); // start of the current un-paused segment
@@ -57,44 +73,68 @@ export default function Practice() {
     setRecPaused((p) => !p);
   };
 
-  const toggleRec = async () => {
-    if (recording) {
-      const totalMs = recAccumMs.current + (recPaused ? 0 : Date.now() - recStart.current);
-      setRecording(false);
-      setRecPaused(false);
-      await recorder.stop();
-      // downsample the level samples to ≤60 bars
-      const raw = waveRef.current;
-      waveRef.current = [];
-      const N = 60;
-      const wave =
-        raw.length <= N
-          ? raw
-          : Array.from({ length: N }, (_, i) => {
-              const a = Math.floor((i * raw.length) / N);
-              const b = Math.max(a + 1, Math.floor(((i + 1) * raw.length) / N));
-              return raw.slice(a, b).reduce((x, y) => x + y, 0) / (b - a);
-            });
-      if (recorder.uri && focus)
-        store.addRecording(
-          focus.name,
-          recorder.uri,
-          Math.round(totalMs / 1000),
-          wave.map((v) => Math.round(v * 100) / 100)
-        );
-      return;
+  // shared finalize; stopNative=false when the recorder already stopped on its own
+  // and there is nothing left to stop — just bank what was recorded so far
+  const endRec = async (stopNative: boolean) => {
+    const totalMs = recAccumMs.current + (recPaused ? 0 : Date.now() - recStart.current);
+    setRecording(false);
+    setRecPaused(false);
+    setRecordingFlags({});
+    if (stopNative) {
+      jsStop.current = true;
+      try {
+        await recorder.stop();
+      } catch {}
+      jsStop.current = false;
     }
+    // downsample the level samples to ≤60 bars
+    const raw = waveRef.current;
+    waveRef.current = [];
+    const N = 60;
+    const wave =
+      raw.length <= N
+        ? raw
+        : Array.from({ length: N }, (_, i) => {
+            const a = Math.floor((i * raw.length) / N);
+            const b = Math.max(a + 1, Math.floor(((i + 1) * raw.length) / N));
+            return raw.slice(a, b).reduce((x, y) => x + y, 0) / (b - a);
+          });
+    if (recorder.uri && focus)
+      store.addRecording(
+        focus.name,
+        toStoredUri(recorder.uri),
+        Math.round(totalMs / 1000),
+        wave.map((v) => Math.round(v * 100) / 100)
+      );
+  };
+
+  useEffect(() => {
+    finishRef.current = () => {
+      if (recording) endRec(false);
+    };
+  });
+
+  const toggleRec = async () => {
+    if (recording) return endRec(true);
     const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) return store.showToast('Microphone permission needed');
-    // allowsBackgroundRecording keeps the mic running when the app is backgrounded
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      allowsRecording: true,
-      allowsBackgroundRecording: true,
-      shouldPlayInBackground: true, // don't cut off a metronome already running in the background
-    });
-    await recorder.prepareToRecordAsync();
-    recorder.record();
+    try {
+      // Android 13+: background recording runs a foreground service, which needs
+      // notification permission or prepare throws. Denied → record foreground-only.
+      const canBackground = Platform.OS !== 'android' || (await requestNotificationPermissionsAsync()).granted;
+      // allowsBackgroundRecording keeps the mic running when the app is backgrounded;
+      // the flags are registered so metronome/playback audio-mode calls can't clobber them
+      setRecordingFlags({ allowsRecording: true, allowsBackgroundRecording: canBackground });
+      await applyAudioMode({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true, // don't cut off a metronome already running in the background
+      });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+    } catch {
+      setRecordingFlags({});
+      return store.showToast('Couldn’t start recording');
+    }
     recStart.current = Date.now();
     recAccumMs.current = 0;
     setRecording(true);
@@ -114,13 +154,21 @@ export default function Practice() {
     if (!focus) return;
     if (recording) await toggleRec();
     const min = Math.max(1, Math.round(seconds / 60));
-    store.logMinutes(min, focus.name, focus.kind);
+    const id = store.logMinutes(min, focus.name, focus.kind);
     store.showToast(`Session saved — ${min} min of ${focus.name}`);
     setRunning(false);
     setStartedAt(null);
     setAccum(0);
     setSeconds(0);
     setFocus(null);
+    setNote('');
+    setNoteFor(id); // note prompt shows before leaving the tab
+  };
+
+  const closeNote = (save: boolean) => {
+    if (save && noteFor) store.setSessionNote(noteFor, note);
+    setNoteFor(null);
+    setNote('');
     router.push('/');
   };
 
@@ -130,7 +178,7 @@ export default function Practice() {
     return (
       <View style={[s.runPage, { paddingTop: insets.top }]}>
         <Overline style={{ textAlign: 'center' }}>{focus.name}</Overline>
-        <Text style={s.timer}>
+        <Text style={s.timer} numberOfLines={1} adjustsFontSizeToFit>
           {mm}:{ss}
         </Text>
         <Text style={[s.status, paused ? { color: C.sub } : { color: C.accent }]}>{paused ? 'Paused' : 'Recording'}</Text>
@@ -173,7 +221,20 @@ export default function Practice() {
               if (recording) {
                 setRecording(false);
                 setRecPaused(false);
-                recorder.stop();
+                setRecordingFlags({});
+                jsStop.current = true;
+                // delete the take — document-dir files the store never references leak forever
+                recorder
+                  .stop()
+                  .then(() => {
+                    try {
+                      if (recorder.uri) new File(recorder.uri).delete();
+                    } catch {}
+                  })
+                  .catch(() => {})
+                  .finally(() => {
+                    jsStop.current = false;
+                  });
                 waveRef.current = [];
               }
               setRunning(false);
@@ -245,31 +306,61 @@ export default function Practice() {
         </Pressable>
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
+      <Modal visible={noteFor !== null} transparent animationType="fade" onRequestClose={() => closeNote(false)}>
+        <Pressable style={s.backdrop} onPress={() => closeNote(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+            <Pressable style={s.sheet} onPress={() => {}}>
+              <Text style={s.sheetTitle}>How did it go?</Text>
+              <TextInput
+                style={s.noteInput}
+                value={note}
+                onChangeText={setNote}
+                placeholder="What went well? What to work on next time?"
+                placeholderTextColor={C.tertiary}
+                multiline
+                autoFocus
+              />
+              <View style={s.runBtns}>
+                <Pressable style={s.outlineBtn} onPress={() => closeNote(false)}>
+                  <Text style={s.outlineBtnText}>Skip</Text>
+                </Pressable>
+                <Pressable style={s.darkBtn} onPress={() => closeNote(true)}>
+                  <Text style={s.darkBtnText}>Save note</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  title: { fontFamily: F.head, fontSize: 30, color: C.ink, marginBottom: 26, lineHeight: 37 },
+  title: { fontFamily: F.head, fontSize: fs(30), color: C.ink, marginBottom: 26, lineHeight: fs(37) },
   group: { gap: 10 },
-  option: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
-  optionText: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  startBtn: { height: 60, borderRadius: 14, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  startBtnText: { fontFamily: F.bodySemi, fontSize: 17, color: C.bg },
-  pastLink: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub, marginTop: 14, textAlign: 'center', textDecorationLine: 'underline' },
+  option: { height: 52, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
+  optionText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  startBtn: { height: 60, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  startBtnText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
+  pastLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 14, textAlign: 'center', textDecorationLine: 'underline' },
   runPage: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  timer: { fontFamily: F.head, fontSize: 88, color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
-  status: { fontFamily: F.bodyMed, fontSize: 15 },
+  timer: { fontFamily: F.head, fontSize: fs(88), color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
+  status: { fontFamily: F.bodyMed, fontSize: fs(15) },
   runBtns: { flexDirection: 'row', gap: 12, marginTop: 16, alignSelf: 'stretch' },
-  recBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, marginTop: 32 },
+  recBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 18, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, marginTop: 32 },
   recBtnOn: { backgroundColor: C.accent, borderColor: C.accent },
-  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
-  recText: { fontFamily: F.bodyMed, fontSize: 14, color: C.ink },
-  discard: { fontFamily: F.bodyMed, fontSize: 14, color: C.sub, marginTop: 24, textDecorationLine: 'underline' },
-  outlineBtn: { flex: 1, height: 56, borderRadius: 14, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
-  outlineBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.ink },
-  darkBtn: { flex: 1, height: 56, borderRadius: 14, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  darkBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.bg },
-});
+  recDot: { width: 8, height: 8, borderRadius: r(4), backgroundColor: C.accent },
+  recText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
+  discard: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub, marginTop: 24, textDecorationLine: 'underline' },
+  outlineBtn: { flex: 1, height: 56, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  outlineBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.ink },
+  darkBtn: { flex: 1, height: 56, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  darkBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
+  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: r(20), borderTopRightRadius: r(20), padding: 24, paddingBottom: 40 },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink, marginBottom: 12 },
+  noteInput: { minHeight: 90, borderRadius: r(12), backgroundColor: C.bg, borderWidth: 1, borderColor: C.inputBorder, padding: 14, fontFamily: F.body, fontSize: fs(15), color: C.ink, textAlignVertical: 'top' },
+}));
