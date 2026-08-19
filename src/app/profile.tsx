@@ -14,7 +14,7 @@ const GOALS = [15, 30, 45, 60, 90];
 // needs expo-notifications + a dev build (Expo Go can't show them)
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
 
-type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'breakDays' | 'reminder' | 'weekStart';
+type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'reminder' | 'weekStart' | 'stages';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
@@ -40,6 +40,7 @@ export default function Profile() {
     if (key === 'instruments') setList(store.instruments);
     if (key === 'breakDays') setList(store.breakDays);
     if (key === 'quickLog') setList(store.quickLog.map(String));
+    if (key === 'stages') setList(store.stages);
     setEditing(key);
   };
 
@@ -57,6 +58,10 @@ export default function Profile() {
       const nums = list.map(Number).filter((n) => n > 0 && n < 1000);
       if (nums.length) store.updateSettings({ quickLog: nums });
     }
+    if (editing === 'stages') {
+      const names = list.map((t) => t.trim()).filter(Boolean);
+      if (names.length >= 2) store.updateSettings({ stages: names });
+    }
     setEditing(null);
     store.showToast('Saved');
   };
@@ -71,9 +76,11 @@ export default function Profile() {
     { key: 'instruments', label: 'Instruments', value: store.instruments.join(', ') },
     { key: 'goal', label: 'Daily goal', value: `${store.dailyGoal} min` },
     { key: 'quickLog', label: 'Quick log presets', value: store.quickLog.map((n) => `${n}`).join(', ') + ' min' },
+    { key: 'quickLogFocus', label: 'Quick log counts toward', value: store.quickLogFocus?.name ?? 'Nothing specific' },
     { key: 'breakDays', label: 'Break days', value: store.breakDays.length ? store.breakDays.join(', ') : 'None' },
     { key: 'reminder', label: 'Practice reminders', value: store.reminder },
     { key: 'weekStart', label: 'Week starts on', value: store.weekStart },
+    { key: 'stages', label: 'Repertoire stages', value: store.stages.join(' · ') },
   ];
 
   const titles: Record<EditKey, string> = {
@@ -81,14 +88,16 @@ export default function Profile() {
     instruments: 'Instruments',
     goal: 'Daily goal',
     quickLog: 'Quick log presets',
+    quickLogFocus: 'Quick log counts toward',
     breakDays: 'Break days',
     reminder: 'Practice reminders',
     weekStart: 'Week starts on',
+    stages: 'Repertoire stages',
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>Profile</ScreenTitle>
+      <ScreenTitle>Settings</ScreenTitle>
 
       <View style={s.head}>
         <Pressable style={s.avatar} onPress={() => open('name')}>
@@ -124,7 +133,9 @@ export default function Profile() {
             style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
             onPress={() => open(row.key)}>
             <Text style={s.rowLabel}>{row.label}</Text>
-            <Text style={s.rowValue}>{row.value}</Text>
+            <Text style={s.rowValue} numberOfLines={1}>
+              {row.value}
+            </Text>
             <ChevronIcon />
           </Pressable>
         ))}
@@ -155,21 +166,29 @@ export default function Profile() {
               </View>
             )}
             {editing === 'quickLog' && (
-              <View style={s.chipWrap}>
-                {list.map((v, i) => (
-                  <TextInput
-                    key={i}
-                    style={[s.input, { width: 90, textAlign: 'center' }]}
-                    value={v}
-                    onChangeText={(t) =>
-                      setList((l) => l.map((x, j) => (j === i ? t.replace(/\D/g, '').slice(0, 3) : x)))
-                    }
-                    keyboardType="number-pad"
-                    placeholder="min"
-                    placeholderTextColor={C.tertiary}
-                  />
-                ))}
-              </View>
+              <>
+                <View style={s.chipWrap}>
+                  {list.map((v, i) => (
+                    <TextInput
+                      key={i}
+                      style={[s.input, { width: 90, textAlign: 'center' }]}
+                      value={v}
+                      onChangeText={(t) =>
+                        setList((l) => l.map((x, j) => (j === i ? t.replace(/\D/g, '').slice(0, 3) : x)))
+                      }
+                      keyboardType="number-pad"
+                      placeholder="min"
+                      placeholderTextColor={C.tertiary}
+                    />
+                  ))}
+                  {list.length < 5 && (
+                    <Pressable style={s.addPresetBtn} onPress={() => setList((l) => [...l, ''])}>
+                      <Text style={s.addPresetText}>+</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <Text style={s.editorHint}>Clear a field to remove that preset.</Text>
+              </>
             )}
             {editing === 'instruments' && (
               <View style={s.chipWrap}>
@@ -184,6 +203,49 @@ export default function Profile() {
                   <Chip key={d} label={d.slice(0, 3)} selected={list.includes(d)} onPress={() => toggle(d)} />
                 ))}
               </View>
+            )}
+            {editing === 'quickLogFocus' && (
+              <View style={s.chipWrap}>
+                <Chip label="Nothing specific" selected={!store.quickLogFocus} onPress={() => pick({ quickLogFocus: null })} />
+                {store.pieces
+                  .filter((p) => !p.archived)
+                  .map((p) => (
+                    <Chip
+                      key={p.id}
+                      label={p.name}
+                      selected={store.quickLogFocus?.name === p.name}
+                      onPress={() => pick({ quickLogFocus: { name: p.name, kind: 'Piece' } })}
+                    />
+                  ))}
+                {store.techniques.map((t) => (
+                  <Chip
+                    key={t}
+                    label={t}
+                    selected={store.quickLogFocus?.name === t}
+                    onPress={() => pick({ quickLogFocus: { name: t, kind: 'Technique' } })}
+                  />
+                ))}
+              </View>
+            )}
+            {editing === 'stages' && (
+              <>
+                {list.map((v, i) => (
+                  <TextInput
+                    key={i}
+                    style={s.input}
+                    value={v}
+                    onChangeText={(t) => setList((l) => l.map((x, j) => (j === i ? t.slice(0, 20) : x)))}
+                    placeholder={`Stage ${i + 1}`}
+                    placeholderTextColor={C.tertiary}
+                  />
+                ))}
+                {list.length < 6 && (
+                  <Pressable style={s.addStageBtn} onPress={() => setList((l) => [...l, ''])}>
+                    <Text style={s.addStageText}>+ Add stage</Text>
+                  </Pressable>
+                )}
+                <Text style={s.editorHint}>In order, first to last. Clear a field to remove it; at least two stages.</Text>
+              </>
             )}
             {editing === 'reminder' && (
               <View style={s.chipWrap}>
@@ -200,7 +262,7 @@ export default function Profile() {
               </View>
             )}
 
-            {editing !== 'reminder' && editing !== 'weekStart' && (
+            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && (
               <Pressable style={s.saveBtn} onPress={save}>
                 <Text style={s.saveBtnText}>Save</Text>
               </Pressable>
@@ -223,13 +285,18 @@ const s = StyleSheet.create({
   statNum: { fontFamily: F.head, fontSize: 28, color: C.ink },
   statUnit: { fontFamily: F.bodyMed, fontSize: 14, color: C.sub },
   row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10 },
-  rowLabel: { flex: 1, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  rowValue: { fontFamily: F.body, fontSize: 14, color: C.sub },
+  rowLabel: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
+  rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: 14, color: C.sub },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
   sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink },
   input: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  addPresetBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  addPresetText: { color: C.bg, fontSize: 24, lineHeight: 26, fontFamily: F.bodyMed },
+  editorHint: { fontFamily: F.body, fontSize: 12.5, color: C.tertiary, marginTop: -6 },
+  addStageBtn: { height: 44, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  addStageText: { fontFamily: F.bodyMed, fontSize: 14, color: C.sub },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },

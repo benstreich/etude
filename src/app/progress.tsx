@@ -1,22 +1,18 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RecordingsList } from '@/components/recordings';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
-import { dateKey, useStore } from '@/lib/store';
+import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
-// ponytail: skills are static per the handoff — no tracking UI exists yet
-const SKILLS = [
-  { name: 'Scales & arpeggios', pct: 78, level: 'Confident' },
-  { name: 'Sight reading', pct: 45, level: 'Improving' },
-  { name: 'Chord voicings', pct: 52, level: 'Improving' },
-  { name: 'Ear training', pct: 24, level: 'Early' },
-];
+const fmtTime = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`);
 
 export default function Progress() {
   const store = useStore();
   const insets = useSafeAreaInsets();
+  const [selDate, setSelDate] = useState<string | null>(null);
 
   // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days
   const start = store.weekStart === 'Monday' ? 1 : 0;
@@ -28,6 +24,12 @@ export default function Progress() {
     weekTotal += store.minutesByDate[dateKey(d)] ?? 0;
   }
   const max = Math.max(...store.week.map((d) => d.min), 1);
+
+  // minutes per piece/technique, from logged sessions
+  const byFocus: Record<string, number> = {};
+  for (const sess of store.sessions) byFocus[sess.title] = (byFocus[sess.title] ?? 0) + sess.min;
+  const focusRows = Object.entries(byFocus).sort((a, b) => b[1] - a[1]);
+  const focusMax = focusRows[0]?.[1] ?? 1;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
@@ -48,41 +50,80 @@ export default function Progress() {
             <Text style={s.statUnit}> min</Text>
           </Text>
         </Card>
+        <Card style={s.stat}>
+          <Overline style={{ marginBottom: 10 }}>All time</Overline>
+          <Text style={s.statNum}>
+            {Math.floor(store.totalMin / 60)}
+            <Text style={s.statUnit}> hr</Text>
+          </Text>
+        </Card>
       </View>
 
       <Card>
         <Overline style={{ marginBottom: 16 }}>Last 7 days</Overline>
         <View style={s.chart}>
-          {store.week.map((d, i) => (
-            <View key={i} style={s.col}>
-              <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                <View
-                  style={{
-                    height: `${Math.max(4, (d.min / max) * 100)}%`,
-                    backgroundColor: d.isToday ? C.accent : C.chartInactive,
-                    borderTopLeftRadius: 5,
-                    borderTopRightRadius: 5,
-                  }}
-                />
-              </View>
-              <Text style={[s.day, d.isToday && { color: C.accent, fontFamily: F.bodySemi }]}>{d.day}</Text>
-            </View>
-          ))}
+          {store.week.map((d, i) => {
+            const sel = selDate === d.date;
+            return (
+              <Pressable key={i} style={s.col} onPress={() => setSelDate(sel ? null : d.date)}>
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                  <View
+                    style={{
+                      height: `${Math.max(4, (d.min / max) * 100)}%`,
+                      backgroundColor: sel || d.isToday ? C.accent : C.chartInactive,
+                      opacity: selDate && !sel ? 0.5 : 1,
+                      borderTopLeftRadius: 5,
+                      borderTopRightRadius: 5,
+                    }}
+                  />
+                </View>
+                <Text style={[s.day, (sel || d.isToday) && { color: C.accent, fontFamily: F.bodySemi }]}>{d.day}</Text>
+              </Pressable>
+            );
+          })}
         </View>
+        {selDate && (
+          <View style={s.dayDetail}>
+            <View style={s.skillRow}>
+              <Text style={s.skillName}>{dayLabel(selDate)}</Text>
+              <Text style={s.skillLevel}>{fmtTime(store.minutesByDate[selDate] ?? 0)}</Text>
+            </View>
+            {store.sessions
+              .filter((sess) => sess.date === selDate)
+              .map((sess) => (
+                <View key={sess.id} style={s.detailRow}>
+                  <Text style={s.detailTitle}>{sess.title}</Text>
+                  <Text style={s.skillLevel}>{fmtTime(sess.min)}</Text>
+                </View>
+              ))}
+            {!store.sessions.some((sess) => sess.date === selDate) && (
+              <Text style={s.detailEmpty}>No session details for this day</Text>
+            )}
+          </View>
+        )}
       </Card>
 
-      <Card>
-        <Overline style={{ marginBottom: 4 }}>Skills</Overline>
-        {SKILLS.map((sk) => (
-          <View key={sk.name} style={{ marginTop: 16 }}>
-            <View style={s.skillRow}>
-              <Text style={s.skillName}>{sk.name}</Text>
-              <Text style={s.skillLevel}>{sk.level}</Text>
+      {focusRows.length > 0 && (
+        <Card>
+          <Overline style={{ marginBottom: 4 }}>Time by focus</Overline>
+          {focusRows.map(([name, min]) => (
+            <View key={name} style={{ marginTop: 16 }}>
+              <View style={s.skillRow}>
+                <Text style={s.skillName}>{name}</Text>
+                <Text style={s.skillLevel}>{fmtTime(min)}</Text>
+              </View>
+              <Bar pct={(min / focusMax) * 100} />
             </View>
-            <Bar pct={sk.pct} />
-          </View>
-        ))}
-      </Card>
+          ))}
+        </Card>
+      )}
+
+      {store.recordings.length > 0 && (
+        <Card>
+          <Overline style={{ marginBottom: 6 }}>Recordings</Overline>
+          <RecordingsList recordings={store.recordings} showPiece />
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -96,6 +137,10 @@ const s = StyleSheet.create({
   col: { flex: 1 },
   day: { fontFamily: F.bodyMed, fontSize: 11, color: C.sub, textAlign: 'center', marginTop: 8 },
   skillRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  dayDetail: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.hairline },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  detailTitle: { fontFamily: F.body, fontSize: 14, color: C.sub },
+  detailEmpty: { fontFamily: F.body, fontSize: 13, color: C.tertiary, marginTop: 4 },
   skillName: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
   skillLevel: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub },
 });
