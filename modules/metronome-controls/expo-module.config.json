@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["MetronomeControlsModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.metronomecontrols.MetronomeControlsModule"]
+  }
+}

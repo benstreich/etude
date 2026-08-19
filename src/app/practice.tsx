@@ -5,6 +5,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LogPastModal } from '@/components/log-past';
+import { MetronomeButton } from '@/components/metronome';
 import { Overline } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
@@ -86,7 +87,12 @@ export default function Practice() {
     const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) return store.showToast('Microphone permission needed');
     // allowsBackgroundRecording keeps the mic running when the app is backgrounded
-    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true, allowsBackgroundRecording: true });
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: true,
+      allowsBackgroundRecording: true,
+      shouldPlayInBackground: true, // don't cut off a metronome already running in the background
+    });
     await recorder.prepareToRecordAsync();
     recorder.record();
     recStart.current = Date.now();
@@ -140,6 +146,9 @@ export default function Practice() {
               <Text style={s.recText}>{recPaused ? 'Resume' : 'Pause'}</Text>
             </Pressable>
           )}
+        </View>
+        <View style={{ marginTop: 12 }}>
+          <MetronomeButton compact />
         </View>
         <View style={s.runBtns}>
           <Pressable
@@ -202,7 +211,10 @@ export default function Practice() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-        <Text style={s.title}>What are you{'\n'}working on?</Text>
+        <View style={s.titleRow}>
+          <Text style={s.title}>What are you{'\n'}working on?</Text>
+          <MetronomeButton compact />
+        </View>
         <Overline style={{ marginBottom: 10 }}>Pieces</Overline>
         <View style={s.group}>
           {pieces.map((p) => (
@@ -239,6 +251,7 @@ export default function Practice() {
 
 const s = StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   title: { fontFamily: F.head, fontSize: 30, color: C.ink, marginBottom: 26, lineHeight: 37 },
   group: { gap: 10 },
   option: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
