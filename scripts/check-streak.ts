@@ -1,7 +1,7 @@
 // Self-check for the pure streak math. Run: npm run check:streak
 import assert from 'node:assert/strict';
 
-import { computeStreak, dateKey, graceFor } from '../src/lib/streak-math.ts';
+import { computeBestStreak, computeStreak, dateKey, graceFor } from '../src/lib/streak-math.ts';
 
 // build a minutesByDate from offsets (days ago) that practiced
 const history = (...daysAgo: number[]) => {
@@ -46,5 +46,13 @@ assert.equal(run(revived), 5);
 assert.equal(graceFor('strict'), 0);
 assert.equal(graceFor('relaxed'), 1);
 assert.equal(graceFor('off'), 0);
+
+// best streak scans all of history: a backdated island beats the current run
+assert.equal(computeBestStreak(history(0, 10, 11, 12), []), 3);
+assert.equal(run(history(0, 10, 11, 12)), 1); // ...which the current streak doesn't see
+// grace applies inside a past island too
+assert.equal(computeBestStreak(history(10, 12), [], 1), 2);
+// empty history
+assert.equal(computeBestStreak({}, []), 0);
 
 console.log('check-streak: all assertions passed');

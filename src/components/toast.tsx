@@ -1,16 +1,18 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 
-import { C, F } from '@/lib/theme';
+import { F, themed, useTheme, type T } from '@/lib/theme';
 import { useStore } from '@/lib/store';
 
 export function Toast() {
+  const s = useS();
+  const { reduceMotion } = useTheme();
   const { toast } = useStore();
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(anim, { toValue: toast ? 1 : 0, duration: 250, useNativeDriver: true }).start();
-  }, [toast, anim]);
+    Animated.timing(anim, { toValue: toast ? 1 : 0, duration: reduceMotion ? 0 : 250, useNativeDriver: true }).start();
+  }, [toast, anim, reduceMotion]);
 
   if (!toast) return null;
 
@@ -26,15 +28,15 @@ export function Toast() {
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   pill: {
     position: 'absolute',
     bottom: 96,
     alignSelf: 'center',
     backgroundColor: C.ink,
-    borderRadius: 12,
+    borderRadius: r(12),
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
-  text: { color: C.bg, fontFamily: F.bodyMed, fontSize: 14 },
-});
+  text: { color: C.bg, fontFamily: F.bodyMed, fontSize: fs(14) },
+}));

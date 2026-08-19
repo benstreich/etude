@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { dateKey, dayLabel, useStore } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const [pastDate, setPastDate] = useState<string | null>(null);
   const [pastMin, setPastMin] = useState('');
@@ -17,8 +19,9 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
     return d;
   });
 
-  // calendar grid for the displayed month
-  const todayKey = dateKey();
+  // calendar grid for the displayed month; today comes from the store so the
+  // grid follows midnight/month rollovers instead of freezing at first render
+  const todayKey = store.today;
   const startDow = store.weekStart === 'Monday' ? 1 : 0;
   const dowLetters = Array.from({ length: 7 }, (_, i) => 'SMTWTFS'[(i + startDow) % 7]);
   const firstDow = (calMonth.getDay() - startDow + 7) % 7;
@@ -27,16 +30,17 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
     ...Array.from({ length: firstDow }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
-  const atCurrentMonth =
-    calMonth.getFullYear() === new Date().getFullYear() && calMonth.getMonth() === new Date().getMonth();
+  const atCurrentMonth = dateKey(calMonth).slice(0, 7) === todayKey.slice(0, 7);
   const shiftMonth = (by: number) => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + by, 1));
 
   const focusOptions: { name: string; kind: 'Piece' | 'Technique' }[] = [
     ...store.pieces.filter((p) => !p.archived).map((p) => ({ name: p.name, kind: 'Piece' as const })),
     ...store.techniques.map((t) => ({ name: t, kind: 'Technique' as const })),
   ];
+  const sameFocus = (a: { name: string; kind: string }, b: { name: string; kind: string }) =>
+    a.name === b.name && a.kind === b.kind;
   const toggleFocus = (f: { name: string; kind: 'Piece' | 'Technique' }) =>
-    setPastFoci((cur) => (cur.some((x) => x.name === f.name) ? cur.filter((x) => x.name !== f.name) : [...cur, f]));
+    setPastFoci((cur) => (cur.some((x) => sameFocus(x, f)) ? cur.filter((x) => !sameFocus(x, f)) : [...cur, f]));
 
   const logPast = () => {
     const min = Number(pastMin);
@@ -51,7 +55,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
         if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate);
       });
     }
-    store.showToast(`Added ${min} min · ${dayLabel(pastDate)}`);
+    store.showToast(`Added ${min} min · ${dayLabel(pastDate, store.today)}`);
     setPastMin('');
     setPastFoci([]);
     if (!addMore) {
@@ -63,6 +67,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
         <Pressable style={s.sheet} onPress={() => {}}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
             <Text style={s.sheetTitle}>Log past practice</Text>
@@ -108,9 +113,9 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
                 {showAll ? (
                   <View style={s.focusWrap}>
                     {focusOptions.map((f) => {
-                      const sel = pastFoci.some((x) => x.name === f.name);
+                      const sel = pastFoci.some((x) => sameFocus(x, f));
                       return (
-                        <Pressable key={f.name} style={[s.chip, sel && s.chipSel]} onPress={() => toggleFocus(f)}>
+                        <Pressable key={`${f.kind}:${f.name}`} style={[s.chip, sel && s.chipSel]} onPress={() => toggleFocus(f)}>
                           <Text style={[s.chipText, sel && { color: C.accent }]}>{f.name}</Text>
                         </Pressable>
                       );
@@ -123,9 +128,9 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
                     style={{ marginHorizontal: -24 }}
                     contentContainerStyle={s.focusScroll}>
                     {focusOptions.map((f) => {
-                      const sel = pastFoci.some((x) => x.name === f.name);
+                      const sel = pastFoci.some((x) => sameFocus(x, f));
                       return (
-                        <Pressable key={f.name} style={[s.chip, sel && s.chipSel]} onPress={() => toggleFocus(f)}>
+                        <Pressable key={`${f.kind}:${f.name}`} style={[s.chip, sel && s.chipSel]} onPress={() => toggleFocus(f)}>
                           <Text style={[s.chipText, sel && { color: C.accent }]}>{f.name}</Text>
                         </Pressable>
                       );
@@ -158,35 +163,36 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
             </Pressable>
           </ScrollView>
         </Pressable>
+        </KeyboardAvoidingView>
       </Pressable>
     </Modal>
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, maxHeight: '80%' },
-  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
   calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  calNav: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  calNavText: { fontSize: 22, color: C.sub, lineHeight: 26 },
-  calMonth: { fontFamily: F.bodySemi, fontSize: 15, color: C.ink },
+  calNav: { width: 32, height: 32, borderRadius: r(16), alignItems: 'center', justifyContent: 'center' },
+  calNavText: { fontSize: fs(22), color: C.sub, lineHeight: fs(26) },
+  calMonth: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calDow: { width: '14.28%', textAlign: 'center', fontFamily: F.bodySemi, fontSize: 11, color: C.tertiary, marginBottom: 6 },
+  calDow: { width: '14.28%', textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(11), color: C.tertiary, marginBottom: 6 },
   calCell: { width: '14.28%', alignItems: 'center', paddingVertical: 2 },
-  calDay: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  calDayText: { fontFamily: F.bodyMed, fontSize: 14, color: C.ink },
+  calDay: { width: 34, height: 34, borderRadius: r(17), alignItems: 'center', justifyContent: 'center' },
+  calDayText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
   focusScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 24 },
   focusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  showAll: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub, marginTop: 10 },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  showAll: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 10 },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },
-  input: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
+  chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+  input: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  checkmark: { color: C.bg, fontSize: 13, lineHeight: 15, fontFamily: F.bodySemi },
-  checkLabel: { fontFamily: F.bodyMed, fontSize: 14, color: C.ink },
-  saveBtn: { height: 52, borderRadius: 14, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  saveBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.bg },
-});
+  checkbox: { width: 22, height: 22, borderRadius: r(6), borderWidth: 1.5, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  checkmark: { color: C.bg, fontSize: fs(13), lineHeight: fs(15), fontFamily: F.bodySemi },
+  checkLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
+  saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  saveBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
+}));

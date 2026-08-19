@@ -6,10 +6,10 @@ import { SearchIcon } from '@/components/icons';
 import { RecordingsList } from '@/components/recordings';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import { dayLabel, Piece, useStore } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
 // last stage green, next-to-last accent, the rest muted
-const stageColor = (i: number, n: number) => (i >= n - 1 ? C.success : i === n - 2 ? C.accent : C.sub);
+const stageColor = (C: Palette, i: number, n: number) => (i >= n - 1 ? C.success : i === n - 2 ? C.accent : C.sub);
 
 type Suggestion = { track: string; artist: string };
 
@@ -25,6 +25,8 @@ const PRESET_TECHNIQUES = [
 ];
 
 export default function Repertoire() {
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
@@ -32,6 +34,7 @@ export default function Repertoire() {
   const [creating, setCreating] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
+  const [openRecs, setOpenRecs] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [customTech, setCustomTech] = useState('');
   const winH = useWindowDimensions().height;
@@ -121,6 +124,7 @@ export default function Repertoire() {
       <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
         {active.map((p, i) => {
           const st = stats(p);
+          const recs = store.recordings.filter((r) => r.piece === p.name);
           return (
             <Pressable
               key={p.id}
@@ -132,11 +136,11 @@ export default function Repertoire() {
                   {!!p.by && <Text style={s.composer}>{p.by}</Text>}
                   {st.min > 0 && st.last && (
                     <Text style={s.invested}>
-                      {st.min} min invested · last {dayLabel(st.last)}
+                      {st.min} min invested · last {dayLabel(st.last, store.today)}
                     </Text>
                   )}
                 </View>
-                <Text style={[s.tag, { color: stageColor(p.stage, store.stages.length) }]}>
+                <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
                   {store.stages[Math.min(p.stage, store.stages.length - 1)]}
                 </Text>
                 <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
@@ -144,12 +148,34 @@ export default function Repertoire() {
                 </Pressable>
               </View>
               <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />
+              {recs.length > 0 && (
+                <Pressable hitSlop={8} onPress={() => setOpenRecs(openRecs === p.id ? null : p.id)}>
+                  <Text style={s.recsToggle}>
+                    {openRecs === p.id ? '▾' : '▸'} {recs.length} recording{recs.length > 1 ? 's' : ''}
+                  </Text>
+                </Pressable>
+              )}
+              {openRecs === p.id && <RecordingsList recordings={recs} />}
             </Pressable>
           );
         })}
       </Card>
 
       <Text style={s.hint}>Tap a piece to advance its status</Text>
+
+      {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
+      {(() => {
+        const names = new Set(store.pieces.map((p) => p.name));
+        const orphans = store.recordings.filter((r) => !names.has(r.piece));
+        return orphans.length > 0 ? (
+          <View style={{ gap: 12 }}>
+            <Overline>Technique recordings</Overline>
+            <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
+              <RecordingsList recordings={orphans} showPiece />
+            </Card>
+          </View>
+        ) : null;
+      })()}
 
       {archived.length > 0 && (
         <View style={{ gap: 12 }}>
@@ -317,18 +343,18 @@ export default function Repertoire() {
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 20 },
   addRow: { flexDirection: 'row', gap: 8 },
   sugRow: { paddingVertical: 10 },
-  createText: { fontFamily: F.bodySemi, fontSize: 14, color: C.accent },
-  creatingLabel: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub, marginBottom: 8 },
+  createText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
+  creatingLabel: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginBottom: 8 },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     height: 50,
-    borderRadius: 999,
+    borderRadius: r(999),
     backgroundColor: C.card,
     borderWidth: 1,
     borderColor: C.inputBorder,
@@ -339,29 +365,30 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  searchInput: { flex: 1, minWidth: 0, height: '100%', fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  clearText: { fontSize: 20, color: C.faint, lineHeight: 22 },
-  input: { flex: 1, minWidth: 0, height: 48, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  plusBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  plusText: { color: C.bg, fontSize: 24, lineHeight: 26, fontFamily: F.bodyMed },
+  searchInput: { flex: 1, minWidth: 0, height: '100%', fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  clearText: { fontSize: fs(20), color: C.faint, lineHeight: fs(22) },
+  input: { flex: 1, minWidth: 0, height: 48, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  plusBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  plusText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
   row: { paddingVertical: 14 },
   rowTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  pieceName: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  composer: { fontFamily: F.body, fontSize: 12.5, color: C.sub, marginTop: 2 },
-  tag: { fontFamily: F.bodySemi, fontSize: 11.5, letterSpacing: 0.8, textTransform: 'uppercase' },
-  hint: { fontFamily: F.body, fontSize: 12.5, color: C.tertiary, textAlign: 'center' },
-  invested: { fontFamily: F.body, fontSize: 12, color: C.tertiary, marginTop: 3 },
-  moreBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
-  moreText: { fontSize: 18, color: C.faint, lineHeight: 28, textAlign: 'center' },
+  pieceName: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  composer: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },
+  tag: { fontFamily: F.bodySemi, fontSize: fs(11.5), letterSpacing: 0.8, textTransform: 'uppercase' },
+  hint: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, textAlign: 'center' },
+  invested: { fontFamily: F.body, fontSize: fs(12), color: C.tertiary, marginTop: 3 },
+  recsToggle: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.sub, marginTop: 10 },
+  moreBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
+  moreText: { fontSize: fs(18), color: C.faint, lineHeight: fs(28), textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 4 },
-  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink, marginBottom: 8 },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink, marginBottom: 8 },
   sheetRow: { height: 52, justifyContent: 'center' },
-  fabBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  fabText: { color: C.bg, fontSize: 26, lineHeight: 28, fontFamily: F.bodyMed },
+  fabBtn: { width: 50, height: 50, borderRadius: r(25), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  fabText: { color: C.bg, fontSize: fs(26), lineHeight: fs(28), fontFamily: F.bodyMed },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  chip: { height: 38, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: 38, paddingHorizontal: 13, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipText: { fontFamily: F.bodyMed, fontSize: 13, color: C.ink },
-  sheetRowText: { fontFamily: F.bodyMed, fontSize: 16, color: C.ink },
-});
+  chipText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
+  sheetRowText: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
+}));

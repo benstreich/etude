@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { LOCK_SCREEN_STEP, useBeat, useMetronome } from '@/lib/metronome';
 import { accentLevel, describeRamp, MAX_BPM, tapTempo, type RampUnit } from '@/lib/metronome-math';
-import { C, F } from '@/lib/theme';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 const UNITS: RampUnit[] = ['bars', 'seconds'];
 const UNIT_LABEL: Record<RampUnit, string> = { bars: 'Bars', seconds: 'Seconds' };
@@ -11,6 +11,8 @@ const TIME_SIGS = ['1/4', '2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8
 
 /** Opens the metronome sheet; shows the live tempo once it is running. */
 export function MetronomeButton({ compact = false }: { compact?: boolean }) {
+  const s = useS();
+  const C = useC();
   const { running, bpm } = useMetronome();
   const [open, setOpen] = useState(false);
   return (
@@ -24,6 +26,8 @@ export function MetronomeButton({ compact = false }: { compact?: boolean }) {
 }
 
 function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const s = useS();
+  const C = useC();
   const metronome = useMetronome();
   const { running, bpm, startBpm, timeSig, sig, ramp, toggle, setBpm, nudge, setTimeSig, setRamp } = metronome;
   const beat = useBeat();
@@ -152,14 +156,18 @@ function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () =>
   );
 }
 
-const Step = ({ label, onPress }: { label: string; onPress: () => void }) => (
-  <Pressable style={s.step} hitSlop={6} onPress={onPress}>
-    <Text style={s.stepText}>{label}</Text>
-  </Pressable>
-);
+const Step = ({ label, onPress }: { label: string; onPress: () => void }) => {
+  const s = useS();
+  return (
+    <Pressable style={s.step} hitSlop={6} onPress={onPress}>
+      <Text style={s.stepText}>{label}</Text>
+    </Pressable>
+  );
+};
 
 /** Numeric field that only writes through once editing ends, so typing doesn't hit storage. */
 function NumberField({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+  const s = useS();
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
   const commit = () => {
@@ -182,60 +190,60 @@ function NumberField({ value, onCommit }: { value: number; onCommit: (value: num
   );
 }
 
-const s = StyleSheet.create({
-  pill: { height: 44, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
+  pill: { height: 44, paddingHorizontal: 18, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   pillCompact: { height: 36, paddingHorizontal: 14 },
   pillOn: { backgroundColor: C.accent, borderColor: C.accent },
-  pillText: { fontFamily: F.bodyMed, fontSize: 14, color: C.ink },
+  pillText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, maxHeight: '85%' },
-  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
 
   dots: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.track },
-  dotDown: { width: 14, height: 14, borderRadius: 7 },
-  dotMid: { width: 12, height: 12, borderRadius: 6 },
+  dot: { width: 10, height: 10, borderRadius: r(5), backgroundColor: C.track },
+  dotDown: { width: 14, height: 14, borderRadius: r(7) },
+  dotMid: { width: 12, height: 12, borderRadius: r(6) },
   dotLit: { backgroundColor: C.faint },
   dotDownLit: { backgroundColor: C.accent },
 
   bpmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bpmBox: { alignItems: 'center', minWidth: 96 },
-  bpm: { fontFamily: F.head, fontSize: 52, color: C.ink, fontVariant: ['tabular-nums'], lineHeight: 58 },
-  bpmUnit: { fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 1.4, color: C.tertiary },
-  step: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontFamily: F.bodySemi, fontSize: 14, color: C.ink },
+  bpm: { fontFamily: F.head, fontSize: fs(52), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(58) },
+  bpmUnit: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.4, color: C.tertiary },
+  step: { width: 42, height: 42, borderRadius: r(21), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
 
   actions: { flexDirection: 'row', gap: 12 },
-  tapBtn: { flex: 1, height: 52, borderRadius: 14, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  tapBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.ink },
-  playBtn: { flex: 1, height: 52, borderRadius: 14, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  tapBtn: { flex: 1, height: 52, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  tapBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.ink },
+  playBtn: { flex: 1, height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   playBtnOn: { backgroundColor: C.accent },
-  playBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.bg },
+  playBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
 
-  label: { fontFamily: F.bodySemi, fontSize: 14, color: C.ink },
-  hint: { fontFamily: F.body, fontSize: 12.5, color: C.sub, lineHeight: 17 },
+  label: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  hint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, lineHeight: fs(17) },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minWidth: 44, height: 40, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  chip: { minWidth: 44, height: 40, paddingHorizontal: 12, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },
+  chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
 
   // joined segmented control: one bordered container, selected half tinted -
   // deliberately unlike the loose chips above, which mean a many-way pick
-  seg: { flexDirection: 'row', height: 44, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, overflow: 'hidden' },
+  seg: { flexDirection: 'row', height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, overflow: 'hidden' },
   segBtn: { paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   segBtnDivider: { borderLeftWidth: 1, borderLeftColor: C.inputBorder },
   segBtnSel: { backgroundColor: C.accentTint },
-  segText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.sub },
+  segText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
   segTextSel: { color: C.accent, fontFamily: F.bodySemi },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  switchTrack: { width: 46, height: 28, borderRadius: 14, backgroundColor: C.track, padding: 3 },
+  switchTrack: { width: 46, height: 28, borderRadius: r(14), backgroundColor: C.track, padding: 3 },
   switchTrackOn: { backgroundColor: C.accent },
-  switchKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.card },
+  switchKnob: { width: 22, height: 22, borderRadius: r(11), backgroundColor: C.card },
   switchKnobOn: { alignSelf: 'flex-end' },
 
   fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  fieldLabel: { fontFamily: F.bodyMed, fontSize: 14, color: C.ink, width: 84 },
-  fieldSuffix: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub },
-  numberField: { width: 72, height: 44, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 12, fontFamily: F.bodyMed, fontSize: 15, color: C.ink, textAlign: 'center' },
-});
+  fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink, width: 84 },
+  fieldSuffix: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
+  numberField: { width: 72, height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 12, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
+}));

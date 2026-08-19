@@ -1,12 +1,13 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronIcon } from '@/components/icons';
 import { Card, Overline, ScreenTitle } from '@/components/ui';
 import { useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
-import { C, F } from '@/lib/theme';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Cello', 'Flute', 'Voice', 'Drums', 'Bass'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -19,6 +20,8 @@ const STREAK_LABELS: Record<StreakMode, string> = { off: 'Off', strict: 'Strict'
 type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const s = useS();
+  const C = useC();
   return (
     <Pressable style={[s.chip, selected && s.chipSel]} onPress={onPress}>
       <Text style={[s.chipText, selected && { color: C.accent }]}>{label}</Text>
@@ -27,6 +30,9 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
 }
 
 export default function Profile() {
+  const router = useRouter();
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const insets = useSafeAreaInsets();
   const [editing, setEditing] = useState<EditKey | null>(null);
@@ -34,7 +40,7 @@ export default function Profile() {
   const [text, setText] = useState('');
   const [list, setList] = useState<string[]>([]);
 
-  const initials = store.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const initials = store.name.split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase() || '♪';
 
   const open = (key: EditKey) => {
     if (key === 'name') setText(store.name);
@@ -48,22 +54,39 @@ export default function Profile() {
 
   const toggle = (v: string) => setList((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
 
+  // invalid input keeps the sheet open with an honest toast — never a false "Saved"
   const save = () => {
-    if (editing === 'name' && text.trim()) store.updateSettings({ name: text.trim() });
+    let error: string | null = null;
+    if (editing === 'name') {
+      const t = text.trim();
+      if (t) store.updateSettings({ name: t });
+      else error = 'Enter a name';
+    }
     if (editing === 'goal') {
       const n = Number(text);
       if (n > 0) store.updateSettings({ dailyGoal: Math.min(999, n) });
+      else error = 'Goal needs to be at least 1 minute';
     }
-    if (editing === 'instruments' && list.length) store.updateSettings({ instruments: list });
-    if (editing === 'breakDays') store.updateSettings({ breakDays: list });
+    if (editing === 'instruments') {
+      if (list.length) store.updateSettings({ instruments: list });
+      else error = 'Pick at least one instrument';
+    }
+    if (editing === 'breakDays') {
+      // all 7 as break days would make the streak unbreakable and meaningless
+      if (list.length < 7) store.updateSettings({ breakDays: list });
+      else error = 'Keep at least one practice day';
+    }
     if (editing === 'quickLog') {
       const nums = list.map(Number).filter((n) => n > 0 && n < 1000);
       if (nums.length) store.updateSettings({ quickLog: nums });
+      else error = 'Keep at least one preset';
     }
     if (editing === 'stages') {
       const names = list.map((t) => t.trim()).filter(Boolean);
       if (names.length >= 2) store.updateSettings({ stages: names });
+      else error = 'At least two stages';
     }
+    if (error) return store.showToast(error);
     setEditing(null);
     store.showToast('Saved');
   };
@@ -108,9 +131,9 @@ export default function Profile() {
           <Text style={s.avatarText}>{initials}</Text>
         </Pressable>
         <Pressable onPress={() => open('name')}>
-          <Text style={s.name}>{store.name}</Text>
+          <Text style={s.name}>{store.name || 'Add your name'}</Text>
         </Pressable>
-        <Text style={s.sub}>{store.instruments.join(' & ')} · practicing since 2023</Text>
+        <Text style={s.sub}>{store.instruments.length ? store.instruments.join(' & ') : 'Set your instruments below'}</Text>
       </View>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -133,10 +156,17 @@ export default function Profile() {
       </View>
 
       <Card style={{ paddingVertical: 4, paddingHorizontal: 20 }}>
-        {rows.map((row, i) => (
+        <Pressable style={s.row} onPress={() => router.push('/appearance')}>
+          <Text style={s.rowLabel}>Appearance</Text>
+          <Text style={s.rowValue} numberOfLines={1}>
+            {store.theme === 'system' ? 'System' : store.theme === 'dark' ? 'Dark' : 'Light'}
+          </Text>
+          <ChevronIcon />
+        </Pressable>
+        {rows.map((row) => (
           <Pressable
             key={row.key}
-            style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+            style={[s.row, { borderTopWidth: 1, borderTopColor: C.hairline }]}
             onPress={() => open(row.key)}>
             <Text style={s.rowLabel}>{row.label}</Text>
             <Text style={s.rowValue} numberOfLines={1}>
@@ -149,6 +179,7 @@ export default function Profile() {
 
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <Pressable style={s.backdrop} onPress={() => setEditing(null)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
           <Pressable style={s.sheet} onPress={() => {}}>
             {editing && <Text style={s.sheetTitle}>{titles[editing]}</Text>}
 
@@ -287,38 +318,39 @@ export default function Profile() {
               </Pressable>
             )}
           </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
   head: { alignItems: 'center', gap: 4 },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  avatarText: { fontFamily: F.head, fontSize: 22, color: C.bg },
-  name: { fontFamily: F.head, fontSize: 24, color: C.ink },
-  sub: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.sub },
+  avatar: { width: 64, height: 64, borderRadius: r(32), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  avatarText: { fontFamily: F.head, fontSize: fs(22), color: C.bg },
+  name: { fontFamily: F.head, fontSize: fs(24), color: C.ink },
+  sub: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
   stat: { flex: 1 },
-  statNum: { fontFamily: F.head, fontSize: 28, color: C.ink },
-  statUnit: { fontFamily: F.bodyMed, fontSize: 14, color: C.sub },
+  statNum: { fontFamily: F.head, fontSize: fs(28), color: C.ink },
+  statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10 },
-  rowLabel: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: 14, color: C.sub },
+  rowLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: fs(14), color: C.sub },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
-  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink },
-  input: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  input: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  addPresetBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  addPresetText: { color: C.bg, fontSize: 24, lineHeight: 26, fontFamily: F.bodyMed },
-  editorHint: { fontFamily: F.body, fontSize: 12.5, color: C.tertiary, marginTop: -6 },
-  addStageBtn: { height: 44, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  addStageText: { fontFamily: F.bodyMed, fontSize: 14, color: C.sub },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  addPresetBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  addPresetText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
+  editorHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, marginTop: -6 },
+  addStageBtn: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  addStageText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },
-  saveBtn: { height: 52, borderRadius: 14, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  saveBtnText: { fontFamily: F.bodySemi, fontSize: 16, color: C.bg },
-});
+  chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+  saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  saveBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
+}));

@@ -16,15 +16,16 @@ import { BarsIcon, ClockIcon, GearIcon, HomeIcon, NoteIcon } from '@/components/
 import { Toast } from '@/components/toast';
 import { MetronomeProvider } from '@/lib/metronome';
 import { StoreProvider } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { F, useTheme } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
 
 function TabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
+  const { reduceMotion } = useTheme();
   const t = useSharedValue(focused ? 1 : 0);
   useEffect(() => {
-    t.value = withSpring(focused ? 1 : 0, { damping: 14, stiffness: 220 });
-  }, [focused, t]);
+    t.value = reduceMotion ? (focused ? 1 : 0) : withSpring(focused ? 1 : 0, { damping: 14, stiffness: 220 });
+  }, [focused, t, reduceMotion]);
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + 0.18 * t.value }, { translateY: -1.5 * t.value }],
   }));
@@ -40,17 +41,27 @@ export default function RootLayout() {
     InstrumentSans_600SemiBold,
   });
 
-  useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
-
   if (!loaded) return null;
 
   return (
     <StoreProvider>
       <MetronomeProvider>
+        <Shell insets={insets} />
+      </MetronomeProvider>
+    </StoreProvider>
+  );
+}
+
+function Shell({ insets }: { insets: { bottom: number } }) {
+  const { C, dark } = useTheme();
+  // Shell only mounts once fonts AND the store are ready (StoreProvider renders
+  // null until hydration) — hiding here avoids a bare-window flash on cold start
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+  return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
-          <StatusBar style="dark" />
+          <StatusBar style={dark ? 'light' : 'dark'} />
           <Tabs
             screenOptions={{
               headerShown: false,
@@ -83,10 +94,9 @@ export default function RootLayout() {
             <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><BarsIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="repertoire" options={{ title: 'Repertoire', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><NoteIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="profile" options={{ title: 'Settings', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><GearIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="appearance" options={{ href: null }} />
           </Tabs>
           <Toast />
         </View>
-      </MetronomeProvider>
-    </StoreProvider>
   );
 }

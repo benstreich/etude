@@ -6,17 +6,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlameIcon, LogoMark, PlayIcon } from '@/components/icons';
 import { Bar, Card } from '@/components/ui';
 import { dayLabel, useStore } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { F, themed, useC, type T } from '@/lib/theme';
 
-const greeting = () => {
-  const h = new Date().getHours();
+// taking `now` from the store keeps these reactive — a bare new Date() here gets
+// cached once by the react-compiler and shows yesterday after a midnight rollover
+const greeting = (now: number) => {
+  const h = new Date(now).getHours();
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 };
 
-const dateLine = () =>
-  new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+const dateLine = (now: number) =>
+  new Date(now).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
 
 export default function Home() {
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -43,8 +47,8 @@ export default function Home() {
 
       <View style={s.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={s.date}>{dateLine()}</Text>
-          <Text style={s.greeting}>{greeting()}</Text>
+          <Text style={s.date}>{dateLine(store.now)}</Text>
+          <Text style={s.greeting}>{greeting(store.now)}</Text>
         </View>
         {store.streakMode !== 'off' && store.displayStreak > 0 && (
           <View style={s.streakPill}>
@@ -92,8 +96,9 @@ export default function Home() {
               <View style={{ flex: 1 }}>
                 <Text style={s.sessTitle}>{sess.title}</Text>
                 <Text style={s.sessMeta}>
-                  {sess.meta.includes('·') ? sess.meta : `${dayLabel(sess.date)} · ${sess.meta}`}
+                  {sess.meta.includes('·') ? sess.meta : `${dayLabel(sess.date, store.today)} · ${sess.meta}`}
                 </Text>
+                {!!sess.note && <Text style={s.sessNote}>{sess.note}</Text>}
               </View>
               <Text style={s.sessMin}>{sess.min} min</Text>
               <Pressable style={s.delBtn} onPress={() => store.deleteSession(sess.id)} hitSlop={8}>
@@ -118,10 +123,10 @@ export default function Home() {
                 <Text style={[s.dayChipText, !store.quickLogFocus && { color: C.accent }]}>Nothing specific</Text>
               </Pressable>
               {focusOptions.map((f) => {
-                const sel = store.quickLogFocus?.name === f.name;
+                const sel = store.quickLogFocus?.name === f.name && store.quickLogFocus.kind === f.kind;
                 return (
                   <Pressable
-                    key={f.name}
+                    key={`${f.kind}:${f.name}`}
                     style={[s.dayChip, sel && s.dayChipSel]}
                     onPress={() => {
                       store.updateSettings({ quickLogFocus: f });
@@ -140,37 +145,38 @@ export default function Home() {
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  wordmark: { fontFamily: F.head, fontSize: 16, color: C.ink, letterSpacing: -0.16 },
+  wordmark: { fontFamily: F.head, fontSize: fs(16), color: C.ink, letterSpacing: -0.16 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 16 },
-  date: { fontFamily: F.bodySemi, fontSize: 12, letterSpacing: 1.4, color: C.tertiary, marginBottom: 6 },
-  greeting: { fontFamily: F.head, fontSize: 34, color: C.ink },
-  streakPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accentTint, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12 },
-  streakText: { fontFamily: F.bodySemi, fontSize: 13, color: C.accent },
+  date: { fontFamily: F.bodySemi, fontSize: fs(12), letterSpacing: 1.4, color: C.tertiary, marginBottom: 6 },
+  greeting: { fontFamily: F.head, fontSize: fs(34), color: C.ink },
+  streakPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 12 },
+  streakText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   todayRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  todayLabel: { fontFamily: F.bodySemi, fontSize: 15, color: C.ink },
-  todayMeta: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub },
-  primaryBtn: { height: 56, borderRadius: 14, backgroundColor: C.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  primaryBtnText: { fontFamily: F.bodySemi, fontSize: 17, color: C.bg },
+  todayLabel: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
+  todayMeta: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
+  primaryBtn: { height: 56, borderRadius: r(14), backgroundColor: C.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  primaryBtnText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
   quickHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  quickTitle: { fontFamily: F.bodySemi, fontSize: 15, color: C.ink },
-  helperFocus: { fontFamily: F.bodySemi, fontSize: 13, color: C.accent },
+  quickTitle: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
+  helperFocus: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   quickRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  chip: { flex: 1, height: 44, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  chipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },
+  chip: { flex: 1, height: 44, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
   sessRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-  sessTitle: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  sessMeta: { fontFamily: F.body, fontSize: 12.5, color: C.sub, marginTop: 2 },
-  sessMin: { fontFamily: F.bodySemi, fontSize: 14, color: C.ink, marginRight: 10 },
-  delBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  delText: { fontSize: 18, color: C.sub, lineHeight: 20 },
+  sessTitle: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  sessMeta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },
+  sessNote: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, fontStyle: 'italic', marginTop: 3 },
+  sessMin: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink, marginRight: 10 },
+  delBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center' },
+  delText: { fontSize: fs(18), color: C.sub, lineHeight: fs(20) },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
-  sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
   dayWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dayChip: { height: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  dayChip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   dayChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  dayChipText: { fontFamily: F.bodyMed, fontSize: 13.5, color: C.ink },
-});
+  dayChipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+}));

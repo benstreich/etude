@@ -2,24 +2,26 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { RecordingsList } from '@/components/recordings';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
-import { C, F } from '@/lib/theme';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 const fmtTime = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`);
 
 export default function Progress() {
+  const s = useS();
+  const C = useC();
   const store = useStore();
   const insets = useSafeAreaInsets();
   const [selDate, setSelDate] = useState<string | null>(null);
 
-  // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days
+  // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days.
+  // anchored on store.now so the numbers follow the calendar instead of freezing at mount
   const start = store.weekStart === 'Monday' ? 1 : 0;
-  const elapsed = ((new Date().getDay() - start + 7) % 7) + 1;
+  const elapsed = ((new Date(store.now).getDay() - start + 7) % 7) + 1;
   let weekTotal = 0;
   for (let i = 0; i < elapsed; i++) {
-    const d = new Date();
+    const d = new Date(store.now);
     d.setDate(d.getDate() - i);
     weekTotal += store.minutesByDate[dateKey(d)] ?? 0;
   }
@@ -85,15 +87,18 @@ export default function Progress() {
         {selDate && (
           <View style={s.dayDetail}>
             <View style={s.skillRow}>
-              <Text style={s.skillName}>{dayLabel(selDate)}</Text>
+              <Text style={s.skillName}>{dayLabel(selDate, store.today)}</Text>
               <Text style={s.skillLevel}>{fmtTime(store.minutesByDate[selDate] ?? 0)}</Text>
             </View>
             {store.sessions
               .filter((sess) => sess.date === selDate)
               .map((sess) => (
-                <View key={sess.id} style={s.detailRow}>
-                  <Text style={s.detailTitle}>{sess.title}</Text>
-                  <Text style={s.skillLevel}>{fmtTime(sess.min)}</Text>
+                <View key={sess.id} style={{ marginTop: 6 }}>
+                  <View style={s.detailRow}>
+                    <Text style={s.detailTitle}>{sess.title}</Text>
+                    <Text style={s.skillLevel}>{fmtTime(sess.min)}</Text>
+                  </View>
+                  {!!sess.note && <Text style={s.detailNote}>{sess.note}</Text>}
                 </View>
               ))}
             {!store.sessions.some((sess) => sess.date === selDate) && (
@@ -118,29 +123,24 @@ export default function Progress() {
         </Card>
       )}
 
-      {store.recordings.length > 0 && (
-        <Card>
-          <Overline style={{ marginBottom: 6 }}>Recordings</Overline>
-          <RecordingsList recordings={store.recordings} showPiece />
-        </Card>
-      )}
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
+const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
   stat: { flex: 1 },
-  statNum: { fontFamily: F.head, fontSize: 28, color: C.ink },
-  statUnit: { fontFamily: F.bodyMed, fontSize: 14, color: C.sub },
+  statNum: { fontFamily: F.head, fontSize: fs(28), color: C.ink },
+  statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   chart: { height: 110, flexDirection: 'row', gap: 10 },
   col: { flex: 1 },
-  day: { fontFamily: F.bodyMed, fontSize: 11, color: C.sub, textAlign: 'center', marginTop: 8 },
+  day: { fontFamily: F.bodyMed, fontSize: fs(11), color: C.sub, textAlign: 'center', marginTop: 8 },
   skillRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   dayDetail: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.hairline },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  detailTitle: { fontFamily: F.body, fontSize: 14, color: C.sub },
-  detailEmpty: { fontFamily: F.body, fontSize: 13, color: C.tertiary, marginTop: 4 },
-  skillName: { fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
-  skillLevel: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub },
-});
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  detailTitle: { fontFamily: F.body, fontSize: fs(14), color: C.sub },
+  detailNote: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, fontStyle: 'italic', marginTop: 2 },
+  detailEmpty: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary, marginTop: 4 },
+  skillName: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  skillLevel: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
+}));
