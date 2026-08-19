@@ -4,6 +4,9 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import Storage from 'expo-sqlite/kv-store';
 
 import type { RampUnit } from './metronome-math';
+import { computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
+
+export { dateKey };
 
 export type Session = { id: string; title: string; meta: string; min: number; date: string };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
@@ -27,6 +30,7 @@ type Settings = {
   name: string;
   instruments: string[];
   breakDays: string[];
+  streakMode: StreakMode;
   reminder: string;
   weekStart: WeekStart;
   quickLog: number[];
@@ -55,9 +59,6 @@ type State = Settings & {
 };
 
 const KEY = 'etude-state-v1';
-
-export const dateKey = (d: Date = new Date()) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -90,6 +91,7 @@ function seed(): State {
     name: 'Alex Rivera',
     instruments: ['Piano', 'Guitar'],
     breakDays: ['Sunday'],
+    streakMode: 'strict',
     reminder: '7:00 PM',
     weekStart: 'Monday',
     quickLog: [15, 30, 45],
@@ -103,23 +105,6 @@ function seed(): State {
     metroRampUnit: 'bars',
     metroRampTarget: 120,
   };
-}
-
-const dayName = (d: Date) => d.toLocaleDateString('en-US', { weekday: 'long' });
-
-// Streak derived from history so backdated logs count too. A practiced break
-// day extends it; an unpracticed break day is skipped; a 0-minute today
-// doesn't break it (the day isn't over yet).
-function computeStreak(minutesByDate: Record<string, number>, breakDays: string[]): number {
-  let streak = 0;
-  const d = new Date();
-  if (!((minutesByDate[dateKey(d)] ?? 0) > 0)) d.setDate(d.getDate() - 1);
-  for (let i = 0; i < 3650; i++) {
-    if ((minutesByDate[dateKey(d)] ?? 0) > 0) streak++;
-    else if (!breakDays.includes(dayName(d))) break;
-    d.setDate(d.getDate() - 1);
-  }
-  return streak;
 }
 
 // "Today", "Yesterday", or "Aug 12" for a dateKey
@@ -209,7 +194,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         minutesByDate,
         totalMin: s.totalMin + min,
-        bestStreak: Math.max(s.bestStreak, computeStreak(minutesByDate, s.breakDays)),
+        bestStreak: Math.max(s.bestStreak, computeStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
         sessions: [{ id: uid(), title, meta, min, date }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
       };
     });
@@ -269,7 +254,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const today = dateKey();
   const todayMin = state.minutesByDate[today] ?? 0;
 
-  const displayStreak = computeStreak(state.minutesByDate, state.breakDays);
+  const displayStreak = computeStreak(state.minutesByDate, state.breakDays, graceFor(state.streakMode));
 
   const removePiece = (id: string) => {
     setState((s) => (s ? { ...s, pieces: s.pieces.filter((p) => p.id !== id) } : s));
