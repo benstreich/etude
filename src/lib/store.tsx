@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import Storage from 'expo-sqlite/kv-store';
 
+import type { RampUnit } from './metronome-math';
+
 export type Session = { id: string; title: string; meta: string; min: number; date: string };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
 export type Recording = {
@@ -30,6 +32,15 @@ type Settings = {
   quickLog: number[];
   quickLogFocus: { name: string; kind: 'Piece' | 'Technique' } | null;
   stages: string[]; // ordered; last stage counts as "ready"
+  // Metronome. Flat rather than nested so the shallow seed merge below backfills
+  // each key on its own when an install predates it.
+  metroBpm: number; // the tempo a run starts at; a ramp moves the live one, not this
+  metroTimeSig: string; // e.g. '6/8'; parsed by metronome-math.parseSig
+  metroRampOn: boolean;
+  metroRampStep: number; // BPM per step, always positive
+  metroRampEvery: number;
+  metroRampUnit: RampUnit;
+  metroRampTarget: number; // below metroBpm means the ramp runs downwards
 };
 
 type State = Settings & {
@@ -84,6 +95,13 @@ function seed(): State {
     quickLog: [15, 30, 45],
     quickLogFocus: null,
     stages: ['Learning', 'Polishing', 'Ready'],
+    metroBpm: 90,
+    metroTimeSig: '4/4',
+    metroRampOn: false,
+    metroRampStep: 2,
+    metroRampEvery: 4,
+    metroRampUnit: 'bars',
+    metroRampTarget: 120,
   };
 }
 
@@ -161,6 +179,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const legacyStage: Record<string, number> = { Learning: 0, Polishing: 1, Ready: 2 };
       if (saved.stageLabels)
         merged.stages = (['Learning', 'Polishing', 'Ready'] as const).map((k) => saved.stageLabels[k] || k);
+      if (saved.metroBeatsPerBar && !saved.metroTimeSig) merged.metroTimeSig = `${saved.metroBeatsPerBar}/4`;
       merged.pieces = merged.pieces.map((p: Piece & { status?: string }) => ({
         ...p,
         stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
