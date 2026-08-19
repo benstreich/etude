@@ -30,22 +30,37 @@ export default function Practice() {
     directory: 'document',
   });
   const [recording, setRecording] = useState(false);
-  const recStart = useRef(0);
+  const [recPaused, setRecPaused] = useState(false);
+  const recStart = useRef(0); // start of the current un-paused segment
+  const recAccumMs = useRef(0); // recorded ms banked across pauses
   const waveRef = useRef<number[]>([]);
 
   // sample mic level 5×/s for the waveform; dBFS -50..0 → 0..1
   useEffect(() => {
-    if (!recording) return;
+    if (!recording || recPaused) return;
     const t = setInterval(() => {
       const db = recorder.getStatus().metering ?? -50;
       waveRef.current.push(Math.min(1, Math.max(0.06, (db + 50) / 50)));
     }, 200);
     return () => clearInterval(t);
-  }, [recording, recorder]);
+  }, [recording, recPaused, recorder]);
+
+  const pauseResumeRec = () => {
+    if (recPaused) {
+      recorder.record();
+      recStart.current = Date.now();
+    } else {
+      recorder.pause();
+      recAccumMs.current += Date.now() - recStart.current;
+    }
+    setRecPaused((p) => !p);
+  };
 
   const toggleRec = async () => {
     if (recording) {
+      const totalMs = recAccumMs.current + (recPaused ? 0 : Date.now() - recStart.current);
       setRecording(false);
+      setRecPaused(false);
       await recorder.stop();
       // downsample the level samples to ≤60 bars
       const raw = waveRef.current;
@@ -63,17 +78,19 @@ export default function Practice() {
         store.addRecording(
           focus.name,
           recorder.uri,
-          Math.round((Date.now() - recStart.current) / 1000),
+          Math.round(totalMs / 1000),
           wave.map((v) => Math.round(v * 100) / 100)
         );
       return;
     }
     const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) return store.showToast('Microphone permission needed');
-    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+    // allowsBackgroundRecording keeps the mic running when the app is backgrounded
+    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true, allowsBackgroundRecording: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
     recStart.current = Date.now();
+    recAccumMs.current = 0;
     setRecording(true);
   };
 
@@ -111,10 +128,19 @@ export default function Practice() {
           {mm}:{ss}
         </Text>
         <Text style={[s.status, paused ? { color: C.sub } : { color: C.accent }]}>{paused ? 'Paused' : 'Recording'}</Text>
-        <Pressable style={[s.recBtn, recording && s.recBtnOn]} onPress={toggleRec}>
-          <View style={[s.recDot, recording && { backgroundColor: C.bg }]} />
-          <Text style={[s.recText, recording && { color: C.bg }]}>{recording ? 'Stop recording' : 'Record'}</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable style={[s.recBtn, recording && !recPaused && s.recBtnOn]} onPress={toggleRec}>
+            <View style={[s.recDot, recording && !recPaused && { backgroundColor: C.bg }]} />
+            <Text style={[s.recText, recording && !recPaused && { color: C.bg }]}>
+              {recording ? 'Stop recording' : 'Record'}
+            </Text>
+          </Pressable>
+          {recording && (
+            <Pressable style={s.recBtn} onPress={pauseResumeRec}>
+              <Text style={s.recText}>{recPaused ? 'Resume' : 'Pause'}</Text>
+            </Pressable>
+          )}
+        </View>
         <View style={s.runBtns}>
           <Pressable
             style={s.outlineBtn}
@@ -137,6 +163,7 @@ export default function Practice() {
             const discard = () => {
               if (recording) {
                 setRecording(false);
+                setRecPaused(false);
                 recorder.stop();
                 waveRef.current = [];
               }

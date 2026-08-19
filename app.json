@@ -34,7 +34,13 @@
         }
       ],
       "expo-sqlite",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Etude records your practice sessions so you can listen back.",
+          "enableBackgroundRecording": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
