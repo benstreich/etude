@@ -45,7 +45,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "check:metronome": "node --experimental-strip-types --no-warnings scripts/check-metronome.ts"
+    "check:metronome": "node --experimental-strip-types --no-warnings scripts/check-metronome.ts",
+    "check:streak": "node --experimental-strip-types --no-warnings scripts/check-streak.ts"
   },
   "private": true
 }

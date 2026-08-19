@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronIcon } from '@/components/icons';
 import { Card, Overline, ScreenTitle } from '@/components/ui';
 import { useStore, WeekStart } from '@/lib/store';
+import type { StreakMode } from '@/lib/streak-math';
 import { C, F } from '@/lib/theme';
 
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Cello', 'Flute', 'Voice', 'Drums', 'Bass'];
@@ -13,8 +14,9 @@ const GOALS = [15, 30, 45, 60, 90];
 // ponytail: reminder is a stored preference only — actual notification scheduling
 // needs expo-notifications + a dev build (Expo Go can't show them)
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
+const STREAK_LABELS: Record<StreakMode, string> = { off: 'Off', strict: 'Strict', relaxed: 'Relaxed' };
 
-type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'reminder' | 'weekStart' | 'stages';
+type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
@@ -78,6 +80,7 @@ export default function Profile() {
     { key: 'quickLog', label: 'Quick log presets', value: store.quickLog.map((n) => `${n}`).join(', ') + ' min' },
     { key: 'quickLogFocus', label: 'Quick log counts toward', value: store.quickLogFocus?.name ?? 'Nothing specific' },
     { key: 'breakDays', label: 'Break days', value: store.breakDays.length ? store.breakDays.join(', ') : 'None' },
+    { key: 'streaks', label: 'Streaks', value: STREAK_LABELS[store.streakMode] },
     { key: 'reminder', label: 'Practice reminders', value: store.reminder },
     { key: 'weekStart', label: 'Week starts on', value: store.weekStart },
     { key: 'stages', label: 'Repertoire stages', value: store.stages.join(' · ') },
@@ -90,6 +93,7 @@ export default function Profile() {
     quickLog: 'Quick log presets',
     quickLogFocus: 'Quick log counts toward',
     breakDays: 'Break days',
+    streaks: 'Streaks',
     reminder: 'Practice reminders',
     weekStart: 'Week starts on',
     stages: 'Repertoire stages',
@@ -117,13 +121,15 @@ export default function Profile() {
             <Text style={s.statUnit}> hrs</Text>
           </Text>
         </Card>
-        <Card style={s.stat}>
-          <Overline style={{ marginBottom: 10 }}>Best streak</Overline>
-          <Text style={s.statNum}>
-            {store.bestStreak}
-            <Text style={s.statUnit}> days</Text>
-          </Text>
-        </Card>
+        {store.streakMode !== 'off' && (
+          <Card style={s.stat}>
+            <Overline style={{ marginBottom: 10 }}>Best streak</Overline>
+            <Text style={s.statNum}>
+              {store.bestStreak}
+              <Text style={s.statUnit}> days</Text>
+            </Text>
+          </Card>
+        )}
       </View>
 
       <Card style={{ paddingVertical: 4, paddingHorizontal: 20 }}>
@@ -247,6 +253,19 @@ export default function Profile() {
                 <Text style={s.editorHint}>In order, first to last. Clear a field to remove it; at least two stages.</Text>
               </>
             )}
+            {editing === 'streaks' && (
+              <>
+                <View style={s.chipWrap}>
+                  {(['off', 'strict', 'relaxed'] as StreakMode[]).map((m) => (
+                    <Chip key={m} label={STREAK_LABELS[m]} selected={store.streakMode === m} onPress={() => pick({ streakMode: m })} />
+                  ))}
+                </View>
+                <Text style={s.editorHint}>
+                  Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never
+                  count against it, and logging a past day revives it either way.
+                </Text>
+              </>
+            )}
             {editing === 'reminder' && (
               <View style={s.chipWrap}>
                 {REMINDERS.map((r) => (
@@ -262,7 +281,7 @@ export default function Profile() {
               </View>
             )}
 
-            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && (
+            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && editing !== 'streaks' && (
               <Pressable style={s.saveBtn} onPress={save}>
                 <Text style={s.saveBtnText}>Save</Text>
               </Pressable>

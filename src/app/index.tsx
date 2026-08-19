@@ -46,7 +46,7 @@ export default function Home() {
           <Text style={s.date}>{dateLine()}</Text>
           <Text style={s.greeting}>{greeting()}</Text>
         </View>
-        {store.displayStreak > 0 && (
+        {store.streakMode !== 'off' && store.displayStreak > 0 && (
           <View style={s.streakPill}>
             <FlameIcon />
             <Text style={s.streakText}>{store.displayStreak}-day streak</Text>
