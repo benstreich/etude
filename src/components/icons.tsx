@@ -20,6 +20,13 @@ export const ClockIcon = ({ color = C.sub, size = 22 }: P) => (
   </Svg>
 );
 
+export const SearchIcon = ({ color = C.sub, size = 18 }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={11} cy={11} r={6.5} stroke={color} strokeWidth={1.8} />
+    <Path d="m16 16 4.5 4.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
 export const BarsIcon = ({ color = C.sub, size = 22 }: P) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M4 20V13M10 20V8M16 20v-9M22 20V4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
@@ -41,7 +48,17 @@ export const PersonIcon = ({ color = C.sub, size = 22 }: P) => (
   </Svg>
 );
 
-export const PlayIcon = ({ color = C.bg, size = 16 }: P) => (
+// Material Design "settings" glyph, inlined (Apache 2.0) — filled, so no stroke
+export const GearIcon = ({ color = C.sub, size = 22 }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+      fill={color}
+    />
+  </Svg>
+);
+
+export const PlayIcon =({ color = C.bg, size = 16 }: P) => (
   <Svg width={(size * 14) / 16} height={size} viewBox="0 0 14 16">
     <Path d="M1 1.8v12.4c0 .7.8 1.1 1.4.8l10-6.2c.6-.4.6-1.2 0-1.6L2.4 1C1.8.6 1 1.1 1 1.8Z" fill={color} />
   </Svg>

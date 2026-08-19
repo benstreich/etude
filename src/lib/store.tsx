@@ -1,9 +1,23 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// ponytail: SQLite via kv-store — real .db file, AsyncStorage-compatible API.
+// Move to relational tables if per-row queries ever matter.
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import Storage from 'expo-sqlite/kv-store';
 
 export type Session = { id: string; title: string; meta: string; min: number; date: string };
-export type PieceStatus = 'Learning' | 'Polishing' | 'Ready';
-export type Piece = { id: string; name: string; by: string; status: PieceStatus; pct: number; archived?: boolean };
+// wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
+export type Recording = {
+  id: string;
+  piece: string;
+  date: string;
+  at?: number;
+  name?: string;
+  uri: string;
+  sec: number;
+  wave?: number[];
+  starred?: boolean;
+};
+// stage is an index into settings.stages
+export type Piece = { id: string; name: string; by: string; stage: number; pct: number; archived?: boolean };
 
 export type WeekStart = 'Monday' | 'Sunday';
 
@@ -14,6 +28,8 @@ type Settings = {
   reminder: string;
   weekStart: WeekStart;
   quickLog: number[];
+  quickLogFocus: { name: string; kind: 'Piece' | 'Technique' } | null;
+  stages: string[]; // ordered; last stage counts as "ready"
 };
 
 type State = Settings & {
@@ -24,6 +40,7 @@ type State = Settings & {
   pieces: Piece[];
   techniques: string[];
   dailyGoal: number;
+  recordings: Recording[];
 };
 
 const KEY = 'etude-state-v1';
@@ -51,12 +68,13 @@ function seed(): State {
     bestStreak: 21,
     totalMin: 86 * 60,
     pieces: [
-      { id: uid(), name: 'Clair de Lune', by: 'Debussy', status: 'Polishing', pct: 70 },
-      { id: uid(), name: 'Autumn Leaves', by: 'Kosma', status: 'Learning', pct: 35 },
-      { id: uid(), name: 'Prelude in C', by: 'Bach', status: 'Ready', pct: 100 },
-      { id: uid(), name: 'Blue Bossa', by: 'Dorham', status: 'Learning', pct: 20 },
+      { id: uid(), name: 'Clair de Lune', by: 'Debussy', stage: 1, pct: 70 },
+      { id: uid(), name: 'Autumn Leaves', by: 'Kosma', stage: 0, pct: 35 },
+      { id: uid(), name: 'Prelude in C', by: 'Bach', stage: 2, pct: 100 },
+      { id: uid(), name: 'Blue Bossa', by: 'Dorham', stage: 0, pct: 20 },
     ],
     techniques: ['Scales & arpeggios', 'Sight reading'],
+    recordings: [],
     dailyGoal: 45,
     name: 'Alex Rivera',
     instruments: ['Piano', 'Guitar'],
@@ -64,6 +82,8 @@ function seed(): State {
     reminder: '7:00 PM',
     weekStart: 'Monday',
     quickLog: [15, 30, 45],
+    quickLogFocus: null,
+    stages: ['Learning', 'Polishing', 'Ready'],
   };
 }
 
@@ -98,15 +118,21 @@ export function dayLabel(key: string): string {
 type Store = State & {
   todayMin: number;
   displayStreak: number;
-  week: { day: string; min: number; isToday: boolean }[];
+  week: { day: string; min: number; isToday: boolean; date: string }[];
   toast: string | null;
   showToast: (msg: string) => void;
   logMinutes: (min: number, title: string, meta: string, date?: string) => void;
   deleteSession: (id: string) => void;
   addPiece: (name: string, by?: string) => void;
+  addTechnique: (name: string) => void;
+  removeTechnique: (name: string) => void;
   cyclePiece: (id: string) => void;
   removePiece: (id: string) => void;
   setArchived: (id: string, archived: boolean) => void;
+  addRecording: (piece: string, uri: string, sec: number, wave?: number[]) => void;
+  toggleStar: (id: string) => void;
+  deleteRecording: (id: string) => void;
+  renameRecording: (id: string, name: string) => void;
   updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
 };
 
@@ -118,12 +144,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    // merge over seed so states saved before new settings existed pick up defaults
-    AsyncStorage.getItem(KEY).then((raw) => setState(raw ? { ...seed(), ...JSON.parse(raw) } : seed()));
+    // one-time move from AsyncStorage to SQLite for existing installs
+    const load = async () => {
+      let raw = await Storage.getItem(KEY);
+      if (!raw) {
+        try {
+          const legacy = (await import('@react-native-async-storage/async-storage')).default;
+          raw = await legacy.getItem(KEY);
+        } catch {}
+      }
+      if (!raw) return setState(seed());
+      const saved = JSON.parse(raw);
+      // merge over seed so states saved before new settings existed pick up defaults
+      const merged: State = { ...seed(), ...saved };
+      // legacy: pieces stored a named status before stages became a list
+      const legacyStage: Record<string, number> = { Learning: 0, Polishing: 1, Ready: 2 };
+      if (saved.stageLabels)
+        merged.stages = (['Learning', 'Polishing', 'Ready'] as const).map((k) => saved.stageLabels[k] || k);
+      merged.pieces = merged.pieces.map((p: Piece & { status?: string }) => ({
+        ...p,
+        stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
+      }));
+      setState(merged);
+    };
+    load();
   }, []);
 
   useEffect(() => {
-    if (state) AsyncStorage.setItem(KEY, JSON.stringify(state));
+    if (state) Storage.setItem(KEY, JSON.stringify(state));
   }, [state]);
 
   if (!state) return null;
@@ -167,20 +215,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addPiece = (name: string, by = '') => {
     setState((s) =>
-      s ? { ...s, pieces: [{ id: uid(), name, by, status: 'Learning' as const, pct: 10 }, ...s.pieces] } : s
+      s ? { ...s, pieces: [{ id: uid(), name, by, stage: 0, pct: 10 }, ...s.pieces] } : s
     );
     showToast('Added to repertoire');
   };
 
+  const addTechnique = (name: string) => {
+    setState((s) => {
+      if (!s || s.techniques.includes(name)) return s;
+      return { ...s, techniques: [...s.techniques, name] };
+    });
+    showToast('Technique added');
+  };
+
+  const removeTechnique = (name: string) => {
+    setState((s) => (s ? { ...s, techniques: s.techniques.filter((t) => t !== name) } : s));
+  };
+
   const cyclePiece = (id: string) => {
-    const next: Record<PieceStatus, { status: PieceStatus; pct: number }> = {
-      Learning: { status: 'Polishing', pct: 70 },
-      Polishing: { status: 'Ready', pct: 100 },
-      Ready: { status: 'Learning', pct: 20 },
-    };
-    setState((s) =>
-      s ? { ...s, pieces: s.pieces.map((p) => (p.id === id ? { ...p, ...next[p.status] } : p)) } : s
-    );
+    setState((s) => {
+      if (!s) return s;
+      const n = s.stages.length;
+      return {
+        ...s,
+        pieces: s.pieces.map((p) => {
+          if (p.id !== id) return p;
+          const stage = (Math.min(p.stage, n - 1) + 1) % n;
+          return { ...p, stage, pct: stage === 0 ? 20 : Math.round(((stage + 1) / n) * 100) };
+        }),
+      };
+    });
   };
 
   const today = dateKey();
@@ -198,15 +262,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(archived ? 'Archived' : 'Restored');
   };
 
+  const addRecording = (piece: string, uri: string, sec: number, wave?: number[]) => {
+    setState((s) =>
+      s
+        ? { ...s, recordings: [{ id: uid(), piece, uri, sec, wave, date: dateKey(), at: Date.now() }, ...s.recordings] }
+        : s
+    );
+    showToast('Recording saved');
+  };
+
+  const toggleStar = (id: string) => {
+    setState((s) =>
+      s ? { ...s, recordings: s.recordings.map((r) => (r.id === id ? { ...r, starred: !r.starred } : r)) } : s
+    );
+  };
+
+  const deleteRecording = (id: string) => {
+    setState((s) => (s ? { ...s, recordings: s.recordings.filter((r) => r.id !== id) } : s));
+    showToast('Recording deleted');
+  };
+
+  const renameRecording = (id: string, name: string) => {
+    setState((s) =>
+      s ? { ...s, recordings: s.recordings.map((r) => (r.id === id ? { ...r, name: name.trim() } : r)) } : s
+    );
+  };
+
   const updateSettings: Store['updateSettings'] = (patch) => {
-    setState((s) => (s ? { ...s, ...patch } : s));
+    setState((s) => {
+      if (!s) return s;
+      const next = { ...s, ...patch };
+      // fewer stages than before → clamp pieces so no index dangles
+      if (patch.stages)
+        next.pieces = next.pieces.map((p) => ({ ...p, stage: Math.min(p.stage, patch.stages!.length - 1) }));
+      return next;
+    });
   };
 
   const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    return { day: i === 6 ? 'Today' : letters[d.getDay()], min: state.minutesByDate[dateKey(d)] ?? 0, isToday: i === 6 };
+    const key = dateKey(d);
+    return { day: letters[d.getDay()], min: state.minutesByDate[key] ?? 0, isToday: i === 6, date: key };
   });
 
   const store: Store = {
@@ -219,9 +317,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logMinutes,
     deleteSession,
     addPiece,
+    addTechnique,
+    removeTechnique,
     cyclePiece,
     removePiece,
     setArchived,
+    addRecording,
+    deleteRecording,
+    renameRecording,
+    toggleStar,
     updateSettings,
   };
 

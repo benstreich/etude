@@ -2,17 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SearchIcon } from '@/components/icons';
+import { RecordingsList } from '@/components/recordings';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
-import { dayLabel, Piece, PieceStatus, useStore } from '@/lib/store';
+import { dayLabel, Piece, useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
-const statusColor: Record<PieceStatus, string> = {
-  Learning: C.sub,
-  Polishing: C.accent,
-  Ready: C.success,
-};
+// last stage green, next-to-last accent, the rest muted
+const stageColor = (i: number, n: number) => (i >= n - 1 ? C.success : i === n - 2 ? C.accent : C.sub);
 
 type Suggestion = { track: string; artist: string };
+
+const PRESET_TECHNIQUES = [
+  'Scales & arpeggios',
+  'Sight reading',
+  'Ear training',
+  'Improvisation',
+  'Rhythm & metronome',
+  'Chords & voicings',
+  'Finger exercises',
+  'Music theory',
+];
 
 export default function Repertoire() {
   const store = useStore();
@@ -22,6 +32,22 @@ export default function Repertoire() {
   const [creating, setCreating] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [customTech, setCustomTech] = useState('');
+
+  const closeAdd = () => {
+    setAddOpen(false);
+    setName('');
+    setCreating(null);
+    setSuggestions([]);
+    setCustomTech('');
+  };
+
+  const addTech = (t: string) => {
+    if (!t.trim()) return;
+    if (store.techniques.includes(t)) store.removeTechnique(t);
+    else store.addTechnique(t.trim());
+  };
 
   const active = store.pieces.filter((p) => !p.archived);
   const archived = store.pieces.filter((p) => p.archived);
@@ -79,65 +105,17 @@ export default function Repertoire() {
     setArtist('');
     setCreating(null);
     setSuggestions([]);
+    setAddOpen(false);
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>Repertoire</ScreenTitle>
-
-      {creating === null ? (
-        <TextInput
-          style={s.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Search songs & artists…"
-          placeholderTextColor={C.tertiary}
-          onSubmitEditing={() => name.trim() && setCreating(name.trim())}
-          returnKeyType="done"
-        />
-      ) : (
-        <View>
-          <Text style={s.creatingLabel}>Adding “{creating}”</Text>
-          <View style={s.addRow}>
-            <TextInput
-              style={s.input}
-              value={artist}
-              onChangeText={setArtist}
-              placeholder="Artist (optional)"
-              placeholderTextColor={C.tertiary}
-              autoFocus
-              onSubmitEditing={() => add(creating, artist.trim())}
-              returnKeyType="done"
-            />
-            <Pressable style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
-              <Text style={s.plusText}>+</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
-      {creating === null && name.trim().length > 0 && (
-        <Card style={{ paddingVertical: 4, paddingHorizontal: 16, marginTop: -8 }}>
-          {suggestions.map((sug, i) => (
-            <Pressable
-              key={`${sug.track}|${sug.artist}`}
-              style={[s.sugRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-              onPress={() => add(sug.track, sug.artist)}>
-              <Text style={s.pieceName} numberOfLines={1}>
-                {sug.track}
-              </Text>
-              <Text style={s.composer} numberOfLines={1}>
-                {sug.artist}
-              </Text>
-            </Pressable>
-          ))}
-          <Pressable
-            style={[s.sugRow, suggestions.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-            onPress={() => setCreating(name.trim())}>
-            <Text style={s.createText}>+ Create “{name.trim()}”</Text>
-          </Pressable>
-        </Card>
-      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <ScreenTitle>Repertoire</ScreenTitle>
+        <Pressable style={s.fabBtn} onPress={() => setAddOpen(true)}>
+          <Text style={s.fabText}>+</Text>
+        </Pressable>
+      </View>
 
       <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
         {active.map((p, i) => {
@@ -157,12 +135,14 @@ export default function Repertoire() {
                     </Text>
                   )}
                 </View>
-                <Text style={[s.tag, { color: statusColor[p.status] }]}>{p.status}</Text>
+                <Text style={[s.tag, { color: stageColor(p.stage, store.stages.length) }]}>
+                  {store.stages[Math.min(p.stage, store.stages.length - 1)]}
+                </Text>
                 <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
                   <Text style={s.moreText}>⋯</Text>
                 </Pressable>
               </View>
-              <Bar pct={p.pct} color={p.status === 'Ready' ? C.success : C.ink} />
+              <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />
             </Pressable>
           );
         })}
@@ -192,12 +172,117 @@ export default function Repertoire() {
         </View>
       )}
 
+      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={closeAdd}>
+        <Pressable style={s.backdrop} onPress={closeAdd}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <Text style={s.sheetTitle}>Add to repertoire</Text>
+            <Overline style={{ marginBottom: 10 }}>Song</Overline>
+            {creating === null ? (
+              <>
+                <View style={s.searchWrap}>
+                  <SearchIcon color={C.tertiary} />
+                  <TextInput
+                    style={s.searchInput}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Search songs & artists…"
+                    placeholderTextColor={C.tertiary}
+                    onSubmitEditing={() => name.trim() && setCreating(name.trim())}
+                    returnKeyType="done"
+                  />
+                  {name.length > 0 && (
+                    <Pressable hitSlop={8} onPress={() => setName('')}>
+                      <Text style={s.clearText}>×</Text>
+                    </Pressable>
+                  )}
+                </View>
+                {name.trim().length > 0 && (
+                  <View style={{ paddingHorizontal: 4 }}>
+                    {suggestions.map((sug, i) => (
+                      <Pressable
+                        key={`${sug.track}|${sug.artist}`}
+                        style={[s.sugRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+                        onPress={() => add(sug.track, sug.artist)}>
+                        <Text style={s.pieceName} numberOfLines={1}>
+                          {sug.track}
+                        </Text>
+                        <Text style={s.composer} numberOfLines={1}>
+                          {sug.artist}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    <Pressable
+                      style={[s.sugRow, suggestions.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+                      onPress={() => setCreating(name.trim())}>
+                      <Text style={s.createText}>+ Create “{name.trim()}”</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View>
+                <Text style={s.creatingLabel}>Adding “{creating}”</Text>
+                <View style={s.addRow}>
+                  <TextInput
+                    style={s.input}
+                    value={artist}
+                    onChangeText={setArtist}
+                    placeholder="Artist (optional)"
+                    placeholderTextColor={C.tertiary}
+                    autoFocus
+                    onSubmitEditing={() => add(creating, artist.trim())}
+                    returnKeyType="done"
+                  />
+                  <Pressable style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
+                    <Text style={s.plusText}>+</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+            <Overline style={{ marginTop: 18, marginBottom: 10 }}>Techniques — tap to add or remove</Overline>
+            <View style={s.chipWrap}>
+              {[...new Set([...PRESET_TECHNIQUES, ...store.techniques])].map((t) => {
+                const sel = store.techniques.includes(t);
+                return (
+                  <Pressable key={t} style={[s.chip, sel && s.chipSel]} onPress={() => addTech(t)}>
+                    <Text style={[s.chipText, sel && { color: C.accent }]}>{t}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={s.addRow}>
+              <TextInput
+                style={s.input}
+                value={customTech}
+                onChangeText={setCustomTech}
+                placeholder="Your own technique…"
+                placeholderTextColor={C.tertiary}
+                onSubmitEditing={() => {
+                  addTech(customTech);
+                  setCustomTech('');
+                }}
+                returnKeyType="done"
+              />
+              <Pressable
+                style={s.plusBtn}
+                onPress={() => {
+                  addTech(customTech);
+                  setCustomTech('');
+                }}>
+                <Text style={s.plusText}>+</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={() => setMenuPiece(null)}>
         <Pressable style={s.backdrop} onPress={() => setMenuPiece(null)}>
           <Pressable style={s.sheet} onPress={() => {}}>
             {menuPiece && (
               <>
                 <Text style={s.sheetTitle}>{menuPiece.name}</Text>
+                <RecordingsList recordings={store.recordings.filter((r) => r.piece === menuPiece.name)} />
                 <Pressable
                   style={s.sheetRow}
                   onPress={() => {
@@ -229,6 +314,24 @@ const s = StyleSheet.create({
   sugRow: { paddingVertical: 10 },
   createText: { fontFamily: F.bodySemi, fontSize: 14, color: C.accent },
   creatingLabel: { fontFamily: F.bodyMed, fontSize: 13, color: C.sub, marginBottom: 8 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: 50,
+    borderRadius: 999,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    paddingHorizontal: 18,
+    shadowColor: '#1c1a17',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  searchInput: { flex: 1, minWidth: 0, height: '100%', fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
+  clearText: { fontSize: 20, color: C.faint, lineHeight: 22 },
   input: { flex: 1, minWidth: 0, height: 48, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: 15, color: C.ink },
   plusBtn: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   plusText: { color: C.bg, fontSize: 24, lineHeight: 26, fontFamily: F.bodyMed },
@@ -240,10 +343,16 @@ const s = StyleSheet.create({
   hint: { fontFamily: F.body, fontSize: 12.5, color: C.tertiary, textAlign: 'center' },
   invested: { fontFamily: F.body, fontSize: 12, color: C.tertiary, marginTop: 3 },
   moreBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
-  moreText: { fontSize: 18, color: C.faint, lineHeight: 20 },
+  moreText: { fontSize: 18, color: C.faint, lineHeight: 28, textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 4 },
   sheetTitle: { fontFamily: F.head, fontSize: 20, color: C.ink, marginBottom: 8 },
   sheetRow: { height: 52, justifyContent: 'center' },
+  fabBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  fabText: { color: C.bg, fontSize: 26, lineHeight: 28, fontFamily: F.bodyMed },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  chip: { height: 38, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
+  chipText: { fontFamily: F.bodyMed, fontSize: 13, color: C.ink },
   sheetRowText: { fontFamily: F.bodyMed, fontSize: 16, color: C.ink },
 });
