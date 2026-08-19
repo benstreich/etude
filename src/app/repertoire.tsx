@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SearchIcon } from '@/components/icons';
@@ -34,6 +34,7 @@ export default function Repertoire() {
   const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [customTech, setCustomTech] = useState('');
+  const winH = useWindowDimensions().height;
 
   const closeAdd = () => {
     setAddOpen(false);
@@ -174,7 +175,9 @@ export default function Repertoire() {
 
       <Modal visible={addOpen} transparent animationType="fade" onRequestClose={closeAdd}>
         <Pressable style={s.backdrop} onPress={closeAdd}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+          <Pressable style={[s.sheet, { maxHeight: winH * 0.6 }]} onPress={() => {}}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text style={s.sheetTitle}>Add to repertoire</Text>
             <Overline style={{ marginBottom: 10 }}>Song</Overline>
             {creating === null ? (
@@ -239,6 +242,8 @@ export default function Repertoire() {
                 </View>
               </View>
             )}
+            {name.trim().length === 0 && creating === null && (
+            <>
             <Overline style={{ marginTop: 18, marginBottom: 10 }}>Techniques — tap to add or remove</Overline>
             <View style={s.chipWrap}>
               {[...new Set([...PRESET_TECHNIQUES, ...store.techniques])].map((t) => {
@@ -272,7 +277,11 @@ export default function Repertoire() {
                 <Text style={s.plusText}>+</Text>
               </Pressable>
             </View>
+            </>
+            )}
+            </ScrollView>
           </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
 
