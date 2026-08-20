@@ -10,14 +10,18 @@ const UNIT_LABEL: Record<RampUnit, string> = { bars: 'Bars', seconds: 'Seconds' 
 const TIME_SIGS = ['1/4', '2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'];
 
 /** Opens the metronome sheet; shows the live tempo once it is running. */
-export function MetronomeButton({ compact = false }: { compact?: boolean }) {
+export function MetronomeButton({ compact = false, presetBpm }: { compact?: boolean; presetBpm?: number }) {
   const s = useS();
   const C = useC();
-  const { running, bpm } = useMetronome();
+  const { running, bpm, setBpm } = useMetronome();
   const [open, setOpen] = useState(false);
+  const openSheet = () => {
+    if (presetBpm && !running) setBpm(presetBpm);
+    setOpen(true);
+  };
   return (
     <>
-      <Pressable style={[s.pill, compact && s.pillCompact, running && s.pillOn]} onPress={() => setOpen(true)}>
+      <Pressable style={[s.pill, compact && s.pillCompact, running && s.pillOn]} onPress={openSheet}>
         <Text style={[s.pillText, running && { color: C.bg }]}>{running ? `♩ ${bpm}` : 'Metronome'}</Text>
       </Pressable>
       <MetronomeSheet visible={open} onClose={() => setOpen(false)} />

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ export default function Repertoire() {
   const s = useS();
   const C = useC();
   const store = useStore();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [artist, setArtist] = useState('');
@@ -156,7 +158,7 @@ export default function Repertoire() {
             <Pressable
               key={p.id}
               style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-              onPress={() => store.cyclePiece(p.id)}>
+              onPress={() => router.push(`/piece/${p.id}`)}>
               <View style={s.rowTop}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.pieceName}>{p.name}</Text>
@@ -189,7 +191,7 @@ export default function Repertoire() {
       </Card>
       )}
 
-      {active.length > 0 && <Text style={s.hint}>Tap a piece to advance its status</Text>}
+      {active.length > 0 && <Text style={s.hint}>Tap a piece for details, stats & recordings</Text>}
 
       {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
       {(() => {

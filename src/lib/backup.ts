@@ -63,6 +63,8 @@ export async function pickBackup(): Promise<{ state: object; files: Record<strin
 /** Writes the bundled recordings back into the documents directory. */
 export function restoreFiles(files: Record<string, string>) {
   for (const [rel, b64] of Object.entries(files)) {
+    // paths come from an untrusted file — nothing may escape the documents dir
+    if (rel.split('/').includes('..') || rel.startsWith('/') || rel.includes(':')) continue;
     try {
       const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
       if (dir) new Directory(Paths.document, dir).create({ intermediates: true, idempotent: true });
