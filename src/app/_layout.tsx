@@ -13,9 +13,10 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BarsIcon, ClockIcon, GearIcon, HomeIcon, NoteIcon } from '@/components/icons';
+import { Onboarding } from '@/components/onboarding';
 import { Toast } from '@/components/toast';
 import { MetronomeProvider } from '@/lib/metronome';
-import { StoreProvider } from '@/lib/store';
+import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync();
@@ -54,11 +55,21 @@ export default function RootLayout() {
 
 function Shell({ insets }: { insets: { bottom: number } }) {
   const { C, dark } = useTheme();
+  const { onboarded } = useStore();
   // Shell only mounts once fonts AND the store are ready (StoreProvider renders
   // null until hydration) — hiding here avoids a bare-window flash on cold start
   useEffect(() => {
     SplashScreen.hideAsync();
   }, []);
+  // first run: the whole flow replaces the tab navigator, so no tab bar to hide
+  if (!onboarded)
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <StatusBar style={dark ? 'light' : 'dark'} />
+        <Onboarding />
+        <Toast />
+      </View>
+    );
   return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
           <StatusBar style={dark ? 'light' : 'dark'} />
