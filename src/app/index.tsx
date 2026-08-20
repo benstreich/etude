@@ -89,7 +89,28 @@ export default function Home() {
         </View>
       </Card>
 
-      {store.sessions.length > 0 && (
+      {store.sessions.length === 0 ? (
+        // first-run guide, shown until the first session exists
+        <View style={s.guideCard}>
+          <Text style={s.guideTitle}>Your first session</Text>
+          {(
+            [
+              ['Add a piece or pick a technique in ', 'Repertoire', ''],
+              ['Hit ', 'Start practicing', ' — the timer runs even with the screen off'],
+              ['Practiced away from your phone? ', 'Quick log', ' it below'],
+            ] as const
+          ).map(([pre, bold, post], i) => (
+            <View key={i} style={s.guideRow}>
+              <Text style={s.guideNum}>{i + 1}</Text>
+              <Text style={s.guideText}>
+                {pre}
+                <Text style={{ fontFamily: F.bodySemi }}>{bold}</Text>
+                {post}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : (
         <Card style={{ padding: 16 }}>
           {store.sessions.slice(0, 3).map((sess, i) => (
             <View key={sess.id} style={[s.sessRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
@@ -165,6 +186,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   quickRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   chip: { flex: 1, height: 44, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+  guideCard: { backgroundColor: C.accentTint, borderRadius: r(16), padding: 18, gap: 12 },
+  guideTitle: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.accentDark },
+  guideRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  guideNum: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.accent, width: 14, lineHeight: fs(20) },
+  guideText: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },
   sessRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   sessTitle: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   sessMeta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },

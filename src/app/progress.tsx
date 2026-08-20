@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,8 +13,10 @@ export default function Progress() {
   const s = useS();
   const C = useC();
   const store = useStore();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selDate, setSelDate] = useState<string | null>(null);
+  const empty = store.totalMin === 0 && store.sessions.length === 0;
 
   // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days.
   // anchored on store.now so the numbers follow the calendar instead of freezing at mount
@@ -48,8 +51,8 @@ export default function Progress() {
         <Card style={s.stat}>
           <Overline style={{ marginBottom: 10 }}>Avg / day</Overline>
           <Text style={s.statNum}>
-            {Math.round(weekTotal / elapsed)}
-            <Text style={s.statUnit}> min</Text>
+            {empty ? '—' : Math.round(weekTotal / elapsed)}
+            {!empty && <Text style={s.statUnit}> min</Text>}
           </Text>
         </Card>
         <Card style={s.stat}>
@@ -61,6 +64,34 @@ export default function Progress() {
         </Card>
       </View>
 
+      {empty ? (
+        <Card>
+          <Overline style={{ marginBottom: 16 }}>Last 7 days</Overline>
+          <View style={s.chart}>
+            {[22, 48, 30, 64, 40, 78, 55].map((h, i) => (
+              <View key={i} style={s.col}>
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                  <View
+                    style={{
+                      height: `${h}%`,
+                      backgroundColor: i === 6 ? C.accentTint : C.track,
+                      borderTopLeftRadius: 5,
+                      borderTopRightRadius: 5,
+                    }}
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+          <View style={{ alignItems: 'center', gap: 6, marginTop: 18 }}>
+            <Text style={s.emptyTitle}>Your week will show up here</Text>
+            <Text style={s.emptyText}>Log your first session and this chart starts filling in.</Text>
+            <Pressable style={s.tintBtn} onPress={() => router.push('/practice')}>
+              <Text style={s.tintBtnText}>Start practicing</Text>
+            </Pressable>
+          </View>
+        </Card>
+      ) : (
       <Card>
         <Overline style={{ marginBottom: 16 }}>Last 7 days</Overline>
         <View style={s.chart}>
@@ -107,6 +138,7 @@ export default function Progress() {
           </View>
         )}
       </Card>
+      )}
 
       {focusRows.length > 0 && (
         <Card>
@@ -143,4 +175,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   detailEmpty: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary, marginTop: 4 },
   skillName: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   skillLevel: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
+  emptyTitle: { fontFamily: F.head, fontSize: fs(16), color: C.ink },
+  emptyText: { fontFamily: F.body, fontSize: fs(13.5), lineHeight: fs(20), color: C.sub, maxWidth: 250, textAlign: 'center' },
+  tintBtn: { height: 42, paddingHorizontal: 18, borderRadius: r(12), backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  tintBtnText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
 }));

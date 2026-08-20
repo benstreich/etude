@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SearchIcon } from '@/components/icons';
+import { NoteIcon, SearchIcon } from '@/components/icons';
 import { RecordingsList } from '@/components/recordings';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import { dayLabel, Piece, useStore } from '@/lib/store';
@@ -121,6 +121,33 @@ export default function Repertoire() {
         </Pressable>
       </View>
 
+      {active.length === 0 ? (
+        <>
+          <Card style={{ alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20, gap: 8 }}>
+            <View style={s.emptyTile}>
+              <NoteIcon size={26} color={C.accent} />
+            </View>
+            <Text style={s.emptyTitle}>What are you working on?</Text>
+            <Text style={s.emptyText}>Add the piece you’re learning — search fills in the artist for you.</Text>
+            <Pressable style={s.emptyBtn} onPress={() => setAddOpen(true)}>
+              <Text style={s.emptyBtnText}>Add a piece</Text>
+            </Pressable>
+          </Card>
+          <View style={{ gap: 12 }}>
+            <Overline>Or start with a technique</Overline>
+            <View style={s.chipWrap}>
+              {PRESET_TECHNIQUES.filter((t) => !store.techniques.includes(t)).slice(0, 6).map((t) => (
+                <Pressable key={t} style={s.chip} onPress={() => store.addTechnique(t)}>
+                  <Text style={s.chipText}>
+                    <Text style={{ color: C.accent }}>+ </Text>
+                    {t}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </>
+      ) : (
       <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
         {active.map((p, i) => {
           const st = stats(p);
@@ -160,8 +187,9 @@ export default function Repertoire() {
           );
         })}
       </Card>
+      )}
 
-      <Text style={s.hint}>Tap a piece to advance its status</Text>
+      {active.length > 0 && <Text style={s.hint}>Tap a piece to advance its status</Text>}
 
       {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
       {(() => {
@@ -387,6 +415,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   fabBtn: { width: 50, height: 50, borderRadius: r(25), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   fabText: { color: C.bg, fontSize: fs(26), lineHeight: fs(28), fontFamily: F.bodyMed },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  emptyTile: { width: 52, height: 52, borderRadius: r(16), backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  emptyTitle: { fontFamily: F.head, fontSize: fs(16), color: C.ink },
+  emptyText: { fontFamily: F.body, fontSize: fs(13.5), lineHeight: fs(20), color: C.sub, maxWidth: 260, textAlign: 'center' },
+  emptyBtn: { height: 44, paddingHorizontal: 20, borderRadius: r(12), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  emptyBtnText: { fontFamily: F.bodySemi, fontSize: fs(14.5), color: '#FFFFFF' },
   chip: { height: 38, paddingHorizontal: 13, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
