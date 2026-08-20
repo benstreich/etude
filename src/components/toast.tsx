@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 
 import { F, themed, useTheme, type T } from '@/lib/theme';
@@ -8,7 +8,8 @@ export function Toast() {
   const s = useS();
   const { reduceMotion } = useTheme();
   const { toast } = useStore();
-  const anim = useRef(new Animated.Value(0)).current;
+  // state, not ref: the value object is stable and reading it in render is compiler-legal
+  const [anim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(anim, { toValue: toast ? 1 : 0, duration: reduceMotion ? 0 : 250, useNativeDriver: true }).start();

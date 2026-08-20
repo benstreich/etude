@@ -1,6 +1,6 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { File } from 'expo-file-system';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { applyAudioMode } from '@/lib/audio-mode';
@@ -25,9 +25,12 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
 
-  useEffect(() => {
+  // adjust-state-during-render pattern (react.dev "you might not need an effect")
+  const [prevFinish, setPrevFinish] = useState(status.didJustFinish);
+  if (prevFinish !== status.didJustFinish) {
+    setPrevFinish(status.didJustFinish);
     if (status.didJustFinish) setCurrentId(null);
-  }, [status.didJustFinish]);
+  }
 
   const toggle = (r: Recording) => {
     if (currentId === r.id) {

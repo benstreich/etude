@@ -72,10 +72,7 @@ export default function Repertoire() {
   // song/artist suggestions from the iTunes Search API (public, no key)
   useEffect(() => {
     const q = name.trim();
-    if (q.length < 3) {
-      setSuggestions([]);
-      return;
-    }
+    if (q.length < 3) return;
     let stale = false;
     const t = setTimeout(async () => {
       try {
@@ -101,6 +98,9 @@ export default function Repertoire() {
       clearTimeout(t);
     };
   }, [name]);
+
+  // derived instead of cleared in the effect — stale entries just stop rendering
+  const shown = name.trim().length >= 3 ? suggestions : [];
 
   const add = (n: string, by: string) => {
     if (!n) return;
@@ -227,7 +227,7 @@ export default function Repertoire() {
                 </View>
                 {name.trim().length > 0 && (
                   <View style={{ paddingHorizontal: 4 }}>
-                    {suggestions.map((sug, i) => (
+                    {shown.map((sug, i) => (
                       <Pressable
                         key={`${sug.track}|${sug.artist}`}
                         style={[s.sugRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
@@ -241,7 +241,7 @@ export default function Repertoire() {
                       </Pressable>
                     ))}
                     <Pressable
-                      style={[s.sugRow, suggestions.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+                      style={[s.sugRow, shown.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
                       onPress={() => setCreating(name.trim())}>
                       <Text style={s.createText}>+ Create “{name.trim()}”</Text>
                     </Pressable>
