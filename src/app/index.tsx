@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EditSessionSheet } from '@/components/edit-session';
 import { FlameIcon, LogoMark, PlayIcon } from '@/components/icons';
 import { Bar, Card } from '@/components/ui';
-import { dayLabel, useStore } from '@/lib/store';
+import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 // taking `now` from the store keeps these reactive — a bare new Date() here gets
@@ -25,6 +26,7 @@ export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [focusOpen, setFocusOpen] = useState(false);
+  const [editSess, setEditSess] = useState<Session | null>(null);
 
   const quickLog = (min: number) => {
     if (!min) return;
@@ -113,7 +115,10 @@ export default function Home() {
       ) : (
         <Card style={{ padding: 16 }}>
           {store.sessions.slice(0, 3).map((sess, i) => (
-            <View key={sess.id} style={[s.sessRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
+            <Pressable
+              key={sess.id}
+              style={[s.sessRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+              onPress={() => setEditSess(sess)}>
               <View style={{ flex: 1 }}>
                 <Text style={s.sessTitle}>{sess.title}</Text>
                 <Text style={s.sessMeta}>
@@ -122,10 +127,7 @@ export default function Home() {
                 {!!sess.note && <Text style={s.sessNote}>{sess.note}</Text>}
               </View>
               <Text style={s.sessMin}>{sess.min} min</Text>
-              <Pressable style={s.delBtn} onPress={() => store.deleteSession(sess.id)} hitSlop={8}>
-                <Text style={s.delText}>×</Text>
-              </Pressable>
-            </View>
+            </Pressable>
           ))}
         </Card>
       )}
@@ -162,6 +164,7 @@ export default function Home() {
         </Pressable>
       </Modal>
 
+      <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </ScrollView>
   );
 }
@@ -194,10 +197,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sessRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   sessTitle: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   sessMeta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },
-  sessNote: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, fontStyle: 'italic', marginTop: 3 },
-  sessMin: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink, marginRight: 10 },
-  delBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center' },
-  delText: { fontSize: fs(18), color: C.sub, lineHeight: fs(20) },
+  sessNote: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, fontStyle: 'italic', marginTop: 3 },
+  sessMin: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
