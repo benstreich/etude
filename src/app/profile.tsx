@@ -12,8 +12,6 @@ import { F, themed, useC, type T } from '@/lib/theme';
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Cello', 'Flute', 'Voice', 'Drums', 'Bass'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const GOALS = [15, 30, 45, 60, 90];
-// ponytail: reminder is a stored preference only — actual notification scheduling
-// needs expo-notifications + a dev build (Expo Go can't show them)
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
 const STREAK_LABELS: Record<StreakMode, string> = { off: 'Off', strict: 'Strict', relaxed: 'Relaxed' };
 
@@ -101,7 +99,7 @@ export default function Profile() {
     { key: 'instruments', label: 'Instruments', value: store.instruments.join(', ') },
     { key: 'goal', label: 'Daily goal', value: `${store.dailyGoal} min` },
     { key: 'quickLog', label: 'Quick log presets', value: store.quickLog.map((n) => `${n}`).join(', ') + ' min' },
-    { key: 'quickLogFocus', label: 'Quick log counts toward', value: store.quickLogFocus?.name ?? 'Nothing specific' },
+    { key: 'quickLogFocus', label: 'Quick log focus', value: store.quickLogFocus?.name ?? 'Nothing specific' },
     { key: 'breakDays', label: 'Break days', value: store.breakDays.length ? store.breakDays.join(', ') : 'None' },
     { key: 'streaks', label: 'Streaks', value: STREAK_LABELS[store.streakMode] },
     { key: 'reminder', label: 'Practice reminders', value: store.reminder },
@@ -114,7 +112,7 @@ export default function Profile() {
     instruments: 'Instruments',
     goal: 'Daily goal',
     quickLog: 'Quick log presets',
-    quickLogFocus: 'Quick log counts toward',
+    quickLogFocus: 'Quick log focus',
     breakDays: 'Break days',
     streaks: 'Streaks',
     reminder: 'Practice reminders',
@@ -204,11 +202,11 @@ export default function Profile() {
             )}
             {editing === 'quickLog' && (
               <>
-                <View style={s.chipWrap}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
                   {list.map((v, i) => (
                     <TextInput
                       key={i}
-                      style={[s.input, { width: 90, textAlign: 'center' }]}
+                      style={[s.input, { flex: 1, textAlign: 'center' }]}
                       value={v}
                       onChangeText={(t) =>
                         setList((l) => l.map((x, j) => (j === i ? t.replace(/\D/g, '').slice(0, 3) : x)))

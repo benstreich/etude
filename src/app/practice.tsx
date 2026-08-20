@@ -25,6 +25,7 @@ export default function Practice() {
   const [accum, setAccum] = useState(0); // seconds banked across pauses
   const [seconds, setSeconds] = useState(0);
   const [pastOpen, setPastOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [noteFor, setNoteFor] = useState<string | null>(null); // session id awaiting an optional note
   const [note, setNote] = useState('');
   const paused = startedAt === null;
@@ -148,7 +149,11 @@ export default function Practice() {
     return () => clearInterval(t);
   }, [running, startedAt, accum]);
 
-  const pieces = store.pieces.filter((p) => p.stage < store.stages.length - 1 && !p.archived);
+  const q = query.trim().toLowerCase();
+  const pieces = store.pieces.filter(
+    (p) => p.stage < store.stages.length - 1 && !p.archived && p.name.toLowerCase().includes(q)
+  );
+  const techniques = store.techniques.filter((t) => t.toLowerCase().includes(q));
 
   const endSave = async () => {
     if (!focus) return;
@@ -276,18 +281,36 @@ export default function Practice() {
           <Text style={s.title}>What are you{'\n'}working on?</Text>
           <MetronomeButton compact />
         </View>
-        <Overline style={{ marginBottom: 10 }}>Pieces</Overline>
-        <View style={s.group}>
-          {pieces.map((p) => (
-            <Option key={p.id} name={p.name} kind="Piece" />
-          ))}
-        </View>
-        <Overline style={{ marginBottom: 10, marginTop: 22 }}>Techniques</Overline>
-        <View style={s.group}>
-          {store.techniques.map((t) => (
-            <Option key={t} name={t} kind="Technique" />
-          ))}
-        </View>
+        <TextInput
+          style={s.search}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search pieces & techniques"
+          placeholderTextColor={C.tertiary}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        {pieces.length > 0 && (
+          <>
+            <Overline style={{ marginBottom: 10 }}>Pieces</Overline>
+            <View style={s.group}>
+              {pieces.map((p) => (
+                <Option key={p.id} name={p.name} kind="Piece" />
+              ))}
+            </View>
+          </>
+        )}
+        {techniques.length > 0 && (
+          <>
+            <Overline style={{ marginBottom: 10, marginTop: pieces.length > 0 ? 22 : 0 }}>Techniques</Overline>
+            <View style={s.group}>
+              {techniques.map((t) => (
+                <Option key={t} name={t} kind="Technique" />
+              ))}
+            </View>
+          </>
+        )}
+        {pieces.length === 0 && techniques.length === 0 && <Text style={s.noMatch}>No matches for “{query.trim()}”</Text>}
       </ScrollView>
       <View style={{ paddingHorizontal: 24, paddingBottom: 16 }}>
         <Pressable
@@ -341,6 +364,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   title: { fontFamily: F.head, fontSize: fs(30), color: C.ink, marginBottom: 26, lineHeight: fs(37) },
   group: { gap: 10 },
+  search: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, paddingHorizontal: 14, fontFamily: F.body, fontSize: fs(15), color: C.ink, marginBottom: 18 },
+  noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { height: 52, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
   optionText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   startBtn: { height: 60, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },

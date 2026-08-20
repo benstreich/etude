@@ -112,7 +112,7 @@ export default function Home() {
       <Modal visible={focusOpen} transparent animationType="fade" onRequestClose={() => setFocusOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setFocusOpen(false)}>
           <Pressable style={s.sheet} onPress={() => {}}>
-            <Text style={s.sheetTitle}>Quick log counts toward</Text>
+            <Text style={s.sheetTitle}>Quick log focus</Text>
             <View style={s.dayWrap}>
               <Pressable
                 style={[s.dayChip, !store.quickLogFocus && s.dayChipSel]}
