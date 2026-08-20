@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { LOCK_SCREEN_STEP, useBeat, useMetronome } from '@/lib/metronome';
@@ -169,7 +169,12 @@ const Step = ({ label, onPress }: { label: string; onPress: () => void }) => {
 function NumberField({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
   const s = useS();
   const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
+  // adjust-state-during-render pattern (react.dev "you might not need an effect")
+  const [prevValue, setPrevValue] = useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
+    setText(String(value));
+  }
   const commit = () => {
     const parsed = Math.round(Number(text));
     if (Number.isFinite(parsed) && parsed > 0 && parsed <= MAX_BPM) onCommit(parsed);

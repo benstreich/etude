@@ -118,9 +118,11 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   const run = useRef<Run | null>(null);
   // latest config for the scheduler, which runs outside React's render cycle
   const latest = useRef({ bpm, sig, ramp, startBpm: store.metroBpm });
-  latest.current = { bpm, sig, ramp, startBpm: store.metroBpm };
+  useEffect(() => {
+    latest.current = { bpm, sig, ramp, startBpm: store.metroBpm };
+  });
 
-  const tick = useCallback(() => {
+  const tick = useCallback(function tickFn() {
     const r = run.current;
     if (!r) return;
     const { sig: liveSig, ramp: liveRamp } = latest.current;
@@ -140,7 +142,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     r.nextAt += 60000 / next;
     // after a long suspend, resync instead of firing a burst of catch-up clicks
     if (r.nextAt < Date.now() - 500) r.nextAt = Date.now() + 60000 / next;
-    r.timer = setTimeout(tick, Math.max(0, r.nextAt - Date.now()));
+    r.timer = setTimeout(tickFn, Math.max(0, r.nextAt - Date.now()));
   }, []);
 
   const start = useCallback(() => {
