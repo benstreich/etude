@@ -41,6 +41,8 @@ example
 # generated native folders
 /ios
 /android
+modules/**/android/build/
+modules/**/android/.cxx/
 
 .playwright-mcp/
 tabbar-check.png

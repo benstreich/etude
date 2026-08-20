@@ -7,8 +7,14 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.SoundPool
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
+import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -30,6 +36,12 @@ class ControlsState(
   @Field val subtitle: String? = null
 ) : Record
 
+class TickState(
+  @Field val bpm: Int = 120,
+  // accent level per beat of one bar: 2 downbeat, 1 group start, 0 plain
+  @Field val pattern: List<Int> = listOf(2, 0, 0, 0)
+) : Record
+
 /**
  * Foreground service whose only job is the ongoing notification carrying the
  * − / play-pause / + buttons. The clicks themselves are played by expo-audio up
@@ -46,9 +58,27 @@ class MetronomeControlsService : Service() {
   override fun onCreate() {
     super.onCreate()
     instance = this
+    // preload the clicks now so the first background beat isn't silent while they load
+    soundPool = SoundPool.Builder()
+      .setMaxStreams(3)
+      .setAudioAttributes(
+        AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .build()
+      )
+      .build()
+      .also {
+        soundIds[0] = it.load(this, R.raw.click, 1)
+        soundIds[1] = it.load(this, R.raw.click_mid, 1)
+        soundIds[2] = it.load(this, R.raw.click_accent, 1)
+      }
   }
 
   override fun onDestroy() {
+    stopTicking()
+    soundPool?.release()
+    soundPool = null
     instance = null
     super.onDestroy()
   }
@@ -64,14 +94,69 @@ class MetronomeControlsService : Service() {
     }
     // always re-post: a button intent must not leave a startForegroundService() call unanswered
     goForeground()
-    return START_STICKY
+    // NOT_STICKY: without the JS runtime this service is useless — a sticky restart
+    // after process death would only resurrect a zombie notification with dead buttons
+    return START_NOT_STICKY
   }
 
   fun update(bpm: Int, running: Boolean, subtitle: String?) {
     this.bpm = bpm
     this.running = running
     this.subtitle = subtitle
+    tickBpm = bpm.coerceIn(20, 300) // lock-screen nudges reach a live background loop too
     goForeground()
+  }
+
+  // --- background click loop -----------------------------------------------
+  // Android freezes JS timers while the activity is paused, so JS hands the
+  // click loop over on backgrounding and takes it back on resume.
+
+  private var soundPool: SoundPool? = null
+  private val soundIds = IntArray(3) // index = accent level
+  private var tickThread: HandlerThread? = null
+  private var tickHandler: Handler? = null
+  @Volatile private var tickBpm = 120
+  @Volatile private var tickPattern = intArrayOf(2, 0, 0, 0)
+  private var tickBeat = 0
+  private var tickNextAt = 0.0 // fractional ms so odd tempos don't drift
+
+  private val tickRunnable = object : Runnable {
+    override fun run() {
+      val pattern = tickPattern
+      val level = pattern[tickBeat % pattern.size].coerceIn(0, 2)
+      soundPool?.play(soundIds[level], 1f, 1f, 1, 0, 1f)
+      tickBeat++
+      tickNextAt += 60000.0 / tickBpm
+      val now = SystemClock.uptimeMillis()
+      if (tickNextAt < now) tickNextAt = now + 60000.0 / tickBpm
+      tickHandler?.postAtTime(this, tickNextAt.toLong())
+    }
+  }
+
+  private var wakeLock: PowerManager.WakeLock? = null
+
+  fun startTicking(bpm: Int, pattern: IntArray) {
+    tickBpm = bpm.coerceIn(20, 300)
+    if (pattern.isNotEmpty()) tickPattern = pattern
+    if (tickThread != null) return // already ticking; new tempo/pattern apply from the next beat
+    // without a wakelock the CPU naps between beats once the screen is off
+    wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
+      .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "etude:metronome")
+      .also { it.acquire(4 * 60 * 60 * 1000L) } // 4h safety cap
+    tickBeat = 0
+    tickThread = HandlerThread("metronome-tick").also { it.start() }
+    tickHandler = Handler(tickThread!!.looper)
+    tickNextAt = SystemClock.uptimeMillis().toDouble()
+    tickHandler?.postAtTime(tickRunnable, tickNextAt.toLong())
+  }
+
+  fun stopTicking() {
+    tickHandler?.removeCallbacksAndMessages(null)
+    tickThread?.quitSafely()
+    tickThread = null
+    tickHandler = null
+    wakeLock?.takeIf { it.isHeld }?.release()
+    wakeLock = null
   }
 
   private fun goForeground() {
@@ -172,6 +257,14 @@ class MetronomeControlsModule : Module() {
     }
 
     Function("hide") { hide() }
+
+    Function("startTicking") { state: TickState ->
+      MetronomeControlsService.instance?.startTicking(state.bpm, state.pattern.toIntArray())
+    }
+
+    Function("stopTicking") {
+      MetronomeControlsService.instance?.stopTicking()
+    }
   }
 
   private fun hide() {
