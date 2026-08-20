@@ -13,3 +13,10 @@ export type MetronomeControlsState = {
   /** Second line — the piece being practiced, when there is one. */
   subtitle?: string;
 };
+
+/** Config for the native background click loop (Android only). */
+export type MetronomeTick = {
+  bpm: number;
+  /** Accent level per beat of one bar: 2 = downbeat, 1 = group start, 0 = plain. */
+  pattern: number[];
+};

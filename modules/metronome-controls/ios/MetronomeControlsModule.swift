@@ -7,6 +7,11 @@ struct ControlsState: Record {
   @Field var subtitle: String?
 }
 
+struct TickState: Record {
+  @Field var bpm: Int = 120
+  @Field var pattern: [Int] = [2, 0, 0, 0]
+}
+
 /**
  * Lock-screen / Control Center transport for the metronome.
  *
@@ -35,6 +40,11 @@ public class MetronomeControlsModule: Module {
     Function("hide") {
       self.teardown()
     }
+
+    // Android-only background click loop — iOS JS timers keep firing in the
+    // background, so these are no-ops here.
+    Function("startTicking") { (_: TickState) in }
+    Function("stopTicking") {}
 
     OnDestroy {
       self.teardown()

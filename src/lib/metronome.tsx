@@ -1,13 +1,17 @@
 // ponytail: the beat is scheduled by a JS timer that re-aims at the wall clock every
 // tick, not by a sample-accurate audio thread. Good to a couple of ms, which is well
 // under what anyone can hear against their own playing. Revisit only if someone can.
-import { createAudioPlayer, requestNotificationPermissionsAsync, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, requestNotificationPermissionsAsync, type AudioPlayer } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import Controls from '../../modules/metronome-controls';
+import { applyAudioMode } from './audio-mode';
 import { accentLevel, bpmAfter, clampBpm, parseSig, type Ramp, type TimeSig } from './metronome-math';
 import { useStore } from './store';
+
+// accent level per beat of one bar, for the native background tick loop
+const patternFor = (sig: TimeSig) => Array.from({ length: sig.beats }, (_, i) => accentLevel(i, sig));
 
 const CLICK = require('../../assets/audio/click.wav');
 const MID = require('../../assets/audio/click-mid.wav');
@@ -147,11 +151,20 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     run.current = { startedAt: now, baseBpm: startBpm, baseBeats: 0, beats: 0, nextAt: now, timer: null };
     setRunning(true);
     Controls?.show({ bpm: startBpm, running: true });
-    tick();
-    setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' }).catch(
-      () => {}
-    );
-    if (Platform.OS === 'android') requestNotificationPermissionsAsync().catch(() => {});
+    if (Platform.OS === 'android' && AppState.currentState !== 'active') {
+      // started from the lock screen — JS timers are frozen, the service clicks
+      Controls?.startTicking({ bpm: startBpm, pattern: patternFor(latest.current.sig) });
+    } else {
+      tick();
+    }
+    applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' });
+    if (Platform.OS === 'android')
+      requestNotificationPermissionsAsync()
+        .then(() => {
+          // Android 13+: a notification posted before the grant was silently dropped — repaint
+          if (run.current) Controls?.update({ bpm: latest.current.bpm, running: true });
+        })
+        .catch(() => {});
   }, [tick]);
 
   const stop = useCallback(() => {
@@ -159,8 +172,22 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     run.current = null;
     setRunning(false);
     emitBeat(-1);
+    Controls?.stopTicking();
     Controls?.hide();
     setLiveBpm(latest.current.startBpm);
+  }, []);
+
+  // The lock-screen Pause: unlike stop(), the controls stay up (so the user can
+  // resume from there) and the live tempo is kept instead of reset.
+  const pause = useCallback(() => {
+    const r = run.current;
+    if (!r) return;
+    if (r.timer) clearTimeout(r.timer);
+    run.current = null;
+    setRunning(false);
+    emitBeat(-1);
+    Controls?.stopTicking();
+    Controls?.update({ bpm: latest.current.bpm, running: false });
   }, []);
 
   const setBpm = useCallback(
@@ -186,26 +213,62 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   const setTimeSig = useCallback((next: string) => store.updateSettings({ metroTimeSig: next }), [store]);
 
   const setRamp = useCallback(
-    (patch: Partial<Ramp>) =>
+    (patch: Partial<Ramp>) => {
+      const r = run.current;
+      if (r) {
+        // a ramp edited mid-run measures from now at the current tempo, like setBpm —
+        // otherwise the whole elapsed run is applied retroactively in one jump
+        r.baseBpm = latest.current.bpm;
+        r.baseBeats = r.beats;
+        r.startedAt = Date.now();
+      }
       store.updateSettings({
         ...(patch.on !== undefined && { metroRampOn: patch.on }),
         ...(patch.step !== undefined && { metroRampStep: patch.step }),
         ...(patch.every !== undefined && { metroRampEvery: patch.every }),
         ...(patch.unit !== undefined && { metroRampUnit: patch.unit }),
         ...(patch.target !== undefined && { metroRampTarget: patch.target }),
-      }),
+      });
+    },
     [store]
   );
 
-  // lock screen / notification buttons
+  // lock screen / notification buttons — their Pause pauses (controls stay up),
+  // it must not stop() and hide the only way back in
   useEffect(() => {
     const sub = Controls?.addListener('onCommand', ({ command }) => {
       if (command === 'inc') nudge(LOCK_SCREEN_STEP);
       else if (command === 'dec') nudge(-LOCK_SCREEN_STEP);
-      else toggle();
+      else if (run.current) pause();
+      else start();
     });
     return () => sub?.remove();
-  }, [nudge, toggle]);
+  }, [nudge, pause, start]);
+
+  // Android freezes JS timers whenever the activity pauses (screen off, home
+  // button) — hand the click loop to the foreground service and take it back on
+  // resume. ponytail: while native ticks, bar counting and a bars-based ramp
+  // pause; a seconds-based ramp catches up on resume. Move the whole loop native
+  // if that ever matters.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = AppState.addEventListener('change', (state) => {
+      const r = run.current;
+      if (state === 'active') {
+        Controls?.stopTicking();
+        if (r && r.timer === null) {
+          const interval = 60000 / latest.current.bpm;
+          r.nextAt = Date.now() + interval;
+          r.timer = setTimeout(tick, interval);
+        }
+      } else if (r) {
+        if (r.timer) clearTimeout(r.timer);
+        r.timer = null;
+        Controls?.startTicking({ bpm: latest.current.bpm, pattern: patternFor(latest.current.sig) });
+      }
+    });
+    return () => sub.remove();
+  }, [tick]);
 
   useEffect(() => {
     if (running) Controls?.update({ bpm, running: true });
