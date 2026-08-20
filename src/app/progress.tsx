@@ -5,17 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EditSessionSheet } from '@/components/edit-session';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
+import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 const fmtTime = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`);
-
-// mix two #RRGGBB colors — heatmap steps derive from the accent so every accent works
-const mix = (a: string, b: string, t: number) => {
-  const ch = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16);
-  const lerp = (i: number) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * t).toString(16).padStart(2, '0');
-  return `#${lerp(1)}${lerp(3)}${lerp(5)}`;
-};
 
 const PERIODS: { key: FocusPeriod; label: string; days: number | null }[] = [
   { key: '7d', label: '7d', days: 7 },
@@ -44,6 +38,11 @@ export default function Progress() {
   }
   // month heatmap: offset 0 = the current month
   const [monthOff, setMonthOff] = useState(0);
+  // paging months keeps the grid but a selected day belongs to one month only
+  const pageMonth = (d: number) => {
+    setMonthOff((o) => o + d);
+    setSelDate(null);
+  };
   const [editSess, setEditSess] = useState<Session | null>(null);
   const base = new Date(store.now);
   const mDate = new Date(base.getFullYear(), base.getMonth() - monthOff, 1);
@@ -54,13 +53,7 @@ export default function Progress() {
   const elapsedDays = monthOff === 0 ? todayDayNum : daysInMonth;
   let practiced = 0;
   for (let d = 1; d <= elapsedDays; d++) if ((store.minutesByDate[dateKey(new Date(mY, mM, d))] ?? 0) > 0) practiced++;
-  const cells: (number | null)[] = [
-    ...Array((mDate.getDay() - start + 7) % 7).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7) cells.push(null);
-  const weeks: (number | null)[][] = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const weeks = monthGrid(mY, mM, start === 1);
   const dow = start === 1 ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const monthTitle = mDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const heat1 = mix(C.accent, C.bg, 0.65); // 1–24 min
@@ -133,11 +126,11 @@ export default function Progress() {
       <Card>
         <View style={s.monthHead}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable hitSlop={10} onPress={() => setMonthOff((o) => o + 1)}>
+            <Pressable hitSlop={10} onPress={() => pageMonth(1)}>
               <Text style={[s.monthChev, { color: C.sub }]}>‹</Text>
             </Pressable>
             <Text style={s.monthTitle}>{monthTitle}</Text>
-            <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => setMonthOff((o) => o - 1)}>
+            <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => pageMonth(-1)}>
               <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
             </Pressable>
           </View>
@@ -157,11 +150,11 @@ export default function Progress() {
             {row.map((day, di) => {
               if (day === null) return <View key={di} style={s.cell} />;
               const key = dateKey(new Date(mY, mM, day));
-              const min = store.minutesByDate[key] ?? 0;
+              const level = heatLevel(store.minutesByDate[key] ?? 0);
               const future = monthOff === 0 && day > elapsedDays;
               const isToday = monthOff === 0 && day === todayDayNum;
-              const bg = future ? 'transparent' : min === 0 ? C.track : min < 25 ? heat1 : min < 40 ? heat2 : C.accent;
-              const num = future ? C.faint : min === 0 ? C.tertiary : min < 25 ? C.accentDark : '#FFFFFF';
+              const bg = future ? 'transparent' : [C.track, heat1, heat2, C.accent][level];
+              const num = future ? C.faint : [C.tertiary, C.accentDark, '#FFFFFF', '#FFFFFF'][level];
               return (
                 <Pressable
                   key={di}

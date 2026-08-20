@@ -6,6 +6,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
+import { buildCsv, isSafeRelPath, parseBackup } from './backup-math';
 import type { Recording, Session } from './store';
 
 const b64ToBytes = (b64: string) => {
@@ -34,16 +35,9 @@ export async function exportBackup(state: object, recordings: Recording[]) {
   await shareFile(`etude-backup-${date}.json`, JSON.stringify({ etudeBackup: 1, state, files }), 'application/json');
 }
 
-const csvCell = (v: string | number) => {
-  const s = String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
-
 export async function exportCsv(sessions: Session[]) {
-  const rows = ['date,focus,kind,minutes,note'];
-  for (const s of sessions) rows.push([s.date, csvCell(s.title), csvCell(s.meta), s.min, csvCell(s.note ?? '')].join(','));
   const date = new Date().toISOString().slice(0, 10);
-  await shareFile(`etude-sessions-${date}.csv`, rows.join('\n'), 'text/csv');
+  await shareFile(`etude-sessions-${date}.csv`, buildCsv(sessions), 'text/csv');
 }
 
 /**
@@ -54,17 +48,15 @@ export async function exportCsv(sessions: Session[]) {
 export async function pickBackup(): Promise<{ state: object; files: Record<string, string> } | null> {
   const res = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true });
   if (res.canceled) return null;
-  const raw = await new File(res.assets[0].uri).text();
-  const data = JSON.parse(raw);
-  if (!data || data.etudeBackup !== 1 || typeof data.state !== 'object') throw new Error('not a backup');
-  return { state: data.state, files: data.files ?? {} };
+  return parseBackup(await new File(res.assets[0].uri).text());
 }
 
 /** Writes the bundled recordings back into the documents directory. */
 export function restoreFiles(files: Record<string, string>) {
   for (const [rel, b64] of Object.entries(files)) {
     // paths come from an untrusted file — nothing may escape the documents dir
-    if (rel.split('/').includes('..') || rel.startsWith('/') || rel.includes(':')) continue;
+    // (parseBackup filters too; kept here so this stays safe on its own)
+    if (!isSafeRelPath(rel)) continue;
     try {
       const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
       if (dir) new Directory(Paths.document, dir).create({ intermediates: true, idempotent: true });

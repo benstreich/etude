@@ -54,7 +54,8 @@
     "check:metronome": "node --experimental-strip-types --no-warnings scripts/check-metronome.ts",
     "check:streak": "node --experimental-strip-types --no-warnings scripts/check-streak.ts",
     "check:migrate": "node --experimental-strip-types --no-warnings scripts/check-migrate.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate"
+    "check:improvements": "node --experimental-strip-types --no-warnings scripts/check-improvements.ts",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements"
   },
   "private": true
 }

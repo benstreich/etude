@@ -107,7 +107,7 @@ export default function PieceDetail() {
           ] as const
         ).map(([label, value]) => (
           <Card key={label} style={s.stat}>
-            <Overline style={{ marginBottom: 8, fontSize: 11 }}>{label}</Overline>
+            <Overline style={{ marginBottom: 8 }}>{label}</Overline>
             <Text style={s.statNum} numberOfLines={1}>
               {value}
             </Text>
