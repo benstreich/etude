@@ -106,6 +106,17 @@ export const FlameIcon = ({ color: colorProp, size = 14 }: P) => {
   );
 };
 
+export const LockIcon = ({ color: colorProp, size = 14 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M6 10.5V8a6 6 0 0 1 12 0v2.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    <Path d="M5 10.5h14a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8.5a1 1 0 0 1 1-1Z" stroke={color} strokeWidth={1.8} strokeLinejoin="round" />
+  </Svg>
+  );
+};
+
 export const ChevronIcon = ({ color: colorProp, size = 12 }: P) => {
   const C = useC();
   const color = colorProp ?? C.faint;
