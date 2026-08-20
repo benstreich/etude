@@ -8,6 +8,7 @@ import { AppState } from 'react-native';
 import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
+import { applySessionUpdate } from './session-math';
 import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
@@ -109,7 +110,9 @@ function seed(): State {
     fontScale: 1,
     radius: 'soft',
     reduceMotion: false,
-    reminder: '7:00 PM',
+    // 'Off' until onboarding asks — a seeded time would fire the OS permission
+    // prompt at first launch, before the reminders step gets to explain itself
+    reminder: 'Off',
     weekStart: 'Monday',
     quickLog: [15, 30, 45],
     quickLogFocus: null,
@@ -285,23 +288,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateSession: Store['updateSession'] = (id, patch) => {
-    setState((s) => {
-      if (!s) return s;
-      const sess = s.sessions.find((x) => x.id === id);
-      if (!sess) return s;
-      const delta = patch.min !== undefined ? patch.min - sess.min : 0;
-      return {
-        ...s,
-        sessions: s.sessions.map((x) =>
-          x.id === id ? { ...x, ...patch, note: patch.note !== undefined ? patch.note.trim() || undefined : x.note } : x
-        ),
-        totalMin: Math.max(0, s.totalMin + delta),
-        minutesByDate:
-          delta === 0
-            ? s.minutesByDate
-            : { ...s.minutesByDate, [sess.date]: Math.max(0, (s.minutesByDate[sess.date] ?? 0) + delta) },
-      };
-    });
+    setState((s) => (s ? applySessionUpdate(s, id, patch) : s));
   };
 
   const updatePiece: Store['updatePiece'] = (id, patch) => {
