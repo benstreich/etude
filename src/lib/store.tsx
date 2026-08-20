@@ -7,6 +7,7 @@ import { AppState } from 'react-native';
 
 import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
+import { syncReminder } from './reminders';
 import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
@@ -214,6 +215,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setToast('Save failed — device storage may be full')
       );
   }, [state]);
+
+  // keep the scheduled daily notification in sync with the setting; also runs
+  // on app start, so a permission granted later in system settings self-heals
+  const reminder = state?.reminder;
+  useEffect(() => {
+    if (reminder === undefined) return;
+    syncReminder(reminder)
+      .then((ok) => {
+        if (ok) return;
+        setToast('Enable notifications in system settings to get reminders');
+        clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(null), 2400);
+      })
+      .catch(() => {});
+  }, [reminder]);
 
   if (!state) return null;
 
