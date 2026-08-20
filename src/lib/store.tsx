@@ -27,11 +27,25 @@ export type Recording = {
   starred?: boolean;
 };
 // stage is an index into settings.stages
-export type Piece = { id: string; name: string; by: string; stage: number; pct: number; archived?: boolean };
+export type Piece = {
+  id: string;
+  name: string;
+  by: string;
+  stage: number;
+  pct: number;
+  archived?: boolean;
+  addedAt?: number;
+  currentBpm?: number;
+  targetBpm?: number;
+};
+
+export type FocusPeriod = '7d' | '30d' | 'all';
 
 export type WeekStart = 'Monday' | 'Sunday';
 
 type Settings = {
+  onboarded: boolean;
+  focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
   name: string;
   instruments: string[];
   breakDays: string[];
@@ -84,6 +98,8 @@ function seed(): State {
     techniques: ['Scales & arpeggios', 'Sight reading'],
     recordings: [],
     dailyGoal: 45,
+    onboarded: false,
+    focusPeriod: '30d',
     name: '',
     instruments: [],
     breakDays: ['Sunday'],
@@ -148,6 +164,10 @@ type Store = State & {
   logMinutes: (min: number, title: string, meta: string, date?: string) => string;
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
+  updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string }) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm'>>) => void;
+  /** Restore-from-backup: replaces everything after the blob went through migrate(). */
+  replaceState: (next: State) => void;
   addPiece: (name: string, by?: string) => void;
   addTechnique: (name: string) => void;
   removeTechnique: (name: string) => void;
@@ -262,6 +282,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const updateSession: Store['updateSession'] = (id, patch) => {
+    setState((s) => {
+      if (!s) return s;
+      const sess = s.sessions.find((x) => x.id === id);
+      if (!sess) return s;
+      const delta = patch.min !== undefined ? patch.min - sess.min : 0;
+      return {
+        ...s,
+        sessions: s.sessions.map((x) =>
+          x.id === id ? { ...x, ...patch, note: patch.note !== undefined ? patch.note.trim() || undefined : x.note } : x
+        ),
+        totalMin: Math.max(0, s.totalMin + delta),
+        minutesByDate:
+          delta === 0
+            ? s.minutesByDate
+            : { ...s.minutesByDate, [sess.date]: Math.max(0, (s.minutesByDate[sess.date] ?? 0) + delta) },
+      };
+    });
+  };
+
+  const updatePiece: Store['updatePiece'] = (id, patch) => {
+    setState((s) => {
+      if (!s) return s;
+      const n = s.stages.length;
+      return {
+        ...s,
+        pieces: s.pieces.map((p) => {
+          if (p.id !== id) return p;
+          const next = { ...p, ...patch };
+          // same pct rule as cyclePiece so the repertoire bar stays consistent
+          if (patch.stage !== undefined)
+            next.pct = patch.stage === 0 ? 20 : Math.round(((Math.min(patch.stage, n - 1) + 1) / n) * 100);
+          return next;
+        }),
+      };
+    });
+  };
+
   const deleteSession = (id: string) => {
     setState((s) => {
       if (!s) return s;
@@ -285,7 +343,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const dup = state.pieces.some((p) => p.name.trim().toLowerCase() === clean.toLowerCase());
     if (!dup)
       setState((s) =>
-        s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10 }, ...s.pieces] } : s
+        s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10, addedAt: Date.now() }, ...s.pieces] } : s
       );
     showToast(dup ? 'Already in repertoire' : 'Added to repertoire');
   };
@@ -414,6 +472,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logMinutes,
     deleteSession,
     setSessionNote,
+    updateSession,
+    updatePiece,
+    replaceState: (next: State) => setState(next),
     addPiece,
     addTechnique,
     removeTechnique,
