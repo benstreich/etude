@@ -166,8 +166,10 @@ type Store = State & {
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string }) => void;
   updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm'>>) => void;
-  /** Restore-from-backup: replaces everything after the blob went through migrate(). */
-  replaceState: (next: State) => void;
+  /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
+  restoreBackup: (stateObj: object) => void;
+  /** The persisted state only — what a backup file should contain. */
+  backupState: () => State;
   addPiece: (name: string, by?: string) => void;
   addTechnique: (name: string) => void;
   removeTechnique: (name: string) => void;
@@ -474,7 +476,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSessionNote,
     updateSession,
     updatePiece,
-    replaceState: (next: State) => setState(next),
+    restoreBackup: (stateObj: object) => setState(migrate(JSON.stringify(stateObj), seed())),
+    backupState: () => state,
     addPiece,
     addTechnique,
     removeTechnique,

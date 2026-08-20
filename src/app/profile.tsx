@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronIcon } from '@/components/icons';
+import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Card, Overline, ScreenTitle } from '@/components/ui';
+import { exportBackup, exportCsv, pickBackup, restoreFiles } from '@/lib/backup';
 import { useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -95,6 +96,32 @@ export default function Profile() {
     store.showToast('Saved');
   };
 
+  const backup = () =>
+    exportBackup(store.backupState(), store.recordings).catch(() => store.showToast('Backup failed'));
+  const csv = () => exportCsv(store.sessions).catch(() => store.showToast('Export failed'));
+  const restore = async () => {
+    let picked: Awaited<ReturnType<typeof pickBackup>>;
+    try {
+      picked = await pickBackup();
+    } catch {
+      return store.showToast('That file isn’t an Étude backup');
+    }
+    if (!picked) return;
+    const { state, files } = picked;
+    Alert.alert('Restore from backup?', 'Replaces what’s on this device.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Restore',
+        style: 'destructive',
+        onPress: () => {
+          restoreFiles(files);
+          store.restoreBackup(state);
+          store.showToast('Backup restored');
+        },
+      },
+    ]);
+  };
+
   const rows: { key: EditKey; label: string; value: string }[] = [
     { key: 'instruments', label: 'Instruments', value: store.instruments.join(', ') },
     { key: 'goal', label: 'Daily goal', value: `${store.dailyGoal} min` },
@@ -174,6 +201,33 @@ export default function Profile() {
           </Pressable>
         ))}
       </Card>
+
+      <View style={{ gap: 12 }}>
+        <Overline>Your data</Overline>
+        <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
+          {(
+            [
+              ['Back up everything', 'One file: sessions, pieces, settings', backup],
+              ['Export sessions as CSV', 'For spreadsheets — date, focus, minutes, note', csv],
+              ['Restore from backup', 'Replaces what’s on this device', restore],
+            ] as const
+          ).map(([label, sub, onPress], i) => (
+            <Pressable key={label} style={[s.dataRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={onPress}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.dataLabel}>{label}</Text>
+                <Text style={s.dataSub}>{sub}</Text>
+              </View>
+              <ChevronIcon />
+            </Pressable>
+          ))}
+        </Card>
+        <View style={s.dataFootRow}>
+          <LockIcon size={13} />
+          <Text style={s.dataFoot}>
+            Étude keeps everything on this device. Back up before switching phones — recordings are included.
+          </Text>
+        </View>
+      </View>
 
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <Pressable style={s.backdrop} onPress={() => setEditing(null)}>
@@ -349,6 +403,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 56 },
+  dataLabel: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
+  dataSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+  dataFootRow: { flexDirection: 'row', gap: 7, paddingHorizontal: 4, alignItems: 'flex-start' },
+  dataFoot: { flex: 1, fontFamily: F.body, fontSize: fs(12.5), lineHeight: fs(19), color: C.sub },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
 }));
