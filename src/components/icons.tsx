@@ -106,6 +106,17 @@ export const FlameIcon = ({ color: colorProp, size = 14 }: P) => {
   );
 };
 
+export const MetronomeIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.accent;
+  return (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M9.5 3.5h5L18 20.5H6L9.5 3.5Z" stroke={color} strokeWidth={1.7} strokeLinejoin="round" />
+    <Path d="M12 15.5 17.5 6" stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+  </Svg>
+  );
+};
+
 export const LockIcon = ({ color: colorProp, size = 14 }: P) => {
   const C = useC();
   const color = colorProp ?? C.sub;

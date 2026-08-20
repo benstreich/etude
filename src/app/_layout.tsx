@@ -106,6 +106,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="repertoire" options={{ title: 'Repertoire', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><NoteIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="profile" options={{ title: 'Settings', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><GearIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="appearance" options={{ href: null }} />
+            <Tabs.Screen name="piece/[id]" options={{ href: null }} />
           </Tabs>
           <Toast />
         </View>
