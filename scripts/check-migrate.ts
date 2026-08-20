@@ -79,4 +79,9 @@ const pieces = migrate(
 ).pieces.map((p) => p.stage);
 assert.deepEqual(pieces, [1, 0, 0, 2, 0]);
 
+// onboarding backfill: existing installs skip it, an explicit false survives, fresh installs get it
+assert.equal((migrate(save({ pieces: [] }), { ...seed(), onboarded: false }) as any).onboarded, true);
+assert.equal((migrate(save({ pieces: [], onboarded: false }), { ...seed(), onboarded: false }) as any).onboarded, false);
+assert.equal((migrate(null, { ...seed(), onboarded: false }) as any).onboarded, false);
+
 console.log('check-migrate: all assertions passed');

@@ -16,6 +16,8 @@ const LIGHT = {
   cardBorder: '#E8E2D6',
   ink: '#1C1A17',
   sub: '#8A8378',
+  // readable small text (≈5.5:1 on bg) — tertiary/faint are decoration-only
+  subStrong: '#6E675C',
   tertiary: '#A8A196',
   faint: '#C6BFB1',
   accent: '#B34A2E',
@@ -37,6 +39,7 @@ const DARK: Palette = {
   cardBorder: '#332C24',
   ink: '#EDE7DC',
   sub: '#9C9486',
+  subStrong: '#A69D8E',
   tertiary: '#7A7264',
   faint: '#4E4739',
   success: '#6FA37E',

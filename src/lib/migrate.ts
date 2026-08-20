@@ -25,6 +25,8 @@ export function migrate<S>(raw: string | null, seedState: S): S {
       stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
     }),
   );
+  // onboarding arrived after launch — anyone with a saved blob has used the app
+  if (saved.onboarded === undefined) merged.onboarded = true;
   // all seven days as break days would make the streak unbreakable (and meaningless)
   if (Array.isArray(merged.breakDays) && merged.breakDays.length >= 7) merged.breakDays = [];
   // legacy: recordings stored absolute file:// URIs, which rot on iOS when the app
