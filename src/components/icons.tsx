@@ -138,6 +138,17 @@ export const ChevronIcon = ({ color: colorProp, size = 12 }: P) => {
   );
 };
 
+export const ShareIcon = ({ color: colorProp, size = 20 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.ink;
+  return (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 14V4M8.5 7 12 3.5 15.5 7" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M5 12v7a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-7" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+  );
+};
+
 // Fermata logomark in its rounded square
 export const LogoMark = ({ size = 26 }: { size?: number }) => {
   const C = useC();
