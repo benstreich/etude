@@ -16,9 +16,6 @@ const greeting = (now: number, t: (k: string) => string) => {
   return h < 12 ? t('home.goodMorning') : h < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
 };
 
-const dateLine = (now: number, lang: string) =>
-  new Date(now).toLocaleDateString(lang, { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
-
 export default function Home() {
   const s = useS();
   const C = useC();
@@ -41,17 +38,13 @@ export default function Home() {
   ];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
+    // top inset lives outside the scroll content so scrolled-off content clips
+    // at the status bar instead of drawing under it (#23)
+    <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.page}>
       <View style={s.logoRow}>
         <LogoMark size={26} />
-        <Text style={s.wordmark}>Étude</Text>
-      </View>
-
-      <View style={s.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.date}>{dateLine(store.now, store.lang)}</Text>
-          <Text style={s.greeting}>{greeting(store.now, store.t)}</Text>
-        </View>
+        <Text style={[s.wordmark, { flex: 1 }]}>Étude</Text>
         {store.streakMode !== 'off' && store.displayStreak > 0 && (
           <View style={s.streakPill}>
             <FlameIcon />
@@ -59,6 +52,8 @@ export default function Home() {
           </View>
         )}
       </View>
+
+      <Text style={s.greeting}>{greeting(store.now, store.t)}</Text>
 
       <Card style={{ padding: 16 }}>
         <View style={s.todayRow}>
@@ -166,16 +161,15 @@ export default function Home() {
 
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </ScrollView>
+    </View>
   );
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
+  page: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40, gap: 26 },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   wordmark: { fontFamily: F.head, fontSize: fs(16), color: C.ink, letterSpacing: -0.16 },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 16 },
-  date: { fontFamily: F.bodySemi, fontSize: fs(12), letterSpacing: 1.4, color: C.tertiary, marginBottom: 6 },
-  greeting: { fontFamily: F.head, fontSize: fs(34), color: C.ink },
+  greeting: { fontFamily: F.head, fontSize: fs(24), color: C.ink, marginTop: -10 },
   streakPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 12 },
   streakText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   todayRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
