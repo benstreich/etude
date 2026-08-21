@@ -5,8 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Card, Overline, ScreenTitle } from '@/components/ui';
-import { exportBackup, exportCsv, pickBackup, restoreFiles } from '@/lib/backup';
-import { useStore, WeekStart } from '@/lib/store';
+import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
+import { autoBackupDate, parseBackup } from '@/lib/backup-math';
+import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -16,7 +17,9 @@ const GOALS = [15, 30, 45, 60, 90];
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
 const STREAK_LABELS: Record<StreakMode, string> = { off: 'Off', strict: 'Strict', relaxed: 'Relaxed' };
 
-type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages';
+const AUTO_BACKUP_LABELS: Record<number, string> = { 0: 'Off', 7: 'Weekly', 30: 'Monthly' };
+
+type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
@@ -99,15 +102,7 @@ export default function Profile() {
   const backup = () =>
     exportBackup(store.backupState(), store.recordings).catch(() => store.showToast('Backup failed'));
   const csv = () => exportCsv(store.sessions).catch(() => store.showToast('Export failed'));
-  const restore = async () => {
-    let picked: Awaited<ReturnType<typeof pickBackup>>;
-    try {
-      picked = await pickBackup();
-    } catch {
-      return store.showToast('That file isn’t an Étude backup');
-    }
-    if (!picked) return;
-    const { state, files } = picked;
+  const confirmRestore = ({ state, files }: { state: object; files: Record<string, string> }) =>
     Alert.alert('Restore from backup?', 'Replaces what’s on this device.', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -117,6 +112,34 @@ export default function Profile() {
           restoreFiles(files);
           store.restoreBackup(state);
           store.showToast('Backup restored');
+        },
+      },
+    ]);
+  const pickAndRestore = async () => {
+    let picked: Awaited<ReturnType<typeof pickBackup>>;
+    try {
+      picked = await pickBackup();
+    } catch {
+      return store.showToast('That file isn’t an Étude backup');
+    }
+    if (picked) confirmRestore(picked);
+  };
+  const restore = () => {
+    const auto = latestAutoBackup();
+    if (!auto) return pickAndRestore();
+    const label = dayLabel(autoBackupDate(auto.name)!, store.today);
+    const when = label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : label;
+    Alert.alert('Restore from backup', `There’s an automatic backup from ${when} on this device.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Choose a file…', onPress: pickAndRestore },
+      {
+        text: 'Use automatic backup',
+        onPress: async () => {
+          try {
+            confirmRestore(parseBackup(await auto.text()));
+          } catch {
+            store.showToast('That backup can’t be read');
+          }
         },
       },
     ]);
@@ -145,6 +168,7 @@ export default function Profile() {
     reminder: 'Practice reminders',
     weekStart: 'Week starts on',
     stages: 'Repertoire stages',
+    autoBackup: 'Automatic backups',
   };
 
   return (
@@ -208,6 +232,11 @@ export default function Profile() {
           {(
             [
               ['Back up everything', 'One file: sessions, pieces, settings', backup],
+              [
+                'Automatic backups',
+                AUTO_BACKUP_LABELS[store.autoBackupDays] ?? `Every ${store.autoBackupDays} days`,
+                () => setEditing('autoBackup'),
+              ],
               ['Export sessions as CSV', 'For spreadsheets — date, focus, minutes, note', csv],
               ['Restore from backup', 'Replaces what’s on this device', restore],
             ] as const
@@ -356,6 +385,19 @@ export default function Profile() {
                 ))}
               </View>
             )}
+            {editing === 'autoBackup' && (
+              <>
+                <View style={s.chipWrap}>
+                  {([['Off', 0], ['Weekly', 7], ['Monthly', 30]] as const).map(([label, d]) => (
+                    <Chip key={label} label={label} selected={store.autoBackupDays === d} onPress={() => pick({ autoBackupDays: d })} />
+                  ))}
+                </View>
+                <Text style={s.editorHint}>
+                  Saves your sessions, pieces and settings into the app’s own storage, keeping the last three.
+                  Recordings aren’t included — “Back up everything” covers those when switching phones.
+                </Text>
+              </>
+            )}
             {editing === 'weekStart' && (
               <View style={s.chipWrap}>
                 {(['Monday', 'Sunday'] as WeekStart[]).map((w) => (
@@ -364,7 +406,7 @@ export default function Profile() {
               </View>
             )}
 
-            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && editing !== 'streaks' && (
+            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && editing !== 'streaks' && editing !== 'autoBackup' && (
               <Pressable style={s.saveBtn} onPress={save}>
                 <Text style={s.saveBtnText}>Save</Text>
               </Pressable>

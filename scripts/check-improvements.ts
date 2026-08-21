@@ -2,7 +2,7 @@
 // edits. Run: npm run check:improvements
 import assert from 'node:assert/strict';
 
-import { buildCsv, isSafeRelPath, parseBackup } from '../src/lib/backup-math.ts';
+import { autoBackupDate, autoBackupPlan, buildCsv, isSafeRelPath, parseBackup } from '../src/lib/backup-math.ts';
 import { heatLevel, mix, monthGrid } from '../src/lib/heatmap-math.ts';
 import { applySessionUpdate } from '../src/lib/session-math.ts';
 
@@ -32,6 +32,20 @@ assert.deepEqual(good, { state: { totalMin: 5 }, files: { 'Audio/a.m4a': 'QQ==' 
 assert.deepEqual(parseBackup(JSON.stringify({ etudeBackup: 1, state: {} })).files, {});
 for (const bad of ['{}', 'null', '[]', JSON.stringify({ etudeBackup: 2, state: {} }), JSON.stringify({ etudeBackup: 1, state: null }), JSON.stringify({ etudeBackup: 1, state: [] })])
   assert.throws(() => parseBackup(bad));
+
+// --- auto backup: filename parsing, due-ness, and pruning to the newest 3
+assert.equal(autoBackupDate('etude-auto-2026-08-21.json'), '2026-08-21');
+assert.equal(autoBackupDate('etude-backup-2026-08-21.json'), null);
+assert.deepEqual(autoBackupPlan([], '2026-08-21', 7), { due: true, prune: [] }); // never backed up → due now
+assert.equal(autoBackupPlan(['etude-auto-2026-08-15.json'], '2026-08-21', 7).due, false); // 6 days ago
+assert.equal(autoBackupPlan(['etude-auto-2026-08-14.json'], '2026-08-21', 7).due, true); // exactly 7
+assert.equal(autoBackupPlan(['etude-auto-2026-08-21.json'], '2026-08-21', 7).due, false); // already today
+assert.equal(autoBackupPlan(['etude-auto-2026-08-30.json'], '2026-08-21', 7).due, false); // clock rolled back
+assert.deepEqual(
+  // stray files are ignored; after writing today's, only the newest 3 remain
+  autoBackupPlan(['notes.txt', 'etude-auto-2026-08-01.json', 'etude-auto-2026-08-08.json', 'etude-auto-2026-08-14.json'], '2026-08-21', 7),
+  { due: true, prune: ['etude-auto-2026-08-01.json'] },
+);
 
 // --- heatmap: hex mixing
 assert.equal(mix('#000000', '#ffffff', 0), '#000000');
