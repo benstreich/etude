@@ -10,6 +10,7 @@ import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
 import { MetronomeButton } from '@/components/metronome';
 import { RecordingsList } from '@/components/recordings';
+import { TempoLadder } from '@/components/tempo-ladder';
 import { Card, Overline } from '@/components/ui';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
@@ -137,6 +138,8 @@ export default function PieceDetail() {
           </Card>
         </Pressable>
       )}
+
+      <TempoLadder piece={piece} />
 
       {recordings.length > 0 && (
         <View style={{ gap: 12 }}>
