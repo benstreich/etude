@@ -109,6 +109,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="piece/[id]" options={{ href: null }} />
             <Tabs.Screen name="plan/[id]" options={{ href: null }} />
             <Tabs.Screen name="plan/run" options={{ href: null }} />
+            <Tabs.Screen name="compare" options={{ href: null }} />
           </Tabs>
           <Toast />
         </View>

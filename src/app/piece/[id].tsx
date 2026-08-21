@@ -143,7 +143,21 @@ export default function PieceDetail() {
 
       {recordings.length > 0 && (
         <View style={{ gap: 12 }}>
-          <Overline>Recordings · {recordings.length}</Overline>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Overline>Recordings · {recordings.length}</Overline>
+            {recordings.length >= 2 && (
+              <Pressable
+                hitSlop={8}
+                onPress={() =>
+                  router.push({
+                    pathname: '/compare',
+                    params: { piece: piece.name, a: recordings[0].id, b: recordings[1].id },
+                  })
+                }>
+                <Text style={s.compareLink}>Compare</Text>
+              </Pressable>
+            )}
+          </View>
           <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
             <RecordingsList recordings={recordings} />
           </Card>
@@ -255,6 +269,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   tempoValue: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink, marginTop: 2 },
   tempoTarget: { fontFamily: F.body, fontSize: fs(13), color: C.sub },
   ghostRowText: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.sub },
+  compareLink: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   histRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12, paddingVertical: 8 },
   histDay: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
   histNote: { fontFamily: F.body, fontSize: fs(12), color: C.subStrong, marginTop: 1 },
