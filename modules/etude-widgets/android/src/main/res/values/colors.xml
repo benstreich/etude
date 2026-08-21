@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Étude light palette (theme.ts LIGHT + terracotta); night variants alongside.
+     ponytail: widgets keep the brand terracotta even if the app accent is changed —
+     read the accent from the snapshot if that ever matters. -->
+<resources>
+  <color name="etude_widget_bg">#FAF7F2</color>
+  <color name="etude_widget_ink">#1C1A17</color>
+  <color name="etude_widget_sub">#8A8378</color>
+  <color name="etude_widget_track">#EFEAE0</color>
+  <color name="etude_widget_accent">#B34A2E</color>
+  <color name="etude_widget_accent_mid">#DE8A66</color>
+  <color name="etude_widget_accent_soft">#F2CDBB</color>
+</resources>

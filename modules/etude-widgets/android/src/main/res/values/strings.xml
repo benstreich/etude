@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="etude_widget_brand">♪ Étude</string>
+  <string name="etude_widget_minutes_today">minutes today</string>
+  <string name="etude_widget_practice">Practice</string>
+  <string name="etude_widget_small_label">Étude · Today</string>
+  <string name="etude_widget_medium_label">Étude · Week</string>
+  <string name="etude_widget_description">Today’s practice at a glance</string>
+</resources>

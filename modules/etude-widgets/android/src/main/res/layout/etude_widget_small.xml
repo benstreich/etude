@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/etude_widget_bg"
+  android:padding="14dp">
+
+  <ImageView
+    android:id="@+id/ring"
+    android:layout_width="54dp"
+    android:layout_height="54dp"
+    android:layout_alignParentTop="true"
+    android:layout_alignParentStart="true"
+    android:contentDescription="@null" />
+
+  <TextView
+    android:id="@+id/streak"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentTop="true"
+    android:layout_alignParentEnd="true"
+    android:fontFamily="sans-serif-medium"
+    android:textColor="@color/etude_widget_accent"
+    android:textSize="13sp" />
+
+  <TextView
+    android:id="@+id/minutes"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentBottom="true"
+    android:layout_alignParentStart="true"
+    android:layout_marginBottom="16dp"
+    android:fontFamily="sans-serif-medium"
+    android:textStyle="bold"
+    android:textColor="@color/etude_widget_ink"
+    android:textSize="17sp" />
+
+  <TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentBottom="true"
+    android:layout_alignParentStart="true"
+    android:fontFamily="sans-serif"
+    android:text="@string/etude_widget_minutes_today"
+    android:textColor="@color/etude_widget_sub"
+    android:textSize="11sp" />
+</RelativeLayout>

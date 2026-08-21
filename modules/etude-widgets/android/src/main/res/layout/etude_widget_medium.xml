@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/etude_widget_bg"
+  android:orientation="horizontal"
+  android:padding="14dp">
+
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:orientation="vertical">
+
+    <TextView
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:fontFamily="sans-serif-medium"
+      android:text="@string/etude_widget_brand"
+      android:textColor="@color/etude_widget_ink"
+      android:textSize="12sp" />
+
+    <TextView
+      android:id="@+id/minutes"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="6dp"
+      android:fontFamily="sans-serif-medium"
+      android:textStyle="bold"
+      android:textColor="@color/etude_widget_ink"
+      android:textSize="22sp" />
+
+    <TextView
+      android:id="@+id/sub"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="2dp"
+      android:ellipsize="end"
+      android:maxLines="1"
+      android:fontFamily="sans-serif"
+      android:textColor="@color/etude_widget_sub"
+      android:textSize="11.5sp" />
+
+    <TextView
+      android:id="@+id/practice"
+      android:layout_width="110dp"
+      android:layout_height="32dp"
+      android:layout_marginTop="10dp"
+      android:background="@drawable/etude_widget_pill"
+      android:gravity="center"
+      android:fontFamily="sans-serif-medium"
+      android:text="@string/etude_widget_practice"
+      android:textColor="#FFFFFF"
+      android:textSize="13sp" />
+  </LinearLayout>
+
+  <ImageView
+    android:id="@+id/bars"
+    android:layout_width="130dp"
+    android:layout_height="62dp"
+    android:layout_gravity="bottom"
+    android:contentDescription="@null" />
+</LinearLayout>

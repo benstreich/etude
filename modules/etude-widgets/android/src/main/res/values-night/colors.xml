@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- warm dark, matching theme.ts DARK -->
+<resources>
+  <color name="etude_widget_bg">#1F1B17</color>
+  <color name="etude_widget_ink">#EDE7DC</color>
+  <color name="etude_widget_sub">#9C9486</color>
+  <color name="etude_widget_track">#2A251F</color>
+  <color name="etude_widget_accent">#D96B4A</color>
+  <color name="etude_widget_accent_mid">#B34A2E</color>
+  <color name="etude_widget_accent_soft">#6B3A2A</color>
+</resources>
