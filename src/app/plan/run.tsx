@@ -29,7 +29,7 @@ export default function PlanRunner() {
   const [accum, setAccum] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [review, setReview] = useState<ReviewSession | null>(null);
-  const runStart = useRef(Date.now());
+  const [runStart] = useState(() => Date.now());
   const paused = startedAt === null;
 
   const seg = plan?.segments[idx];
@@ -64,7 +64,7 @@ export default function PlanRunner() {
     if (metro.running) metro.toggle();
     const total = plan.segments.slice(0, idx).reduce((a, x) => a + x.min, 0) + Math.round(seconds / 60);
     setStartedAt(null);
-    setReview({ id: lastId, min: Math.max(1, total), focusName: plan.name, start: runStart.current, end: Date.now() });
+    setReview({ id: lastId, min: Math.max(1, total), focusName: plan.name, start: runStart, end: Date.now() });
   };
 
   const advance = (sec: number) => {

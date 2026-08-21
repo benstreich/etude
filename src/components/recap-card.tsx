@@ -9,8 +9,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 
 import { LogoMark } from '@/components/icons';
-import { recapStats } from '@/lib/growth-math';
-import { tempoDelta } from '@/lib/growth-math';
+import { recapStats, tempoDelta } from '@/lib/growth-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 

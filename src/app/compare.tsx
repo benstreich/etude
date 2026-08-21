@@ -42,18 +42,23 @@ export default function Compare() {
 
   const uriA = recA?.uri;
   const uriB = recB?.uri;
+  // reset the flip to A whenever the pair changes (adjust-state-during-render,
+  // react.dev "you might not need an effect")
+  const pairKey = `${uriA}|${uriB}`;
+  const [prevPair, setPrevPair] = useState(pairKey);
+  if (prevPair !== pairKey) {
+    setPrevPair(pairKey);
+    setActive('A');
+  }
   useEffect(() => {
     applyAudioMode({ playsInSilentMode: true, allowsRecording: false });
     if (uriA) playerA.replace(resolveRecordingUri(uriA));
     if (uriB) playerB.replace(resolveRecordingUri(uriB));
-    // players pause automatically when replaced; reset the flip to A
-    setActive('A');
   }, [uriA, uriB, playerA, playerB]);
 
   if (!recA || !recB) return null;
 
   const cur = active === 'A' ? playerA : playerB;
-  const other = active === 'A' ? playerB : playerA;
   const curStatus = active === 'A' ? statusA : statusB;
   const playing = curStatus.playing;
 
@@ -76,43 +81,6 @@ export default function Compare() {
     else cur.play();
   };
 
-  const TakeCard = ({ which, rec, status }: { which: 'A' | 'B'; rec: Recording; status: typeof statusA }) => {
-    const isActive = active === which;
-    const progress = isActive && status.duration ? status.currentTime / status.duration : 0;
-    return (
-      <Card style={[{ padding: 16, gap: 12 }, isActive && { borderColor: C.accent, borderWidth: 1.5 }]}>
-        <View style={s.takeHead}>
-          <View style={[s.badge, isActive ? { backgroundColor: C.accent } : { backgroundColor: C.track }]}>
-            <Text style={[s.badgeText, isActive ? { color: '#FFFFFF' } : { color: C.sub }]}>{which}</Text>
-          </View>
-          <Text style={s.takeDate}>{rec.name || dayLabel(rec.date, store.today)}</Text>
-          <Text style={s.takeMeta}>{fmt(rec.sec)}</Text>
-        </View>
-        <View style={s.playRow}>
-          <Pressable
-            style={[s.playBtn, isActive ? { backgroundColor: C.accent, borderColor: C.accent } : { borderColor: C.inputBorder }]}
-            onPress={() => toggle(which)}>
-            <Text style={[s.playGlyph, isActive && { color: '#FFFFFF' }]}>{isActive && playing ? '❚❚' : '▶'}</Text>
-          </Pressable>
-          <View style={s.wave}>
-            {(rec.wave ?? Array(40).fill(0.4)).map((v, j, arr) => (
-              <View
-                key={j}
-                style={{
-                  flex: 1,
-                  height: 4 + v * 22,
-                  borderRadius: 2,
-                  backgroundColor: (j + 1) / arr.length <= progress ? C.accent : C.chartInactive,
-                }}
-              />
-            ))}
-          </View>
-          <Text style={s.elapsed}>{isActive ? fmt(status.currentTime) : '0:00'}</Text>
-        </View>
-      </Card>
-    );
-  };
-
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
@@ -131,8 +99,8 @@ export default function Compare() {
         </Text>
       </View>
 
-      <TakeCard which="A" rec={recA} status={statusA} />
-      <TakeCard which="B" rec={recB} status={statusB} />
+      <TakeCard which="A" rec={recA} isActive={active === 'A'} playing={playing} elapsed={statusA.currentTime} duration={statusA.duration} onToggle={() => toggle('A')} />
+      <TakeCard which="B" rec={recB} isActive={active === 'B'} playing={playing} elapsed={statusB.currentTime} duration={statusB.duration} onToggle={() => toggle('B')} />
 
       <View style={{ alignItems: 'center', gap: 10 }}>
         <View style={s.flipTrack}>
@@ -179,6 +147,61 @@ export default function Compare() {
         </Pressable>
       </Modal>
     </ScrollView>
+  );
+}
+
+function TakeCard({
+  which,
+  rec,
+  isActive,
+  playing,
+  elapsed,
+  duration,
+  onToggle,
+}: {
+  which: 'A' | 'B';
+  rec: Recording;
+  isActive: boolean;
+  playing: boolean;
+  elapsed: number;
+  duration: number;
+  onToggle: () => void;
+}) {
+  const s = useS();
+  const C = useC();
+  const store = useStore();
+  const progress = isActive && duration ? elapsed / duration : 0;
+  return (
+    <Card style={[{ padding: 16, gap: 12 }, isActive && { borderColor: C.accent, borderWidth: 1.5 }]}>
+      <View style={s.takeHead}>
+        <View style={[s.badge, isActive ? { backgroundColor: C.accent } : { backgroundColor: C.track }]}>
+          <Text style={[s.badgeText, isActive ? { color: '#FFFFFF' } : { color: C.sub }]}>{which}</Text>
+        </View>
+        <Text style={s.takeDate}>{rec.name || dayLabel(rec.date, store.today)}</Text>
+        <Text style={s.takeMeta}>{fmt(rec.sec)}</Text>
+      </View>
+      <View style={s.playRow}>
+        <Pressable
+          style={[s.playBtn, isActive ? { backgroundColor: C.accent, borderColor: C.accent } : { borderColor: C.inputBorder }]}
+          onPress={onToggle}>
+          <Text style={[s.playGlyph, isActive && { color: '#FFFFFF' }]}>{isActive && playing ? '❚❚' : '▶'}</Text>
+        </Pressable>
+        <View style={s.wave}>
+          {(rec.wave ?? Array(40).fill(0.4)).map((v: number, j: number, arr: number[]) => (
+            <View
+              key={j}
+              style={{
+                flex: 1,
+                height: 4 + v * 22,
+                borderRadius: 2,
+                backgroundColor: (j + 1) / arr.length <= progress ? C.accent : C.chartInactive,
+              }}
+            />
+          ))}
+        </View>
+        <Text style={s.elapsed}>{isActive ? fmt(elapsed) : '0:00'}</Text>
+      </View>
+    </Card>
   );
 }
 
