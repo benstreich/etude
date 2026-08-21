@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarsIcon, ClockIcon, GearIcon, HomeIcon, NoteIcon } from '@/components/icons';
 import { Onboarding } from '@/components/onboarding';
 import { Toast } from '@/components/toast';
+import { WidgetSync } from '@/components/widget-sync';
 import { MetronomeProvider } from '@/lib/metronome';
 import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
@@ -112,6 +113,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="compare" options={{ href: null }} />
           </Tabs>
           <Toast />
+          <WidgetSync />
         </View>
   );
 }

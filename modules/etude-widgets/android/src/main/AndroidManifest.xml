@@ -1,0 +1,27 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- receivers merge into the app manifest — no edits to android/app needed -->
+  <application>
+    <receiver
+      android:name="expo.modules.etudewidgets.EtudeSmallWidget"
+      android:exported="false"
+      android:label="@string/etude_widget_small_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/etude_widget_small_info" />
+    </receiver>
+    <receiver
+      android:name="expo.modules.etudewidgets.EtudeMediumWidget"
+      android:exported="false"
+      android:label="@string/etude_widget_medium_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/etude_widget_medium_info" />
+    </receiver>
+  </application>
+</manifest>
