@@ -4,6 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EditSessionSheet } from '@/components/edit-session';
+import { ShareIcon } from '@/components/icons';
+import { RecapModal } from '@/components/recap-card';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
@@ -24,6 +26,7 @@ export default function Progress() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selDate, setSelDate] = useState<string | null>(null);
+  const [recapOpen, setRecapOpen] = useState(false);
   const empty = store.totalMin === 0 && store.sessions.length === 0;
 
   // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days.
@@ -69,7 +72,14 @@ export default function Progress() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>Progress</ScreenTitle>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <ScreenTitle>Progress</ScreenTitle>
+        {!empty && (
+          <Pressable style={s.shareBtn} hitSlop={8} onPress={() => setRecapOpen(true)}>
+            <ShareIcon />
+          </Pressable>
+        )}
+      </View>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Card style={s.stat}>
@@ -234,6 +244,7 @@ export default function Progress() {
       )}
 
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
+      <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
     </ScrollView>
   );
 }
@@ -274,4 +285,5 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   emptyText: { fontFamily: F.body, fontSize: fs(13.5), lineHeight: fs(20), color: C.sub, maxWidth: 250, textAlign: 'center' },
   tintBtn: { height: 42, paddingHorizontal: 18, borderRadius: r(12), backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   tintBtnText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
+  shareBtn: { width: 38, height: 38, borderRadius: r(19), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
 }));
