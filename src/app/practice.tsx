@@ -2,11 +2,12 @@ import { RecordingPresets, requestNotificationPermissionsAsync, requestRecording
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeButton } from '@/components/metronome';
+import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Overline } from '@/components/ui';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
 import { toStoredUri, useStore } from '@/lib/store';
@@ -26,8 +27,8 @@ export default function Practice() {
   const [seconds, setSeconds] = useState(0);
   const [pastOpen, setPastOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [noteFor, setNoteFor] = useState<string | null>(null); // session id awaiting an optional note
-  const [note, setNote] = useState('');
+  const [review, setReview] = useState<ReviewSession | null>(null); // saved session shown in the review moment
+  const sessionStart = useRef(0); // wall clock when the session was started
   const paused = startedAt === null;
   const jsStop = useRef(false); // a JS-initiated stop; mutes the status listener below
   const finishRef = useRef<() => void>(() => {});
@@ -160,20 +161,18 @@ export default function Practice() {
     if (recording) await toggleRec();
     const min = Math.max(1, Math.round(seconds / 60));
     const id = store.logMinutes(min, focus.name, focus.kind);
-    store.showToast(`Session saved — ${min} min of ${focus.name}`);
     setRunning(false);
     setStartedAt(null);
     setAccum(0);
     setSeconds(0);
-    setFocus(null);
-    setNote('');
-    setNoteFor(id); // note prompt shows before leaving the tab
+    // focus stays set until the review closes — "Attach take" files under it
+    setReview({ id, min, focusName: focus.name, start: sessionStart.current, end: Date.now() });
   };
 
-  const closeNote = (save: boolean) => {
-    if (save && noteFor) store.setSessionNote(noteFor, note);
-    setNoteFor(null);
-    setNote('');
+  const closeReview = async () => {
+    if (recording) await endRec(true); // an attached take still running gets banked
+    setReview(null);
+    setFocus(null);
     router.push('/');
   };
 
@@ -319,6 +318,7 @@ export default function Practice() {
           onPress={() => {
             setSeconds(0);
             setAccum(0);
+            sessionStart.current = Date.now();
             setStartedAt(Date.now());
             setRunning(true);
           }}>
@@ -329,32 +329,7 @@ export default function Practice() {
         </Pressable>
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
-      <Modal visible={noteFor !== null} transparent animationType="fade" onRequestClose={() => closeNote(false)}>
-        <Pressable style={s.backdrop} onPress={() => closeNote(false)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
-            <Pressable style={s.sheet} onPress={() => {}}>
-              <Text style={s.sheetTitle}>How did it go?</Text>
-              <TextInput
-                style={s.noteInput}
-                value={note}
-                onChangeText={setNote}
-                placeholder="What went well? What to work on next time?"
-                placeholderTextColor={C.tertiary}
-                multiline
-                autoFocus
-              />
-              <View style={s.runBtns}>
-                <Pressable style={s.outlineBtn} onPress={() => closeNote(false)}>
-                  <Text style={s.outlineBtnText}>Skip</Text>
-                </Pressable>
-                <Pressable style={s.darkBtn} onPress={() => closeNote(true)}>
-                  <Text style={s.darkBtnText}>Save note</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+      <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} recording={recording} />
     </View>
   );
 }
@@ -384,8 +359,4 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   outlineBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.ink },
   darkBtn: { flex: 1, height: 56, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   darkBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: r(20), borderTopRightRadius: r(20), padding: 24, paddingBottom: 40 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink, marginBottom: 12 },
-  noteInput: { minHeight: 90, borderRadius: r(12), backgroundColor: C.bg, borderWidth: 1, borderColor: C.inputBorder, padding: 14, fontFamily: F.body, fontSize: fs(15), color: C.ink, textAlignVertical: 'top' },
 }));
