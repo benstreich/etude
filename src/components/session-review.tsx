@@ -1,7 +1,7 @@
 // Session review — full-screen moment after the timer stops (#17), replacing
 // the plain note prompt. Shows the day's goal ring, achievement chips, a note
 // field, and can attach a take via the practice screen's recorder.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -28,7 +28,7 @@ function GoalRing({ min, goal }: { min: number; goal: number }) {
   const pct = goal > 0 ? min / goal : 1;
   const base = Math.min(1, pct);
   const extra = Math.min(1, Math.max(0, pct - 1)); // overflow lap past 100%
-  const sweep = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  const [sweep] = useState(() => new Animated.Value(reduceMotion ? 1 : 0));
   useEffect(() => {
     if (!reduceMotion)
       Animated.timing(sweep, { toValue: 1, duration: 900, useNativeDriver: false }).start();
