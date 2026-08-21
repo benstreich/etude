@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import * as StoreReview from 'expo-store-review';
+import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,17 +8,40 @@ import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Card, Overline, ScreenTitle } from '@/components/ui';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
+import { parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
 
+// Values are persisted in settings — never translated. Labels are looked up per value at display time.
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Cello', 'Flute', 'Voice', 'Drums', 'Bass'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const GOALS = [15, 30, 45, 60, 90];
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
-const STREAK_LABELS: Record<StreakMode, string> = { off: 'Off', strict: 'Strict', relaxed: 'Relaxed' };
+const STREAK_KEYS: Record<StreakMode, string> = { off: 'settings.streakOff', strict: 'settings.streakStrict', relaxed: 'settings.streakRelaxed' };
 
-const AUTO_BACKUP_LABELS: Record<number, string> = { 0: 'Off', 7: 'Weekly', 30: 'Monthly' };
+const AUTO_BACKUP_KEYS: Record<number, string> = { 0: 'settings.off', 7: 'settings.weekly', 30: 'settings.monthly' };
+
+const INSTRUMENT_KEYS: Record<string, string> = {
+  Piano: 'settings.instPiano',
+  Guitar: 'settings.instGuitar',
+  Violin: 'settings.instViolin',
+  Cello: 'settings.instCello',
+  Flute: 'settings.instFlute',
+  Voice: 'settings.instVoice',
+  Drums: 'settings.instDrums',
+  Bass: 'settings.instBass',
+};
+
+const DAY_KEYS: Record<string, string> = {
+  Monday: 'settings.dayMonday',
+  Tuesday: 'settings.dayTuesday',
+  Wednesday: 'settings.dayWednesday',
+  Thursday: 'settings.dayThursday',
+  Friday: 'settings.dayFriday',
+  Saturday: 'settings.daySaturday',
+  Sunday: 'settings.daySunday',
+};
 
 type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
 
@@ -38,9 +62,18 @@ export default function Profile() {
   const store = useStore();
   const insets = useSafeAreaInsets();
   const [editing, setEditing] = useState<EditKey | null>(null);
+  // ponytail: native in-app review sheet; row hides where no store flow exists (web, sideloads)
+  const [canRate, setCanRate] = useState(false);
+  useEffect(() => {
+    StoreReview.hasAction().then(setCanRate).catch(() => {});
+  }, []);
   // draft values while the editor is open
   const [text, setText] = useState('');
   const [list, setList] = useState<string[]>([]);
+
+  // persisted value → localized label (stored values stay English)
+  const instLabel = (v: string) => (INSTRUMENT_KEYS[v] ? store.t(INSTRUMENT_KEYS[v]) : v);
+  const dayName = (v: string) => (DAY_KEYS[v] ? store.t(DAY_KEYS[v]) : v);
 
   const initials = store.name.split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase() || '♪';
 
@@ -51,6 +84,8 @@ export default function Profile() {
     if (key === 'breakDays') setList(store.breakDays);
     if (key === 'quickLog') setList(store.quickLog.map(String));
     if (key === 'stages') setList(store.stages);
+    // a custom reminder time pre-fills the input; presets leave it empty
+    if (key === 'reminder') setText(REMINDERS.includes(store.reminder) ? '' : store.reminder);
     setEditing(key);
   };
 
@@ -62,56 +97,62 @@ export default function Profile() {
     if (editing === 'name') {
       const t = text.trim();
       if (t) store.updateSettings({ name: t });
-      else error = 'Enter a name';
+      else error = store.t('settings.errName');
     }
     if (editing === 'goal') {
       const n = Number(text);
       if (n > 0) store.updateSettings({ dailyGoal: Math.min(999, n) });
-      else error = 'Goal needs to be at least 1 minute';
+      else error = store.t('settings.errGoal');
     }
     if (editing === 'instruments') {
       if (list.length) store.updateSettings({ instruments: list });
-      else error = 'Pick at least one instrument';
+      else error = store.t('settings.errInstruments');
     }
     if (editing === 'breakDays') {
       // all 7 as break days would make the streak unbreakable and meaningless
       if (list.length < 7) store.updateSettings({ breakDays: list });
-      else error = 'Keep at least one practice day';
+      else error = store.t('settings.errBreakDays');
     }
     if (editing === 'quickLog') {
       const nums = list.map(Number).filter((n) => n > 0 && n < 1000);
       if (nums.length) store.updateSettings({ quickLog: nums });
-      else error = 'Keep at least one preset';
+      else error = store.t('settings.errPresets');
     }
     if (editing === 'stages') {
       const names = list.map((t) => t.trim()).filter(Boolean);
       if (names.length >= 2) store.updateSettings({ stages: names });
-      else error = 'At least two stages';
+      else error = store.t('settings.errStages');
     }
     if (error) return store.showToast(error);
     setEditing(null);
-    store.showToast('Saved');
+    store.showToast(store.t('toast.saved'));
+  };
+
+  const saveCustomReminder = () => {
+    const t = parseReminderTime(text);
+    if (!t) return store.showToast(store.t('settings.errTime'));
+    pick({ reminder: reminderLabel(t) });
   };
 
   const pick = (patch: Parameters<typeof store.updateSettings>[0]) => {
     store.updateSettings(patch);
     setEditing(null);
-    store.showToast('Saved');
+    store.showToast(store.t('toast.saved'));
   };
 
   const backup = () =>
-    exportBackup(store.backupState(), store.recordings).catch(() => store.showToast('Backup failed'));
-  const csv = () => exportCsv(store.sessions).catch(() => store.showToast('Export failed'));
+    exportBackup(store.backupState(), store.recordings).catch(() => store.showToast(store.t('settings.backupFailed')));
+  const csv = () => exportCsv(store.sessions).catch(() => store.showToast(store.t('settings.exportFailed')));
   const confirmRestore = ({ state, files }: { state: object; files: Record<string, string> }) =>
-    Alert.alert('Restore from backup?', 'Replaces what’s on this device.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(store.t('settings.restoreConfirmTitle'), store.t('settings.restoreConfirmBody'), [
+      { text: store.t('settings.cancel'), style: 'cancel' },
       {
-        text: 'Restore',
+        text: store.t('settings.restore'),
         style: 'destructive',
         onPress: () => {
           restoreFiles(files);
           store.restoreBackup(state);
-          store.showToast('Backup restored');
+          store.showToast(store.t('settings.backupRestored'));
         },
       },
     ]);
@@ -120,25 +161,25 @@ export default function Profile() {
     try {
       picked = await pickBackup();
     } catch {
-      return store.showToast('That file isn’t an Étude backup');
+      return store.showToast(store.t('settings.notABackup'));
     }
     if (picked) confirmRestore(picked);
   };
   const restore = () => {
     const auto = latestAutoBackup();
     if (!auto) return pickAndRestore();
-    const label = dayLabel(autoBackupDate(auto.name)!, store.today);
-    const when = label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : label;
-    Alert.alert('Restore from backup', `There’s an automatic backup from ${when} on this device.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Choose a file…', onPress: pickAndRestore },
+    const label = dayLabel(autoBackupDate(auto.name)!, store.today, store.t, store.lang);
+    const when = label === store.t('common.today') || label === store.t('common.yesterday') ? label.toLowerCase() : label;
+    Alert.alert(store.t('settings.restoreFromBackup'), store.t('settings.autoBackupFound', { when }), [
+      { text: store.t('settings.cancel'), style: 'cancel' },
+      { text: store.t('settings.chooseFile'), onPress: pickAndRestore },
       {
-        text: 'Use automatic backup',
+        text: store.t('settings.useAutoBackup'),
         onPress: async () => {
           try {
             confirmRestore(parseBackup(await auto.text()));
           } catch {
-            store.showToast('That backup can’t be read');
+            store.showToast(store.t('settings.backupUnreadable'));
           }
         },
       },
@@ -146,59 +187,59 @@ export default function Profile() {
   };
 
   const rows: { key: EditKey; label: string; value: string }[] = [
-    { key: 'instruments', label: 'Instruments', value: store.instruments.join(', ') },
-    { key: 'goal', label: 'Daily goal', value: `${store.dailyGoal} min` },
-    { key: 'quickLog', label: 'Quick log presets', value: store.quickLog.map((n) => `${n}`).join(', ') + ' min' },
-    { key: 'quickLogFocus', label: 'Quick log focus', value: store.quickLogFocus?.name ?? 'Nothing specific' },
-    { key: 'breakDays', label: 'Break days', value: store.breakDays.length ? store.breakDays.join(', ') : 'None' },
-    { key: 'streaks', label: 'Streaks', value: STREAK_LABELS[store.streakMode] },
-    { key: 'reminder', label: 'Practice reminders', value: store.reminder },
-    { key: 'weekStart', label: 'Week starts on', value: store.weekStart },
-    { key: 'stages', label: 'Repertoire stages', value: store.stages.join(' · ') },
+    { key: 'instruments', label: store.t('settings.instruments'), value: store.instruments.map(instLabel).join(', ') },
+    { key: 'goal', label: store.t('settings.dailyGoal'), value: `${store.dailyGoal} ${store.t('settings.min')}` },
+    { key: 'quickLog', label: store.t('settings.quickLog'), value: store.quickLog.map((n) => `${n}`).join(', ') + ` ${store.t('settings.min')}` },
+    { key: 'quickLogFocus', label: store.t('settings.quickLogFocus'), value: store.quickLogFocus?.name ?? store.t('settings.nothingSpecific') },
+    { key: 'breakDays', label: store.t('settings.breakDays'), value: store.breakDays.length ? store.breakDays.map(dayName).join(', ') : store.t('settings.none') },
+    { key: 'streaks', label: store.t('settings.streaks'), value: store.t(STREAK_KEYS[store.streakMode]) },
+    { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : store.reminder },
+    { key: 'weekStart', label: store.t('settings.weekStart'), value: dayName(store.weekStart) },
+    { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
   ];
 
   const titles: Record<EditKey, string> = {
-    name: 'Your name',
-    instruments: 'Instruments',
-    goal: 'Daily goal',
-    quickLog: 'Quick log presets',
-    quickLogFocus: 'Quick log focus',
-    breakDays: 'Break days',
-    streaks: 'Streaks',
-    reminder: 'Practice reminders',
-    weekStart: 'Week starts on',
-    stages: 'Repertoire stages',
-    autoBackup: 'Automatic backups',
+    name: store.t('settings.yourName'),
+    instruments: store.t('settings.instruments'),
+    goal: store.t('settings.dailyGoal'),
+    quickLog: store.t('settings.quickLog'),
+    quickLogFocus: store.t('settings.quickLogFocus'),
+    breakDays: store.t('settings.breakDays'),
+    streaks: store.t('settings.streaks'),
+    reminder: store.t('settings.reminders'),
+    weekStart: store.t('settings.weekStart'),
+    stages: store.t('settings.stages'),
+    autoBackup: store.t('settings.autoBackups'),
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>Settings</ScreenTitle>
+      <ScreenTitle>{store.t('tabs.settings')}</ScreenTitle>
 
       <View style={s.head}>
         <Pressable style={s.avatar} onPress={() => open('name')}>
           <Text style={s.avatarText}>{initials}</Text>
         </Pressable>
         <Pressable onPress={() => open('name')}>
-          <Text style={s.name}>{store.name || 'Add your name'}</Text>
+          <Text style={s.name}>{store.name || store.t('settings.addYourName')}</Text>
         </Pressable>
-        <Text style={s.sub}>{store.instruments.length ? store.instruments.join(' & ') : 'Set your instruments below'}</Text>
+        <Text style={s.sub}>{store.instruments.length ? store.instruments.map(instLabel).join(' & ') : store.t('settings.setInstruments')}</Text>
       </View>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Card style={s.stat}>
-          <Overline style={{ marginBottom: 10 }}>Total practice</Overline>
+          <Overline style={{ marginBottom: 10 }}>{store.t('settings.totalPractice')}</Overline>
           <Text style={s.statNum}>
             {Math.round(store.totalMin / 60)}
-            <Text style={s.statUnit}> hrs</Text>
+            <Text style={s.statUnit}> {store.t('settings.hrsUnit')}</Text>
           </Text>
         </Card>
         {store.streakMode !== 'off' && (
           <Card style={s.stat}>
-            <Overline style={{ marginBottom: 10 }}>Best streak</Overline>
+            <Overline style={{ marginBottom: 10 }}>{store.t('settings.bestStreak')}</Overline>
             <Text style={s.statNum}>
               {store.bestStreak}
-              <Text style={s.statUnit}> days</Text>
+              <Text style={s.statUnit}> {store.t('settings.daysUnit')}</Text>
             </Text>
           </Card>
         )}
@@ -206,9 +247,9 @@ export default function Profile() {
 
       <Card style={{ paddingVertical: 4, paddingHorizontal: 20 }}>
         <Pressable style={s.row} onPress={() => router.push('/appearance')}>
-          <Text style={s.rowLabel}>Appearance</Text>
+          <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
           <Text style={s.rowValue} numberOfLines={1}>
-            {store.theme === 'system' ? 'System' : store.theme === 'dark' ? 'Dark' : 'Light'}
+            {store.t(store.theme === 'system' ? 'appearance.system' : store.theme === 'dark' ? 'appearance.dark' : 'appearance.light')}
           </Text>
           <ChevronIcon />
         </Pressable>
@@ -227,18 +268,20 @@ export default function Profile() {
       </Card>
 
       <View style={{ gap: 12 }}>
-        <Overline>Your data</Overline>
+        <Overline>{store.t('settings.yourData')}</Overline>
         <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
           {(
             [
-              ['Back up everything', 'One file: sessions, pieces, settings', backup],
+              [store.t('settings.backupEverything'), store.t('settings.backupEverythingSub'), backup],
               [
-                'Automatic backups',
-                AUTO_BACKUP_LABELS[store.autoBackupDays] ?? `Every ${store.autoBackupDays} days`,
+                store.t('settings.autoBackups'),
+                AUTO_BACKUP_KEYS[store.autoBackupDays]
+                  ? store.t(AUTO_BACKUP_KEYS[store.autoBackupDays])
+                  : store.t('settings.everyNDays', { n: store.autoBackupDays }),
                 () => setEditing('autoBackup'),
               ],
-              ['Export sessions as CSV', 'For spreadsheets — date, focus, minutes, note', csv],
-              ['Restore from backup', 'Replaces what’s on this device', restore],
+              [store.t('settings.exportCsv'), store.t('settings.exportCsvSub'), csv],
+              [store.t('settings.restoreFromBackup'), store.t('settings.restoreSub'), restore],
             ] as const
           ).map(([label, sub, onPress], i) => (
             <Pressable key={label} style={[s.dataRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={onPress}>
@@ -252,11 +295,21 @@ export default function Profile() {
         </Card>
         <View style={s.dataFootRow}>
           <LockIcon size={13} />
-          <Text style={s.dataFoot}>
-            Étude keeps everything on this device. Back up before switching phones — recordings are included.
-          </Text>
+          <Text style={s.dataFoot}>{store.t('settings.privacyFooter')}</Text>
         </View>
       </View>
+
+      {canRate && (
+        <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
+          <Pressable style={s.dataRow} onPress={() => StoreReview.requestReview().catch(() => {})}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.dataLabel}>{store.t('settings.rate')}</Text>
+              <Text style={s.dataSub}>{store.t('settings.rateSub')}</Text>
+            </View>
+            <ChevronIcon />
+          </Pressable>
+        </Card>
+      )}
 
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <Pressable style={s.backdrop} onPress={() => setEditing(null)}>
@@ -270,7 +323,7 @@ export default function Profile() {
                 value={text}
                 onChangeText={(t) => setText(editing === 'goal' ? t.replace(/\D/g, '').slice(0, 3) : t)}
                 keyboardType={editing === 'goal' ? 'number-pad' : 'default'}
-                placeholder={editing === 'goal' ? 'Minutes per day' : 'Name'}
+                placeholder={editing === 'goal' ? store.t('settings.minutesPerDay') : store.t('settings.namePlaceholder')}
                 placeholderTextColor={C.tertiary}
                 autoFocus
                 onSubmitEditing={save}
@@ -279,7 +332,7 @@ export default function Profile() {
             {editing === 'goal' && (
               <View style={s.chipWrap}>
                 {GOALS.map((g) => (
-                  <Chip key={g} label={`${g} min`} selected={Number(text) === g} onPress={() => setText(String(g))} />
+                  <Chip key={g} label={`${g} ${store.t('settings.min')}`} selected={Number(text) === g} onPress={() => setText(String(g))} />
                 ))}
               </View>
             )}
@@ -295,7 +348,7 @@ export default function Profile() {
                         setList((l) => l.map((x, j) => (j === i ? t.replace(/\D/g, '').slice(0, 3) : x)))
                       }
                       keyboardType="number-pad"
-                      placeholder="min"
+                      placeholder={store.t('settings.min')}
                       placeholderTextColor={C.tertiary}
                     />
                   ))}
@@ -305,26 +358,26 @@ export default function Profile() {
                     </Pressable>
                   )}
                 </View>
-                <Text style={s.editorHint}>Clear a field to remove that preset.</Text>
+                <Text style={s.editorHint}>{store.t('settings.clearPresetHint')}</Text>
               </>
             )}
             {editing === 'instruments' && (
               <View style={s.chipWrap}>
                 {INSTRUMENTS.map((inst) => (
-                  <Chip key={inst} label={inst} selected={list.includes(inst)} onPress={() => toggle(inst)} />
+                  <Chip key={inst} label={instLabel(inst)} selected={list.includes(inst)} onPress={() => toggle(inst)} />
                 ))}
               </View>
             )}
             {editing === 'breakDays' && (
               <View style={s.chipWrap}>
                 {DAYS.map((d) => (
-                  <Chip key={d} label={d.slice(0, 3)} selected={list.includes(d)} onPress={() => toggle(d)} />
+                  <Chip key={d} label={dayName(d).slice(0, 2)} selected={list.includes(d)} onPress={() => toggle(d)} />
                 ))}
               </View>
             )}
             {editing === 'quickLogFocus' && (
               <View style={s.chipWrap}>
-                <Chip label="Nothing specific" selected={!store.quickLogFocus} onPress={() => pick({ quickLogFocus: null })} />
+                <Chip label={store.t('settings.nothingSpecific')} selected={!store.quickLogFocus} onPress={() => pick({ quickLogFocus: null })} />
                 {store.pieces
                   .filter((p) => !p.archived)
                   .map((p) => (
@@ -353,62 +406,75 @@ export default function Profile() {
                     style={s.input}
                     value={v}
                     onChangeText={(t) => setList((l) => l.map((x, j) => (j === i ? t.slice(0, 20) : x)))}
-                    placeholder={`Stage ${i + 1}`}
+                    placeholder={store.t('settings.stagePlaceholder', { n: i + 1 })}
                     placeholderTextColor={C.tertiary}
                   />
                 ))}
                 {list.length < 6 && (
                   <Pressable style={s.addStageBtn} onPress={() => setList((l) => [...l, ''])}>
-                    <Text style={s.addStageText}>+ Add stage</Text>
+                    <Text style={s.addStageText}>{store.t('settings.addStage')}</Text>
                   </Pressable>
                 )}
-                <Text style={s.editorHint}>In order, first to last. Clear a field to remove it; at least two stages.</Text>
+                <Text style={s.editorHint}>{store.t('settings.stagesHint')}</Text>
               </>
             )}
             {editing === 'streaks' && (
               <>
                 <View style={s.chipWrap}>
                   {(['off', 'strict', 'relaxed'] as StreakMode[]).map((m) => (
-                    <Chip key={m} label={STREAK_LABELS[m]} selected={store.streakMode === m} onPress={() => pick({ streakMode: m })} />
+                    <Chip key={m} label={store.t(STREAK_KEYS[m])} selected={store.streakMode === m} onPress={() => pick({ streakMode: m })} />
                   ))}
                 </View>
-                <Text style={s.editorHint}>
-                  Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never
-                  count against it, and logging a past day revives it either way.
-                </Text>
+                <Text style={s.editorHint}>{store.t('settings.streaksHint')}</Text>
               </>
             )}
             {editing === 'reminder' && (
-              <View style={s.chipWrap}>
-                {REMINDERS.map((r) => (
-                  <Chip key={r} label={r} selected={store.reminder === r} onPress={() => pick({ reminder: r })} />
-                ))}
-              </View>
+              <>
+                <View style={s.chipWrap}>
+                  {REMINDERS.map((r) => (
+                    <Chip key={r} label={r === 'Off' ? store.t('settings.off') : r} selected={store.reminder === r} onPress={() => pick({ reminder: r })} />
+                  ))}
+                  {!REMINDERS.includes(store.reminder) && (
+                    <Chip label={store.reminder} selected onPress={() => {}} />
+                  )}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput
+                    style={[s.input, { flex: 1 }]}
+                    value={text}
+                    onChangeText={setText}
+                    placeholder={store.t('settings.customTimePlaceholder')}
+                    placeholderTextColor={C.tertiary}
+                    onSubmitEditing={saveCustomReminder}
+                    returnKeyType="done"
+                  />
+                  <Pressable style={s.addPresetBtn} onPress={saveCustomReminder}>
+                    <Text style={s.addPresetText}>✓</Text>
+                  </Pressable>
+                </View>
+              </>
             )}
             {editing === 'autoBackup' && (
               <>
                 <View style={s.chipWrap}>
-                  {([['Off', 0], ['Weekly', 7], ['Monthly', 30]] as const).map(([label, d]) => (
-                    <Chip key={label} label={label} selected={store.autoBackupDays === d} onPress={() => pick({ autoBackupDays: d })} />
+                  {([0, 7, 30] as const).map((d) => (
+                    <Chip key={d} label={store.t(AUTO_BACKUP_KEYS[d])} selected={store.autoBackupDays === d} onPress={() => pick({ autoBackupDays: d })} />
                   ))}
                 </View>
-                <Text style={s.editorHint}>
-                  Saves your sessions, pieces and settings into the app’s own storage, keeping the last three.
-                  Recordings aren’t included — “Back up everything” covers those when switching phones.
-                </Text>
+                <Text style={s.editorHint}>{store.t('settings.autoBackupHint')}</Text>
               </>
             )}
             {editing === 'weekStart' && (
               <View style={s.chipWrap}>
                 {(['Monday', 'Sunday'] as WeekStart[]).map((w) => (
-                  <Chip key={w} label={w} selected={store.weekStart === w} onPress={() => pick({ weekStart: w })} />
+                  <Chip key={w} label={dayName(w)} selected={store.weekStart === w} onPress={() => pick({ weekStart: w })} />
                 ))}
               </View>
             )}
 
             {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && editing !== 'streaks' && editing !== 'autoBackup' && (
               <Pressable style={s.saveBtn} onPress={save}>
-                <Text style={s.saveBtnText}>Save</Text>
+                <Text style={s.saveBtnText}>{store.t('settings.save')}</Text>
               </Pressable>
             )}
           </Pressable>

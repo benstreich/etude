@@ -72,7 +72,7 @@ export default function PlanBuilder() {
             <Text style={s.navGlyph}>‹</Text>
           </Pressable>
           <Pressable hitSlop={10} onPress={() => router.back()}>
-            <Text style={s.saveLink}>Save plan</Text>
+            <Text style={s.saveLink}>{store.t('plan.savePlan')}</Text>
           </Pressable>
         </View>
 
@@ -80,11 +80,11 @@ export default function PlanBuilder() {
           style={s.title}
           value={plan.name}
           onChangeText={(name) => store.updatePlan(plan.id, { name })}
-          placeholder="Plan name"
+          placeholder={store.t('plan.planName')}
           placeholderTextColor={C.tertiary}
         />
         <Text style={s.meta}>
-          {plan.segments.length} segment{plan.segments.length === 1 ? '' : 's'} · {totalMin} min total
+          {store.t('plan.segmentCount', { count: plan.segments.length })} · {store.t('plan.minTotal', { min: totalMin })}
         </Text>
 
         <View style={{ gap: 10, marginTop: 20 }}>
@@ -96,17 +96,17 @@ export default function PlanBuilder() {
                   {seg.focus.name}
                   {seg.note ? ` · ${seg.note}` : ''}
                 </Text>
-                {!!seg.bpm && <Text style={s.segSub}>Metronome {seg.bpm} BPM</Text>}
+                {!!seg.bpm && <Text style={s.segSub}>{store.t('plan.metronomeBpm', { bpm: seg.bpm })}</Text>}
               </View>
               <View style={s.minChip}>
-                <Text style={s.minChipText}>{seg.min}m</Text>
+                <Text style={s.minChipText}>{store.t('plan.minShort', { min: seg.min })}</Text>
               </View>
             </Pressable>
           ))}
           <Pressable style={s.addRow} onPress={() => openEdit(-1)} disabled={focusOptions.length === 0}>
             <Text style={s.addPlus}>+</Text>
             <Text style={s.addText}>
-              {focusOptions.length === 0 ? 'Add a piece or technique first' : 'Add segment'}
+              {focusOptions.length === 0 ? store.t('plan.addFocusFirst') : store.t('plan.addSegment')}
             </Text>
           </Pressable>
         </View>
@@ -118,7 +118,7 @@ export default function PlanBuilder() {
             store.removePlan(plan.id);
             router.back();
           }}>
-          <Text style={s.deleteLink}>Delete plan</Text>
+          <Text style={s.deleteLink}>{store.t('plan.deletePlan')}</Text>
         </Pressable>
       </ScrollView>
 
@@ -128,7 +128,7 @@ export default function PlanBuilder() {
           disabled={plan.segments.length === 0}
           onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
           <PlayIcon />
-          <Text style={s.startText}>Start plan</Text>
+          <Text style={s.startText}>{store.t('plan.startPlan')}</Text>
         </Pressable>
       </View>
 
@@ -136,7 +136,7 @@ export default function PlanBuilder() {
         <Pressable style={s.backdrop} onPress={closeEdit}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
             <Pressable style={s.sheet} onPress={() => {}}>
-              <Text style={s.sheetTitle}>{editIdx === -1 ? 'New segment' : 'Edit segment'}</Text>
+              <Text style={s.sheetTitle}>{editIdx === -1 ? store.t('plan.newSegment') : store.t('plan.editSegment')}</Text>
               <ScrollView style={{ maxHeight: 150 }}>
                 <View style={s.chipWrap}>
                   {focusOptions.map((f) => {
@@ -156,11 +156,11 @@ export default function PlanBuilder() {
                 style={s.input}
                 value={draft?.note ?? ''}
                 onChangeText={(t) => setDraft((d) => (d ? { ...d, note: t || undefined } : d))}
-                placeholder="Note — e.g. bars 12–24, slow"
+                placeholder={store.t('plan.notePlaceholder')}
                 placeholderTextColor={C.tertiary}
               />
               <View style={s.fieldRow}>
-                <Text style={s.fieldLabel}>Minutes</Text>
+                <Text style={s.fieldLabel}>{store.t('plan.minutes')}</Text>
                 <Stepper
                   value={draft?.min ?? 10}
                   min={1}
@@ -169,7 +169,7 @@ export default function PlanBuilder() {
                 />
               </View>
               <View style={s.fieldRow}>
-                <Text style={s.fieldLabel}>Metronome</Text>
+                <Text style={s.fieldLabel}>{store.t('plan.metronome')}</Text>
                 <TextInput
                   style={s.bpmInput}
                   value={draft?.bpm ? String(draft.bpm) : ''}
@@ -185,20 +185,20 @@ export default function PlanBuilder() {
               {editIdx !== null && editIdx >= 0 && (
                 <View style={s.rowBtns}>
                   <Pressable style={s.smallBtn} disabled={editIdx === 0} onPress={() => move(-1)}>
-                    <Text style={[s.smallBtnText, editIdx === 0 && { color: C.faint }]}>Move up</Text>
+                    <Text style={[s.smallBtnText, editIdx === 0 && { color: C.faint }]}>{store.t('plan.moveUp')}</Text>
                   </Pressable>
                   <Pressable style={s.smallBtn} disabled={editIdx === plan.segments.length - 1} onPress={() => move(1)}>
                     <Text style={[s.smallBtnText, editIdx === plan.segments.length - 1 && { color: C.faint }]}>
-                      Move down
+                      {store.t('plan.moveDown')}
                     </Text>
                   </Pressable>
                   <Pressable style={s.smallBtn} onPress={removeSegment}>
-                    <Text style={[s.smallBtnText, { color: C.accent }]}>Delete</Text>
+                    <Text style={[s.smallBtnText, { color: C.accent }]}>{store.t('plan.delete')}</Text>
                   </Pressable>
                 </View>
               )}
               <Pressable style={s.saveBtn} onPress={saveEdit}>
-                <Text style={s.saveText}>{editIdx === -1 ? 'Add segment' : 'Save segment'}</Text>
+                <Text style={s.saveText}>{editIdx === -1 ? store.t('plan.addSegment') : store.t('plan.saveSegment')}</Text>
               </Pressable>
             </Pressable>
           </KeyboardAvoidingView>

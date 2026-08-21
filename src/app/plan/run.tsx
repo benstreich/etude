@@ -100,12 +100,12 @@ export default function PlanRunner() {
     };
     if (!midSegment) return doEnd();
     if (Platform.OS === 'web') {
-      if (window.confirm('End the plan? The current segment will be saved as-is.')) doEnd();
+      if (window.confirm(`${store.t('planRun.endTitle')} ${store.t('planRun.endMessage')}`)) doEnd();
       return;
     }
-    Alert.alert('End plan?', 'The current segment will be saved as-is.', [
-      { text: 'Keep going', style: 'cancel' },
-      { text: 'End', style: 'destructive', onPress: doEnd },
+    Alert.alert(store.t('planRun.endTitle'), store.t('planRun.endMessage'), [
+      { text: store.t('planRun.keepGoing'), style: 'cancel' },
+      { text: store.t('planRun.end'), style: 'destructive', onPress: doEnd },
     ]);
   };
 
@@ -125,7 +125,7 @@ export default function PlanRunner() {
           {plan.name}
         </Text>
         <Pressable hitSlop={10} onPress={end}>
-          <Text style={s.endLink}>End</Text>
+          <Text style={s.endLink}>{store.t('planRun.end')}</Text>
         </Pressable>
       </View>
 
@@ -141,7 +141,7 @@ export default function PlanRunner() {
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
         <Overline>
-          Segment {idx + 1} of {plan.segments.length}
+          {store.t('planRun.segmentOf', { n: idx + 1, total: plan.segments.length })}
         </Overline>
         <Text style={s.segTitle} numberOfLines={2}>
           {title}
@@ -149,12 +149,12 @@ export default function PlanRunner() {
         <Text style={s.timer} numberOfLines={1} adjustsFontSizeToFit>
           {mm}:{ss}
         </Text>
-        <Text style={s.of}>of {seg.min} min</Text>
+        <Text style={s.of}>{store.t('planRun.ofMin', { min: seg.min })}</Text>
         {!!seg.bpm && (
           <Pressable style={[s.metroChip, metro.running && { backgroundColor: C.accent }]} onPress={toggleMetro}>
             <View style={[s.metroDot, metro.running && { backgroundColor: C.bg, opacity: beat % 2 === 0 ? 1 : 0.35 }]} />
             <Text style={[s.metroText, metro.running && { color: C.bg }]}>
-              Metronome · {metro.running ? metro.bpm : seg.bpm} BPM
+              {store.t('planRun.metronomeBpm', { bpm: metro.running ? metro.bpm : seg.bpm })}
             </Text>
           </Pressable>
         )}
@@ -173,7 +173,7 @@ export default function PlanRunner() {
           <Text style={s.pauseText}>{paused ? '▶' : '❚❚'}</Text>
         </Pressable>
         <Pressable style={s.nextBtn} onPress={() => advance(Math.max(60, seconds))}>
-          <Text style={s.nextText}>{idx + 1 < plan.segments.length ? 'Next' : 'Finish'}</Text>
+          <Text style={s.nextText}>{idx + 1 < plan.segments.length ? store.t('planRun.next') : store.t('planRun.finish')}</Text>
         </Pressable>
         <View style={{ width: 56 }} />
       </View>

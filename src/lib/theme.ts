@@ -55,19 +55,19 @@ export type Palette = typeof LIGHT;
 
 // accent/accentDark/accentTint per scheme; dark accents run lighter so they read on dark paper
 export const ACCENTS: Record<AccentName, { label: string; light: [string, string, string]; dark: [string, string, string] }> = {
-  terracotta: { label: 'Terracotta', light: ['#B34A2E', '#8F3A24', '#FBEFE9'], dark: ['#D96B4A', '#B34A2E', '#39241C'] },
-  forest: { label: 'Forest', light: ['#4A7C59', '#3A6246', '#EBF3ED'], dark: ['#6FA37E', '#4A7C59', '#1F2E24'] },
-  indigo: { label: 'Indigo', light: ['#5B5BD6', '#4747AD', '#EEEEFB'], dark: ['#8385E8', '#5B5BD6', '#252547'] },
-  ocean: { label: 'Ocean', light: ['#2E7DB3', '#24638F', '#E9F2FB'], dark: ['#5BA3D0', '#2E7DB3', '#1D2C3A'] },
-  plum: { label: 'Plum', light: ['#9D4A8E', '#7C3A70', '#F8ECF6'], dark: ['#C273B4', '#9D4A8E', '#33202F'] },
-  slate: { label: 'Slate', light: ['#556270', '#424C57', '#EDF0F3'], dark: ['#8A99A8', '#556270', '#262C33'] },
+  terracotta: { label: 'appearance.accentTerracotta', light: ['#B34A2E', '#8F3A24', '#FBEFE9'], dark: ['#D96B4A', '#B34A2E', '#39241C'] },
+  forest: { label: 'appearance.accentForest', light: ['#4A7C59', '#3A6246', '#EBF3ED'], dark: ['#6FA37E', '#4A7C59', '#1F2E24'] },
+  indigo: { label: 'appearance.accentIndigo', light: ['#5B5BD6', '#4747AD', '#EEEEFB'], dark: ['#8385E8', '#5B5BD6', '#252547'] },
+  ocean: { label: 'appearance.accentOcean', light: ['#2E7DB3', '#24638F', '#E9F2FB'], dark: ['#5BA3D0', '#2E7DB3', '#1D2C3A'] },
+  plum: { label: 'appearance.accentPlum', light: ['#9D4A8E', '#7C3A70', '#F8ECF6'], dark: ['#C273B4', '#9D4A8E', '#33202F'] },
+  slate: { label: 'appearance.accentSlate', light: ['#556270', '#424C57', '#EDF0F3'], dark: ['#8A99A8', '#556270', '#262C33'] },
 };
 
 export const FONT_SCALES = [
-  { label: 'Small', value: 0.9 },
-  { label: 'Default', value: 1 },
-  { label: 'Large', value: 1.1 },
-  { label: 'XL', value: 1.25 },
+  { label: 'appearance.fsSmall', value: 0.9 },
+  { label: 'appearance.fsDefault', value: 1 },
+  { label: 'appearance.fsLarge', value: 1.1 },
+  { label: 'appearance.fsXL', value: 1.25 },
 ];
 
 const RADIUS_SCALE: Record<RadiusMode, number> = { sharp: 0.4, soft: 1, round: 1.6 };

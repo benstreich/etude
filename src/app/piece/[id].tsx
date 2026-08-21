@@ -16,7 +16,8 @@ import { MAX_BPM } from '@/lib/metronome-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
-const fmtTime = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`);
+const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
+  min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
 const stageColor = (C: Palette, i: number, n: number) => (i >= n - 1 ? C.success : C.accent);
 
 export default function PieceDetail() {
@@ -42,7 +43,7 @@ export default function PieceDetail() {
   const n = store.stages.length;
   const stage = Math.min(piece.stage, n - 1);
   const added = piece.addedAt
-    ? new Date(piece.addedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+    ? new Date(piece.addedAt).toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })
     : null;
 
   const openTempo = () => {
@@ -72,12 +73,12 @@ export default function PieceDetail() {
 
       <View>
         <Text style={s.title}>{piece.name}</Text>
-        <Text style={s.meta}>{[piece.by, added && `added ${added}`].filter(Boolean).join(' · ') || ' '}</Text>
+        <Text style={s.meta}>{[piece.by, added && store.t('piece.added', { date: added })].filter(Boolean).join(' · ') || ' '}</Text>
       </View>
 
       <Card style={{ padding: 16, gap: 12 }}>
         <View style={s.rowBetween}>
-          <Text style={s.cardLabel}>Stage</Text>
+          <Text style={s.cardLabel}>{store.t('piece.stage')}</Text>
           <Text style={[s.stageName, { color: stageColor(C, stage, n) }]}>{store.stages[stage]}</Text>
         </View>
         <View style={s.segRow}>
@@ -102,9 +103,9 @@ export default function PieceDetail() {
       <View style={{ flexDirection: 'row', gap: 12 }}>
         {(
           [
-            ['Total', fmtTime(totalMin)],
-            ['Sessions', String(sessions.length)],
-            ['Last', last ? dayLabel(last, store.today) : '—'],
+            [store.t('piece.total'), fmtTime(totalMin, store.t)],
+            [store.t('piece.sessionsStat'), String(sessions.length)],
+            [store.t('piece.last'), last ? dayLabel(last, store.today, store.t, store.lang) : '—'],
           ] as const
         ).map(([label, value]) => (
           <Card key={label} style={s.stat}>
@@ -121,7 +122,7 @@ export default function PieceDetail() {
           <View style={s.tempoRow}>
             <MetronomeIcon />
             <Pressable style={{ flex: 1 }} onPress={openTempo}>
-              <Text style={s.cardLabel}>Target tempo</Text>
+              <Text style={s.cardLabel}>{store.t('piece.targetTempo')}</Text>
               <Text style={s.tempoValue}>
                 {piece.currentBpm ?? '—'}
                 <Text style={s.tempoTarget}> / {piece.targetBpm ?? '—'} BPM</Text>
@@ -134,7 +135,7 @@ export default function PieceDetail() {
         <Pressable onPress={openTempo}>
           <Card style={[s.tempoRow, { padding: 16 }]}>
             <MetronomeIcon color={C.sub} />
-            <Text style={s.ghostRowText}>Add target tempo</Text>
+            <Text style={s.ghostRowText}>{store.t('piece.addTargetTempo')}</Text>
           </Card>
         </Pressable>
       )}
@@ -144,7 +145,7 @@ export default function PieceDetail() {
       {recordings.length > 0 && (
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Overline>Recordings · {recordings.length}</Overline>
+            <Overline>{store.t('piece.recordingsCount', { count: recordings.length })}</Overline>
             {recordings.length >= 2 && (
               <Pressable
                 hitSlop={8}
@@ -154,7 +155,7 @@ export default function PieceDetail() {
                     params: { piece: piece.name, a: recordings[0].id, b: recordings[1].id },
                   })
                 }>
-                <Text style={s.compareLink}>Compare</Text>
+                <Text style={s.compareLink}>{store.t('piece.compare')}</Text>
               </Pressable>
             )}
           </View>
@@ -166,7 +167,7 @@ export default function PieceDetail() {
 
       {sessions.length > 0 && (
         <View style={{ gap: 12 }}>
-          <Overline>History</Overline>
+          <Overline>{store.t('piece.history')}</Overline>
           <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
             {sessions.map((sess, i) => (
               <Pressable
@@ -174,14 +175,14 @@ export default function PieceDetail() {
                 style={[s.histRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
                 onPress={() => setEditSess(sess)}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.histDay}>{dayLabel(sess.date, store.today)}</Text>
+                  <Text style={s.histDay}>{dayLabel(sess.date, store.today, store.t, store.lang)}</Text>
                   {!!sess.note && (
                     <Text style={s.histNote} numberOfLines={1}>
                       {sess.note}
                     </Text>
                   )}
                 </View>
-                <Text style={s.histMin}>{sess.min} min</Text>
+                <Text style={s.histMin}>{store.t('piece.min', { count: sess.min })}</Text>
               </Pressable>
             ))}
           </Card>
@@ -201,7 +202,7 @@ export default function PieceDetail() {
                 setMenuOpen(false);
                 router.back();
               }}>
-              <Text style={s.sheetRowText}>{piece.archived ? 'Restore to repertoire' : 'Archive'}</Text>
+              <Text style={s.sheetRowText}>{piece.archived ? store.t('piece.restore') : store.t('piece.archive')}</Text>
             </Pressable>
             <Pressable
               style={s.sheetRow}
@@ -210,7 +211,7 @@ export default function PieceDetail() {
                 router.back();
                 store.removePiece(piece.id);
               }}>
-              <Text style={[s.sheetRowText, { color: C.accent }]}>Remove</Text>
+              <Text style={[s.sheetRowText, { color: C.accent }]}>{store.t('piece.remove')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -220,12 +221,12 @@ export default function PieceDetail() {
         <Pressable style={s.backdrop} onPress={() => setTempoOpen(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
             <Pressable style={s.sheet} onPress={() => {}}>
-              <Text style={s.sheetTitle}>Target tempo</Text>
+              <Text style={s.sheetTitle}>{store.t('piece.targetTempo')}</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {(
                   [
-                    ['Current BPM', cur, setCur],
-                    ['Target BPM', target, setTarget],
+                    [store.t('piece.currentBpm'), cur, setCur],
+                    [store.t('piece.targetBpm'), target, setTarget],
                   ] as const
                 ).map(([ph, val, set]) => (
                   <TextInput
@@ -240,7 +241,7 @@ export default function PieceDetail() {
                 ))}
               </View>
               <Pressable style={s.saveBtn} onPress={saveTempo}>
-                <Text style={s.saveText}>Save</Text>
+                <Text style={s.saveText}>{store.t('piece.save')}</Text>
               </Pressable>
             </Pressable>
           </KeyboardAvoidingView>

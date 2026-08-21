@@ -56,7 +56,7 @@ export default function RootLayout() {
 
 function Shell({ insets }: { insets: { bottom: number } }) {
   const { C, dark } = useTheme();
-  const { onboarded } = useStore();
+  const { onboarded, t } = useStore();
   // Shell only mounts once fonts AND the store are ready (StoreProvider renders
   // null until hydration) — hiding here avoids a bare-window flash on cold start
   useEffect(() => {
@@ -101,11 +101,11 @@ function Shell({ insets }: { insets: { bottom: number } }) {
               },
               tabBarLabelStyle: { fontFamily: F.bodyMed, fontSize: 10.5, lineHeight: 14 },
             }}>
-            <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><HomeIcon color={color} /></TabIcon> }} />
-            <Tabs.Screen name="practice" options={{ title: 'Practice', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><ClockIcon color={color} /></TabIcon> }} />
-            <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><BarsIcon color={color} /></TabIcon> }} />
-            <Tabs.Screen name="repertoire" options={{ title: 'Repertoire', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><NoteIcon color={color} /></TabIcon> }} />
-            <Tabs.Screen name="profile" options={{ title: 'Settings', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><GearIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="index" options={{ title: t('tabs.home'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><HomeIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="practice" options={{ title: t('tabs.practice'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><ClockIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="progress" options={{ title: t('tabs.progress'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><BarsIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="repertoire" options={{ title: t('tabs.repertoire'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><NoteIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="profile" options={{ title: t('tabs.settings'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><GearIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="appearance" options={{ href: null }} />
             <Tabs.Screen name="piece/[id]" options={{ href: null }} />
             <Tabs.Screen name="plan/[id]" options={{ href: null }} />

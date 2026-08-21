@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlameIcon } from '@/components/icons';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
+import type { LanguageSetting } from '@/lib/i18n';
 import { useStore } from '@/lib/store';
 import {
   ACCENTS,
@@ -18,15 +19,22 @@ import {
   type ThemeMode,
 } from '@/lib/theme';
 
-const THEMES: { value: ThemeMode; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+const THEMES: { value: ThemeMode; key: string }[] = [
+  { value: 'system', key: 'appearance.system' },
+  { value: 'light', key: 'appearance.light' },
+  { value: 'dark', key: 'appearance.dark' },
 ];
-const RADII: { value: RadiusMode; label: string }[] = [
-  { value: 'sharp', label: 'Sharp' },
-  { value: 'soft', label: 'Soft' },
-  { value: 'round', label: 'Round' },
+const RADII: { value: RadiusMode; key: string }[] = [
+  { value: 'sharp', key: 'appearance.sharp' },
+  { value: 'soft', key: 'appearance.soft' },
+  { value: 'round', key: 'appearance.round' },
+];
+// language names stay endonyms — a German speaker looking for their language
+// should find "Deutsch" even while the app shows English
+const LANGS: { value: LanguageSetting; label?: string; key?: string }[] = [
+  { value: 'system', key: 'appearance.system' },
+  { value: 'en', label: 'English' },
+  { value: 'de', label: 'Deutsch' },
 ];
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
@@ -49,43 +57,52 @@ export default function Appearance() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <Pressable hitSlop={8} onPress={() => router.back()}>
-        <Text style={s.back}>‹ Settings</Text>
+        <Text style={s.back}>{store.t('appearance.backToSettings')}</Text>
       </Pressable>
-      <ScreenTitle>Appearance</ScreenTitle>
+      <ScreenTitle>{store.t('appearance.title')}</ScreenTitle>
 
       {/* live preview — real components, so every knob shows instantly */}
       <Card>
         <View style={s.previewHead}>
-          <Text style={s.previewGreeting}>Good evening</Text>
+          <Text style={s.previewGreeting}>{store.t('appearance.previewGreeting')}</Text>
           <View style={s.previewPill}>
             <FlameIcon />
-            <Text style={s.previewPillText}>12-day streak</Text>
+            <Text style={s.previewPillText}>{store.t('appearance.previewStreak')}</Text>
           </View>
         </View>
         <Bar pct={64} color={C.accent} height={6} />
         <View style={s.previewBtn}>
-          <Text style={s.previewBtnText}>Start practicing</Text>
+          <Text style={s.previewBtnText}>{store.t('appearance.previewStart')}</Text>
         </View>
       </Card>
 
       <View>
-        <Overline style={s.sectionLabel}>Theme</Overline>
+        <Overline style={s.sectionLabel}>{store.t('appearance.theme')}</Overline>
         <View style={s.chipWrap}>
           {THEMES.map((o) => (
-            <Chip key={o.value} label={o.label} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
+            <Chip key={o.value} label={store.t(o.key)} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
           ))}
         </View>
       </View>
 
       <View>
-        <Overline style={s.sectionLabel}>Accent</Overline>
+        <Overline style={s.sectionLabel}>{store.t('appearance.language')}</Overline>
+        <View style={s.chipWrap}>
+          {LANGS.map((o) => (
+            <Chip key={o.value} label={o.label ?? store.t(o.key!)} selected={store.language === o.value} onPress={() => store.updateSettings({ language: o.value })} />
+          ))}
+        </View>
+      </View>
+
+      <View>
+        <Overline style={s.sectionLabel}>{store.t('appearance.accent')}</Overline>
         <View style={s.dotRow}>
           {(Object.keys(ACCENTS) as AccentName[]).map((name) => {
             const sel = store.accent === name;
             return (
               <Pressable
                 key={name}
-                accessibilityLabel={ACCENTS[name].label}
+                accessibilityLabel={store.t(ACCENTS[name].label)}
                 style={[s.dotRing, sel && { borderColor: C.ink }]}
                 onPress={() => store.updateSettings({ accent: name })}>
                 <View style={[s.dot, { backgroundColor: ACCENTS[name].light[0] }]} />
@@ -96,27 +113,27 @@ export default function Appearance() {
       </View>
 
       <View>
-        <Overline style={s.sectionLabel}>Text size</Overline>
+        <Overline style={s.sectionLabel}>{store.t('appearance.textSize')}</Overline>
         <View style={s.chipWrap}>
           {FONT_SCALES.map((o) => (
-            <Chip key={o.value} label={o.label} selected={store.fontScale === o.value} onPress={() => store.updateSettings({ fontScale: o.value })} />
+            <Chip key={o.value} label={store.t(o.label)} selected={store.fontScale === o.value} onPress={() => store.updateSettings({ fontScale: o.value })} />
           ))}
         </View>
       </View>
 
       <View>
-        <Overline style={s.sectionLabel}>Corners</Overline>
+        <Overline style={s.sectionLabel}>{store.t('appearance.corners')}</Overline>
         <View style={s.chipWrap}>
           {RADII.map((o) => (
-            <Chip key={o.value} label={o.label} selected={store.radius === o.value} onPress={() => store.updateSettings({ radius: o.value })} />
+            <Chip key={o.value} label={store.t(o.key)} selected={store.radius === o.value} onPress={() => store.updateSettings({ radius: o.value })} />
           ))}
         </View>
       </View>
 
       <View style={s.switchRow}>
         <View style={{ flex: 1 }}>
-          <Text style={s.switchLabel}>Reduce motion</Text>
-          <Text style={s.switchHint}>Skips springs and slide-ins</Text>
+          <Text style={s.switchLabel}>{store.t('appearance.reduceMotion')}</Text>
+          <Text style={s.switchHint}>{store.t('appearance.reduceMotionHint')}</Text>
         </View>
         <Switch
           value={store.reduceMotion}

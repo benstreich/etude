@@ -11,13 +11,13 @@ import { F, themed, useC, type T } from '@/lib/theme';
 
 // taking `now` from the store keeps these reactive — a bare new Date() here gets
 // cached once by the react-compiler and shows yesterday after a midnight rollover
-const greeting = (now: number) => {
+const greeting = (now: number, t: (k: string) => string) => {
   const h = new Date(now).getHours();
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return h < 12 ? t('home.goodMorning') : h < 18 ? t('home.goodAfternoon') : t('home.goodEvening');
 };
 
-const dateLine = (now: number) =>
-  new Date(now).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+const dateLine = (now: number, lang: string) =>
+  new Date(now).toLocaleDateString(lang, { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
 
 export default function Home() {
   const s = useS();
@@ -32,7 +32,7 @@ export default function Home() {
     if (!min) return;
     const f = store.quickLogFocus;
     store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged');
-    store.showToast(f ? `Added ${min} min · ${f.name}` : `Added ${min} minutes`);
+    store.showToast(f ? store.t('home.addedMinFocus', { min, name: f.name }) : store.t('home.addedMinutes', { min }));
   };
 
   const focusOptions: { name: string; kind: 'Piece' | 'Technique' }[] = [
@@ -49,22 +49,22 @@ export default function Home() {
 
       <View style={s.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={s.date}>{dateLine(store.now)}</Text>
-          <Text style={s.greeting}>{greeting(store.now)}</Text>
+          <Text style={s.date}>{dateLine(store.now, store.lang)}</Text>
+          <Text style={s.greeting}>{greeting(store.now, store.t)}</Text>
         </View>
         {store.streakMode !== 'off' && store.displayStreak > 0 && (
           <View style={s.streakPill}>
             <FlameIcon />
-            <Text style={s.streakText}>{store.displayStreak}-day streak</Text>
+            <Text style={s.streakText}>{store.t('home.streak', { count: store.displayStreak })}</Text>
           </View>
         )}
       </View>
 
       <Card style={{ padding: 16 }}>
         <View style={s.todayRow}>
-          <Text style={s.todayLabel}>Today</Text>
+          <Text style={s.todayLabel}>{store.t('common.today')}</Text>
           <Text style={s.todayMeta}>
-            {store.todayMin} min / {store.dailyGoal} min goal
+            {store.t('home.todayMeta', { done: store.todayMin, goal: store.dailyGoal })}
           </Text>
         </View>
         <Bar pct={(store.todayMin / store.dailyGoal) * 100} color={C.accent} height={6} />
@@ -72,20 +72,20 @@ export default function Home() {
 
       <Pressable style={({ pressed }) => [s.primaryBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={() => router.push('/practice')}>
         <PlayIcon />
-        <Text style={s.primaryBtnText}>Start practicing</Text>
+        <Text style={s.primaryBtnText}>{store.t('home.startPracticing')}</Text>
       </Pressable>
 
       <Card style={{ padding: 16 }}>
         <View style={s.quickHeader}>
-          <Text style={s.quickTitle}>Quick log</Text>
+          <Text style={s.quickTitle}>{store.t('home.quickLog')}</Text>
           <Pressable hitSlop={8} onPress={() => setFocusOpen(true)}>
-            <Text style={s.helperFocus}>{store.quickLogFocus ? store.quickLogFocus.name : 'Choose focus'}</Text>
+            <Text style={s.helperFocus}>{store.quickLogFocus ? store.quickLogFocus.name : store.t('home.chooseFocus')}</Text>
           </Pressable>
         </View>
         <View style={s.quickRow}>
           {store.quickLog.map((m, i) => (
             <Pressable key={i} style={s.chip} onPress={() => quickLog(m)}>
-              <Text style={s.chipText}>+{m} min</Text>
+              <Text style={s.chipText}>{store.t('home.chipMin', { min: m })}</Text>
             </Pressable>
           ))}
         </View>
@@ -94,12 +94,12 @@ export default function Home() {
       {store.sessions.length === 0 ? (
         // first-run guide, shown until the first session exists
         <View style={s.guideCard}>
-          <Text style={s.guideTitle}>Your first session</Text>
+          <Text style={s.guideTitle}>{store.t('home.firstSession')}</Text>
           {(
             [
-              ['Add a piece or pick a technique in ', 'Repertoire', ''],
-              ['Hit ', 'Start practicing', ' — the timer runs even with the screen off'],
-              ['Practiced away from your phone? ', 'Quick log', ' it below'],
+              [store.t('home.guide1Pre'), store.t('tabs.repertoire'), ''],
+              [store.t('home.guide2Pre'), store.t('home.startPracticing'), store.t('home.guide2Post')],
+              [store.t('home.guide3Pre'), store.t('home.quickLog'), store.t('home.guide3Post')],
             ] as const
           ).map(([pre, bold, post], i) => (
             <View key={i} style={s.guideRow}>
@@ -122,11 +122,11 @@ export default function Home() {
               <View style={{ flex: 1 }}>
                 <Text style={s.sessTitle}>{sess.title}</Text>
                 <Text style={s.sessMeta}>
-                  {sess.meta.includes('·') ? sess.meta : `${dayLabel(sess.date, store.today)} · ${sess.meta}`}
+                  {sess.meta.includes('·') ? sess.meta : `${dayLabel(sess.date, store.today, store.t, store.lang)} · ${sess.meta}`}
                 </Text>
                 {!!sess.note && <Text style={s.sessNote}>{sess.note}</Text>}
               </View>
-              <Text style={s.sessMin}>{sess.min} min</Text>
+              <Text style={s.sessMin}>{store.t('home.min', { min: sess.min })}</Text>
             </Pressable>
           ))}
         </Card>
@@ -135,7 +135,7 @@ export default function Home() {
       <Modal visible={focusOpen} transparent animationType="fade" onRequestClose={() => setFocusOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setFocusOpen(false)}>
           <Pressable style={s.sheet} onPress={() => {}}>
-            <Text style={s.sheetTitle}>Quick log focus</Text>
+            <Text style={s.sheetTitle}>{store.t('home.quickLogFocus')}</Text>
             <View style={s.dayWrap}>
               <Pressable
                 style={[s.dayChip, !store.quickLogFocus && s.dayChipSel]}
@@ -143,7 +143,7 @@ export default function Home() {
                   store.updateSettings({ quickLogFocus: null });
                   setFocusOpen(false);
                 }}>
-                <Text style={[s.dayChipText, !store.quickLogFocus && { color: C.accent }]}>Nothing specific</Text>
+                <Text style={[s.dayChipText, !store.quickLogFocus && { color: C.accent }]}>{store.t('home.nothingSpecific')}</Text>
               </Pressable>
               {focusOptions.map((f) => {
                 const sel = store.quickLogFocus?.name === f.name && store.quickLogFocus.kind === f.kind;

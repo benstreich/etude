@@ -20,7 +20,8 @@ const H = 425;
 
 const fmtHero = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60 ? `${min % 60}m` : ''}`.trim() : `${min} min`);
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthName = (year: number, m: number, lang: string) =>
+  new Date(year, m, 1).toLocaleDateString(lang, { month: 'long' });
 
 function Fermata({ color, size = 22 }: { color: string; size?: number }) {
   return (
@@ -60,9 +61,9 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     try {
       const uri = await captureRef(shotRef, { format: 'png', quality: 1, result: 'tmpfile', width: W * 3.18, height: H * 3.18 });
       if (Platform.OS !== 'web' && (await Sharing.isAvailableAsync())) await Sharing.shareAsync(`file://${uri.replace(/^file:\/\//, '')}`);
-      else store.showToast('Sharing isn’t available here');
+      else store.showToast(store.t('recap.sharingUnavailable'));
     } catch {
-      store.showToast('Couldn’t create the image');
+      store.showToast(store.t('recap.imageFailed'));
     }
   };
 
@@ -72,21 +73,21 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     return a + Math.max(0, d);
   }, 0);
   const monthRows = rows([
-    ['Days practiced', stats.daysPracticed ? String(stats.daysPracticed) : null],
-    ['Longest streak', stats.longestStreak > 1 ? `${stats.longestStreak} days` : null],
-    ['Top piece', stats.topPiece],
-    ['Tempo gained', tempoGained > 0 ? `+${tempoGained} BPM` : null],
+    [store.t('recap.daysPracticed'), stats.daysPracticed ? String(stats.daysPracticed) : null],
+    [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
+    [store.t('recap.topPiece'), stats.topPiece],
+    [store.t('recap.tempoGained'), tempoGained > 0 ? store.t('recap.bpmGained', { n: tempoGained }) : null],
   ]);
 
   // year extras
   const finished = store.pieces.filter((p) => !p.archived && p.stage >= store.stages.length - 1).length;
   const bestMonth = stats.monthlyMinutes.some((m) => m > 0)
-    ? MONTHS[stats.monthlyMinutes.indexOf(Math.max(...stats.monthlyMinutes))]
+    ? monthName(year, stats.monthlyMinutes.indexOf(Math.max(...stats.monthlyMinutes)), store.lang)
     : null;
   const yearRows = rows([
-    ['Pieces finished', finished ? String(finished) : null],
-    ['Best month', bestMonth],
-    ['Longest streak', stats.longestStreak > 1 ? `${stats.longestStreak} days` : null],
+    [store.t('recap.piecesFinished'), finished ? String(finished) : null],
+    [store.t('recap.bestMonth'), bestMonth],
+    [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
   ]);
 
   const barMax = Math.max(...stats.monthlyMinutes, 1);
@@ -101,8 +102,8 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
             <View style={s.segTrack}>
               {(
                 [
-                  ['month', 'This month'],
-                  ['year', 'Year so far'],
+                  ['month', store.t('recap.thisMonth')],
+                  ['year', store.t('recap.yearSoFar')],
                 ] as const
               ).map(([key, label]) => (
                 <Pressable key={key} style={[s.segBtn, mode === key && s.segBtnSel]} onPress={() => setMode(key)}>
@@ -119,13 +120,13 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
                     <Text style={[s.wordmark, { color: CREAM }]}>Étude</Text>
                   </View>
                   <Text style={s.monthOverline}>
-                    {MONTHS[month].toUpperCase()} {year}
+                    {monthName(year, month, store.lang).toUpperCase()} {year}
                   </Text>
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <Text style={[s.hero, { color: CREAM }]} numberOfLines={1} adjustsFontSizeToFit>
                       {fmtHero(stats.totalMin)}
                     </Text>
-                    <Text style={[s.heroSub, { color: DOT }]}>of practice this month</Text>
+                    <Text style={[s.heroSub, { color: DOT }]}>{store.t('recap.ofPracticeThisMonth')}</Text>
                   </View>
                   <View>
                     {monthRows.map(([label, value]) => (
@@ -144,7 +145,7 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
                     <LogoMark size={24} />
                     <Text style={[s.wordmark, { color: C.ink }]}>Étude</Text>
                   </View>
-                  <Text style={s.yearOverline}>{year} SO FAR</Text>
+                  <Text style={s.yearOverline}>{store.t('recap.yearSoFarOverline', { year })}</Text>
                   <View style={s.barsRow}>
                     {stats.monthlyMinutes.slice(0, month + 1).map((v, i) => (
                       <View key={i} style={{ flex: 1, height: 54, justifyContent: 'flex-end' }}>
@@ -160,10 +161,14 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
                   </View>
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <Text style={[s.hero, { color: C.ink, fontSize: 66 }]} numberOfLines={1} adjustsFontSizeToFit>
-                      {stats.totalMin >= 60 ? `${Math.floor(stats.totalMin / 60)} hours` : `${stats.totalMin} min`}
+                      {stats.totalMin >= 60
+                        ? store.t('recap.hoursCount', { count: Math.floor(stats.totalMin / 60) })
+                        : store.t('recap.minCount', { count: stats.totalMin })}
                     </Text>
                     <Text style={[s.heroSub, { color: C.accent }]}>
-                      {instrument ? `at the ${instrument.toLowerCase()} since January` : 'of practice since January'}
+                      {instrument
+                        ? store.t('recap.atInstrumentSinceJanuary', { instrument: store.lang === 'de' ? instrument : instrument.toLowerCase() })
+                        : store.t('recap.ofPracticeSinceJanuary')}
                     </Text>
                   </View>
                   <View>
@@ -182,10 +187,10 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
 
             <View style={{ flexDirection: 'row', gap: 12, alignSelf: 'stretch' }}>
               <Pressable style={s.closeBtn} onPress={onClose}>
-                <Text style={s.closeText}>Close</Text>
+                <Text style={s.closeText}>{store.t('recap.close')}</Text>
               </Pressable>
               <Pressable style={s.shareBtn} onPress={share}>
-                <Text style={s.shareText}>Share</Text>
+                <Text style={s.shareText}>{store.t('recap.share')}</Text>
               </Pressable>
             </View>
           </ScrollView>

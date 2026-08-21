@@ -117,7 +117,7 @@ export default function Repertoire() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <ScreenTitle>Repertoire</ScreenTitle>
+        <ScreenTitle>{store.t('tabs.repertoire')}</ScreenTitle>
         <Pressable style={s.fabBtn} onPress={() => setAddOpen(true)}>
           <Text style={s.fabText}>+</Text>
         </Pressable>
@@ -129,14 +129,14 @@ export default function Repertoire() {
             <View style={s.emptyTile}>
               <NoteIcon size={26} color={C.accent} />
             </View>
-            <Text style={s.emptyTitle}>What are you working on?</Text>
-            <Text style={s.emptyText}>Add the piece you’re learning — search fills in the artist for you.</Text>
+            <Text style={s.emptyTitle}>{store.t('repertoire.emptyTitle')}</Text>
+            <Text style={s.emptyText}>{store.t('repertoire.emptyText')}</Text>
             <Pressable style={s.emptyBtn} onPress={() => setAddOpen(true)}>
-              <Text style={s.emptyBtnText}>Add a piece</Text>
+              <Text style={s.emptyBtnText}>{store.t('repertoire.addAPiece')}</Text>
             </Pressable>
           </Card>
           <View style={{ gap: 12 }}>
-            <Overline>Or start with a technique</Overline>
+            <Overline>{store.t('repertoire.orStartTechnique')}</Overline>
             <View style={s.chipWrap}>
               {PRESET_TECHNIQUES.filter((t) => !store.techniques.includes(t)).slice(0, 6).map((t) => (
                 <Pressable key={t} style={s.chip} onPress={() => store.addTechnique(t)}>
@@ -165,7 +165,7 @@ export default function Repertoire() {
                   {!!p.by && <Text style={s.composer}>{p.by}</Text>}
                   {st.min > 0 && st.last && (
                     <Text style={s.invested}>
-                      {st.min} min invested · last {dayLabel(st.last, store.today)}
+                      {store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })}
                     </Text>
                   )}
                 </View>
@@ -180,7 +180,7 @@ export default function Repertoire() {
               {recs.length > 0 && (
                 <Pressable hitSlop={8} onPress={() => setOpenRecs(openRecs === p.id ? null : p.id)}>
                   <Text style={s.recsToggle}>
-                    {openRecs === p.id ? '▾' : '▸'} {recs.length} recording{recs.length > 1 ? 's' : ''}
+                    {openRecs === p.id ? '▾' : '▸'} {store.t('repertoire.recordingsCount', { count: recs.length })}
                   </Text>
                 </Pressable>
               )}
@@ -191,7 +191,7 @@ export default function Repertoire() {
       </Card>
       )}
 
-      {active.length > 0 && <Text style={s.hint}>Tap a piece for details, stats & recordings</Text>}
+      {active.length > 0 && <Text style={s.hint}>{store.t('repertoire.tapHint')}</Text>}
 
       {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
       {(() => {
@@ -199,7 +199,7 @@ export default function Repertoire() {
         const orphans = store.recordings.filter((r) => !names.has(r.piece));
         return orphans.length > 0 ? (
           <View style={{ gap: 12 }}>
-            <Overline>Technique recordings</Overline>
+            <Overline>{store.t('repertoire.techniqueRecordings')}</Overline>
             <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
               <RecordingsList recordings={orphans} showPiece />
             </Card>
@@ -209,7 +209,7 @@ export default function Repertoire() {
 
       {archived.length > 0 && (
         <View style={{ gap: 12 }}>
-          <Overline>Archived</Overline>
+          <Overline>{store.t('repertoire.archived')}</Overline>
           <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
             {archived.map((p, i) => (
               <Pressable
@@ -232,10 +232,10 @@ export default function Repertoire() {
       <Modal visible={addOpen} transparent animationType="fade" onRequestClose={closeAdd}>
         <Pressable style={s.backdrop} onPress={closeAdd}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
-          <Pressable style={[s.sheet, { maxHeight: winH * 0.6 }]} onPress={() => {}}>
+          <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <Text style={s.sheetTitle}>Add to repertoire</Text>
-            <Overline style={{ marginBottom: 10 }}>Song</Overline>
+            <Text style={s.sheetTitle}>{store.t('repertoire.addToRepertoire')}</Text>
+            <Overline style={{ marginBottom: 10 }}>{store.t('repertoire.song')}</Overline>
             {creating === null ? (
               <>
                 <View style={s.searchWrap}>
@@ -244,7 +244,7 @@ export default function Repertoire() {
                     style={s.searchInput}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Search songs & artists…"
+                    placeholder={store.t('repertoire.searchPlaceholder')}
                     placeholderTextColor={C.tertiary}
                     onSubmitEditing={() => name.trim() && setCreating(name.trim())}
                     returnKeyType="done"
@@ -273,20 +273,20 @@ export default function Repertoire() {
                     <Pressable
                       style={[s.sugRow, shown.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
                       onPress={() => setCreating(name.trim())}>
-                      <Text style={s.createText}>+ Create “{name.trim()}”</Text>
+                      <Text style={s.createText}>{store.t('repertoire.createNamed', { name: name.trim() })}</Text>
                     </Pressable>
                   </View>
                 )}
               </>
             ) : (
               <View>
-                <Text style={s.creatingLabel}>Adding “{creating}”</Text>
+                <Text style={s.creatingLabel}>{store.t('repertoire.addingNamed', { name: creating })}</Text>
                 <View style={s.addRow}>
                   <TextInput
                     style={s.input}
                     value={artist}
                     onChangeText={setArtist}
-                    placeholder="Artist (optional)"
+                    placeholder={store.t('repertoire.artistOptional')}
                     placeholderTextColor={C.tertiary}
                     autoFocus
                     onSubmitEditing={() => add(creating, artist.trim())}
@@ -300,7 +300,7 @@ export default function Repertoire() {
             )}
             {name.trim().length === 0 && creating === null && (
             <>
-            <Overline style={{ marginTop: 18, marginBottom: 10 }}>Techniques — tap to add or remove</Overline>
+            <Overline style={{ marginTop: 18, marginBottom: 10 }}>{store.t('repertoire.techniquesTapToggle')}</Overline>
             <View style={s.chipWrap}>
               {[...new Set([...PRESET_TECHNIQUES, ...store.techniques])].map((t) => {
                 const sel = store.techniques.includes(t);
@@ -316,7 +316,7 @@ export default function Repertoire() {
                 style={s.input}
                 value={customTech}
                 onChangeText={setCustomTech}
-                placeholder="Your own technique…"
+                placeholder={store.t('repertoire.ownTechniquePlaceholder')}
                 placeholderTextColor={C.tertiary}
                 onSubmitEditing={() => {
                   addTech(customTech);
@@ -354,7 +354,7 @@ export default function Repertoire() {
                     store.setArchived(menuPiece.id, !menuPiece.archived);
                     setMenuPiece(null);
                   }}>
-                  <Text style={s.sheetRowText}>{menuPiece.archived ? 'Restore to repertoire' : 'Archive'}</Text>
+                  <Text style={s.sheetRowText}>{menuPiece.archived ? store.t('repertoire.restore') : store.t('repertoire.archive')}</Text>
                 </Pressable>
                 <Pressable
                   style={s.sheetRow}
@@ -362,7 +362,7 @@ export default function Repertoire() {
                     store.removePiece(menuPiece.id);
                     setMenuPiece(null);
                   }}>
-                  <Text style={[s.sheetRowText, { color: C.accent }]}>Remove</Text>
+                  <Text style={[s.sheetRowText, { color: C.accent }]}>{store.t('repertoire.remove')}</Text>
                 </Pressable>
               </>
             )}
