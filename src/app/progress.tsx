@@ -11,12 +11,13 @@ import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
-const fmtTime = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min} min`);
+const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
+  min >= 60 ? t('progress.timeHM', { h: Math.floor(min / 60), m: min % 60 }) : t('progress.timeMin', { min });
 
-const PERIODS: { key: FocusPeriod; label: string; days: number | null }[] = [
-  { key: '7d', label: '7d', days: 7 },
-  { key: '30d', label: '30d', days: 30 },
-  { key: 'all', label: 'All', days: null },
+const PERIODS: { key: FocusPeriod; labelKey: string; days: number | null }[] = [
+  { key: '7d', labelKey: 'progress.period7d', days: 7 },
+  { key: '30d', labelKey: 'progress.period30d', days: 30 },
+  { key: 'all', labelKey: 'progress.periodAll', days: null },
 ];
 
 export default function Progress() {
@@ -57,8 +58,9 @@ export default function Progress() {
   let practiced = 0;
   for (let d = 1; d <= elapsedDays; d++) if ((store.minutesByDate[dateKey(new Date(mY, mM, d))] ?? 0) > 0) practiced++;
   const weeks = monthGrid(mY, mM, start === 1);
-  const dow = start === 1 ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const monthTitle = mDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const letters = store.t('common.dayLetters').split('');
+  const dow = start === 1 ? [...letters.slice(1), letters[0]] : letters;
+  const monthTitle = mDate.toLocaleDateString(store.lang, { month: 'long', year: 'numeric' });
   const heat1 = mix(C.accent, C.bg, 0.65); // 1–24 min
   const heat2 = mix(C.accent, C.bg, 0.35); // 25–39 min
 
@@ -73,7 +75,7 @@ export default function Progress() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <ScreenTitle>Progress</ScreenTitle>
+        <ScreenTitle>{store.t('tabs.progress')}</ScreenTitle>
         {!empty && (
           <Pressable style={s.shareBtn} hitSlop={8} onPress={() => setRecapOpen(true)}>
             <ShareIcon />
@@ -83,31 +85,31 @@ export default function Progress() {
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Card style={s.stat}>
-          <Overline style={{ marginBottom: 10 }}>This week</Overline>
+          <Overline style={{ marginBottom: 10 }}>{store.t('progress.thisWeek')}</Overline>
           <Text style={s.statNum}>
             {weekTotal}
-            <Text style={s.statUnit}> min</Text>
+            <Text style={s.statUnit}> {store.t('progress.minUnit')}</Text>
           </Text>
         </Card>
         <Card style={s.stat}>
-          <Overline style={{ marginBottom: 10 }}>Avg / day</Overline>
+          <Overline style={{ marginBottom: 10 }}>{store.t('progress.avgPerDay')}</Overline>
           <Text style={s.statNum}>
             {empty ? '—' : Math.round(weekTotal / elapsed)}
-            {!empty && <Text style={s.statUnit}> min</Text>}
+            {!empty && <Text style={s.statUnit}> {store.t('progress.minUnit')}</Text>}
           </Text>
         </Card>
         <Card style={s.stat}>
-          <Overline style={{ marginBottom: 10 }}>All time</Overline>
+          <Overline style={{ marginBottom: 10 }}>{store.t('progress.allTime')}</Overline>
           <Text style={s.statNum}>
             {Math.floor(store.totalMin / 60)}
-            <Text style={s.statUnit}> hr</Text>
+            <Text style={s.statUnit}> {store.t('progress.hrUnit')}</Text>
           </Text>
         </Card>
       </View>
 
       {empty ? (
         <Card>
-          <Overline style={{ marginBottom: 16 }}>Last 7 days</Overline>
+          <Overline style={{ marginBottom: 16 }}>{store.t('progress.last7Days')}</Overline>
           <View style={s.chart}>
             {[22, 48, 30, 64, 40, 78, 55].map((h, i) => (
               <View key={i} style={s.col}>
@@ -125,10 +127,10 @@ export default function Progress() {
             ))}
           </View>
           <View style={{ alignItems: 'center', gap: 6, marginTop: 18 }}>
-            <Text style={s.emptyTitle}>Your week will show up here</Text>
-            <Text style={s.emptyText}>Log your first session and this chart starts filling in.</Text>
+            <Text style={s.emptyTitle}>{store.t('progress.emptyTitle')}</Text>
+            <Text style={s.emptyText}>{store.t('progress.emptyText')}</Text>
             <Pressable style={s.tintBtn} onPress={() => router.push('/practice')}>
-              <Text style={s.tintBtnText}>Start practicing</Text>
+              <Text style={s.tintBtnText}>{store.t('progress.startPracticing')}</Text>
             </Pressable>
           </View>
         </Card>
@@ -145,7 +147,7 @@ export default function Progress() {
             </Pressable>
           </View>
           <Text style={s.monthCount}>
-            {practiced} of {elapsedDays} days
+            {store.t('progress.daysPracticed', { practiced, days: elapsedDays })}
           </Text>
         </View>
         <View style={s.dowRow}>
@@ -184,17 +186,17 @@ export default function Progress() {
           </View>
         ))}
         <View style={s.legendRow}>
-          <Text style={s.legendText}>less</Text>
+          <Text style={s.legendText}>{store.t('progress.less')}</Text>
           {[C.track, heat1, heat2, C.accent].map((c, i) => (
             <View key={i} style={[s.legendSwatch, { backgroundColor: c }]} />
           ))}
-          <Text style={s.legendText}>more</Text>
+          <Text style={s.legendText}>{store.t('progress.more')}</Text>
         </View>
         {selDate && (
           <View style={s.dayDetail}>
             <View style={s.skillRow}>
-              <Text style={s.skillName}>{dayLabel(selDate, store.today)}</Text>
-              <Text style={s.skillLevel}>{fmtTime(store.minutesByDate[selDate] ?? 0)}</Text>
+              <Text style={s.skillName}>{dayLabel(selDate, store.today, store.t, store.lang)}</Text>
+              <Text style={s.skillLevel}>{fmtTime(store.minutesByDate[selDate] ?? 0, store.t)}</Text>
             </View>
             {store.sessions
               .filter((sess) => sess.date === selDate)
@@ -202,13 +204,13 @@ export default function Progress() {
                 <Pressable key={sess.id} style={{ marginTop: 6 }} onPress={() => setEditSess(sess)}>
                   <View style={s.detailRow}>
                     <Text style={s.detailTitle}>{sess.title}</Text>
-                    <Text style={s.skillLevel}>{fmtTime(sess.min)}</Text>
+                    <Text style={s.skillLevel}>{fmtTime(sess.min, store.t)}</Text>
                   </View>
                   {!!sess.note && <Text style={s.detailNote}>{sess.note}</Text>}
                 </Pressable>
               ))}
             {!store.sessions.some((sess) => sess.date === selDate) && (
-              <Text style={s.detailEmpty}>No session details for this day</Text>
+              <Text style={s.detailEmpty}>{store.t('progress.noSessionDetails')}</Text>
             )}
           </View>
         )}
@@ -218,24 +220,24 @@ export default function Progress() {
       {store.sessions.length > 0 && (
         <Card>
           <View style={s.focusHead}>
-            <Overline>Time by focus</Overline>
+            <Overline>{store.t('progress.timeByFocus')}</Overline>
             <View style={s.segTrack}>
               {PERIODS.map((p) => {
                 const sel = p.key === period.key;
                 return (
                   <Pressable key={p.key} style={[s.segBtn, sel && s.segBtnSel]} onPress={() => store.updateSettings({ focusPeriod: p.key })}>
-                    <Text style={[s.segText, sel && { color: C.ink }]}>{p.label}</Text>
+                    <Text style={[s.segText, sel && { color: C.ink }]}>{store.t(p.labelKey)}</Text>
                   </Pressable>
                 );
               })}
             </View>
           </View>
-          {focusRows.length === 0 && <Text style={s.detailEmpty}>Nothing logged in this period</Text>}
+          {focusRows.length === 0 && <Text style={s.detailEmpty}>{store.t('progress.nothingInPeriod')}</Text>}
           {focusRows.map(([name, min]) => (
             <View key={name} style={{ marginTop: 16 }}>
               <View style={s.skillRow}>
                 <Text style={s.skillName}>{name}</Text>
-                <Text style={s.skillLevel}>{fmtTime(min)}</Text>
+                <Text style={s.skillLevel}>{fmtTime(min, store.t)}</Text>
               </View>
               <Bar pct={(min / focusMax) * 100} />
             </View>

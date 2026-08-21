@@ -24,6 +24,7 @@ const CIRC = 2 * Math.PI * R;
 function GoalRing({ min, goal }: { min: number; goal: number }) {
   const C = useC();
   const s = useS();
+  const { t } = useStore();
   const { reduceMotion } = useTheme();
   const pct = goal > 0 ? min / goal : 1;
   const base = Math.min(1, pct);
@@ -52,7 +53,7 @@ function GoalRing({ min, goal }: { min: number; goal: number }) {
       </Svg>
       <View style={{ position: 'absolute', alignItems: 'center' }}>
         <Text style={s.ringMin}>{min}</Text>
-        <Text style={s.ringGoal}>of {goal} min</Text>
+        <Text style={s.ringGoal}>{t('sessionReview.ofGoalMin', { goal })}</Text>
       </View>
     </View>
   );
@@ -93,7 +94,21 @@ export function SessionReview({
     today: store.today,
   });
 
-  const time = (t: number) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const time = (t: number) => new Date(t).toLocaleTimeString(store.lang, { hour: 'numeric', minute: '2-digit' });
+
+  // achievements() returns English labels (asserted by scripts/check-growth.ts,
+  // which runs without the i18n runtime) — localize at display time instead
+  const MILESTONE_KEYS: Record<string, string> = {
+    'First session': 'sessionReview.firstSession',
+    'Best week yet': 'sessionReview.bestWeek',
+    'Goal hit 7 days straight': 'sessionReview.goalStraight',
+  };
+  const chipText = (c: (typeof chips)[number]) =>
+    c.kind === 'streak'
+      ? store.t('sessionReview.streakChip', { count: store.displayStreak })
+      : MILESTONE_KEYS[c.label]
+        ? store.t(MILESTONE_KEYS[c.label])
+        : c.label;
 
   const close = () => {
     if (note.trim()) store.setSessionNote(session.id, note);
@@ -107,14 +122,14 @@ export function SessionReview({
           <View style={s.topRow}>
             <View style={{ width: 44 }} />
             <Pressable hitSlop={10} onPress={close}>
-              <Text style={s.done}>Done</Text>
+              <Text style={s.done}>{store.t('sessionReview.done')}</Text>
             </Pressable>
           </View>
 
           <View style={{ alignItems: 'center', gap: 18 }}>
             <GoalRing min={store.todayMin} goal={store.dailyGoal} />
             <View style={{ alignItems: 'center', gap: 5 }}>
-              <Text style={s.title}>{store.name ? `Nice work, ${store.name}` : 'Nice work'}</Text>
+              <Text style={s.title}>{store.name ? store.t('sessionReview.niceWorkName', { name: store.name }) : store.t('sessionReview.niceWork')}</Text>
               <Text style={s.meta}>
                 {session.focusName} · {time(session.start)} – {time(session.end)}
               </Text>
@@ -124,7 +139,7 @@ export function SessionReview({
                 {chips.map((c) => (
                   <View key={c.label} style={c.kind === 'streak' ? s.chipTint : s.chipOutline}>
                     {c.kind === 'streak' && <FlameIcon />}
-                    <Text style={c.kind === 'streak' ? s.chipTintText : s.chipOutlineText}>{c.label}</Text>
+                    <Text style={c.kind === 'streak' ? s.chipTintText : s.chipOutlineText}>{chipText(c)}</Text>
                   </View>
                 ))}
               </View>
@@ -137,7 +152,7 @@ export function SessionReview({
               style={s.noteInput}
               value={note}
               onChangeText={setNote}
-              placeholder="How did it go? Add a note…"
+              placeholder={store.t('sessionReview.notePlaceholder')}
               placeholderTextColor={C.tertiary}
               multiline
             />
@@ -148,12 +163,12 @@ export function SessionReview({
               <Pressable style={[s.takeBtn, recording && { borderColor: C.accent }]} onPress={onToggleTake}>
                 <View style={[s.recDot, recording && { backgroundColor: C.accent }]} />
                 <Text style={[s.takeText, recording && { color: C.accent }]}>
-                  {recording ? 'Stop take' : 'Attach take'}
+                  {recording ? store.t('sessionReview.stopTake') : store.t('sessionReview.attachTake')}
                 </Text>
               </Pressable>
             )}
             <Pressable style={s.saveBtn} onPress={close}>
-              <Text style={s.saveText}>Save session</Text>
+              <Text style={s.saveText}>{store.t('sessionReview.saveSession')}</Text>
             </Pressable>
           </View>
         </ScrollView>

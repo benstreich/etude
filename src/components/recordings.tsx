@@ -10,9 +10,9 @@ import { F, themed, useC, type T } from '@/lib/theme';
 const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 // "Today, 2:35 PM" — older recordings without a timestamp just show the day
-const when = (r: Recording, today: string) =>
-  dayLabel(r.date, today) +
-  (r.at ? `, ${new Date(r.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : '');
+const when = (r: Recording, store: ReturnType<typeof useStore>) =>
+  dayLabel(r.date, store.today, store.t, store.lang) +
+  (r.at ? `, ${new Date(r.at).toLocaleTimeString(store.lang, { hour: 'numeric', minute: '2-digit' })}` : '');
 
 // one player per list — starting a row stops whichever row was playing
 export function RecordingsList({ recordings, showPiece = false }: { recordings: Recording[]; showPiece?: boolean }) {
@@ -77,7 +77,7 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
                   style={s.nameInput}
                   value={draft}
                   onChangeText={setDraft}
-                  placeholder="Recording name"
+                  placeholder={store.t('recordings.namePlaceholder')}
                   placeholderTextColor={C.tertiary}
                   autoFocus
                   onSubmitEditing={() => {
@@ -97,10 +97,10 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
                     setEditingId(r.id);
                   }}>
                   <Text style={s.piece} numberOfLines={1}>
-                    {r.name || (showPiece ? r.piece : 'Untitled')}
+                    {r.name || (showPiece ? r.piece : store.t('recordings.untitled'))}
                   </Text>
                   <Text style={s.meta}>
-                    {when(r, store.today)} · {fmt(r.sec)}
+                    {when(r, store)} · {fmt(r.sec)}
                   </Text>
                 </Pressable>
               )}
@@ -109,7 +109,7 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
               <Text style={[s.star, r.starred && { color: C.accent }]}>{r.starred ? '★' : '☆'}</Text>
             </Pressable>
             <Pressable hitSlop={8} onPress={() => remove(r)}>
-              <Text style={s.delete}>Delete</Text>
+              <Text style={s.delete}>{store.t('recordings.delete')}</Text>
             </Pressable>
             </View>
             {currentId === r.id && !!r.wave?.length && (

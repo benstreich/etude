@@ -3,16 +3,19 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { LOCK_SCREEN_STEP, useBeat, useMetronome } from '@/lib/metronome';
 import { accentLevel, describeRamp, MAX_BPM, tapTempo, type RampUnit } from '@/lib/metronome-math';
+import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 const UNITS: RampUnit[] = ['bars', 'seconds'];
-const UNIT_LABEL: Record<RampUnit, string> = { bars: 'Bars', seconds: 'Seconds' };
+const UNIT_KEY: Record<RampUnit, string> = { bars: 'metronome.bars', seconds: 'metronome.seconds' };
+const UNIT_ONE_KEY: Record<RampUnit, string> = { bars: 'metronome.bar', seconds: 'metronome.second' };
 const TIME_SIGS = ['1/4', '2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'];
 
 /** Opens the metronome sheet; shows the live tempo once it is running. */
 export function MetronomeButton({ compact = false, presetBpm }: { compact?: boolean; presetBpm?: number }) {
   const s = useS();
   const C = useC();
+  const { t } = useStore();
   const { running, bpm, setBpm } = useMetronome();
   const [open, setOpen] = useState(false);
   const openSheet = () => {
@@ -22,7 +25,7 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
   return (
     <>
       <Pressable style={[s.pill, compact && s.pillCompact, running && s.pillOn]} onPress={openSheet}>
-        <Text style={[s.pillText, running && { color: C.bg }]}>{running ? `♩ ${bpm}` : 'Metronome'}</Text>
+        <Text style={[s.pillText, running && { color: C.bg }]}>{running ? `♩ ${bpm}` : t('metronome.metronome')}</Text>
       </Pressable>
       <MetronomeSheet visible={open} onClose={() => setOpen(false)} />
     </>
@@ -32,6 +35,7 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
 function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useS();
   const C = useC();
+  const { t } = useStore();
   const metronome = useMetronome();
   const { running, bpm, startBpm, timeSig, sig, ramp, toggle, setBpm, nudge, setTimeSig, setRamp } = metronome;
   const beat = useBeat();
@@ -45,14 +49,24 @@ function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () =>
     if (tapped) setBpm(tapped);
   };
 
-  const summary = describeRamp(startBpm, ramp);
+  // describeRamp gates (null = ramp does nothing); the visible text is built
+  // here so it localizes — describeRamp itself stays node-checkable English
+  const summary = describeRamp(startBpm, ramp)
+    ? t('metronome.rampSummary', {
+        count: ramp.every,
+        sign: ramp.target > startBpm ? '+' : '−',
+        step: ramp.step,
+        unit: t(ramp.every === 1 ? UNIT_ONE_KEY[ramp.unit] : UNIT_KEY[ramp.unit]),
+        target: ramp.target,
+      })
+    : null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.sheet} onPress={() => {}}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18 }}>
-            <Text style={s.sheetTitle}>Metronome</Text>
+            <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
 
             <View style={s.dots}>
               {Array.from({ length: sig.beats }, (_, i) => {
@@ -86,15 +100,15 @@ function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () =>
 
             <View style={s.actions}>
               <Pressable style={s.tapBtn} onPress={tap}>
-                <Text style={s.tapBtnText}>Tap tempo</Text>
+                <Text style={s.tapBtnText}>{t('metronome.tapTempo')}</Text>
               </Pressable>
               <Pressable style={[s.playBtn, running && s.playBtnOn]} onPress={toggle}>
-                <Text style={[s.playBtnText, running && { color: C.bg }]}>{running ? 'Stop' : 'Start'}</Text>
+                <Text style={[s.playBtnText, running && { color: C.bg }]}>{running ? t('metronome.stop') : t('metronome.start')}</Text>
               </Pressable>
             </View>
 
             <View style={{ gap: 10 }}>
-              <Text style={s.label}>Time signature</Text>
+              <Text style={s.label}>{t('metronome.timeSignature')}</Text>
               <View style={s.chipRow}>
                 {TIME_SIGS.map((ts) => (
                   <Pressable
@@ -105,14 +119,14 @@ function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () =>
                   </Pressable>
                 ))}
               </View>
-              <Text style={s.hint}>6/8, 9/8 and 12/8 pulse in threes: a lighter click marks each group.</Text>
+              <Text style={s.hint}>{t('metronome.compoundHint')}</Text>
             </View>
 
             <View style={{ gap: 12 }}>
               <Pressable style={s.switchRow} onPress={() => setRamp({ on: !ramp.on })}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.label}>Tempo ramp</Text>
-                  <Text style={s.hint}>{summary ?? 'Move the tempo on its own while you play'}</Text>
+                  <Text style={s.label}>{t('metronome.tempoRamp')}</Text>
+                  <Text style={s.hint}>{summary ?? t('metronome.rampOffHint')}</Text>
                 </View>
                 <View style={[s.switchTrack, ramp.on && s.switchTrackOn]}>
                   <View style={[s.switchKnob, ramp.on && s.switchKnobOn]} />
@@ -122,12 +136,12 @@ function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () =>
               {ramp.on && (
                 <View style={{ gap: 10 }}>
                   <View style={s.fieldRow}>
-                    <Text style={s.fieldLabel}>Change by</Text>
+                    <Text style={s.fieldLabel}>{t('metronome.changeBy')}</Text>
                     <NumberField value={ramp.step} onCommit={(step) => setRamp({ step })} />
                     <Text style={s.fieldSuffix}>BPM</Text>
                   </View>
                   <View style={s.fieldRow}>
-                    <Text style={s.fieldLabel}>Every</Text>
+                    <Text style={s.fieldLabel}>{t('metronome.every')}</Text>
                     <NumberField value={ramp.every} onCommit={(every) => setRamp({ every })} />
                     <View style={s.seg}>
                       {UNITS.map((unit, i) => (
@@ -135,24 +149,22 @@ function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () =>
                           key={unit}
                           style={[s.segBtn, i > 0 && s.segBtnDivider, ramp.unit === unit && s.segBtnSel]}
                           onPress={() => setRamp({ unit })}>
-                          <Text style={[s.segText, ramp.unit === unit && s.segTextSel]}>{UNIT_LABEL[unit]}</Text>
+                          <Text style={[s.segText, ramp.unit === unit && s.segTextSel]}>{t(UNIT_KEY[unit])}</Text>
                         </Pressable>
                       ))}
                     </View>
                   </View>
                   <View style={s.fieldRow}>
-                    <Text style={s.fieldLabel}>Until</Text>
+                    <Text style={s.fieldLabel}>{t('metronome.until')}</Text>
                     <NumberField value={ramp.target} onCommit={(target) => setRamp({ target })} />
                     <Text style={s.fieldSuffix}>BPM</Text>
                   </View>
-                  <Text style={s.hint}>A target below the current tempo ramps down instead of up.</Text>
+                  <Text style={s.hint}>{t('metronome.rampDownHint')}</Text>
                 </View>
               )}
             </View>
 
-            <Text style={s.hint}>
-              Keeps playing with the app closed. The lock screen controls move the tempo by {LOCK_SCREEN_STEP} BPM.
-            </Text>
+            <Text style={s.hint}>{t('metronome.backgroundHint', { step: LOCK_SCREEN_STEP })}</Text>
           </ScrollView>
         </Pressable>
       </Pressable>

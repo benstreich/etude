@@ -6,6 +6,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
 import { runAutoBackup } from './backup';
+import { i18n, resolveLang, tr, type Lang, type LanguageSetting } from './i18n';
 import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
@@ -54,6 +55,7 @@ type Settings = {
   autoBackupDays: number; // 0 = off; otherwise auto backup every N days into Documents/Backups
   focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
   name: string;
+  language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
   breakDays: string[];
   streakMode: StreakMode;
@@ -111,6 +113,7 @@ function seed(): State {
     autoBackupDays: 0,
     focusPeriod: '30d',
     name: '',
+    language: 'system',
     instruments: [],
     breakDays: ['Sunday'],
     streakMode: 'strict',
@@ -138,12 +141,13 @@ function seed(): State {
 
 // "Today", "Yesterday", or "Aug 12" for a dateKey. todayKey comes from the
 // store so callers re-render (and re-memoize) when the day rolls over.
-export function dayLabel(key: string, todayKey: string): string {
-  if (key === todayKey) return 'Today';
+// t/lang come from the store too, so labels re-render on language change.
+export function dayLabel(key: string, todayKey: string, t: Store['t'], lang: Lang): string {
+  if (key === todayKey) return t('common.today');
   const [ty, tm, td] = todayKey.split('-').map(Number);
-  if (key === dateKey(new Date(ty, tm - 1, td - 1))) return 'Yesterday';
+  if (key === dateKey(new Date(ty, tm - 1, td - 1))) return t('common.yesterday');
   const [yy, mm, dd] = key.split('-').map(Number);
-  return new Date(yy, mm - 1, dd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Date(yy, mm - 1, dd).toLocaleDateString(lang, { month: 'short', day: 'numeric' });
 }
 
 // Recordings persist a documents-relative path: absolute URIs rot on iOS, where
@@ -164,6 +168,10 @@ export const toStoredUri = (uri: string) => {
 export const resolveRecordingUri = (stored: string) => (stored.includes(':') ? stored : docUri() + stored);
 
 type Store = State & {
+  /** Translate a key from src/locales — identity from the store so language changes re-render. */
+  t: (key: string, opts?: Record<string, unknown>) => string;
+  /** Resolved UI language ('en' | 'de'), also the locale for date formatting. */
+  lang: Lang;
   /** Wall clock, refreshed on foreground and at midnight — the reactive "now" for date math. */
   now: number;
   /** dateKey of the current day, derived from `now`. */
@@ -211,6 +219,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // zero-dep expressions) and the whole UI shows yesterday after midnight.
   const [now, setNow] = useState(() => Date.now());
 
+  const lang = resolveLang(state?.language ?? 'system');
+  // t closes over lang (no singleton mutation during render); the singleton's
+  // locale is synced in an effect for non-React callers like reminders
+  const t: Store['t'] = (key, opts) => i18n.t(key, { locale: lang, ...opts });
+  useEffect(() => {
+    i18n.locale = lang;
+  }, [lang]);
+
   useEffect(() => {
     const refresh = () => setNow(Date.now());
     const sub = AppState.addEventListener('change', (s) => {
@@ -252,7 +268,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state)
       Storage.setItem(KEY, JSON.stringify(state)).catch(() =>
-        setToast('Save failed — device storage may be full')
+        setToast(tr('toast.saveFailed'))
       );
   }, [state]);
 
@@ -264,7 +280,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     syncReminder(reminder)
       .then((ok) => {
         if (ok) return;
-        setToast('Enable notifications in system settings to get reminders');
+        setToast(tr('toast.enableNotifications'));
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(null), 2400);
       })
@@ -321,7 +337,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const removePlan = (id: string) => {
     setState((s) => (s ? { ...s, plans: s.plans.filter((p) => p.id !== id) } : s));
-    showToast('Plan deleted');
+    showToast(t('toast.planDeleted'));
   };
 
   const logTempo: Store['logTempo'] = (pieceId, bpm, date = dateKey()) => {
@@ -396,7 +412,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           dayMin === undefined ? s.minutesByDate : { ...s.minutesByDate, [sess.date]: Math.max(0, dayMin - sess.min) },
       };
     });
-    showToast('Session deleted');
+    showToast(t('toast.sessionDeleted'));
   };
 
   const addPiece = (name: string, by = '') => {
@@ -407,7 +423,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState((s) =>
         s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10, addedAt: Date.now() }, ...s.pieces] } : s
       );
-    showToast(dup ? 'Already in repertoire' : 'Added to repertoire');
+    showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.addedToRepertoire'));
   };
 
   const addTechnique = (name: string) => {
@@ -415,7 +431,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!s || s.techniques.includes(name)) return s;
       return { ...s, techniques: [...s.techniques, name] };
     });
-    showToast('Technique added');
+    showToast(t('toast.techniqueAdded'));
   };
 
   // a removed focus target must not keep collecting quick-log sessions
@@ -461,7 +477,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         quickLogFocus: gone ? clearFocus(s, gone.name, 'Piece') : s.quickLogFocus,
       };
     });
-    showToast('Removed from repertoire');
+    showToast(t('toast.removedFromRepertoire'));
   };
 
   const setArchived = (id: string, archived: boolean) => {
@@ -474,7 +490,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         quickLogFocus: archived && target ? clearFocus(s, target.name, 'Piece') : s.quickLogFocus,
       };
     });
-    showToast(archived ? 'Archived' : 'Restored');
+    showToast(t(archived ? 'toast.archived' : 'toast.restored'));
   };
 
   const addRecording = (piece: string, uri: string, sec: number, wave?: number[]) => {
@@ -483,7 +499,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ? { ...s, recordings: [{ id: uid(), piece, uri, sec, wave, date: dateKey(), at: Date.now() }, ...s.recordings] }
         : s
     );
-    showToast('Recording saved');
+    showToast(t('toast.recordingSaved'));
   };
 
   const toggleStar = (id: string) => {
@@ -494,7 +510,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const deleteRecording = (id: string) => {
     setState((s) => (s ? { ...s, recordings: s.recordings.filter((r) => r.id !== id) } : s));
-    showToast('Recording deleted');
+    showToast(t('toast.recordingDeleted'));
   };
 
   const renameRecording = (id: string, name: string) => {
@@ -514,7 +530,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const letters = t('common.dayLetters').split(''); // Sun..Sat initials
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (6 - i));
@@ -524,6 +540,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const store: Store = {
     ...state,
+    t,
+    lang,
     now,
     today,
     todayMin,

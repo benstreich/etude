@@ -123,7 +123,7 @@ export default function Practice() {
   const toggleRec = async () => {
     if (recording) return endRec(true);
     const { granted } = await requestRecordingPermissionsAsync();
-    if (!granted) return store.showToast('Microphone permission needed');
+    if (!granted) return store.showToast(store.t('practice.micPermissionNeeded'));
     try {
       // Android 13+: background recording runs a foreground service, which needs
       // notification permission or prepare throws. Denied → record foreground-only.
@@ -144,7 +144,7 @@ export default function Practice() {
     } catch {
       setRecordingFlags({});
       applyAudioMode({ playsInSilentMode: true }); // undo record-mode routing (see endRec)
-      return store.showToast('Couldn’t start recording');
+      return store.showToast(store.t('practice.recordStartFailed'));
     }
     recStart.current = Date.now();
     recAccumMs.current = 0;
@@ -195,17 +195,17 @@ export default function Practice() {
         <Text style={s.timer} numberOfLines={1} adjustsFontSizeToFit>
           {mm}:{ss}
         </Text>
-        <Text style={[s.status, paused ? { color: C.sub } : { color: C.accent }]}>{paused ? 'Paused' : 'Recording'}</Text>
+        <Text style={[s.status, paused ? { color: C.sub } : { color: C.accent }]}>{paused ? store.t('practice.paused') : store.t('practice.running')}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable style={[s.recBtn, recording && !recPaused && s.recBtnOn]} onPress={toggleRec}>
             <View style={[s.recDot, recording && !recPaused && { backgroundColor: C.bg }]} />
             <Text style={[s.recText, recording && !recPaused && { color: C.bg }]}>
-              {recording ? 'Stop recording' : 'Record'}
+              {recording ? store.t('practice.stopRecording') : store.t('practice.record')}
             </Text>
           </Pressable>
           {recording && (
             <Pressable style={s.recBtn} onPress={pauseResumeRec}>
-              <Text style={s.recText}>{recPaused ? 'Resume' : 'Pause'}</Text>
+              <Text style={s.recText}>{recPaused ? store.t('practice.resume') : store.t('practice.pause')}</Text>
             </Pressable>
           )}
         </View>
@@ -222,10 +222,10 @@ export default function Practice() {
                 setStartedAt(null);
               }
             }}>
-            <Text style={s.outlineBtnText}>{paused ? 'Resume' : 'Pause'}</Text>
+            <Text style={s.outlineBtnText}>{paused ? store.t('practice.resume') : store.t('practice.pause')}</Text>
           </Pressable>
           <Pressable style={s.darkBtn} onPress={endSave}>
-            <Text style={s.darkBtnText}>End & save</Text>
+            <Text style={s.darkBtnText}>{store.t('practice.endSave')}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -258,15 +258,15 @@ export default function Practice() {
             };
             // ponytail: Alert.alert is a no-op on web; window.confirm covers it
             if (Platform.OS === 'web') {
-              if (window.confirm('Discard session? This practice time won’t be saved.')) discard();
+              if (window.confirm(`${store.t('practice.discardTitle')} ${store.t('practice.discardMessage')}`)) discard();
               return;
             }
-            Alert.alert('Discard session?', 'This practice time won’t be saved.', [
-              { text: 'Keep practicing', style: 'cancel' },
-              { text: 'Discard', style: 'destructive', onPress: discard },
+            Alert.alert(store.t('practice.discardTitle'), store.t('practice.discardMessage'), [
+              { text: store.t('practice.keepPracticing'), style: 'cancel' },
+              { text: store.t('practice.discard'), style: 'destructive', onPress: discard },
             ]);
           }}>
-          <Text style={s.discard}>Discard session</Text>
+          <Text style={s.discard}>{store.t('practice.discardSession')}</Text>
         </Pressable>
       </View>
     );
@@ -287,21 +287,21 @@ export default function Practice() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
         <View style={s.titleRow}>
-          <Text style={s.title}>What are you{'\n'}working on?</Text>
+          <Text style={s.title}>{store.t('practice.title')}</Text>
           <MetronomeButton compact />
         </View>
         <TextInput
           style={s.search}
           value={query}
           onChangeText={setQuery}
-          placeholder="Search pieces & techniques"
+          placeholder={store.t('practice.searchPlaceholder')}
           placeholderTextColor={C.tertiary}
           autoCorrect={false}
           clearButtonMode="while-editing"
         />
         {pieces.length > 0 && (
           <>
-            <Overline style={{ marginBottom: 10 }}>Pieces</Overline>
+            <Overline style={{ marginBottom: 10 }}>{store.t('practice.pieces')}</Overline>
             <View style={s.group}>
               {pieces.map((p) => (
                 <Option key={p.id} name={p.name} kind="Piece" />
@@ -311,7 +311,7 @@ export default function Practice() {
         )}
         {techniques.length > 0 && (
           <>
-            <Overline style={{ marginBottom: 10, marginTop: pieces.length > 0 ? 22 : 0 }}>Techniques</Overline>
+            <Overline style={{ marginBottom: 10, marginTop: pieces.length > 0 ? 22 : 0 }}>{store.t('practice.techniques')}</Overline>
             <View style={s.group}>
               {techniques.map((t) => (
                 <Option key={t} name={t} kind="Technique" />
@@ -320,12 +320,12 @@ export default function Practice() {
           </>
         )}
         {pieces.length === 0 && techniques.length === 0 && plans.length === 0 && (
-          <Text style={s.noMatch}>No matches for “{query.trim()}”</Text>
+          <Text style={s.noMatch}>{store.t('practice.noMatches', { query: query.trim() })}</Text>
         )}
         {!q && (
           <>
             <Overline style={{ marginBottom: 10, marginTop: pieces.length + techniques.length > 0 ? 22 : 0 }}>
-              Plans
+              {store.t('practice.plans')}
             </Overline>
             <View style={s.group}>
               {plans.map((p) => {
@@ -334,7 +334,7 @@ export default function Practice() {
                   <Pressable key={p.id} style={s.option} onPress={() => router.push({ pathname: '/plan/[id]', params: { id: p.id } })}>
                     <Text style={s.optionText}>{p.name}</Text>
                     <Text style={s.planMeta}>
-                      {p.segments.length} segment{p.segments.length === 1 ? '' : 's'} · {total} min
+                      {store.t('practice.planMeta', { count: p.segments.length, total })}
                     </Text>
                   </Pressable>
                 );
@@ -345,7 +345,7 @@ export default function Practice() {
                   const id = store.addPlan('New plan');
                   router.push({ pathname: '/plan/[id]', params: { id } });
                 }}>
-                <Text style={s.planAddText}>+ New plan</Text>
+                <Text style={s.planAddText}>{store.t('practice.newPlan')}</Text>
               </Pressable>
             </View>
           </>
@@ -362,10 +362,10 @@ export default function Practice() {
             setStartedAt(Date.now());
             setRunning(true);
           }}>
-          <Text style={s.startBtnText}>Start session</Text>
+          <Text style={s.startBtnText}>{store.t('practice.startSession')}</Text>
         </Pressable>
         <Pressable hitSlop={8} onPress={() => setPastOpen(true)}>
-          <Text style={s.pastLink}>Forgot a day? Log past practice</Text>
+          <Text style={s.pastLink}>{store.t('practice.logPastLink')}</Text>
         </Pressable>
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />

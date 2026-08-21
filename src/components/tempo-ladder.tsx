@@ -16,6 +16,7 @@ const CHART_H = 96;
 function TempoChart({ log, target }: { log: { date: string; bpm: number }[]; target?: number }) {
   const C = useC();
   const s = useS();
+  const store = useStore();
   const [w, setW] = useState(0);
   const values = log.map((e) => e.bpm);
   const hi = Math.max(...values, target ?? 0);
@@ -30,7 +31,7 @@ function TempoChart({ log, target }: { log: { date: string; bpm: number }[]; tar
     .map((e, i) => ({ e, i }))
     .filter(({ e, i }) => i === 0 || e.date.slice(0, 7) !== log[i - 1].date.slice(0, 7))
     .slice(-4);
-  const monthName = (d: string) => new Date(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+  const monthName = (d: string) => new Date(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, 1).toLocaleDateString(store.lang, { month: 'short' });
   return (
     <View onLayout={(ev) => setW(ev.nativeEvent.layout.width)}>
       {w > 0 && (
@@ -52,7 +53,7 @@ function TempoChart({ log, target }: { log: { date: string; bpm: number }[]; tar
             </Text>
           ))}
         </View>
-        {!!target && <Text style={s.axisText}>{target} target</Text>}
+        {!!target && <Text style={s.axisText}>{store.t('tempoLadder.axisTarget', { target })}</Text>}
       </View>
     </View>
   );
@@ -83,8 +84,8 @@ export function TempoLadder({ piece }: { piece: Piece }) {
         <Card style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Text style={s.ghostGlyph}>♩=</Text>
           <View style={{ flex: 1 }}>
-            <Text style={s.ghostTitle}>Tempo ladder</Text>
-            <Text style={s.ghostSub}>Log today’s tempo to start tracking</Text>
+            <Text style={s.ghostTitle}>{store.t('tempoLadder.title')}</Text>
+            <Text style={s.ghostSub}>{store.t('tempoLadder.emptyHint')}</Text>
           </View>
         </Card>
         <LogSheet visible={logOpen} draft={draft} setDraft={setDraft} onSave={save} onClose={() => setLogOpen(false)} />
@@ -95,24 +96,24 @@ export function TempoLadder({ piece }: { piece: Piece }) {
     <View style={{ gap: 12 }}>
       <Card style={{ padding: 16, gap: 14 }}>
         <View style={s.headRow}>
-          <Overline>Tempo ladder</Overline>
-          {!!piece.targetBpm && <Text style={s.targetText}>target {piece.targetBpm} BPM</Text>}
+          <Overline>{store.t('tempoLadder.title')}</Overline>
+          {!!piece.targetBpm && <Text style={s.targetText}>{store.t('tempoLadder.targetBpm', { bpm: piece.targetBpm })}</Text>}
         </View>
         <View style={s.heroRow}>
           <View>
             <Text style={s.heroBpm}>{last.bpm}</Text>
-            <Text style={s.heroCaption}>BPM now</Text>
+            <Text style={s.heroCaption}>{store.t('tempoLadder.bpmNow')}</Text>
           </View>
           {delta > 0 && (
             <View style={s.deltaChip}>
-              <Text style={s.deltaText}>+{delta} this month</Text>
+              <Text style={s.deltaText}>{store.t('tempoLadder.deltaThisMonth', { delta })}</Text>
             </View>
           )}
         </View>
         <TempoChart log={log} target={piece.targetBpm} />
         <View style={s.footRow}>
           <Pressable style={s.tintBtn} onPress={openLog}>
-            <Text style={s.tintBtnText}>Log today’s tempo</Text>
+            <Text style={s.tintBtnText}>{store.t('tempoLadder.logTodaysTempo')}</Text>
           </Pressable>
           <MetronomeButton compact presetBpm={last.bpm} />
         </View>
@@ -122,10 +123,10 @@ export function TempoLadder({ piece }: { piece: Piece }) {
         <Card style={{ paddingVertical: 4, paddingHorizontal: 16 }}>
           {[...log].reverse().slice(0, 5).map((e, i) => (
             <View key={e.date} style={[s.entryRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
-              <Text style={s.entryDate}>{dayLabel(e.date, store.today)}</Text>
+              <Text style={s.entryDate}>{dayLabel(e.date, store.today, store.t, store.lang)}</Text>
               <Text style={s.entryBpm}>{e.bpm} BPM</Text>
               <Pressable hitSlop={8} onPress={() => store.deleteTempoEntry(piece.id, e.date)}>
-                <Text style={s.entryDelete}>Delete</Text>
+                <Text style={s.entryDelete}>{store.t('tempoLadder.delete')}</Text>
               </Pressable>
             </View>
           ))}
@@ -151,12 +152,13 @@ function LogSheet({
   onClose: () => void;
 }) {
   const s = useS();
+  const { t } = useStore();
   const bump = (d: number) => setDraft((v) => Math.min(MAX_BPM, Math.max(20, v + d)));
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <Pressable style={s.sheet} onPress={() => {}}>
-          <Text style={s.sheetTitle}>Today’s tempo</Text>
+          <Text style={s.sheetTitle}>{t('tempoLadder.todaysTempo')}</Text>
           <View style={s.stepRow}>
             {[-5, -1].map((d) => (
               <Pressable key={d} style={s.stepBtn} hitSlop={6} onPress={() => bump(d)}>
@@ -174,7 +176,7 @@ function LogSheet({
             ))}
           </View>
           <Pressable style={s.saveBtn} onPress={onSave}>
-            <Text style={s.saveText}>Log tempo</Text>
+            <Text style={s.saveText}>{t('tempoLadder.logTempo')}</Text>
           </Pressable>
         </Pressable>
       </Pressable>

@@ -57,7 +57,8 @@
       ],
       "expo-asset",
       "expo-sharing",
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

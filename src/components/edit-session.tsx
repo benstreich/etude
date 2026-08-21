@@ -1,7 +1,8 @@
 // Shared edit-session bottom sheet — opened from Home recents, Progress day
 // detail, and a piece's history. Edits focus / minutes / note, or deletes.
 import React, { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -36,6 +37,8 @@ function Editor({
   const [note, setNote] = useState(session.note ?? '');
   const [pickerOpen, setPickerOpen] = useState(false);
   const repeat = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const winH = useWindowDimensions().height;
+  const insets = useSafeAreaInsets();
 
   const options = [
     ...store.pieces.filter((p) => !p.archived).map((p) => ({ title: p.name, meta: 'Piece' })),
@@ -50,15 +53,15 @@ function Editor({
 
   const save = () => {
     store.updateSession(session.id, { title: focus.title, meta: focus.meta, min, note });
-    store.showToast('Saved');
+    store.showToast(store.t('toast.saved'));
     onClose();
   };
 
   const remove = () =>
-    Alert.alert('Delete this session?', 'Its minutes come off your totals.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(store.t('editSession.deleteTitle'), store.t('editSession.deleteMessage'), [
+      { text: store.t('editSession.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: store.t('editSession.delete'),
         style: 'destructive',
         onPress: () => {
           store.deleteSession(session.id);
@@ -76,16 +79,17 @@ function Editor({
   return (
     <Pressable style={s.backdrop} onPress={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
-        <Pressable style={s.sheet} onPress={() => {}}>
+        <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
           <View style={s.grabber} />
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
+          {/* flex-end keeps the form at the bottom, within thumb reach, when it doesn't fill the sheet */}
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, flexGrow: 1, justifyContent: 'flex-end' }}>
             <View style={s.headRow}>
-              <Text style={s.title}>Edit session</Text>
-              <Text style={s.stamp}>{dayLabel(session.date, store.today)}</Text>
+              <Text style={s.title}>{store.t('editSession.title')}</Text>
+              <Text style={s.stamp}>{dayLabel(session.date, store.today, store.t, store.lang)}</Text>
             </View>
 
             <View>
-              <Text style={s.label}>Focus</Text>
+              <Text style={s.label}>{store.t('editSession.focus')}</Text>
               <Pressable style={s.select} onPress={() => setPickerOpen((o) => !o)}>
                 <Text style={s.selectText} numberOfLines={1}>
                   {focus.title}
@@ -113,7 +117,7 @@ function Editor({
             </View>
 
             <View>
-              <Text style={s.label}>Minutes</Text>
+              <Text style={s.label}>{store.t('editSession.minutes')}</Text>
               <View style={s.stepper}>
                 {stepBtn('−', -5)}
                 <View style={s.stepValue}>
@@ -124,22 +128,22 @@ function Editor({
             </View>
 
             <View>
-              <Text style={s.label}>Note</Text>
+              <Text style={s.label}>{store.t('editSession.note')}</Text>
               <TextInput
                 style={s.noteInput}
                 value={note}
                 onChangeText={setNote}
-                placeholder="How did it go?"
+                placeholder={store.t('editSession.notePlaceholder')}
                 placeholderTextColor={C.tertiary}
                 multiline
               />
             </View>
 
             <Pressable style={({ pressed }) => [s.saveBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={save}>
-              <Text style={s.saveText}>Save changes</Text>
+              <Text style={s.saveText}>{store.t('editSession.saveChanges')}</Text>
             </Pressable>
             <Pressable style={s.deleteBtn} onPress={remove}>
-              <Text style={s.deleteText}>Delete session</Text>
+              <Text style={s.deleteText}>{store.t('editSession.deleteSession')}</Text>
             </Pressable>
           </ScrollView>
         </Pressable>
@@ -150,7 +154,7 @@ function Editor({
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40, maxHeight: '85%' },
+  sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
   grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive, alignSelf: 'center', marginBottom: 16 },
   headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   title: { fontFamily: F.head, fontSize: fs(19), color: C.ink },

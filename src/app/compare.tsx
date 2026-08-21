@@ -13,12 +13,11 @@ import { F, themed, useC, type T } from '@/lib/theme';
 
 const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.max(0, Math.round(sec)) % 60).padStart(2, '0')}`;
 
-const gapLabel = (a: Recording, b: Recording) => {
+const gapLabel = (a: Recording, b: Recording, t: (key: string, opts?: Record<string, unknown>) => string) => {
   const days = Math.abs((new Date(a.date).getTime() - new Date(b.date).getTime()) / 86400000);
-  if (days < 1) return 'same day';
-  if (days < 30) return `${Math.round(days)} day${Math.round(days) === 1 ? '' : 's'} apart`;
-  const months = Math.round(days / 30);
-  return `${months} month${months === 1 ? '' : 's'} apart`;
+  if (days < 1) return t('compare.sameDay');
+  if (days < 30) return t('compare.daysApart', { count: Math.round(days) });
+  return t('compare.monthsApart', { count: Math.round(days / 30) });
 };
 
 export default function Compare() {
@@ -88,14 +87,14 @@ export default function Compare() {
           <Text style={s.navGlyph}>‹</Text>
         </Pressable>
         <Pressable hitSlop={10} onPress={() => setPickOpen(true)}>
-          <Text style={s.changeLink}>Change takes</Text>
+          <Text style={s.changeLink}>{store.t('compare.changeTakes')}</Text>
         </Pressable>
       </View>
 
       <View>
-        <Text style={s.title}>Compare takes</Text>
+        <Text style={s.title}>{store.t('compare.title')}</Text>
         <Text style={s.meta}>
-          {params.piece} · {gapLabel(recA, recB)}
+          {params.piece} · {gapLabel(recA, recB, store.t)}
         </Text>
       </View>
 
@@ -106,18 +105,18 @@ export default function Compare() {
         <View style={s.flipTrack}>
           {(['A', 'B'] as const).map((w) => (
             <Pressable key={w} style={[s.flipBtn, active === w && { backgroundColor: C.accent }]} onPress={() => flip(w)}>
-              <Text style={[s.flipText, active === w && { color: '#FFFFFF' }]}>{active === w ? `Playing ${w}` : w}</Text>
+              <Text style={[s.flipText, active === w && { color: '#FFFFFF' }]}>{active === w ? store.t('compare.playing', { which: w }) : w}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={s.flipHint}>Tap to flip — playback keeps its position</Text>
+        <Text style={s.flipHint}>{store.t('compare.flipHint')}</Text>
       </View>
 
       <Modal visible={pickOpen} transparent animationType="fade" onRequestClose={() => setPickOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setPickOpen(false)}>
           <Pressable style={s.sheet} onPress={() => {}}>
-            <Text style={s.sheetTitle}>Change takes</Text>
-            <Text style={s.sheetHint}>Tap a take to make it A, then B keeps the other slot.</Text>
+            <Text style={s.sheetTitle}>{store.t('compare.changeTakes')}</Text>
+            <Text style={s.sheetHint}>{store.t('compare.pickHint')}</Text>
             <ScrollView style={{ maxHeight: 320 }}>
               {takes.map((rec) => {
                 const slot = rec.id === recA.id ? 'A' : rec.id === recB.id ? 'B' : null;
@@ -131,7 +130,7 @@ export default function Compare() {
                       router.setParams({ a: rec.id, b: rec.id === recB.id ? recA.id : recB.id });
                     }}>
                     <Text style={s.pickName} numberOfLines={1}>
-                      {rec.name || dayLabel(rec.date, store.today)}
+                      {rec.name || dayLabel(rec.date, store.today, store.t, store.lang)}
                     </Text>
                     <Text style={s.takeMeta}>{fmt(rec.sec)}</Text>
                     {slot && (
@@ -177,7 +176,7 @@ function TakeCard({
         <View style={[s.badge, isActive ? { backgroundColor: C.accent } : { backgroundColor: C.track }]}>
           <Text style={[s.badgeText, isActive ? { color: '#FFFFFF' } : { color: C.sub }]}>{which}</Text>
         </View>
-        <Text style={s.takeDate}>{rec.name || dayLabel(rec.date, store.today)}</Text>
+        <Text style={s.takeDate}>{rec.name || dayLabel(rec.date, store.today, store.t, store.lang)}</Text>
         <Text style={s.takeMeta}>{fmt(rec.sec)}</Text>
       </View>
       <View style={s.playRow}>

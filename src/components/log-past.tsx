@@ -23,7 +23,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   // grid follows midnight/month rollovers instead of freezing at first render
   const todayKey = store.today;
   const startDow = store.weekStart === 'Monday' ? 1 : 0;
-  const dowLetters = Array.from({ length: 7 }, (_, i) => 'SMTWTFS'[(i + startDow) % 7]);
+  const dowLetters = Array.from({ length: 7 }, (_, i) => store.t('logPast.dowLetters')[(i + startDow) % 7]);
   const firstDow = (calMonth.getDay() - startDow + 7) % 7;
   const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
   const cells: (number | null)[] = [
@@ -55,7 +55,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
         if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate);
       });
     }
-    store.showToast(`Added ${min} min · ${dayLabel(pastDate, store.today)}`);
+    store.showToast(store.t('logPast.addedToast', { min, day: dayLabel(pastDate, store.today, store.t, store.lang) }));
     setPastMin('');
     setPastFoci([]);
     if (!addMore) {
@@ -70,13 +70,13 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
         <Pressable style={s.sheet} onPress={() => {}}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
-            <Text style={s.sheetTitle}>Log past practice</Text>
+            <Text style={s.sheetTitle}>{store.t('logPast.title')}</Text>
 
             <View style={s.calHeader}>
               <Pressable style={s.calNav} hitSlop={8} onPress={() => shiftMonth(-1)}>
                 <Text style={s.calNavText}>‹</Text>
               </Pressable>
-              <Text style={s.calMonth}>{calMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Text>
+              <Text style={s.calMonth}>{calMonth.toLocaleDateString(store.lang, { month: 'long', year: 'numeric' })}</Text>
               <Pressable
                 style={[s.calNav, atCurrentMonth && { opacity: 0.25 }]}
                 hitSlop={8}
@@ -138,7 +138,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
                   </ScrollView>
                 )}
                 <Pressable hitSlop={8} onPress={() => setShowAll((v) => !v)}>
-                  <Text style={s.showAll}>{showAll ? 'Show less ▴' : 'Show all ▾'}</Text>
+                  <Text style={s.showAll}>{showAll ? store.t('logPast.showLess') : store.t('logPast.showAll')}</Text>
                 </Pressable>
               </View>
             )}
@@ -147,7 +147,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
               style={s.input}
               value={pastMin}
               onChangeText={(t) => setPastMin(t.replace(/\D/g, '').slice(0, 3))}
-              placeholder="Minutes"
+              placeholder={store.t('logPast.minutesPlaceholder')}
               placeholderTextColor={C.tertiary}
               keyboardType="number-pad"
               onSubmitEditing={logPast}
@@ -156,10 +156,10 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
               <View style={[s.checkbox, addMore && { backgroundColor: C.accent, borderColor: C.accent }]}>
                 {addMore && <Text style={s.checkmark}>✓</Text>}
               </View>
-              <Text style={s.checkLabel}>Add more after saving</Text>
+              <Text style={s.checkLabel}>{store.t('logPast.addMoreAfterSaving')}</Text>
             </Pressable>
             <Pressable style={[s.saveBtn, (!pastDate || !Number(pastMin)) && { opacity: 0.4 }]} onPress={logPast}>
-              <Text style={s.saveBtnText}>Add</Text>
+              <Text style={s.saveBtnText}>{store.t('logPast.add')}</Text>
             </Pressable>
           </ScrollView>
         </Pressable>

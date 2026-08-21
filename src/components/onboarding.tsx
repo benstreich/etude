@@ -8,9 +8,11 @@ import { LockIcon, LogoMark } from '@/components/icons';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
+// Chip VALUES are persisted in settings — translate displayed labels only.
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Voice', 'Drums', 'Bass', 'Cello'];
 const GOALS = [10, 15, 20, 30, 45, 60];
 const TIMES = ['6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
+const TIME_KEYS: Record<string, string> = { '6:00 PM': 'time6pm', '7:00 PM': 'time7pm', '8:00 PM': 'time8pm', '9:00 PM': 'time9pm' };
 
 export function Onboarding() {
   const s = useS();
@@ -53,7 +55,7 @@ export function Onboarding() {
         ))}
       </View>
       <Pressable hitSlop={10} onPress={() => finish('Off')}>
-        <Text style={s.skip}>Skip</Text>
+        <Text style={s.skip}>{store.t('onboarding.skip')}</Text>
       </Pressable>
     </View>
   );
@@ -71,13 +73,13 @@ export function Onboarding() {
         <View style={{ alignItems: 'center', gap: 18 }}>
           <LogoMark size={76} />
           <Text style={s.wordmark}>Étude</Text>
-          <Text style={s.tagline}>Practice deliberately. Track your pieces, technique, and time.</Text>
+          <Text style={s.tagline}>{store.t('onboarding.tagline')}</Text>
         </View>
         <View style={{ flex: 1.4 }} />
-        {primary('Get started', () => setStep(1))}
+        {primary(store.t('onboarding.getStarted'), () => setStep(1))}
         <View style={s.lockRow}>
           <LockIcon size={13} color={C.sub} />
-          <Text style={s.lockText}>Everything stays on your device — no account needed</Text>
+          <Text style={s.lockText}>{store.t('onboarding.privacyNote')}</Text>
         </View>
       </View>
     );
@@ -91,8 +93,8 @@ export function Onboarding() {
           {step === 1 && (
             <>
               <View style={s.headerBlock}>
-                <Text style={s.title}>What do you play?</Text>
-                <Text style={s.subline}>Pick all that apply — you can change this anytime.</Text>
+                <Text style={s.title}>{store.t('onboarding.instrumentsTitle')}</Text>
+                <Text style={s.subline}>{store.t('onboarding.instrumentsSubline')}</Text>
               </View>
               <View style={s.chipWrap}>
                 {INSTRUMENTS.map((inst) => {
@@ -102,12 +104,12 @@ export function Onboarding() {
                       key={inst}
                       style={[s.chip, sel && s.chipSel]}
                       onPress={() => setInstruments((l) => (sel ? l.filter((x) => x !== inst) : [...l, inst]))}>
-                      <Text style={[s.chipText, sel && s.chipTextSel]}>{inst}</Text>
+                      <Text style={[s.chipText, sel && s.chipTextSel]}>{store.t(`onboarding.inst${inst}`)}</Text>
                     </Pressable>
                   );
                 })}
                 <Pressable style={[s.chip, other !== null && s.chipSel]} onPress={() => setOther(other === null ? '' : null)}>
-                  <Text style={[s.chipText, other !== null && s.chipTextSel]}>Other…</Text>
+                  <Text style={[s.chipText, other !== null && s.chipTextSel]}>{store.t('onboarding.other')}</Text>
                 </Pressable>
               </View>
               {other !== null && (
@@ -115,28 +117,28 @@ export function Onboarding() {
                   style={[s.input, { marginTop: 14 }]}
                   value={other}
                   onChangeText={setOther}
-                  placeholder="Your instrument"
+                  placeholder={store.t('onboarding.yourInstrument')}
                   placeholderTextColor={C.tertiary}
                   autoFocus
                 />
               )}
               <View style={{ paddingTop: 28 }}>
                 <Text style={s.inputLabel}>
-                  Your name <Text style={s.optional}>(optional)</Text>
+                  {store.t('onboarding.yourName')} <Text style={s.optional}>{store.t('onboarding.optional')}</Text>
                 </Text>
-                <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={C.tertiary} />
+                <TextInput style={s.input} value={name} onChangeText={setName} placeholder={store.t('onboarding.namePlaceholder')} placeholderTextColor={C.tertiary} />
               </View>
             </>
           )}
           {step === 2 && (
             <>
               <View style={s.headerBlock}>
-                <Text style={s.title}>A goal you can keep</Text>
-                <Text style={s.subline}>Small and daily beats long and rare. Start easy — you can raise it later.</Text>
+                <Text style={s.title}>{store.t('onboarding.goalTitle')}</Text>
+                <Text style={s.subline}>{store.t('onboarding.goalSubline')}</Text>
               </View>
               <View style={s.bigNumBlock}>
                 <Text style={s.bigNum}>{goal}</Text>
-                <Text style={s.bigNumCaption}>minutes a day</Text>
+                <Text style={s.bigNumCaption}>{store.t('onboarding.minutesADay')}</Text>
               </View>
               <View style={[s.chipWrap, { justifyContent: 'center' }]}>
                 {GOALS.map((g) => {
@@ -153,19 +155,19 @@ export function Onboarding() {
           {step === 3 && (
             <>
               <View style={s.headerBlock}>
-                <Text style={s.title}>A gentle nudge?</Text>
-                <Text style={s.subline}>One reminder a day, only on days you haven’t practiced yet.</Text>
+                <Text style={s.title}>{store.t('onboarding.reminderTitle')}</Text>
+                <Text style={s.subline}>{store.t('onboarding.reminderSubline')}</Text>
               </View>
               {/* ponytail: preset times instead of a native time picker — matches the
                   Settings reminder options and what reminders.ts can schedule */}
               <View style={s.listCard}>
-                <Text style={s.listLabel}>Remind me at</Text>
+                <Text style={s.listLabel}>{store.t('onboarding.remindMeAt')}</Text>
                 <View style={[s.chipWrap, { marginTop: 12 }]}>
                   {TIMES.map((tm) => {
                     const sel = time === tm;
                     return (
                       <Pressable key={tm} style={[s.chip, sel && s.chipSel]} onPress={() => setTime(tm)}>
-                        <Text style={[s.chipText, sel && s.chipTextSel]}>{tm}</Text>
+                        <Text style={[s.chipText, sel && s.chipTextSel]}>{store.t(`onboarding.${TIME_KEYS[tm]}`)}</Text>
                       </Pressable>
                     );
                   })}
@@ -176,13 +178,13 @@ export function Onboarding() {
         </ScrollView>
         {step === 3 ? (
           <View style={{ gap: 6 }}>
-            {primary('Turn on reminders', () => finish(time))}
+            {primary(store.t('onboarding.turnOnReminders'), () => finish(time))}
             <Pressable style={s.ghostBtn} onPress={() => finish('Off')}>
-              <Text style={s.ghostText}>Not now</Text>
+              <Text style={s.ghostText}>{store.t('onboarding.notNow')}</Text>
             </Pressable>
           </View>
         ) : (
-          primary('Continue', () => setStep(step + 1))
+          primary(store.t('onboarding.continue'), () => setStep(step + 1))
         )}
       </View>
     </KeyboardAvoidingView>
