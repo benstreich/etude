@@ -25,6 +25,8 @@ export function migrate<S>(raw: string | null, seedState: S): S {
       stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
     }),
   );
+  // plans arrived with #17 — older blobs (and hand-edited ones) may lack the array
+  if (!Array.isArray(merged.plans)) merged.plans = [];
   // onboarding arrived after launch — anyone with a saved blob has used the app
   if (saved.onboarded === undefined) merged.onboarded = true;
   // all seven days as break days would make the streak unbreakable (and meaningless)

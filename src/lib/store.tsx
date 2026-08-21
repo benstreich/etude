@@ -14,7 +14,10 @@ import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
 
-export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string };
+export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string };
+export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' }; note?: string; bpm?: number; min: number };
+export type Plan = { id: string; name: string; segments: PlanSegment[] };
+export type TempoEntry = { date: string; bpm: number };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
 export type Recording = {
   id: string;
@@ -38,6 +41,7 @@ export type Piece = {
   addedAt?: number;
   currentBpm?: number;
   targetBpm?: number;
+  tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
 };
 
 export type FocusPeriod = '7d' | '30d' | 'all';
@@ -81,6 +85,7 @@ type State = Settings & {
   techniques: string[];
   dailyGoal: number;
   recordings: Recording[];
+  plans: Plan[];
 };
 
 const KEY = 'etude-state-v1';
@@ -98,6 +103,7 @@ function seed(): State {
     pieces: [],
     techniques: ['Scales & arpeggios', 'Sight reading'],
     recordings: [],
+    plans: [],
     dailyGoal: 45,
     onboarded: false,
     focusPeriod: '30d',
@@ -164,7 +170,13 @@ type Store = State & {
   week: { day: string; min: number; isToday: boolean; date: string }[];
   toast: string | null;
   showToast: (msg: string) => void;
-  logMinutes: (min: number, title: string, meta: string, date?: string) => string;
+  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string) => string;
+  addPlan: (name: string) => string;
+  updatePlan: (id: string, patch: Partial<Pick<Plan, 'name' | 'segments'>>) => void;
+  removePlan: (id: string) => void;
+  /** Upserts today's (or `date`'s) tempo entry for a piece and mirrors it into currentBpm. */
+  logTempo: (pieceId: string, bpm: number, date?: string) => void;
+  deleteTempoEntry: (pieceId: string, date: string) => void;
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string }) => void;
@@ -256,6 +268,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, [reminder]);
 
+
   if (!state) return null;
 
   const showToast = (msg: string) => {
@@ -264,7 +277,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const logMinutes = (min: number, title: string, meta: string, date = dateKey()) => {
+  const logMinutes = (min: number, title: string, meta: string, date = dateKey(), planId?: string) => {
     const id = uid();
     setState((s) => {
       if (!s) return s;
@@ -275,10 +288,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         totalMin: s.totalMin + min,
         // full-history scan so streaks assembled from backdated logs count too
         bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
-        sessions: [{ id, title, meta, min, date }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
+        sessions: [{ id, title, meta, min, date, planId }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
       };
     });
     return id;
+  };
+
+  const addPlan = (name: string) => {
+    const id = uid();
+    setState((s) => (s ? { ...s, plans: [...s.plans, { id, name, segments: [] }] } : s));
+    return id;
+  };
+
+  const updatePlan: Store['updatePlan'] = (id, patch) => {
+    setState((s) => (s ? { ...s, plans: s.plans.map((p) => (p.id === id ? { ...p, ...patch } : p)) } : s));
+  };
+
+  const removePlan = (id: string) => {
+    setState((s) => (s ? { ...s, plans: s.plans.filter((p) => p.id !== id) } : s));
+    showToast('Plan deleted');
+  };
+
+  const logTempo: Store['logTempo'] = (pieceId, bpm, date = dateKey()) => {
+    setState((s) =>
+      s
+        ? {
+            ...s,
+            pieces: s.pieces.map((p) => {
+              if (p.id !== pieceId) return p;
+              const log = (p.tempoLog ?? []).filter((e) => e.date !== date);
+              log.push({ date, bpm });
+              log.sort((a, b) => (a.date < b.date ? -1 : 1));
+              return { ...p, tempoLog: log, currentBpm: bpm };
+            }),
+          }
+        : s
+    );
+  };
+
+  const deleteTempoEntry: Store['deleteTempoEntry'] = (pieceId, date) => {
+    setState((s) =>
+      s
+        ? {
+            ...s,
+            pieces: s.pieces.map((p) =>
+              p.id === pieceId ? { ...p, tempoLog: (p.tempoLog ?? []).filter((e) => e.date !== date) } : p
+            ),
+          }
+        : s
+    );
   };
 
   const setSessionNote = (id: string, note: string) => {
@@ -459,6 +517,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast,
     showToast,
     logMinutes,
+    addPlan,
+    updatePlan,
+    removePlan,
+    logTempo,
+    deleteTempoEntry,
     deleteSession,
     setSessionNote,
     updateSession,
