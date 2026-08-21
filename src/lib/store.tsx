@@ -5,6 +5,7 @@ import { Paths } from 'expo-file-system';
 import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
+import { runAutoBackup } from './backup';
 import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
@@ -50,6 +51,7 @@ export type WeekStart = 'Monday' | 'Sunday';
 
 type Settings = {
   onboarded: boolean;
+  autoBackupDays: number; // 0 = off; otherwise auto backup every N days into Documents/Backups
   focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
   name: string;
   instruments: string[];
@@ -106,6 +108,7 @@ function seed(): State {
     plans: [],
     dailyGoal: 45,
     onboarded: false,
+    autoBackupDays: 0,
     focusPeriod: '30d',
     name: '',
     instruments: [],
@@ -268,6 +271,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, [reminder]);
 
+  // auto backup, checked once per hydration / foreground / midnight / setting
+  // change — not per state change, so it's not a sync dir scan on every edit
+  const hydrated = state !== null;
+  const autoBackupDays = state?.autoBackupDays ?? 0;
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  useEffect(() => {
+    if (stateRef.current && autoBackupDays > 0)
+      runAutoBackup(stateRef.current, autoBackupDays, dateKey(new Date(now)));
+  }, [hydrated, autoBackupDays, now]);
 
   if (!state) return null;
 

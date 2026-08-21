@@ -6,7 +6,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-import { buildCsv, isSafeRelPath, parseBackup } from './backup-math';
+import { autoBackupDate, autoBackupPlan, buildCsv, isSafeRelPath, parseBackup } from './backup-math';
 import type { Recording, Session } from './store';
 
 const b64ToBytes = (b64: string) => {
@@ -49,6 +49,49 @@ export async function pickBackup(): Promise<{ state: object; files: Record<strin
   const res = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true });
   if (res.canceled) return null;
   return parseBackup(await new File(res.assets[0].uri).text());
+}
+
+const AUTO_DIR = 'Backups';
+
+/** Newest automatic backup on this device, or null (none yet, or web). */
+export function latestAutoBackup(): File | null {
+  try {
+    const files = new Directory(Paths.document, AUTO_DIR)
+      .list()
+      .filter((f): f is File => f instanceof File && !!autoBackupDate(f.name))
+      .sort((a, b) => (a.name < b.name ? -1 : 1));
+    return files[files.length - 1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Writes a backup into Documents/Backups when the newest one is `everyDays`
+ * or more days old, keeping the last three. Never throws — it just retries
+ * on the next launch/foreground.
+ */
+// ponytail: recordings aren't embedded — they live in the same documents dir
+// this writes to, so bundling them would only double the disk. The auto backup
+// guards the state blob; "Back up everything" is the move-phones path.
+export function runAutoBackup(state: object, everyDays: number, todayKey: string) {
+  try {
+    const dir = new Directory(Paths.document, AUTO_DIR);
+    dir.create({ intermediates: true, idempotent: true });
+    const { due, prune } = autoBackupPlan(dir.list().map((f) => f.name), todayKey, everyDays);
+    if (due) {
+      const f = new File(dir, `etude-auto-${todayKey}.json`);
+      f.create({ overwrite: true });
+      f.write(JSON.stringify({ etudeBackup: 1, state, files: {} }));
+    }
+    for (const name of prune) {
+      try {
+        new File(dir, name).delete();
+      } catch {}
+    }
+  } catch {
+    // silent by design: a failed background backup must never crash or toast
+  }
 }
 
 /** Writes the bundled recordings back into the documents directory. */
