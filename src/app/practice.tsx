@@ -1,4 +1,5 @@
 import { RecordingPresets, requestNotificationPermissionsAsync, requestRecordingPermissionsAsync, useAudioRecorder } from 'expo-audio';
+import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -89,6 +90,9 @@ export default function Practice() {
       } catch {}
       jsStop.current = false;
     }
+    // leave record mode — Android otherwise stays in communication routing, which
+    // mutes Bluetooth A2DP and plays the metronome at call volume
+    applyAudioMode({ playsInSilentMode: true });
     // downsample the level samples to ≤60 bars
     const raw = waveRef.current;
     waveRef.current = [];
@@ -123,7 +127,11 @@ export default function Practice() {
     try {
       // Android 13+: background recording runs a foreground service, which needs
       // notification permission or prepare throws. Denied → record foreground-only.
-      const canBackground = Platform.OS !== 'android' || (await requestNotificationPermissionsAsync()).granted;
+      // Expo Go's manifest lacks the service entirely (start silently fails and the
+      // recorder dies), so background recording needs a dev build.
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const canBackground =
+        Platform.OS !== 'android' || (!isExpoGo && (await requestNotificationPermissionsAsync()).granted);
       // allowsBackgroundRecording keeps the mic running when the app is backgrounded;
       // the flags are registered so metronome/playback audio-mode calls can't clobber them
       setRecordingFlags({ allowsRecording: true, allowsBackgroundRecording: canBackground });
@@ -135,6 +143,7 @@ export default function Practice() {
       recorder.record();
     } catch {
       setRecordingFlags({});
+      applyAudioMode({ playsInSilentMode: true }); // undo record-mode routing (see endRec)
       return store.showToast('Couldn’t start recording');
     }
     recStart.current = Date.now();
@@ -155,6 +164,7 @@ export default function Practice() {
     (p) => p.stage < store.stages.length - 1 && !p.archived && p.name.toLowerCase().includes(q)
   );
   const techniques = store.techniques.filter((t) => t.toLowerCase().includes(q));
+  const plans = store.plans.filter((p) => p.name.toLowerCase().includes(q));
 
   const endSave = async () => {
     if (!focus) return;
@@ -309,7 +319,37 @@ export default function Practice() {
             </View>
           </>
         )}
-        {pieces.length === 0 && techniques.length === 0 && <Text style={s.noMatch}>No matches for “{query.trim()}”</Text>}
+        {pieces.length === 0 && techniques.length === 0 && plans.length === 0 && (
+          <Text style={s.noMatch}>No matches for “{query.trim()}”</Text>
+        )}
+        {!q && (
+          <>
+            <Overline style={{ marginBottom: 10, marginTop: pieces.length + techniques.length > 0 ? 22 : 0 }}>
+              Plans
+            </Overline>
+            <View style={s.group}>
+              {plans.map((p) => {
+                const total = p.segments.reduce((a, x) => a + x.min, 0);
+                return (
+                  <Pressable key={p.id} style={s.option} onPress={() => router.push({ pathname: '/plan/[id]', params: { id: p.id } })}>
+                    <Text style={s.optionText}>{p.name}</Text>
+                    <Text style={s.planMeta}>
+                      {p.segments.length} segment{p.segments.length === 1 ? '' : 's'} · {total} min
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                style={s.planAdd}
+                onPress={() => {
+                  const id = store.addPlan('New plan');
+                  router.push({ pathname: '/plan/[id]', params: { id } });
+                }}>
+                <Text style={s.planAddText}>+ New plan</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </ScrollView>
       <View style={{ paddingHorizontal: 24, paddingBottom: 16 }}>
         <Pressable
@@ -343,6 +383,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { height: 52, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
   optionText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  planMeta: { fontFamily: F.body, fontSize: fs(12), color: C.sub, marginTop: 1 },
+  planAdd: { height: 50, borderRadius: r(14), borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.chartInactive, alignItems: 'center', justifyContent: 'center' },
+  planAddText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
   startBtn: { height: 60, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   startBtnText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
   pastLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 14, textAlign: 'center', textDecorationLine: 'underline' },
