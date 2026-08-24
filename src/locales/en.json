@@ -15,7 +15,7 @@
     "saved": "Saved",
     "saveFailed": "Save failed — device storage may be full",
     "enableNotifications": "Enable notifications in system settings to get reminders",
-    "planDeleted": "Plan deleted",
+    "planDeleted": "Routine deleted",
     "sessionDeleted": "Session deleted",
     "alreadyInRepertoire": "Already in repertoire",
     "addedToRepertoire": "Added to repertoire",
@@ -183,15 +183,16 @@
     "searchPlaceholder": "Search pieces & techniques",
     "pieces": "Pieces",
     "techniques": "Techniques",
-    "plans": "Plans",
+    "plans": "Routines",
     "noMatches": "No matches for “%{query}”",
     "planMeta": {
       "one": "1 segment · %{total} min",
       "other": "%{count} segments · %{total} min"
     },
-    "newPlan": "+ New plan",
+    "newPlan": "+ New routine",
     "startSession": "Start session",
-    "logPastLink": "Forgot a day? Log past practice"
+    "logPastLink": "Forgot a day? Log past practice",
+    "defaultPlanName": "New routine"
   },
   "progress": {
     "thisWeek": "This week",
@@ -277,8 +278,8 @@
     "save": "Save"
   },
   "plan": {
-    "savePlan": "Save plan",
-    "planName": "Plan name",
+    "savePlan": "Save routine",
+    "planName": "Routine name",
     "segmentCount": {
       "one": "1 segment",
       "other": "%{count} segments"
@@ -288,8 +289,8 @@
     "minShort": "%{min}m",
     "addFocusFirst": "Add a piece or technique first",
     "addSegment": "Add segment",
-    "deletePlan": "Delete plan",
-    "startPlan": "Start plan",
+    "deletePlan": "Delete routine",
+    "startPlan": "Start routine",
     "newSegment": "New segment",
     "editSegment": "Edit segment",
     "notePlaceholder": "Note — e.g. bars 12–24, slow",
@@ -302,7 +303,7 @@
   },
   "planRun": {
     "end": "End",
-    "endTitle": "End plan?",
+    "endTitle": "End routine?",
     "endMessage": "The current segment will be saved as-is.",
     "keepGoing": "Keep going",
     "segmentOf": "Segment %{n} of %{total}",

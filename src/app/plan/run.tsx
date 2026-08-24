@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MetronomeSheet } from '@/components/metronome';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Overline } from '@/components/ui';
 import { useBeat, useMetronome } from '@/lib/metronome';
@@ -29,6 +30,7 @@ export default function PlanRunner() {
   const [accum, setAccum] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [review, setReview] = useState<ReviewSession | null>(null);
+  const [metroOpen, setMetroOpen] = useState(false);
   const [runStart] = useState(() => Date.now());
   const paused = startedAt === null;
 
@@ -113,9 +115,10 @@ export default function PlanRunner() {
   const ss = String(seconds % 60).padStart(2, '0');
   const title = seg.note ? `${seg.focus.name} · ${seg.note}` : seg.focus.name;
 
-  const toggleMetro = () => {
+  // opens the full sheet so tempo/time-sig/ramp stay adjustable mid-session (#31)
+  const openMetro = () => {
     if (seg.bpm && !metro.running) metro.setBpm(seg.bpm);
-    metro.toggle();
+    setMetroOpen(true);
   };
 
   return (
@@ -150,14 +153,14 @@ export default function PlanRunner() {
           {mm}:{ss}
         </Text>
         <Text style={s.of}>{store.t('planRun.ofMin', { min: seg.min })}</Text>
-        {!!seg.bpm && (
-          <Pressable style={[s.metroChip, metro.running && { backgroundColor: C.accent }]} onPress={toggleMetro}>
-            <View style={[s.metroDot, metro.running && { backgroundColor: C.bg, opacity: beat % 2 === 0 ? 1 : 0.35 }]} />
-            <Text style={[s.metroText, metro.running && { color: C.bg }]}>
-              {store.t('planRun.metronomeBpm', { bpm: metro.running ? metro.bpm : seg.bpm })}
-            </Text>
-          </Pressable>
-        )}
+        <Pressable style={[s.metroChip, metro.running && { backgroundColor: C.accent }]} onPress={openMetro}>
+          <View style={[s.metroDot, metro.running && { backgroundColor: C.bg, opacity: beat % 2 === 0 ? 1 : 0.35 }]} />
+          <Text style={[s.metroText, metro.running && { color: C.bg }]}>
+            {metro.running || seg.bpm
+              ? store.t('planRun.metronomeBpm', { bpm: metro.running ? metro.bpm : seg.bpm })
+              : store.t('metronome.metronome')}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={s.controls}>
@@ -177,6 +180,8 @@ export default function PlanRunner() {
         </Pressable>
         <View style={{ width: 56 }} />
       </View>
+
+      <MetronomeSheet visible={metroOpen} onClose={() => setMetroOpen(false)} />
 
       <SessionReview
         session={review}

@@ -15,7 +15,7 @@
     "saved": "Gespeichert",
     "saveFailed": "Speichern fehlgeschlagen — der Gerätespeicher ist womöglich voll",
     "enableNotifications": "Aktiviere Benachrichtigungen in den Systemeinstellungen, um Erinnerungen zu erhalten",
-    "planDeleted": "Plan gelöscht",
+    "planDeleted": "Routine gelöscht",
     "sessionDeleted": "Einheit gelöscht",
     "alreadyInRepertoire": "Schon im Repertoire",
     "addedToRepertoire": "Zum Repertoire hinzugefügt",
@@ -183,15 +183,16 @@
     "searchPlaceholder": "Stücke & Techniken suchen",
     "pieces": "Stücke",
     "techniques": "Techniken",
-    "plans": "Pläne",
+    "plans": "Routinen",
     "noMatches": "Keine Treffer für „%{query}“",
     "planMeta": {
       "one": "1 Abschnitt · %{total} Min.",
       "other": "%{count} Abschnitte · %{total} Min."
     },
-    "newPlan": "+ Neuer Plan",
+    "newPlan": "+ Neue Routine",
     "startSession": "Einheit starten",
-    "logPastLink": "Tag vergessen? Frühere Übung nachtragen"
+    "logPastLink": "Tag vergessen? Frühere Übung nachtragen",
+    "defaultPlanName": "Neue Routine"
   },
   "progress": {
     "thisWeek": "Diese Woche",
@@ -277,8 +278,8 @@
     "save": "Speichern"
   },
   "plan": {
-    "savePlan": "Plan speichern",
-    "planName": "Planname",
+    "savePlan": "Routine speichern",
+    "planName": "Routinenname",
     "segmentCount": {
       "one": "1 Segment",
       "other": "%{count} Segmente"
@@ -288,8 +289,8 @@
     "minShort": "%{min}m",
     "addFocusFirst": "Füge zuerst ein Stück oder eine Technik hinzu",
     "addSegment": "Segment hinzufügen",
-    "deletePlan": "Plan löschen",
-    "startPlan": "Plan starten",
+    "deletePlan": "Routine löschen",
+    "startPlan": "Routine starten",
     "newSegment": "Neues Segment",
     "editSegment": "Segment bearbeiten",
     "notePlaceholder": "Notiz — z. B. Takte 12–24, langsam",
@@ -302,7 +303,7 @@
   },
   "planRun": {
     "end": "Beenden",
-    "endTitle": "Plan beenden?",
+    "endTitle": "Routine beenden?",
     "endMessage": "Das aktuelle Segment wird so gespeichert.",
     "keepGoing": "Weiter üben",
     "segmentOf": "Segment %{n} von %{total}",
