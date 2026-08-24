@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -8,6 +9,8 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   const s = useS();
   const C = useC();
   const store = useStore();
+  const winH = useWindowDimensions().height;
+  const insets = useSafeAreaInsets();
   const [pastDate, setPastDate] = useState<string | null>(null);
   const [pastMin, setPastMin] = useState('');
   const [pastFoci, setPastFoci] = useState<{ name: string; kind: 'Piece' | 'Technique' }[]>([]);
@@ -68,8 +71,10 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
-        <Pressable style={s.sheet} onPress={() => {}}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
+        <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
+          <View style={s.grabber} />
+          {/* flex-end keeps the form at the bottom, within thumb reach, when it doesn't fill the sheet */}
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, flexGrow: 1, justifyContent: 'flex-end' }}>
             <Text style={s.sheetTitle}>{store.t('logPast.title')}</Text>
 
             <View style={s.calHeader}>
@@ -171,7 +176,8 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, maxHeight: '80%' },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
+  grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
   calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   calNav: { width: 32, height: 32, borderRadius: r(16), alignItems: 'center', justifyContent: 'center' },
