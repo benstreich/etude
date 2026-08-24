@@ -4,11 +4,11 @@ import {
   InstrumentSans_500Medium,
   InstrumentSans_600SemiBold,
 } from '@expo-google-fonts/instrument-sans';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import { Onboarding } from '@/components/onboarding';
 import { Toast } from '@/components/toast';
 import { WidgetSync } from '@/components/widget-sync';
 import { MetronomeProvider } from '@/lib/metronome';
+import { useActiveRun } from '@/lib/plan-run-state';
 import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
 
@@ -51,6 +52,38 @@ export default function RootLayout() {
         <Shell insets={insets} />
       </MetronomeProvider>
     </StoreProvider>
+  );
+}
+
+// Way back into a running routine from any tab — the runner screen itself has
+// no tab, so without this the run looks lost the moment you switch away
+function RunPill({ bottom }: { bottom: number }) {
+  const { C } = useTheme();
+  const { plans, t } = useStore();
+  const active = useActiveRun();
+  const pathname = usePathname();
+  const router = useRouter();
+  const plan = active && plans.find((p) => p.id === active.planId);
+  if (!plan || pathname === '/plan/run') return null;
+  return (
+    <Pressable
+      style={{
+        position: 'absolute',
+        bottom,
+        alignSelf: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: C.accent,
+        borderRadius: 999,
+        paddingVertical: 10,
+        paddingHorizontal: 18,
+      }}
+      onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
+      <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg }}>
+        ▶ {t('planRun.inProgress', { name: plan.name })}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -112,6 +145,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="plan/run" options={{ href: null }} />
             <Tabs.Screen name="compare" options={{ href: null }} />
           </Tabs>
+          <RunPill bottom={56 + insets.bottom + 12} />
           <Toast />
           <WidgetSync />
         </View>

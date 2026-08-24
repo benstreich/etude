@@ -10,6 +10,7 @@ import { MetronomeSheet } from '@/components/metronome';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Overline } from '@/components/ui';
 import { useBeat, useMetronome } from '@/lib/metronome';
+import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -24,18 +25,32 @@ export default function PlanRunner() {
   const beat = useBeat();
 
   const plan = store.plans.find((p) => p.id === id);
-  const [idx, setIdx] = useState(0);
+  // resume the run-in-progress if this screen was unmounted mid-run (tab switch)
+  const [resumed] = useState(() => {
+    const r = getActiveRun();
+    return r && r.planId === id ? r : null;
+  });
+  const [idx, setIdx] = useState(resumed?.idx ?? 0);
   // wall-clock timer, same pattern as the practice screen
-  const [startedAt, setStartedAt] = useState<number | null>(() => Date.now());
-  const [accum, setAccum] = useState(0);
-  const [seconds, setSeconds] = useState(0);
+  const [startedAt, setStartedAt] = useState<number | null>(() => (resumed ? resumed.startedAt : Date.now()));
+  const [accum, setAccum] = useState(resumed?.accum ?? 0);
+  const [seconds, setSeconds] = useState(resumed?.accum ?? 0);
   const [review, setReview] = useState<ReviewSession | null>(null);
   const [metroOpen, setMetroOpen] = useState(false);
-  const [runStart] = useState(() => Date.now());
+  const [runStart] = useState(() => resumed?.runStart ?? Date.now());
   const paused = startedAt === null;
 
   const seg = plan?.segments[idx];
   const segSec = (seg?.min ?? 0) * 60;
+
+  // mirror the run into the module singleton so it survives unmounts and the
+  // shell can offer a way back. ponytail: while this screen is unmounted the
+  // segment can overrun; on return one auto-advance logs the planned minutes
+  // and the run continues from now — overflow beyond one segment isn't spread.
+  useEffect(() => {
+    if (!plan || review) return;
+    setActiveRun({ planId: plan.id, idx, startedAt, accum, runStart });
+  }, [plan, idx, startedAt, accum, runStart, review]);
 
   useEffect(() => {
     if (startedAt === null || review) return;
@@ -64,6 +79,7 @@ export default function PlanRunner() {
   const finish = (lastId: string) => {
     if (!plan) return;
     if (metro.running) metro.toggle();
+    setActiveRun(null);
     const total = plan.segments.slice(0, idx).reduce((a, x) => a + x.min, 0) + Math.round(seconds / 60);
     setStartedAt(null);
     setReview({ id: lastId, min: Math.max(1, total), focusName: plan.name, start: runStart, end: Date.now() });
@@ -97,6 +113,7 @@ export default function PlanRunner() {
       else if (idx > 0 || seconds > 0) finish(logSegment(Math.max(60, seconds)));
       else {
         if (metro.running) metro.toggle();
+        setActiveRun(null);
         router.back();
       }
     };

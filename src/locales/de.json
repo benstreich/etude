@@ -311,7 +311,8 @@
     "ofMin": "von %{min} Min.",
     "metronomeBpm": "Metronom · %{bpm} BPM",
     "next": "Weiter",
-    "finish": "Fertig"
+    "finish": "Fertig",
+    "inProgress": "%{name} läuft — tippen zum Fortsetzen"
   },
   "onboarding": {
     "skip": "Überspringen",
