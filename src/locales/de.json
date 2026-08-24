@@ -9,7 +9,7 @@
     "practice": "Üben",
     "progress": "Fortschritt",
     "repertoire": "Repertoire",
-    "settings": "Einstellungen"
+    "settings": "Optionen"
   },
   "toast": {
     "saved": "Gespeichert",
@@ -57,6 +57,7 @@
     "accentSlate": "Schiefer"
   },
   "settings": {
+    "title": "Einstellungen",
     "rate": "Gefällt dir Étude? Hinterlasse eine Bewertung",
     "rateSub": "Eine Bewertung hilft anderen Musiker:innen, die App zu finden",
     "instruments": "Instrumente",
