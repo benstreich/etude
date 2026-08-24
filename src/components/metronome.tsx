@@ -32,7 +32,7 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
   );
 }
 
-function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useS();
   const C = useC();
   const { t } = useStore();

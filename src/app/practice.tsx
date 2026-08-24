@@ -342,7 +342,7 @@ export default function Practice() {
               <Pressable
                 style={s.planAdd}
                 onPress={() => {
-                  const id = store.addPlan('New plan');
+                  const id = store.addPlan(store.t('practice.defaultPlanName'));
                   router.push({ pathname: '/plan/[id]', params: { id } });
                 }}>
                 <Text style={s.planAddText}>{store.t('practice.newPlan')}</Text>
