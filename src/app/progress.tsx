@@ -35,10 +35,13 @@ export default function Progress() {
   const start = store.weekStart === 'Monday' ? 1 : 0;
   const elapsed = ((new Date(store.now).getDay() - start + 7) % 7) + 1;
   let weekTotal = 0;
+  let weekPracticed = 0; // avg divides by practiced days only — zero days would dilute it (#25)
   for (let i = 0; i < elapsed; i++) {
     const d = new Date(store.now);
     d.setDate(d.getDate() - i);
-    weekTotal += store.minutesByDate[dateKey(d)] ?? 0;
+    const min = store.minutesByDate[dateKey(d)] ?? 0;
+    weekTotal += min;
+    if (min > 0) weekPracticed++;
   }
   // month heatmap: offset 0 = the current month
   const [monthOff, setMonthOff] = useState(0);
@@ -94,7 +97,7 @@ export default function Progress() {
         <Card style={s.stat}>
           <Overline style={{ marginBottom: 10 }}>{store.t('progress.avgPerDay')}</Overline>
           <Text style={s.statNum}>
-            {empty ? '—' : Math.round(weekTotal / elapsed)}
+            {empty ? '—' : Math.round(weekTotal / Math.max(1, weekPracticed))}
             {!empty && <Text style={s.statUnit}> {store.t('progress.minUnit')}</Text>}
           </Text>
         </Card>
