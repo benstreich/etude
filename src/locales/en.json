@@ -57,6 +57,7 @@
     "accentSlate": "Slate"
   },
   "settings": {
+    "title": "Settings",
     "rate": "Enjoying Étude? Leave a review",
     "rateSub": "A rating helps other musicians find it",
     "instruments": "Instruments",

@@ -214,7 +214,7 @@ export default function Profile() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>{store.t('tabs.settings')}</ScreenTitle>
+      <ScreenTitle>{store.t('settings.title')}</ScreenTitle>
 
       <View style={s.head}>
         <Pressable style={s.avatar} onPress={() => open('name')}>
@@ -511,7 +511,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
-  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 56 },
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, paddingVertical: 8 },
   dataLabel: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
   dataSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
   dataFootRow: { flexDirection: 'row', gap: 7, paddingHorizontal: 4, alignItems: 'flex-start' },
