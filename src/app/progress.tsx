@@ -69,7 +69,10 @@ export default function Progress() {
 
   // minutes per piece/technique within the selected period
   const period = PERIODS.find((p) => p.key === store.focusPeriod) ?? PERIODS[1];
-  const cutoff = period.days ? dateKey(new Date(store.now - (period.days - 1) * 86400000)) : '';
+  // setDate, not fixed 24h ms, so the cutoff day survives DST changes
+  const cutoffDate = new Date(store.now);
+  cutoffDate.setDate(cutoffDate.getDate() - ((period.days ?? 1) - 1));
+  const cutoff = period.days ? dateKey(cutoffDate) : '';
   const byFocus: Record<string, number> = {};
   for (const sess of store.sessions) if (sess.date >= cutoff) byFocus[sess.title] = (byFocus[sess.title] ?? 0) + sess.min;
   const focusRows = Object.entries(byFocus).sort((a, b) => b[1] - a[1]);

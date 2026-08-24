@@ -319,7 +319,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         totalMin: s.totalMin + min,
         // full-history scan so streaks assembled from backdated logs count too
         bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
-        sessions: [{ id, title, meta, min, date, planId }, ...s.sessions].sort((a, b) => (a.date < b.date ? 1 : -1)),
+        // 0 on equal dates keeps the sort stable, so today's newest stays first
+        sessions: [{ id, title, meta, min, date, planId }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
       };
     });
     return id;
@@ -377,7 +378,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateSession: Store['updateSession'] = (id, patch) => {
-    setState((s) => (s ? applySessionUpdate(s, id, patch) : s));
+    setState((s) => {
+      if (!s) return s;
+      const next = applySessionUpdate(s, id, patch);
+      if (next === s || patch.min === undefined) return next;
+      // an edited day can complete a streak, same monotonic bump as logMinutes
+      return {
+        ...next,
+        bestStreak: Math.max(next.bestStreak, computeBestStreak(next.minutesByDate, next.breakDays, graceFor(next.streakMode))),
+      };
+    });
   };
 
   const updatePiece: Store['updatePiece'] = (id, patch) => {
@@ -427,11 +437,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTechnique = (name: string) => {
-    setState((s) => {
-      if (!s || s.techniques.includes(name)) return s;
-      return { ...s, techniques: [...s.techniques, name] };
-    });
-    showToast(t('toast.techniqueAdded'));
+    const dup = state.techniques.includes(name);
+    if (!dup) setState((s) => (s ? { ...s, techniques: [...s.techniques, name] } : s));
+    showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.techniqueAdded'));
   };
 
   // a removed focus target must not keep collecting quick-log sessions

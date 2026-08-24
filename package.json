@@ -63,7 +63,9 @@
     "check:improvements": "node --experimental-strip-types --no-warnings scripts/check-improvements.ts",
     "check:i18n": "node --experimental-strip-types --no-warnings scripts/check-i18n.ts",
     "check:growth": "node --experimental-strip-types --no-warnings scripts/check-growth.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth"
+    "check:session": "node --experimental-strip-types --no-warnings scripts/check-session.ts",
+    "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap"
   },
   "private": true
 }
