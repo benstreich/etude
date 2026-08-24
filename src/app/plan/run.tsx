@@ -15,12 +15,18 @@ import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function PlanRunner() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  // tab screens stay mounted — key-remount resets the run state when a
+  // different plan is started, else the old run's segment index leaks in
+  return <Runner key={id} id={id} />;
+}
+
+function Runner({ id }: { id: string }) {
   const s = useS();
   const C = useC();
   const store = useStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
   const metro = useMetronome();
   const beat = useBeat();
 
