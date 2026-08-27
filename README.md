@@ -24,4 +24,4 @@ Native builds go through [EAS](https://docs.expo.dev/build/introduction/): `eas 
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Proprietary — all rights reserved. Source is published for reference only; copying, modifying or redistributing is not permitted. See [LICENSE](LICENSE).
