@@ -85,6 +85,9 @@ type Settings = {
   metroRampEvery: number;
   metroRampUnit: RampUnit;
   metroRampTarget: number; // below metroBpm means the ramp runs downwards
+  // Tuner. Flat like the metronome keys, same reason.
+  tunerInstrument: string; // an id from tuner-math INSTRUMENTS
+  tunerRefA: number; // reference pitch in Hz, 415–445
 };
 
 type State = Settings & {
@@ -145,6 +148,8 @@ function seed(): State {
     metroRampEvery: 4,
     metroRampUnit: 'bars',
     metroRampTarget: 120,
+    tunerInstrument: 'chromatic',
+    tunerRefA: 440,
   };
 }
 
