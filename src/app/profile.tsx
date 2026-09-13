@@ -3,16 +3,17 @@ import { useRouter } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
 import * as Updates from 'expo-updates';
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Linking, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFocus } from '@/components/add-focus';
 import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Text } from '@/components/text';
+import { TimeWheel } from '@/components/time-wheel';
 import { Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
-import { parseReminderTime, reminderLabel } from '@/lib/reminders';
+import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -73,6 +74,8 @@ export default function Profile() {
   }, []);
   // draft values while the editor is open
   const [text, setText] = useState('');
+  const [time, setTime] = useState({ hour: 19, minute: 0 });
+  const [notifAllowed, setNotifAllowed] = useState(true);
   const [list, setList] = useState<string[]>([]);
 
   // persisted value → localized label (stored values stay English)
@@ -88,8 +91,11 @@ export default function Profile() {
     if (key === 'breakDays') setList(store.breakDays);
     if (key === 'quickLog') setList(store.quickLog.map(String));
     if (key === 'stages') setList(store.stages);
-    // a custom reminder time pre-fills the input; presets leave it empty
-    if (key === 'reminder') setText(REMINDERS.includes(store.reminder) ? '' : store.reminder);
+    // the wheel opens on the current custom time, or 7:00 PM for a preset/Off
+    if (key === 'reminder') {
+      setTime(parseReminderTime(store.reminder) ?? { hour: 19, minute: 0 });
+      notificationsAllowed().then(setNotifAllowed).catch(() => {});
+    }
     setEditing(key);
   };
 
@@ -141,11 +147,7 @@ export default function Profile() {
     store.showToast(store.t('toast.saved'));
   };
 
-  const saveCustomReminder = () => {
-    const t = parseReminderTime(text);
-    if (!t) return store.showToast(store.t('settings.errTime'));
-    pick({ reminder: reminderLabel(t) });
-  };
+  const saveCustomReminder = () => pick({ reminder: reminderLabel(time) });
 
   const pick = (patch: Parameters<typeof store.updateSettings>[0]) => {
     store.updateSettings(patch);
@@ -480,20 +482,15 @@ export default function Profile() {
                     <Chip label={store.reminder} selected onPress={() => {}} />
                   )}
                 </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput
-                    style={[s.input, { flex: 1 }]}
-                    value={text}
-                    onChangeText={setText}
-                    placeholder={store.t('settings.customTimePlaceholder')}
-                    placeholderTextColor={C.tertiary}
-                    onSubmitEditing={saveCustomReminder}
-                    returnKeyType="done"
-                  />
-                  <Pressable style={s.addPresetBtn} onPress={saveCustomReminder}>
-                    <Text style={s.addPresetText}>✓</Text>
+                <TimeWheel value={time} onChange={setTime} />
+                <Pressable style={s.wheelSave} onPress={saveCustomReminder}>
+                  <Text style={s.wheelSaveText}>{reminderLabel(time)}</Text>
+                </Pressable>
+                {!notifAllowed && (
+                  <Pressable onPress={() => Linking.openSettings()}>
+                    <Text style={[s.editorHint, { color: C.accent }]}>{store.t('settings.notifBlocked')}</Text>
                   </Pressable>
-                </View>
+                )}
               </>
             )}
             {editing === 'autoBackup' && (
@@ -545,6 +542,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   input: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  wheelSave: { height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  wheelSaveText: { color: C.bg, fontFamily: F.bodyMed, fontSize: fs(15) },
   addPresetBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   addPresetText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
   editorHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, marginTop: -6 },

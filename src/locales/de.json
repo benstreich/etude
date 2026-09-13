@@ -103,7 +103,6 @@
     "errBreakDays": "Behalte mindestens einen Übungstag",
     "errPresets": "Behalte mindestens eine Vorgabe",
     "errStages": "Mindestens zwei Phasen",
-    "errTime": "Gib eine Zeit wie 17:45 ein",
     "backupFailed": "Backup fehlgeschlagen",
     "exportFailed": "Export fehlgeschlagen",
     "restoreConfirmTitle": "Aus Backup wiederherstellen?",
@@ -140,7 +139,7 @@
     "moveDown": "Nach unten",
     "stagesHint": "In Reihenfolge, von der ersten bis zur letzten. Leere ein Feld, um es zu entfernen; mindestens zwei Phasen.",
     "streaksHint": "Streng beendet die Serie nach einem verpassten Tag; Entspannt verzeiht einen einzelnen verpassten Tag. Pausentage zählen nie dagegen, und das Nachtragen eines vergangenen Tages belebt die Serie in beiden Fällen wieder.",
-    "customTimePlaceholder": "Eigene Zeit — z. B. 17:45",
+    "notifBlocked": "Mitteilungen für Etude sind aus — tippen, um die Systemeinstellungen zu öffnen.",
     "autoBackupHint": "Speichert deine Einheiten, Stücke und Einstellungen im Speicher der App und behält die letzten drei. Aufnahmen sind nicht enthalten — „Alles sichern“ deckt sie beim Handywechsel ab.",
     "save": "Speichern"
   },
@@ -232,7 +231,7 @@
       "other": "%{count} Aufnahmen"
     },
     "tapHint": "Tippe auf ein Stück für Details, Statistiken & Aufnahmen",
-    "techniqueRecordings": "Technik-Aufnahmen",
+    "techniqueRecordings": "Weitere Aufnahmen",
     "techniques": "Techniken",
     "notPractisedYet": "Noch nicht geübt",
     "archived": "Archiviert",

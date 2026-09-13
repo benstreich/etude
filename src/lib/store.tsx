@@ -31,6 +31,11 @@ export type Recording = {
   sec: number;
   wave?: number[];
   starred?: boolean;
+  // non-destructive trim, in seconds from the start of the file (the audio itself
+  // is AAC/m4a — nothing on device can re-encode it, so playback honours these)
+  start?: number;
+  end?: number;
+  loop?: boolean;
 };
 // stage is an index into settings.stages
 export type Piece = {
@@ -210,6 +215,7 @@ type Store = State & {
   toggleStar: (id: string) => void;
   deleteRecording: (id: string) => void;
   renameRecording: (id: string, name: string) => void;
+  updateRecording: (id: string, patch: Partial<Recording>) => void;
   updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
 };
 
@@ -532,6 +538,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const updateRecording: Store['updateRecording'] = (id, patch) => {
+    setState((s) => (s ? { ...s, recordings: s.recordings.map((r) => (r.id === id ? { ...r, ...patch } : r)) } : s));
+  };
+
   const updateSettings: Store['updateSettings'] = (patch) => {
     setState((s) => {
       if (!s) return s;
@@ -583,6 +593,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addRecording,
     deleteRecording,
     renameRecording,
+    updateRecording,
     toggleStar,
     updateSettings,
   };
