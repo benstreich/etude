@@ -215,8 +215,11 @@ export default function Practice() {
             </Pressable>
           )}
         </View>
-        <View style={{ marginTop: 12 }}>
+        <View style={{ marginTop: 12, flexDirection: 'row', gap: 8 }}>
           <MetronomeButton compact />
+          <Pressable style={s.tunerPill} onPress={() => router.push('/tuner')}>
+            <Text style={s.tunerPillText}>{store.t('tuner.tuner')}</Text>
+          </Pressable>
         </View>
         <View style={s.runBtns}>
           <Pressable
@@ -404,6 +407,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   timer: { fontFamily: F.head, fontSize: fs(90), color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
   status: { fontFamily: F.bodyMed, fontSize: fs(15) },
   runBtns: { flexDirection: 'row', gap: 12, marginTop: 16, alignSelf: 'stretch' },
+  // matches MetronomeButton's compact pill so the two read as a pair
+  tunerPill: { height: 36, paddingHorizontal: 14, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  tunerPillText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
   recBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 18, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, marginTop: 32 },
   recBtnOn: { backgroundColor: C.accent, borderColor: C.accent },
   recDot: { width: 8, height: 8, borderRadius: r(4), backgroundColor: C.accent },
