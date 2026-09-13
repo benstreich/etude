@@ -7,7 +7,7 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedProps,
@@ -259,7 +259,7 @@ export default function Tuner() {
               };
 
     return (
-      <View style={[s.screen, { paddingTop: insets.top + 12 }]}>
+      <View style={[s.scroll, s.screen, { paddingTop: insets.top + 12 }]}>
         <Header onClose={() => router.back()} title={store.t('tuner.tuner')} />
         {card && (
           <Card style={s.statusCard}>
@@ -283,7 +283,9 @@ export default function Tuner() {
   const heard = note !== null;
 
   return (
-    <View style={[s.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
+    // Scrolls rather than clips: at the largest Dynamic Type setting the note
+    // glyph alone is over 110pt, and the tab bar already owns the bottom inset.
+    <ScrollView style={s.scroll} contentContainerStyle={[s.screen, { paddingTop: insets.top + 12 }]}>
       <Header onClose={() => router.back()} title={store.t('tuner.tuner')} />
 
       <View style={s.controls}>
@@ -356,14 +358,16 @@ export default function Tuner() {
 
       <View style={s.readout}>
         <Animated.View style={[s.halo, haloStyle]} pointerEvents="none" />
-        <Animated.View style={noteStyle}>
-          <View style={s.noteRow}>
-            <Text style={s.noteName} accessibilityLabel={heard ? `${note.name} ${note.octave}` : undefined}>
-              {heard ? note.name.replace('#', '♯') : '—'}
-            </Text>
-            {heard && <Text style={s.noteOctave}>{note.octave}</Text>}
-          </View>
-        </Animated.View>
+        {heard && (
+          <Animated.View style={noteStyle}>
+            <View style={s.noteRow}>
+              <Text style={s.noteName} accessibilityLabel={`${note.name} ${note.octave}`}>
+                {note.name.replace('#', '♯')}
+              </Text>
+              <Text style={s.noteOctave}>{note.octave}</Text>
+            </View>
+          </Animated.View>
+        )}
         <CentsLabel cents={cents} live={live} lock={lock} inTune={store.t('tuner.inTune')} idle={store.t('tuner.listening')} />
       </View>
 
@@ -391,8 +395,7 @@ export default function Tuner() {
         </View>
       )}
 
-      {!heard && <Text style={s.hint}>{store.t('tuner.listening')}</Text>}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -415,7 +418,8 @@ function CentsLabel({
 }) {
   const s = useS();
   const [text, setText] = useState(idle);
-  const [locked, setLocked] = useState(false);
+  // 'idle' | 'off' | 'locked' — drives which of the three type styles applies
+  const [mode, setMode] = useState<'idle' | 'off' | 'locked'>('idle');
 
   // Sampled at a quarter of the audio rate: the number only needs to be
   // readable, and re-rendering text 25×/sec is wasted work.
@@ -423,17 +427,22 @@ function CentsLabel({
     const id = setInterval(() => {
       if (live.value < 0.5) {
         setText(idle);
-        setLocked(false);
+        setMode('idle');
         return;
       }
+      const locked = lock.value > 0.5;
       const c = Math.round(cents.value);
-      setLocked(lock.value > 0.5);
-      setText(lock.value > 0.5 ? inTune : `${c > 0 ? '+' : ''}${c} ¢`);
+      setMode(locked ? 'locked' : 'off');
+      setText(locked ? inTune : `${c > 0 ? '+' : ''}${c} ¢`);
     }, 160);
     return () => clearInterval(id);
   }, [cents, live, lock, inTune, idle]);
 
-  return <Text style={[s.cents, locked && s.centsLocked]}>{text}</Text>;
+  return (
+    <Text style={[s.cents, mode === 'idle' && s.centsIdle, mode === 'locked' && s.centsLocked]}>
+      {text}
+    </Text>
+  );
 }
 
 function Header({ title, onClose }: { title: string; onClose: () => void }) {
@@ -450,7 +459,8 @@ function Header({ title, onClose }: { title: string; onClose: () => void }) {
 
 const useS = themed(({ C, fs, r }: T) =>
   StyleSheet.create({
-    screen: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 20 },
+    scroll: { flex: 1, backgroundColor: C.bg },
+    screen: { paddingHorizontal: 20, paddingBottom: 24 },
 
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 },
     title: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
@@ -475,14 +485,15 @@ const useS = themed(({ C, fs, r }: T) =>
     stepOff: { color: C.faint },
 
     gaugeWrap: { alignItems: 'center', marginTop: 24 },
+    // pinned to the gauge's own width, not the screen's, so the labels stay
+    // attached to the ends of the arc they describe
     gaugeEnds: {
       position: 'absolute',
       bottom: 0,
-      left: 0,
-      right: 0,
+      width: GAUGE_W,
+      alignSelf: 'center',
       flexDirection: 'row',
       justifyContent: 'space-between',
-      paddingHorizontal: 8,
     },
     gaugeEnd: { fontFamily: F.body, fontSize: fs(12), color: C.tertiary },
 
@@ -498,6 +509,9 @@ const useS = themed(({ C, fs, r }: T) =>
     noteName: { fontFamily: F.accent, fontSize: fs(92), lineHeight: fs(104), color: C.ink },
     noteOctave: { fontFamily: F.body, fontSize: fs(22), lineHeight: fs(40), color: C.subStrong, marginLeft: 2 },
     cents: { fontFamily: F.bodyMed, fontSize: fs(17), color: C.subStrong, marginTop: 4 },
+    // with no note to show, this line is the whole readout — give it the
+    // musical voice rather than leaving a bare data label floating
+    centsIdle: { fontFamily: F.accent, fontSize: fs(19), color: C.sub },
     centsLocked: { color: C.success, fontFamily: F.bodySemi },
 
     strings: { flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 8 },
@@ -508,7 +522,6 @@ const useS = themed(({ C, fs, r }: T) =>
     stringLabel: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary },
     stringLabelOn: { color: C.ink, fontFamily: F.bodySemi },
 
-    hint: { fontFamily: F.accent, fontSize: fs(15), color: C.sub, textAlign: 'center', marginTop: 12 },
 
     statusCard: { marginTop: 24, padding: 20, gap: 8 },
     statusTitle: { fontFamily: F.headBold, fontSize: fs(17), color: C.ink },

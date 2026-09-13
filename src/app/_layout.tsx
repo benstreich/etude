@@ -147,6 +147,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="plan/[id]" options={{ href: null }} />
             <Tabs.Screen name="plan/run" options={{ href: null }} />
             <Tabs.Screen name="compare" options={{ href: null }} />
+            <Tabs.Screen name="tuner" options={{ href: null }} />
           </Tabs>
           <RunPill bottom={56 + insets.bottom + 12} />
           <Toast />
