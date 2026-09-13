@@ -75,9 +75,32 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5e81d0a4-4a3b-43e5-89f0-1a9a5d50f93c"
+        "projectId": "5e81d0a4-4a3b-43e5-89f0-1a9a5d50f93c",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.benstreich.etude.widget",
+                  "targetName": "EtudeWidgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.benstreich.etude"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     },
-    "owner": "benstreichs-team"
+    "owner": "benstreichs-team",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5e81d0a4-4a3b-43e5-89f0-1a9a5d50f93c"
+    }
   }
 }
