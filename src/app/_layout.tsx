@@ -1,10 +1,10 @@
-import {
-  InstrumentSans_400Regular,
-  InstrumentSans_500Medium,
-  InstrumentSans_600SemiBold,
-} from '@expo-google-fonts/instrument-sans';
 import { Newsreader_400Regular_Italic, Newsreader_500Medium_Italic } from '@expo-google-fonts/newsreader';
-import { SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, useFonts } from '@expo-google-fonts/space-grotesk';
+import {
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  useFonts,
+} from '@expo-google-fonts/space-grotesk';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -40,13 +40,11 @@ function TabIcon({ focused, children }: { focused: boolean; children: React.Reac
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
   const [loaded] = useFonts({
+    SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
     Newsreader_400Regular_Italic,
     Newsreader_500Medium_Italic,
-    InstrumentSans_400Regular,
-    InstrumentSans_500Medium,
-    InstrumentSans_600SemiBold,
   });
 
   if (!loaded) return null;
