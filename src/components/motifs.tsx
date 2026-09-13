@@ -2,9 +2,10 @@
 // a ring or a pill row. Both draw in on mount and then sit still — the whole
 // motion budget for these screens.
 import React, { useEffect, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, View, type TextStyle } from 'react-native';
 import Svg, { Ellipse, Rect } from 'react-native-svg';
 
+import { Text } from '@/components/text';
 import { barlines, tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
@@ -153,3 +154,42 @@ const useS = themed(({ C }: T) => StyleSheet.create({
   tempoRow: { fontFamily: F.body, color: C.subStrong },
   term: { fontFamily: F.accentMed, color: C.accent },
 }));
+
+/**
+ * Odometer digits (#44) — each column rolls to its new value instead of the
+ * number cutting. `height` must be the text's line height, since that is the
+ * distance one digit travels. Digits only, so tabular figures keep it steady.
+ */
+export function RollingNumber({ value, style, height }: { value: number; style?: TextStyle; height: number }) {
+  const chars = String(value).split('');
+  return (
+    <View style={{ flexDirection: 'row', height, overflow: 'hidden' }}>
+      {chars.map((c, i) => (
+        // keyed by position: digit 3 stays digit 3 as the number changes, so the
+        // column rolls rather than being torn down and rebuilt at the new value
+        <Digit key={`${chars.length}-${i}`} digit={Number(c)} style={style} height={height} />
+      ))}
+    </View>
+  );
+}
+
+function Digit({ digit, style, height }: { digit: number; style?: TextStyle; height: number }) {
+  const { reduceMotion } = useTheme();
+  const [y] = useState(() => new Animated.Value(-digit * height));
+  useEffect(() => {
+    const to = -digit * height;
+    if (reduceMotion) return y.setValue(to);
+    Animated.spring(y, { toValue: to, useNativeDriver: true, friction: 9, tension: 70 }).start();
+  }, [digit, height, reduceMotion, y]);
+  return (
+    <View style={{ height, overflow: 'hidden' }}>
+      <Animated.View style={{ transform: [{ translateY: y }] }}>
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+          <Text key={n} style={[style, { height, lineHeight: height, textAlign: 'center' }]}>
+            {n}
+          </Text>
+        ))}
+      </Animated.View>
+    </View>
+  );
+}

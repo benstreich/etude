@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddFocus } from '@/components/add-focus';
 import { ChevronIcon, LockIcon } from '@/components/icons';
-import { Card, Overline, ScreenTitle } from '@/components/ui';
+import { Text } from '@/components/text';
+import { Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { parseReminderTime, reminderLabel } from '@/lib/reminders';
@@ -92,6 +94,15 @@ export default function Profile() {
   const toggle = (v: string) => setList((l) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]));
 
   // invalid input keeps the sheet open with an honest toast — never a false "Saved"
+  const moveStage = (i: number, dir: -1 | 1) =>
+    setList((l) => {
+      const j = i + dir;
+      if (j < 0 || j >= l.length) return l;
+      const next = [...l];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+
   const save = () => {
     let error: string | null = null;
     if (editing === 'name') {
@@ -313,7 +324,7 @@ export default function Profile() {
 
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <Pressable style={s.backdrop} onPress={() => setEditing(null)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
           <Pressable style={s.sheet} onPress={() => {}}>
             {editing && <Text style={s.sheetTitle}>{titles[editing]}</Text>}
 
@@ -396,19 +407,40 @@ export default function Profile() {
                     onPress={() => pick({ quickLogFocus: { name: t, kind: 'Technique' } })}
                   />
                 ))}
+                <AddFocus onAdded={(f) => pick({ quickLogFocus: f })} />
               </View>
             )}
             {editing === 'stages' && (
               <>
+                {/* the order is the progression, so it has to be rearrangeable
+                    without retyping every field (#43). Pieces keep their stage
+                    index, exactly as they do when a stage is renamed. */}
                 {list.map((v, i) => (
-                  <TextInput
-                    key={i}
-                    style={s.input}
-                    value={v}
-                    onChangeText={(t) => setList((l) => l.map((x, j) => (j === i ? t.slice(0, 20) : x)))}
-                    placeholder={store.t('settings.stagePlaceholder', { n: i + 1 })}
-                    placeholderTextColor={C.tertiary}
-                  />
+                  <View key={i} style={s.stageRow}>
+                    <TextInput
+                      style={[s.input, { flex: 1 }]}
+                      value={v}
+                      onChangeText={(t) => setList((l) => l.map((x, j) => (j === i ? t.slice(0, 20) : x)))}
+                      placeholder={store.t('settings.stagePlaceholder', { n: i + 1 })}
+                      placeholderTextColor={C.tertiary}
+                    />
+                    <Pressable
+                      style={s.moveBtn}
+                      hitSlop={6}
+                      disabled={i === 0}
+                      accessibilityLabel={store.t('settings.moveUp')}
+                      onPress={() => moveStage(i, -1)}>
+                      <Text style={[s.moveGlyph, i === 0 && { color: C.faint }]}>↑</Text>
+                    </Pressable>
+                    <Pressable
+                      style={s.moveBtn}
+                      hitSlop={6}
+                      disabled={i === list.length - 1}
+                      accessibilityLabel={store.t('settings.moveDown')}
+                      onPress={() => moveStage(i, 1)}>
+                      <Text style={[s.moveGlyph, i === list.length - 1 && { color: C.faint }]}>↓</Text>
+                    </Pressable>
+                  </View>
                 ))}
                 {list.length < 6 && (
                   <Pressable style={s.addStageBtn} onPress={() => setList((l) => [...l, ''])}>
@@ -506,6 +538,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   addPresetBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   addPresetText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
   editorHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, marginTop: -6 },
+  stageRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  moveBtn: { width: 34, height: 44, alignItems: 'center', justifyContent: 'center' },
+  moveGlyph: { fontFamily: F.body, fontSize: fs(17), color: C.subStrong },
   addStageBtn: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   addStageText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },

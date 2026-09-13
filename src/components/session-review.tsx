@@ -2,11 +2,12 @@
 // the plain note prompt. Shows the day's progress on a staff, achievement chips,
 // a note field, and can attach a take via the practice screen's recorder.
 import React, { useEffect, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlameIcon } from '@/components/icons';
 import { StaffProgress, WaveformIcon } from '@/components/motifs';
+import { Text } from '@/components/text';
 import { achievements } from '@/lib/growth-math';
 import { playSessionComplete } from '@/lib/sounds';
 import { useStore } from '@/lib/store';

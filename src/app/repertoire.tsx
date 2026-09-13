@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NoteIcon, SearchIcon } from '@/components/icons';
 import { RecordingsList } from '@/components/recordings';
-import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
+import { Text } from '@/components/text';
+import { Bar, Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
@@ -34,7 +35,9 @@ export default function Repertoire() {
   const [name, setName] = useState('');
   const [artist, setArtist] = useState('');
   const [creating, setCreating] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  // tagged with the query they answer, so a result for an older query neither
+  // shows nor counts as this query's answer (#38)
+  const [suggestions, setSuggestions] = useState<{ q: string; list: Suggestion[] }>({ q: '', list: [] });
   const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
   const [openRecs, setOpenRecs] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -45,7 +48,7 @@ export default function Repertoire() {
     setAddOpen(false);
     setName('');
     setCreating(null);
-    setSuggestions([]);
+    setSuggestions({ q: '', list: [] });
     setCustomTech('');
   };
 
@@ -58,18 +61,20 @@ export default function Repertoire() {
   const active = store.pieces.filter((p) => !p.archived);
   const archived = store.pieces.filter((p) => p.archived);
 
-  // invested time per piece from the session log (matched by title)
-  const stats = (p: Piece) => {
+  // invested time from the session log, matched by title — pieces and
+  // techniques are both logged under their display name
+  const techStats = (name: string) => {
     let min = 0;
     let last: string | null = null;
     for (const sess of store.sessions) {
-      if (sess.title === p.name) {
+      if (sess.title === name) {
         min += sess.min;
         if (!last || sess.date > last) last = sess.date;
       }
     }
     return { min, last };
   };
+  const stats = (p: Piece) => techStats(p.name);
 
   // song/artist suggestions from the iTunes Search API (public, no key)
   useEffect(() => {
@@ -77,11 +82,11 @@ export default function Repertoire() {
     if (q.length < 3) return;
     let stale = false;
     const t = setTimeout(async () => {
+      let list: Suggestion[] = [];
       try {
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`);
         const data = await res.json();
         const seen = new Set<string>();
-        const list: Suggestion[] = [];
         for (const r of data.results ?? []) {
           const key = `${r.trackName}`.toLowerCase() + '|' + `${r.artistName}`.toLowerCase();
           if (r.trackName && !seen.has(key)) {
@@ -90,10 +95,11 @@ export default function Repertoire() {
           }
           if (list.length >= 5) break;
         }
-        if (!stale) setSuggestions(list);
       } catch {
-        // offline or blocked — manual entry still works
+        // offline or blocked — manual entry still works, and an empty answer
+        // still has to be recorded or the spinner below would never stop
       }
+      if (!stale) setSuggestions({ q, list });
     }, 400);
     return () => {
       stale = true;
@@ -102,7 +108,8 @@ export default function Repertoire() {
   }, [name]);
 
   // derived instead of cleared in the effect — stale entries just stop rendering
-  const shown = name.trim().length >= 3 ? suggestions : [];
+  const shown = suggestions.q === name.trim() ? suggestions.list : [];
+  const searching = name.trim().length >= 3 && suggestions.q !== name.trim();
 
   const add = (n: string, by: string) => {
     if (!n) return;
@@ -110,7 +117,7 @@ export default function Repertoire() {
     setName('');
     setArtist('');
     setCreating(null);
-    setSuggestions([]);
+    setSuggestions({ q: '', list: [] });
     setAddOpen(false);
   };
 
@@ -193,6 +200,40 @@ export default function Repertoire() {
 
       {active.length > 0 && <Text style={s.hint}>{store.t('repertoire.tapHint')}</Text>}
 
+      {/* Techniques earn their place next to the pieces — they are just as much
+          "what I practise" — but they have no detail screen, so the rows only
+          report time invested. Collapsible, and the choice sticks (#45). */}
+      {store.techniques.length > 0 && (
+        <View style={{ gap: 12 }}>
+          <Pressable hitSlop={8} onPress={() => store.updateSettings({ showTechniques: !store.showTechniques })}>
+            <Overline>
+              {store.showTechniques ? '▾' : '▸'} {store.t('repertoire.techniques')}
+            </Overline>
+          </Pressable>
+          {store.showTechniques && (
+            <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
+              {store.techniques.map((name, i) => {
+                const st = techStats(name);
+                return (
+                  <View key={name} style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
+                    <View style={s.rowTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.pieceName}>{name}</Text>
+                        <Text style={s.composer}>
+                          {st.min > 0 && st.last
+                            ? store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })
+                            : store.t('repertoire.notPractisedYet')}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          )}
+        </View>
+      )}
+
       {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
       {(() => {
         const names = new Set(store.pieces.map((p) => p.name));
@@ -231,7 +272,7 @@ export default function Repertoire() {
 
       <Modal visible={addOpen} transparent animationType="fade" onRequestClose={closeAdd}>
         <Pressable style={s.backdrop} onPress={closeAdd}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
           <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text style={s.sheetTitle}>{store.t('repertoire.addToRepertoire')}</Text>
@@ -257,6 +298,11 @@ export default function Repertoire() {
                 </View>
                 {name.trim().length > 0 && (
                   <View style={{ paddingHorizontal: 4 }}>
+                    {searching && shown.length === 0 && (
+                      <View style={s.sugRow}>
+                        <ActivityIndicator size="small" color={C.tertiary} />
+                      </View>
+                    )}
                     {shown.map((sug, i) => (
                       <Pressable
                         key={`${sug.track}|${sug.artist}`}

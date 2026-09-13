@@ -136,6 +136,8 @@
     "clearPresetHint": "Leere ein Feld, um die Vorgabe zu entfernen.",
     "stagePlaceholder": "Phase %{n}",
     "addStage": "+ Phase hinzufügen",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
     "stagesHint": "In Reihenfolge, von der ersten bis zur letzten. Leere ein Feld, um es zu entfernen; mindestens zwei Phasen.",
     "streaksHint": "Streng beendet die Serie nach einem verpassten Tag; Entspannt verzeiht einen einzelnen verpassten Tag. Pausentage zählen nie dagegen, und das Nachtragen eines vergangenen Tages belebt die Serie in beiden Fällen wieder.",
     "customTimePlaceholder": "Eigene Zeit — z. B. 17:45",
@@ -231,6 +233,8 @@
     },
     "tapHint": "Tippe auf ein Stück für Details, Statistiken & Aufnahmen",
     "techniqueRecordings": "Technik-Aufnahmen",
+    "techniques": "Techniken",
+    "notPractisedYet": "Noch nicht geübt",
     "archived": "Archiviert",
     "addToRepertoire": "Zum Repertoire hinzufügen",
     "song": "Song",
@@ -464,5 +468,12 @@
     "channelName": "Übungs-Erinnerungen",
     "notifTitle": "Zeit zum Üben 🎵",
     "notifBody": "Ein paar Minuten heute halten deine Serie am Leben."
+  },
+  "addFocus": {
+    "new": "+ Neu",
+    "piece": "Stück",
+    "technique": "Technik",
+    "namePlaceholder": "Name",
+    "add": "Hinzufügen"
   }
 }

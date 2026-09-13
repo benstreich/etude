@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EditSessionSheet } from '@/components/edit-session';
 import { ShareIcon } from '@/components/icons';
 import { RecapModal } from '@/components/recap-card';
+import { Text } from '@/components/text';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';

@@ -1,11 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { RollingNumber } from '@/components/motifs';
+import { Text } from '@/components/text';
 import { LOCK_SCREEN_STEP, useBeat, useMetronome } from '@/lib/metronome';
 import { accentLevel, describeRamp, MAX_BPM, tapTempo, type RampUnit } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 const UNITS: RampUnit[] = ['bars', 'seconds'];
 const UNIT_KEY: Record<RampUnit, string> = { bars: 'metronome.bars', seconds: 'metronome.seconds' };
@@ -36,6 +38,7 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
 export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useS();
   const C = useC();
+  const { fs } = useTheme(); // the roll travels exactly one line height per digit
   const { t } = useStore();
   const metronome = useMetronome();
   const { running, bpm, startBpm, timeSig, sig, ramp, toggle, setBpm, nudge, setTimeSig, setRamp } = metronome;
@@ -90,9 +93,9 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
               <Step label="−5" onPress={() => nudge(-5)} />
               <Step label="−1" onPress={() => nudge(-1)} />
               <View style={s.bpmBox}>
-                <Text style={s.bpm} testID="metro-bpm">
-                  {bpm}
-                </Text>
+                <View testID="metro-bpm">
+                  <RollingNumber value={bpm} style={s.bpm} height={fs(60)} />
+                </View>
                 <Text style={s.bpmUnit}>BPM</Text>
                 <Text style={s.bpmTerm}>{tempoTerm(bpm)}</Text>
               </View>

@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EditSessionSheet } from '@/components/edit-session';
 import { FlameIcon, LogoMark, PlayIcon } from '@/components/icons';
+import { Text } from '@/components/text';
 import { Bar, Card } from '@/components/ui';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';

@@ -1,8 +1,9 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { File } from 'expo-file-system';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { Text } from '@/components/text';
 import { applyAudioMode } from '@/lib/audio-mode';
 import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';

@@ -1,10 +1,11 @@
 // First-run flow: welcome + 3 steps (instruments/name, daily goal, reminders).
 // Rendered by Shell instead of the tab navigator until store.onboarded is set.
 import React, { useEffect, useState } from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LockIcon, LogoMark } from '@/components/icons';
+import { Text } from '@/components/text';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -41,7 +42,7 @@ export function Onboarding() {
     store.updateSettings({
       onboarded: true,
       instruments: list,
-      dailyGoal: goal,
+      dailyGoal: Math.max(1, goal),
       reminder,
       ...(name.trim() ? { name: name.trim() } : {}),
     });
@@ -137,7 +138,18 @@ export function Onboarding() {
                 <Text style={s.subline}>{store.t('onboarding.goalSubline')}</Text>
               </View>
               <View style={s.bigNumBlock}>
-                <Text style={s.bigNum}>{goal}</Text>
+                {/* editable, so any goal is reachable — the chips are just shortcuts (#37) */}
+                <TextInput
+                  style={s.bigNum}
+                  value={String(goal)}
+                  onChangeText={(t) => setGoal(Number(t.replace(/\D/g, '').slice(0, 3)))}
+                  onBlur={() => {
+                    if (goal < 1) setGoal(1);
+                  }}
+                  keyboardType="number-pad"
+                  selectTextOnFocus
+                  textAlign="center"
+                />
                 <Text style={s.bigNumCaption}>{store.t('onboarding.minutesADay')}</Text>
               </View>
               <View style={[s.chipWrap, { justifyContent: 'center' }]}>
@@ -214,7 +226,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   inputLabel: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub, marginBottom: 8 },
   optional: { fontFamily: F.body, color: C.tertiary },
   bigNumBlock: { alignItems: 'center', paddingTop: 20, paddingBottom: 32 },
-  bigNum: { fontFamily: F.head, fontSize: fs(66), letterSpacing: -1, color: C.accent },
+  bigNum: { fontFamily: F.head, fontSize: fs(66), letterSpacing: -1, color: C.accent, padding: 0, minWidth: fs(120) },
   bigNumCaption: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.sub },
   listCard: { backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: r(16), padding: 16 },
   listLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },

@@ -1,16 +1,17 @@
 // Tempo ladder (#17) — per-piece BPM log with a small line chart, a delta
 // chip for the month, and a stepper sheet to log today's tempo.
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { MetronomeButton } from '@/components/metronome';
+import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { tempoDelta } from '@/lib/growth-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { dayLabel, Piece, useStore } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
 import { tempoTerm } from '@/lib/tempo';
+import { F, themed, useC, type T } from '@/lib/theme';
 
 const CHART_H = 96;
 

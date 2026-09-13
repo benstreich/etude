@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 
-import { F, themed, useTheme, type T } from '@/lib/theme';
+import { Text } from '@/components/text';
 import { useStore } from '@/lib/store';
+import { F, themed, useTheme, type T } from '@/lib/theme';
 
 export function Toast() {
   const s = useS();
