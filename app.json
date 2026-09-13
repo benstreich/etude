@@ -55,6 +55,14 @@
           "enableBackgroundRecording": true
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/audio/cue-reminder.wav"
+          ]
+        }
+      ],
       "expo-asset",
       "expo-sharing",
       "@bacons/apple-targets",

@@ -171,7 +171,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stepBtn: { width: 52, height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   stepGlyph: { fontSize: fs(24), color: C.ink, fontFamily: F.body },
   stepValue: { flex: 1, height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  stepValueText: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  stepValueText: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   noteInput: { minHeight: 72, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 16, paddingVertical: 14, fontFamily: F.body, fontSize: fs(15), lineHeight: fs(21), color: C.ink, textAlignVertical: 'top' },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },

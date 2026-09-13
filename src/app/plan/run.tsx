@@ -7,9 +7,10 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MetronomeSheet } from '@/components/metronome';
+import { MeasureBar, Tempo, TickDot } from '@/components/motifs';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Overline } from '@/components/ui';
-import { useBeat, useMetronome } from '@/lib/metronome';
+import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -28,7 +29,6 @@ function Runner({ id }: { id: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const metro = useMetronome();
-  const beat = useBeat();
 
   const plan = store.plans.find((p) => p.id === id);
   // resume the run-in-progress if this screen was unmounted mid-run (tab switch)
@@ -134,9 +134,15 @@ function Runner({ id }: { id: string }) {
     ]);
   };
 
+  // fraction of the whole plan done: whole segments behind us plus this one's progress
+  const planMin = plan.segments.reduce((a, sg) => a + sg.min, 0) || 1;
+  const doneMin = plan.segments.slice(0, idx).reduce((a, sg) => a + sg.min, 0);
+  const runDone = Math.min(1, (doneMin + Math.min(seg.min, seconds / 60)) / planMin);
+
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
   const ss = String(seconds % 60).padStart(2, '0');
   const title = seg.note ? `${seg.focus.name} · ${seg.note}` : seg.focus.name;
+  const chipBpm = metro.running ? metro.bpm : (seg.bpm ?? null);
 
   // opens the full sheet so tempo/time-sig/ramp stay adjustable mid-session (#31)
   const openMetro = () => {
@@ -155,15 +161,7 @@ function Runner({ id }: { id: string }) {
         </Pressable>
       </View>
 
-      <View style={s.pillRow}>
-        {plan.segments.map((sg, i) => (
-          <View key={i} style={[s.pill, { flex: sg.min }, i < idx && { backgroundColor: C.accent }]}>
-            {i === idx && (
-              <View style={[s.pillFill, { width: `${Math.min(100, (seconds / Math.max(1, sg.min * 60)) * 100)}%` }]} />
-            )}
-          </View>
-        ))}
-      </View>
+      <MeasureBar segments={plan.segments.map((sg) => sg.min)} done={runDone} />
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
         <Overline>
@@ -176,13 +174,9 @@ function Runner({ id }: { id: string }) {
           {mm}:{ss}
         </Text>
         <Text style={s.of}>{store.t('planRun.ofMin', { min: seg.min })}</Text>
-        <Pressable style={[s.metroChip, metro.running && { backgroundColor: C.accent }]} onPress={openMetro}>
-          <View style={[s.metroDot, metro.running && { backgroundColor: C.bg, opacity: beat % 2 === 0 ? 1 : 0.35 }]} />
-          <Text style={[s.metroText, metro.running && { color: C.bg }]}>
-            {metro.running || seg.bpm
-              ? store.t('planRun.metronomeBpm', { bpm: metro.running ? metro.bpm : seg.bpm })
-              : store.t('metronome.metronome')}
-          </Text>
+        <Pressable style={s.metroChip} onPress={openMetro}>
+          <TickDot bpm={chipBpm ?? 0} on={metro.running} color={C.accent} />
+          {chipBpm ? <Tempo bpm={chipBpm} size={13.5} /> : <Text style={s.metroText}>{store.t('metronome.metronome')}</Text>}
         </Pressable>
       </View>
 
@@ -220,14 +214,11 @@ function Runner({ id }: { id: string }) {
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 24 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  planName: { flex: 1, fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub },
-  endLink: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.tertiary },
-  pillRow: { flexDirection: 'row', gap: 5, marginTop: 14 },
-  pill: { height: 5, borderRadius: r(999), backgroundColor: C.track, overflow: 'hidden' },
-  pillFill: { height: 5, borderRadius: r(999), backgroundColor: C.accent },
-  segTitle: { fontFamily: F.head, fontSize: fs(27), color: C.ink, textAlign: 'center' },
-  timer: { fontFamily: F.head, fontSize: fs(64), letterSpacing: -1, color: C.ink, fontVariant: ['tabular-nums'] },
-  of: { fontFamily: F.body, fontSize: fs(13.5), color: C.sub },
+  planName: { flex: 1, fontFamily: F.accentMed, fontSize: fs(14.5), color: C.subStrong },
+  endLink: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.subStrong },
+  segTitle: { fontFamily: F.head, fontSize: fs(29), color: C.ink, textAlign: 'center' },
+  timer: { fontFamily: F.head, fontSize: fs(66), letterSpacing: -1, color: C.ink, fontVariant: ['tabular-nums'] },
+  of: { fontFamily: F.accent, fontSize: fs(15), color: C.subStrong },
   metroChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 9, paddingHorizontal: 15, marginTop: 10 },
   metroDot: { width: 7, height: 7, borderRadius: r(4), backgroundColor: C.accent },
   metroText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },

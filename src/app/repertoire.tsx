@@ -412,7 +412,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   moreText: { fontSize: fs(18), color: C.faint, lineHeight: fs(28), textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 4 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink, marginBottom: 8 },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink, marginBottom: 8 },
   sheetRow: { height: 52, justifyContent: 'center' },
   fabBtn: { width: 50, height: 50, borderRadius: r(25), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   fabText: { color: C.bg, fontSize: fs(26), lineHeight: fs(28), fontFamily: F.bodyMed },

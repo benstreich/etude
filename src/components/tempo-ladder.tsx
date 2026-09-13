@@ -10,6 +10,7 @@ import { tempoDelta } from '@/lib/growth-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
+import { tempoTerm } from '@/lib/tempo';
 
 const CHART_H = 96;
 
@@ -102,7 +103,9 @@ export function TempoLadder({ piece }: { piece: Piece }) {
         <View style={s.heroRow}>
           <View>
             <Text style={s.heroBpm}>{last.bpm}</Text>
-            <Text style={s.heroCaption}>{store.t('tempoLadder.bpmNow')}</Text>
+            <Text style={s.heroCaption}>
+              <Text style={s.heroTerm}>{tempoTerm(last.bpm)}</Text> · {store.t('tempoLadder.bpmNow')}
+            </Text>
           </View>
           {delta > 0 && (
             <View style={s.deltaChip}>
@@ -188,8 +191,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   targetText: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
   heroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroBpm: { fontFamily: F.head, fontSize: fs(34), color: C.accent, lineHeight: fs(38) },
-  heroCaption: { fontFamily: F.body, fontSize: fs(12), color: C.sub },
+  heroBpm: { fontFamily: F.head, fontSize: fs(36), color: C.accent, lineHeight: fs(40) },
+  heroCaption: { fontFamily: F.body, fontSize: fs(12), color: C.subStrong },
+  heroTerm: { fontFamily: F.accentMed, fontSize: fs(13.5), color: C.accent },
   deltaChip: { backgroundColor: C.successTint, borderRadius: r(999), paddingVertical: 6, paddingHorizontal: 12 },
   deltaText: { fontFamily: F.bodySemi, fontSize: fs(12.5), color: C.success },
   axisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
@@ -206,11 +210,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   ghostSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 18 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   stepBtn: { width: 46, height: 46, borderRadius: r(23), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
-  sheetBpm: { fontFamily: F.head, fontSize: fs(44), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(48) },
+  sheetBpm: { fontFamily: F.head, fontSize: fs(46), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(50) },
   sheetUnit: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.4, color: C.tertiary },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },

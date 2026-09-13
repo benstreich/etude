@@ -178,7 +178,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
   grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive, alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   calNav: { width: 32, height: 32, borderRadius: r(16), alignItems: 'center', justifyContent: 'center' },
   calNavText: { fontSize: fs(22), color: C.sub, lineHeight: fs(26) },

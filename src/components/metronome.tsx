@@ -4,6 +4,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { LOCK_SCREEN_STEP, useBeat, useMetronome } from '@/lib/metronome';
 import { accentLevel, describeRamp, MAX_BPM, tapTempo, type RampUnit } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
+import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 const UNITS: RampUnit[] = ['bars', 'seconds'];
@@ -93,6 +94,7 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
                   {bpm}
                 </Text>
                 <Text style={s.bpmUnit}>BPM</Text>
+                <Text style={s.bpmTerm}>{tempoTerm(bpm)}</Text>
               </View>
               <Step label="+1" onPress={() => nudge(1)} />
               <Step label="+5" onPress={() => nudge(5)} />
@@ -219,7 +221,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
 
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, maxHeight: '85%' },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
 
   dots: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
   dot: { width: 10, height: 10, borderRadius: r(5), backgroundColor: C.track },
@@ -230,8 +232,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
 
   bpmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bpmBox: { alignItems: 'center', minWidth: 96 },
-  bpm: { fontFamily: F.head, fontSize: fs(52), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(58) },
+  bpm: { fontFamily: F.head, fontSize: fs(54), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(60) },
   bpmUnit: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.4, color: C.tertiary },
+  bpmTerm: { fontFamily: F.accentMed, fontSize: fs(15), color: C.accent, marginTop: 2 },
   step: { width: 42, height: 42, borderRadius: r(21), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
 

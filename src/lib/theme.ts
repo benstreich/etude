@@ -30,6 +30,9 @@ const LIGHT = {
   hairline: '#F1ECE2',
   inputBorder: '#E0D9CB',
   logoDot: '#E8A87C',
+  // musical motifs: staff rules and segment barlines
+  staffLine: '#DCD4C4',
+  barline: '#B9AF9D',
 };
 
 // warm dark — same paper feel, lamp off
@@ -49,6 +52,8 @@ const DARK: Palette = {
   chartInactive: '#3B342B',
   hairline: '#28231E',
   inputBorder: '#3B342B',
+  staffLine: '#3B342B',
+  barline: '#5A5145',
 };
 
 export type Palette = typeof LIGHT;
@@ -72,8 +77,14 @@ export const FONT_SCALES = [
 
 const RADIUS_SCALE: Record<RadiusMode, number> = { sharp: 0.4, soft: 1, round: 1.6 };
 
+// display = Space Grotesk (headings, big numerals), accent = Newsreader italic
+// (tempo terms, "of N min" counters, note placeholder — musical voice only),
+// body = Instrument Sans. head/headBold map from the old Figtree 600/700.
 export const F = {
-  head: 'Figtree_600SemiBold',
+  head: 'SpaceGrotesk_500Medium',
+  headBold: 'SpaceGrotesk_600SemiBold',
+  accent: 'Newsreader_400Regular_Italic',
+  accentMed: 'Newsreader_500Medium_Italic',
   body: 'InstrumentSans_400Regular',
   bodyMed: 'InstrumentSans_500Medium',
   bodySemi: 'InstrumentSans_600SemiBold',

@@ -64,6 +64,7 @@ type Settings = {
   fontScale: number;
   radius: RadiusMode;
   reduceMotion: boolean;
+  sounds: boolean; // the two audio-identity cues; see lib/sounds.ts
   reminder: string;
   weekStart: WeekStart;
   quickLog: number[];
@@ -122,6 +123,7 @@ function seed(): State {
     fontScale: 1,
     radius: 'soft',
     reduceMotion: false,
+    sounds: true,
     // 'Off' until onboarding asks — a seeded time would fire the OS permission
     // prompt at first launch, before the reminders step gets to explain itself
     reminder: 'Off',
@@ -275,9 +277,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // keep the scheduled daily notification in sync with the setting; also runs
   // on app start, so a permission granted later in system settings self-heals
   const reminder = state?.reminder;
+  const reminderSound = state?.sounds ?? true;
   useEffect(() => {
     if (reminder === undefined) return;
-    syncReminder(reminder)
+    syncReminder(reminder, reminderSound)
       .then((ok) => {
         if (ok) return;
         setToast(tr('toast.enableNotifications'));
@@ -285,7 +288,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toastTimer.current = setTimeout(() => setToast(null), 2400);
       })
       .catch(() => {});
-  }, [reminder]);
+  }, [reminder, reminderSound]);
 
   // auto backup, checked once per hydration / foreground / midnight / setting
   // change — not per state change, so it's not a sync dir scan on every edit

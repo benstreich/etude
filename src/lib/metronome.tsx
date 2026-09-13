@@ -45,6 +45,11 @@ function playClick(bank: 0 | 1 | 2) {
   }, 150);
 }
 
+// Module-level mirror of `running` so non-React callers (the sound cues, which
+// must never talk over the click) can ask without a context.
+let metroRunning = false;
+export const metronomeRunning = () => metroRunning;
+
 // --- beat pulse -----------------------------------------------------------
 // Kept out of context on purpose: the provider wraps the whole app, and a
 // context update per beat would re-render every screen four times a bar.
@@ -151,6 +156,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     const startBpm = latest.current.bpm;
     const now = Date.now();
     run.current = { startedAt: now, baseBpm: startBpm, baseBeats: 0, beats: 0, nextAt: now, timer: null };
+    metroRunning = true;
     setRunning(true);
     Controls?.show({ bpm: startBpm, running: true });
     if (Platform.OS === 'android' && AppState.currentState !== 'active') {
@@ -172,6 +178,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   const stop = useCallback(() => {
     if (run.current?.timer) clearTimeout(run.current.timer);
     run.current = null;
+    metroRunning = false;
     setRunning(false);
     emitBeat(-1);
     Controls?.stopTicking();
@@ -186,6 +193,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     if (!r) return;
     if (r.timer) clearTimeout(r.timer);
     run.current = null;
+    metroRunning = false;
     setRunning(false);
     emitBeat(-1);
     Controls?.stopTicking();

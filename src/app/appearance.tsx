@@ -142,6 +142,19 @@ export default function Appearance() {
           thumbColor={C.card}
         />
       </View>
+
+      <View style={s.switchRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.switchLabel}>{store.t('appearance.sounds')}</Text>
+          <Text style={s.switchHint}>{store.t('appearance.soundsHint')}</Text>
+        </View>
+        <Switch
+          value={store.sounds}
+          onValueChange={(v) => store.updateSettings({ sounds: v })}
+          trackColor={{ true: C.accent, false: C.track }}
+          thumbColor={C.card}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -151,7 +164,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   back: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.accent },
   sectionLabel: { marginBottom: 10 },
   previewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  previewGreeting: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
+  previewGreeting: { fontFamily: F.head, fontSize: fs(24), color: C.ink },
   previewPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 6, paddingHorizontal: 10 },
   previewPillText: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.accent },
   previewBtn: { height: 44, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 14 },

@@ -260,7 +260,7 @@ export default function Progress() {
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
   stat: { flex: 1 },
-  statNum: { fontFamily: F.head, fontSize: fs(28), color: C.ink },
+  statNum: { fontFamily: F.head, fontSize: fs(30), color: C.ink },
   statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   chart: { height: 110, flexDirection: 'row', gap: 10 },
   col: { flex: 1 },

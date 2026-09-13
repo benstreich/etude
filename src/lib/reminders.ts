@@ -43,7 +43,12 @@ export const reminderLabel = ({ hour, minute }: { hour: number; minute: number }
 // Re-syncs the daily reminder to match the setting. Runs on every app start and
 // on every change, so a permission granted later in system settings self-heals.
 // Returns false when permission is denied (caller may toast).
-export async function syncReminder(reminder: string): Promise<boolean> {
+// Bundled by the expo-notifications config plugin (see app.json) — referenced
+// by base filename, which is all the plugin exposes. `undefined` falls back to
+// the system sound when the user has turned the app's cues off.
+const PING = 'cue-reminder.wav';
+
+export async function syncReminder(reminder: string, sounds = true): Promise<boolean> {
   if (Platform.OS === 'web' || !Notifications) return true; // ponytail: no web notifications — mobile-first app; null in Expo Go Android
   await Notifications.cancelAllScheduledNotificationsAsync();
   const time = parseReminderTime(reminder);
@@ -54,9 +59,10 @@ export async function syncReminder(reminder: string): Promise<boolean> {
     await Notifications.setNotificationChannelAsync('reminders', {
       name: tr('reminders.channelName'),
       importance: Notifications.AndroidImportance.DEFAULT,
+      sound: sounds ? PING : 'default',
     });
   await Notifications.scheduleNotificationAsync({
-    content: { title: tr('reminders.notifTitle'), body: tr('reminders.notifBody') },
+    content: { title: tr('reminders.notifTitle'), body: tr('reminders.notifBody'), sound: sounds ? PING : 'default' },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: time.hour,

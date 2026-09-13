@@ -44,6 +44,8 @@
     "round": "Round",
     "reduceMotion": "Reduce motion",
     "reduceMotionHint": "Skips springs and slide-ins",
+    "sounds": "Sounds",
+    "soundsHint": "A short chord when you finish a session. Follows the silent switch.",
     "language": "Language",
     "fsSmall": "Small",
     "fsDefault": "Default",

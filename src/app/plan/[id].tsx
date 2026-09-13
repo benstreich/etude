@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlayIcon } from '@/components/icons';
+import { Tempo } from '@/components/motifs';
 import { PlanSegment, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -96,7 +97,7 @@ export default function PlanBuilder() {
                   {seg.focus.name}
                   {seg.note ? ` · ${seg.note}` : ''}
                 </Text>
-                {!!seg.bpm && <Text style={s.segSub}>{store.t('plan.metronomeBpm', { bpm: seg.bpm })}</Text>}
+                {!!seg.bpm && <Tempo bpm={seg.bpm} size={12.5} />}
               </View>
               <View style={s.minChip}>
                 <Text style={s.minChipText}>{store.t('plan.minShort', { min: seg.min })}</Text>
@@ -236,7 +237,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   navBtn: { width: 36, height: 36, borderRadius: r(18), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
   navGlyph: { fontSize: fs(18), color: C.ink, lineHeight: fs(20) },
   saveLink: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
-  title: { fontFamily: F.head, fontSize: fs(26), color: C.ink, padding: 0 },
+  title: { fontFamily: F.head, fontSize: fs(28), color: C.ink, padding: 0 },
   meta: { fontFamily: F.body, fontSize: fs(13.5), color: C.sub, marginTop: 4 },
   segCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: r(16), padding: 16 },
   handle: { fontSize: fs(15), color: C.chartInactive },
@@ -252,7 +253,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   startText: { fontFamily: F.bodySemi, fontSize: fs(17), color: '#FFFFFF' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 14 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
