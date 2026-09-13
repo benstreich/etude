@@ -265,7 +265,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   chart: { height: 110, flexDirection: 'row', gap: 10 },
   col: { flex: 1 },
-  monthHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  monthHead: { alignItems: 'center', gap: 2, marginBottom: 14 },
   monthTitle: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink, marginHorizontal: 6 },
   monthChev: { fontSize: fs(20), lineHeight: fs(22), paddingHorizontal: 4 },
   monthCount: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },

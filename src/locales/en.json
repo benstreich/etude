@@ -103,7 +103,6 @@
     "errBreakDays": "Keep at least one practice day",
     "errPresets": "Keep at least one preset",
     "errStages": "At least two stages",
-    "errTime": "Enter a time like 17:45 or 5:45 PM",
     "backupFailed": "Backup failed",
     "exportFailed": "Export failed",
     "restoreConfirmTitle": "Restore from backup?",
@@ -140,7 +139,7 @@
     "moveDown": "Move down",
     "stagesHint": "In order, first to last. Clear a field to remove it; at least two stages.",
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
-    "customTimePlaceholder": "Custom time — e.g. 17:45 or 5:45 PM",
+    "notifBlocked": "Notifications are turned off for Etude — tap to open system settings.",
     "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings aren’t included — “Back up everything” covers those when switching phones.",
     "save": "Save"
   },
@@ -232,7 +231,7 @@
       "other": "%{count} recordings"
     },
     "tapHint": "Tap a piece for details, stats & recordings",
-    "techniqueRecordings": "Technique recordings",
+    "techniqueRecordings": "Other recordings",
     "techniques": "Techniques",
     "notPractisedYet": "Not practised yet",
     "archived": "Archived",

@@ -72,3 +72,10 @@ export async function syncReminder(reminder: string, sounds = true): Promise<boo
   });
   return true;
 }
+
+// false only when the OS has actually blocked us — unknown/unsupported reads as allowed
+export async function notificationsAllowed(): Promise<boolean> {
+  if (Platform.OS === 'web' || !Notifications) return true;
+  const { granted, canAskAgain } = await Notifications.getPermissionsAsync();
+  return granted || canAskAgain;
+}

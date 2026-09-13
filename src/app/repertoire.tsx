@@ -214,6 +214,8 @@ export default function Repertoire() {
             <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
               {store.techniques.map((name, i) => {
                 const st = techStats(name);
+                const recs = store.recordings.filter((r) => r.piece === name);
+                const key = `tech:${name}`;
                 return (
                   <View key={name} style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
                     <View style={s.rowTop}>
@@ -226,6 +228,14 @@ export default function Repertoire() {
                         </Text>
                       </View>
                     </View>
+                    {recs.length > 0 && (
+                      <Pressable hitSlop={8} onPress={() => setOpenRecs(openRecs === key ? null : key)}>
+                        <Text style={s.recsToggle}>
+                          {openRecs === key ? '▾' : '▸'} {store.t('repertoire.recordingsCount', { count: recs.length })}
+                        </Text>
+                      </Pressable>
+                    )}
+                    {openRecs === key && <RecordingsList recordings={recs} />}
                   </View>
                 );
               })}
@@ -236,7 +246,7 @@ export default function Repertoire() {
 
       {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
       {(() => {
-        const names = new Set(store.pieces.map((p) => p.name));
+        const names = new Set([...store.pieces.map((p) => p.name), ...store.techniques]);
         const orphans = store.recordings.filter((r) => !names.has(r.piece));
         return orphans.length > 0 ? (
           <View style={{ gap: 12 }}>
