@@ -1,17 +1,17 @@
 import React from 'react';
-import { StyleSheet, TextProps, View, ViewProps } from 'react-native';
+import { Platform, StyleSheet, TextProps, View, ViewProps } from 'react-native';
 
 import { Text } from '@/components/text';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 /**
- * KeyboardAvoidingView behavior for a bottom sheet inside a <Modal> (#39).
- * Android's windowSoftInputMode resizes the *activity* window, never the
- * modal's own one, so a sheet anchored to the bottom stays under the keyboard
- * unless we pad it ourselves. Full-screen KAVs outside a Modal must NOT use
- * this — there the activity does resize, and padding on top of that double-counts.
+ * KeyboardAvoidingView behavior for a bottom sheet inside a <Modal> (#39, #48).
+ * On Android the window already resizes for the keyboard, so padding on top of
+ * that lifts the sheet twice — the fix is to keep the KAV (it scrolls the focused
+ * input into view) with no behavior at all, per Expo's keyboard-handling guide.
+ * iOS never resizes, so there the sheet does need the padding.
  */
-export const SHEET_AVOID = 'padding' as const;
+export const SHEET_AVOID = Platform.OS === 'ios' ? ('padding' as const) : undefined;
 
 export const Card = ({ style, ...p }: ViewProps) => {
   const s = useS();
