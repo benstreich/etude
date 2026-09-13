@@ -474,5 +474,30 @@
     "technique": "Technique",
     "namePlaceholder": "Name",
     "add": "Add"
+  },
+  "tuner": {
+    "tuner": "Tuner",
+    "open": "Tuner",
+    "listening": "Play a note",
+    "inTune": "In tune",
+    "flat": "Flat",
+    "sharp": "Sharp",
+    "reference": "Reference A",
+    "instrument": "Instrument",
+    "chromatic": "Chromatic",
+    "guitar": "Guitar",
+    "bass": "Bass",
+    "violin": "Violin",
+    "viola": "Viola",
+    "cello": "Cello",
+    "ukulele": "Ukulele",
+    "needsDevBuild": "The tuner needs a development build",
+    "needsDevBuildBody": "Microphone input isn't available in Expo Go. Run a dev build to use the tuner.",
+    "denied": "Microphone access is off",
+    "deniedBody": "Étude needs the microphone to hear what you're playing. Nothing is recorded or saved.",
+    "openSettings": "Open settings",
+    "error": "The microphone isn't available",
+    "errorBody": "Another app may be using it. Close it and try again.",
+    "retry": "Try again"
   }
 }

@@ -474,5 +474,30 @@
     "technique": "Technik",
     "namePlaceholder": "Name",
     "add": "Hinzufügen"
+  },
+  "tuner": {
+    "tuner": "Stimmgerät",
+    "open": "Stimmgerät",
+    "listening": "Spiel einen Ton",
+    "inTune": "Stimmt",
+    "flat": "Zu tief",
+    "sharp": "Zu hoch",
+    "reference": "Kammerton A",
+    "instrument": "Instrument",
+    "chromatic": "Chromatisch",
+    "guitar": "Gitarre",
+    "bass": "Bass",
+    "violin": "Violine",
+    "viola": "Bratsche",
+    "cello": "Cello",
+    "ukulele": "Ukulele",
+    "needsDevBuild": "Das Stimmgerät braucht einen Dev-Build",
+    "needsDevBuildBody": "Mikrofoneingang gibt es in Expo Go nicht. Nutze einen Dev-Build für das Stimmgerät.",
+    "denied": "Kein Zugriff aufs Mikrofon",
+    "deniedBody": "Étude braucht das Mikrofon, um dich zu hören. Es wird nichts aufgenommen oder gespeichert.",
+    "openSettings": "Einstellungen öffnen",
+    "error": "Mikrofon nicht verfügbar",
+    "errorBody": "Vielleicht nutzt es gerade eine andere App. Schließe sie und versuche es erneut.",
+    "retry": "Erneut versuchen"
   }
 }
