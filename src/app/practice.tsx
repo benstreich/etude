@@ -377,7 +377,7 @@ export default function Practice() {
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  title: { fontFamily: F.head, fontSize: fs(30), color: C.ink, marginBottom: 26, lineHeight: fs(37) },
+  title: { fontFamily: F.head, fontSize: fs(32), color: C.ink, marginBottom: 26, lineHeight: fs(39) },
   group: { gap: 10 },
   search: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, paddingHorizontal: 14, fontFamily: F.body, fontSize: fs(15), color: C.ink, marginBottom: 18 },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
@@ -390,7 +390,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   startBtnText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
   pastLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 14, textAlign: 'center', textDecorationLine: 'underline' },
   runPage: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  timer: { fontFamily: F.head, fontSize: fs(88), color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
+  timer: { fontFamily: F.head, fontSize: fs(90), color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
   status: { fontFamily: F.bodyMed, fontSize: fs(15) },
   runBtns: { flexDirection: 'row', gap: 12, marginTop: 16, alignSelf: 'stretch' },
   recBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 44, paddingHorizontal: 18, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, marginTop: 32 },

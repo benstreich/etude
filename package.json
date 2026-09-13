@@ -3,8 +3,9 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo-google-fonts/figtree": "^0.4.1",
     "@expo-google-fonts/instrument-sans": "^0.4.2",
+    "@expo-google-fonts/newsreader": "^0.4.1",
+    "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~57.0.11",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "^57.0.14",
@@ -65,7 +66,8 @@
     "check:growth": "node --experimental-strip-types --no-warnings scripts/check-growth.ts",
     "check:session": "node --experimental-strip-types --no-warnings scripts/check-session.ts",
     "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap"
+    "check:tempo": "node --experimental-strip-types --no-warnings scripts/check-tempo.ts",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo"
   },
   "private": true
 }

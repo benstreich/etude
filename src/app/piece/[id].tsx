@@ -15,6 +15,7 @@ import { Card, Overline } from '@/components/ui';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
+import { tempoTerm } from '@/lib/tempo';
 
 const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
@@ -124,6 +125,9 @@ export default function PieceDetail() {
             <Pressable style={{ flex: 1 }} onPress={openTempo}>
               <Text style={s.cardLabel}>{store.t('piece.targetTempo')}</Text>
               <Text style={s.tempoValue}>
+                {!!(piece.currentBpm ?? piece.targetBpm) && (
+                  <Text style={s.tempoTerm}>{tempoTerm((piece.currentBpm ?? piece.targetBpm)!)} · </Text>
+                )}
                 {piece.currentBpm ?? '—'}
                 <Text style={s.tempoTarget}> / {piece.targetBpm ?? '—'} BPM</Text>
               </Text>
@@ -256,7 +260,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   navRow: { flexDirection: 'row', justifyContent: 'space-between' },
   navBtn: { width: 36, height: 36, borderRadius: r(18), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
   navGlyph: { fontSize: fs(18), color: C.ink, lineHeight: fs(20) },
-  title: { fontFamily: F.head, fontSize: fs(26), letterSpacing: -0.4, color: C.ink },
+  title: { fontFamily: F.head, fontSize: fs(28), letterSpacing: -0.4, color: C.ink },
   meta: { fontFamily: F.body, fontSize: fs(14.5), color: C.sub, marginTop: 4 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
@@ -265,10 +269,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   seg: { flex: 1, height: 6, borderRadius: r(999) },
   stageLabel: { flex: 1, fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
   stat: { flex: 1, padding: 14 },
-  statNum: { fontFamily: F.head, fontSize: fs(20), color: C.ink },
+  statNum: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   tempoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tempoValue: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink, marginTop: 2 },
-  tempoTarget: { fontFamily: F.body, fontSize: fs(13), color: C.sub },
+  tempoTarget: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
+  tempoTerm: { fontFamily: F.accentMed, fontSize: fs(15), color: C.accent },
   ghostRowText: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.sub },
   compareLink: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   histRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12, paddingVertical: 8 },
@@ -277,7 +282,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   histMin: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.sub },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 14 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(20), color: C.ink, marginBottom: 4 },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink, marginBottom: 4 },
   sheetRow: { height: 52, justifyContent: 'center' },
   sheetRowText: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
   input: { flex: 1, height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },

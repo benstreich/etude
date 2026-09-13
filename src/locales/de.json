@@ -44,6 +44,8 @@
     "round": "Rund",
     "reduceMotion": "Bewegung reduzieren",
     "reduceMotionHint": "Überspringt Feder- und Einblendanimationen",
+    "sounds": "Töne",
+    "soundsHint": "Ein kurzer Akkord, wenn du eine Session beendest. Folgt dem Stummschalter.",
     "language": "Sprache",
     "fsSmall": "Klein",
     "fsDefault": "Standard",
