@@ -242,6 +242,7 @@ export default function Practice() {
                 setRecording(false);
                 setRecPaused(false);
                 setRecordingFlags({});
+                applyAudioMode({ playsInSilentMode: true }); // undo record-mode routing (see endRec)
                 jsStop.current = true;
                 // delete the take — document-dir files the store never references leak forever
                 recorder
@@ -279,7 +280,7 @@ export default function Practice() {
   }
 
   const Option = ({ name, kind }: { name: string; kind: 'Piece' | 'Technique' }) => {
-    const sel = focus?.name === name;
+    const sel = focus?.name === name && focus.kind === kind;
     return (
       <Pressable
         style={[s.option, sel && { borderColor: C.accent, backgroundColor: C.accentTint }]}
