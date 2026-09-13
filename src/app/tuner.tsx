@@ -59,17 +59,23 @@ const CY = 138;
 const RADIUS = 118;
 const SWEEP = 62; // degrees either side of vertical
 
-const rad = (deg: number) => (deg * Math.PI) / 180;
-const pointAt = (deg: number, r: number) => ({
-  x: CX + r * Math.sin(rad(deg)),
-  y: CY - r * Math.cos(rad(deg)),
-});
+// All three are worklets: the needle and arc are rebuilt on the UI thread every
+// frame, so these must be callable from inside useAnimatedProps.
+const rad = (deg: number) => {
+  'worklet';
+  return (deg * Math.PI) / 180;
+};
+
+const pointAt = (deg: number, r: number) => {
+  'worklet';
+  return { x: CX + r * Math.sin(rad(deg)), y: CY - r * Math.cos(rad(deg)) };
+};
 
 const arcPath = (fromDeg: number, toDeg: number, r: number) => {
+  'worklet';
   const a = pointAt(fromDeg, r);
   const b = pointAt(toDeg, r);
-  const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
-  return `M ${a.x} ${a.y} A ${r} ${r} 0 ${large} ${toDeg > fromDeg ? 1 : 0} ${b.x} ${b.y}`;
+  return `M ${a.x} ${a.y} A ${r} ${r} 0 0 ${toDeg > fromDeg ? 1 : 0} ${b.x} ${b.y}`;
 };
 
 export default function Tuner() {
@@ -206,14 +212,20 @@ export default function Tuner() {
     return { x1: tail.x, y1: tail.y, x2: tip.x, y2: tip.y, opacity: 0.35 + live.value * 0.65 };
   });
 
-  const arcProps = useAnimatedProps(() => ({
-    // tertiary (far out) → accent (close) → success (locked)
-    stroke: interpolateColor(lock.value, [0, 1], [C.accent, C.success]),
-    opacity: 0.25 + live.value * 0.75,
-  }));
+  // The active arc runs from dead centre out to wherever the needle is, so the
+  // band of colour shrinks as the note comes in — the shape says "closer", and
+  // the colour says "close enough". Both, because colour alone is not a signal.
+  const arcProps = useAnimatedProps(() => {
+    const deg = (cents.value / 50) * SWEEP;
+    return {
+      d: arcPath(0, Math.abs(deg) < 0.4 ? (deg < 0 ? -0.4 : 0.4) : deg, RADIUS),
+      stroke: interpolateColor(prox.value, [0, 0.7, 0.9], [C.tertiary, C.accent, C.success]),
+      opacity: 0.3 + live.value * 0.7,
+    };
+  });
 
   const hubProps = useAnimatedProps(() => ({
-    fill: interpolateColor(lock.value, [0, 1], [C.accent, C.success]),
+    fill: interpolateColor(prox.value, [0, 0.7, 0.9], [C.tertiary, C.accent, C.success]),
   }));
 
   const noteStyle = useAnimatedStyle(() => ({
@@ -269,12 +281,6 @@ export default function Tuner() {
   }
 
   const heard = note !== null;
-  // Direction as words, not just colour — colour alone is not an indicator.
-  const label = !heard
-    ? store.t('tuner.listening')
-    : Math.abs(centsNow(cents)) <= LOCK_CENTS
-      ? store.t('tuner.inTune')
-      : undefined;
 
   return (
     <View style={[s.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
@@ -322,13 +328,7 @@ export default function Tuner() {
         <Svg width={GAUGE_W} height={GAUGE_H}>
           {/* the track, and a centre tick marking dead-on */}
           <Path d={arcPath(-SWEEP, SWEEP, RADIUS)} stroke={C.track} strokeWidth={10} strokeLinecap="round" fill="none" />
-          <AnimatedPath
-            animatedProps={arcProps}
-            d={arcPath(-LOCK_CENTS / 50 * SWEEP, (LOCK_CENTS / 50) * SWEEP, RADIUS)}
-            strokeWidth={10}
-            strokeLinecap="round"
-            fill="none"
-          />
+          <AnimatedPath animatedProps={arcProps} strokeWidth={10} strokeLinecap="round" fill="none" />
           {[-50, -25, 0, 25, 50].map((c) => {
             const deg = (c / 50) * SWEEP;
             const a = pointAt(deg, RADIUS - 20);
@@ -391,14 +391,10 @@ export default function Tuner() {
         </View>
       )}
 
-      {label !== undefined && !heard && <Text style={s.hint}>{label}</Text>}
+      {!heard && <Text style={s.hint}>{store.t('tuner.listening')}</Text>}
     </View>
   );
 }
-
-/** Reading a shared value during render is only safe for a first frame default;
- *  the live text comes from CentsLabel below, which reacts on the UI thread. */
-const centsNow = (sv: { value: number }) => sv.value;
 
 /**
  * The cents readout. Split into its own component with its own animated style
