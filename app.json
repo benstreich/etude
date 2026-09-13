@@ -31,7 +31,7 @@
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.benstreich.etude",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "output": "static",
@@ -59,7 +59,7 @@
         "expo-notifications",
         {
           "sounds": [
-            "./assets/audio/cue-reminder.wav"
+            "./assets/audio/cue_reminder.wav"
           ]
         }
       ],
