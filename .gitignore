@@ -49,3 +49,4 @@ tabbar-check.png
 
 # local screenshots / scratch
 var/
+modules/*/android/build/
