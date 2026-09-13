@@ -4,11 +4,12 @@
 // the LogoMark; hence the literal hex here and nowhere else.
 import * as Sharing from 'expo-sharing';
 import React, { useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 
 import { LogoMark } from '@/components/icons';
+import { Text } from '@/components/text';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';

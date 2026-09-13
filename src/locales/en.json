@@ -136,6 +136,8 @@
     "clearPresetHint": "Clear a field to remove that preset.",
     "stagePlaceholder": "Stage %{n}",
     "addStage": "+ Add stage",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
     "stagesHint": "In order, first to last. Clear a field to remove it; at least two stages.",
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
     "customTimePlaceholder": "Custom time — e.g. 17:45 or 5:45 PM",
@@ -231,6 +233,8 @@
     },
     "tapHint": "Tap a piece for details, stats & recordings",
     "techniqueRecordings": "Technique recordings",
+    "techniques": "Techniques",
+    "notPractisedYet": "Not practised yet",
     "archived": "Archived",
     "addToRepertoire": "Add to repertoire",
     "song": "Song",
@@ -464,5 +468,12 @@
     "channelName": "Practice reminders",
     "notifTitle": "Time to practice 🎵",
     "notifBody": "A few minutes today keeps the streak alive."
+  },
+  "addFocus": {
+    "new": "+ New",
+    "piece": "Piece",
+    "technique": "Technique",
+    "namePlaceholder": "Name",
+    "add": "Add"
   }
 }

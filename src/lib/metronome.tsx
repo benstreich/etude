@@ -206,13 +206,16 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       setLiveBpm(value);
       const r = run.current;
       if (r) {
-        // mid-run the ramp restarts from here; the saved start tempo is left alone
+        // mid-run the ramp restarts from here, so it climbs from the new tempo
+        // rather than replaying the whole run in one jump
         r.baseBpm = value;
         r.baseBeats = r.beats;
         r.startedAt = Date.now();
-      } else {
-        store.updateSettings({ metroBpm: value });
       }
+      // Setting the tempo is deliberate, so it sticks even mid-run — stopping
+      // used to snap back to the tempo you started at and lose it (#44). A ramp
+      // moving the tempo on its own still doesn't: it must restart from its base.
+      store.updateSettings({ metroBpm: value });
     },
     [store]
   );

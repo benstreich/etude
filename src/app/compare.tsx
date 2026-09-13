@@ -3,9 +3,10 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
 import { applyAudioMode } from '@/lib/audio-mode';
 import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';

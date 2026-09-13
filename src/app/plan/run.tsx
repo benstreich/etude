@@ -3,12 +3,13 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MetronomeSheet } from '@/components/metronome';
 import { MeasureBar, Tempo, TickDot } from '@/components/motifs';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
+import { Text } from '@/components/text';
 import { Overline } from '@/components/ui';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';

@@ -2,11 +2,14 @@
 // rest of the app; "Save plan" is just the way out.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddFocus } from '@/components/add-focus';
 import { PlayIcon } from '@/components/icons';
 import { Tempo } from '@/components/motifs';
+import { Text } from '@/components/text';
+import { SHEET_AVOID } from '@/components/ui';
 import { PlanSegment, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -104,11 +107,9 @@ export default function PlanBuilder() {
               </View>
             </Pressable>
           ))}
-          <Pressable style={s.addRow} onPress={() => openEdit(-1)} disabled={focusOptions.length === 0}>
+          <Pressable style={s.addRow} onPress={() => openEdit(-1)}>
             <Text style={s.addPlus}>+</Text>
-            <Text style={s.addText}>
-              {focusOptions.length === 0 ? store.t('plan.addFocusFirst') : store.t('plan.addSegment')}
-            </Text>
+            <Text style={s.addText}>{store.t('plan.addSegment')}</Text>
           </Pressable>
         </View>
 
@@ -135,7 +136,7 @@ export default function PlanBuilder() {
 
       <Modal visible={editIdx !== null} transparent animationType="fade" onRequestClose={closeEdit}>
         <Pressable style={s.backdrop} onPress={closeEdit}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
             <Pressable style={s.sheet} onPress={() => {}}>
               <Text style={s.sheetTitle}>{editIdx === -1 ? store.t('plan.newSegment') : store.t('plan.editSegment')}</Text>
               <ScrollView style={{ maxHeight: 150 }}>
@@ -151,7 +152,9 @@ export default function PlanBuilder() {
                       </Pressable>
                     );
                   })}
+                  <AddFocus onAdded={(f) => setDraft((d) => (d ? { ...d, focus: f } : d))} />
                 </View>
+                {focusOptions.length === 0 && <Text style={s.emptyHint}>{store.t('plan.addFocusFirst')}</Text>}
               </ScrollView>
               <TextInput
                 style={s.input}
@@ -198,7 +201,7 @@ export default function PlanBuilder() {
                   </Pressable>
                 </View>
               )}
-              <Pressable style={s.saveBtn} onPress={saveEdit}>
+              <Pressable style={[s.saveBtn, !draft?.focus && { opacity: 0.4 }]} disabled={!draft?.focus} onPress={saveEdit}>
                 <Text style={s.saveText}>{editIdx === -1 ? store.t('plan.addSegment') : store.t('plan.saveSegment')}</Text>
               </Pressable>
             </Pressable>
@@ -265,6 +268,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stepBtn: { width: 38, height: 38, borderRadius: r(19), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.ink },
   stepValue: { fontFamily: F.head, fontSize: fs(18), color: C.ink, minWidth: 34, textAlign: 'center', fontVariant: ['tabular-nums'] },
+  emptyHint: { fontFamily: F.body, fontSize: fs(13.5), color: C.subStrong, paddingTop: 8 },
   bpmInput: { width: 90, height: 44, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 12, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
   rowBtns: { flexDirection: 'row', gap: 10 },
   smallBtn: { flex: 1, height: 42, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },

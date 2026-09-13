@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlameIcon } from '@/components/icons';
+import { Text } from '@/components/text';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import type { LanguageSetting } from '@/lib/i18n';
 import { useStore } from '@/lib/store';

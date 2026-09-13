@@ -1,9 +1,11 @@
 // Shared edit-session bottom sheet — opened from Home recents, Progress day
 // detail, and a piece's history. Edits focus / minutes / note, or deletes.
 import React, { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
+import { SHEET_AVOID } from '@/components/ui';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -78,7 +80,7 @@ function Editor({
 
   return (
     <Pressable style={s.backdrop} onPress={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+      <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
         <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
           <View style={s.grabber} />
           {/* flex-end keeps the form at the bottom, within thumb reach, when it doesn't fill the sheet */}

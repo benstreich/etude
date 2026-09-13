@@ -61,4 +61,6 @@ write(OUT / "cue-session-complete.wav", a, 0.5)
 # octave up and alone.
 b = [0.0] * int(RATE * 2.0)
 mallet(b, D5, 0.0, 1.8, 0.55)
-write(OUT / "cue-reminder.wav", b, 1.0)
+# underscore, not a hyphen: this one is bundled as an Android raw
+# resource, and those names must be lowercase alphanumeric + "_"
+write(OUT / "cue_reminder.wav", b, 1.0)

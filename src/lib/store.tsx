@@ -65,6 +65,7 @@ type Settings = {
   radius: RadiusMode;
   reduceMotion: boolean;
   sounds: boolean; // the two audio-identity cues; see lib/sounds.ts
+  showTechniques: boolean; // list techniques alongside pieces in Repertoire
   reminder: string;
   weekStart: WeekStart;
   quickLog: number[];
@@ -124,6 +125,7 @@ function seed(): State {
     radius: 'soft',
     reduceMotion: false,
     sounds: true,
+    showTechniques: true,
     // 'Off' until onboarding asks — a seeded time would fire the OS permission
     // prompt at first launch, before the reminders step gets to explain itself
     reminder: 'Off',

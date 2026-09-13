@@ -3,7 +3,7 @@
 // in the app (pieces can't be renamed); move to id-joins if rename ever lands.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EditSessionSheet } from '@/components/edit-session';
@@ -11,11 +11,12 @@ import { MetronomeIcon } from '@/components/icons';
 import { MetronomeButton } from '@/components/metronome';
 import { RecordingsList } from '@/components/recordings';
 import { TempoLadder } from '@/components/tempo-ladder';
-import { Card, Overline } from '@/components/ui';
+import { Text } from '@/components/text';
+import { Card, Overline, SHEET_AVOID } from '@/components/ui';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
-import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 import { tempoTerm } from '@/lib/tempo';
+import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
 const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
@@ -223,7 +224,7 @@ export default function PieceDetail() {
 
       <Modal visible={tempoOpen} transparent animationType="fade" onRequestClose={() => setTempoOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setTempoOpen(false)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
             <Pressable style={s.sheet} onPress={() => {}}>
               <Text style={s.sheetTitle}>{store.t('piece.targetTempo')}</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>

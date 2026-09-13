@@ -3,15 +3,17 @@ import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddFocus } from '@/components/add-focus';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeButton } from '@/components/metronome';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
+import { Text } from '@/components/text';
 import { Overline } from '@/components/ui';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
-import { toStoredUri, useStore } from '@/lib/store';
+import { Piece, toStoredUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function Practice() {
@@ -160,9 +162,13 @@ export default function Practice() {
   }, [running, startedAt, accum]);
 
   const q = query.trim().toLowerCase();
-  const pieces = store.pieces.filter(
-    (p) => p.stage < store.stages.length - 1 && !p.archived && p.name.toLowerCase().includes(q)
-  );
+  // every piece in the repertoire is practisable — reaching the last stage used
+  // to hide it here, which just looked like the piece had gone missing (#41).
+  // Finished ones sort last so "what are you working on" still reads right.
+  const finished = (p: Piece) => p.stage >= store.stages.length - 1;
+  const pieces = store.pieces
+    .filter((p) => !p.archived && p.name.toLowerCase().includes(q))
+    .sort((a, b) => Number(finished(a)) - Number(finished(b)));
   const techniques = store.techniques.filter((t) => t.toLowerCase().includes(q));
   const plans = store.plans.filter((p) => p.name.toLowerCase().includes(q));
 
@@ -322,6 +328,10 @@ export default function Practice() {
         {pieces.length === 0 && techniques.length === 0 && plans.length === 0 && (
           <Text style={s.noMatch}>{store.t('practice.noMatches', { query: query.trim() })}</Text>
         )}
+        {/* pick a focus that doesn't exist yet without a detour via Repertoire (#40) */}
+        <View style={{ alignItems: 'flex-start', marginTop: 16 }}>
+          <AddFocus onAdded={(f) => setFocus(f)} />
+        </View>
         {!q && (
           <>
             <Overline style={{ marginBottom: 10, marginTop: pieces.length + techniques.length > 0 ? 22 : 0 }}>

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/components/text';
+import { SHEET_AVOID } from '@/components/ui';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -70,7 +72,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
         <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
           <View style={s.grabber} />
           {/* flex-end keeps the form at the bottom, within thumb reach, when it doesn't fill the sheet */}
@@ -101,10 +103,17 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
                 const k = dateKey(new Date(calMonth.getFullYear(), calMonth.getMonth(), day));
                 const disabled = k > todayKey;
                 const sel = pastDate === k;
+                const isToday = k === todayKey; // outlined, so it still reads when selected (#42)
                 return (
                   <Pressable key={k} style={s.calCell} disabled={disabled} onPress={() => setPastDate(k)}>
-                    <View style={[s.calDay, sel && { backgroundColor: C.accent }]}>
-                      <Text style={[s.calDayText, disabled && { color: C.faint }, sel && { color: C.bg, fontFamily: F.bodySemi }]}>
+                    <View style={[s.calDay, isToday && s.calToday, sel && { backgroundColor: C.accent, borderColor: C.accent }]}>
+                      <Text
+                        style={[
+                          s.calDayText,
+                          disabled && { color: C.faint },
+                          isToday && { fontFamily: F.bodySemi, color: C.accent },
+                          sel && { color: C.bg, fontFamily: F.bodySemi },
+                        ]}>
                         {day}
                       </Text>
                     </View>
@@ -187,6 +196,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   calDow: { width: '14.28%', textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(11), color: C.tertiary, marginBottom: 6 },
   calCell: { width: '14.28%', alignItems: 'center', paddingVertical: 2 },
   calDay: { width: 34, height: 34, borderRadius: r(17), alignItems: 'center', justifyContent: 'center' },
+  calToday: { borderWidth: 1.5, borderColor: C.accent },
   calDayText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
   focusScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 24 },
   focusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
