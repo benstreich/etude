@@ -11,6 +11,7 @@ import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
 import { applySessionUpdate } from './session-math';
+import { stagePct } from './stage-math';
 import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
@@ -417,7 +418,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const next = { ...p, ...patch };
           // same pct rule as cyclePiece so the repertoire bar stays consistent
           if (patch.stage !== undefined)
-            next.pct = patch.stage === 0 ? 20 : Math.round(((Math.min(patch.stage, n - 1) + 1) / n) * 100);
+            next.pct = stagePct(patch.stage, n);
           return next;
         }),
       };
@@ -453,8 +454,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTechnique = (name: string) => {
-    const dup = state.techniques.includes(name);
-    if (!dup) setState((s) => (s ? { ...s, techniques: [...s.techniques, name] } : s));
+    // same identity rule as addPiece — the name is the key everywhere else, so a
+    // case- or space-different twin silently splits that technique's stats
+    const clean = name.trim();
+    const dup = state.techniques.some((x) => x.trim().toLowerCase() === clean.toLowerCase());
+    if (!dup) setState((s) => (s ? { ...s, techniques: [...s.techniques, clean] } : s));
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.techniqueAdded'));
   };
 
@@ -479,7 +483,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         pieces: s.pieces.map((p) => {
           if (p.id !== id) return p;
           const stage = (Math.min(p.stage, n - 1) + 1) % n;
-          return { ...p, stage, pct: stage === 0 ? 20 : Math.round(((stage + 1) / n) * 100) };
+          return { ...p, stage, pct: stagePct(stage, n) };
         }),
       };
     });
@@ -551,9 +555,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => {
       if (!s) return s;
       const next = { ...s, ...patch };
-      // fewer stages than before → clamp pieces so no index dangles
-      if (patch.stages)
-        next.pieces = next.pieces.map((p) => ({ ...p, stage: Math.min(p.stage, patch.stages!.length - 1) }));
+      // stages changed → clamp the index so none dangles, and rescale pct with it,
+      // otherwise the bar keeps the old scale while the label moves (e.g. 3→4
+      // stages left a "Polishing" piece showing 100%)
+      if (patch.stages) {
+        const n = patch.stages.length;
+        next.pieces = next.pieces.map((p) => {
+          const stage = Math.min(p.stage, n - 1);
+          return { ...p, stage, pct: stagePct(stage, n) };
+        });
+      }
       return next;
     });
   };
