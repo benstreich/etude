@@ -296,8 +296,13 @@ export default function Practice() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-        <View style={s.titleRow}>
-          <Text style={s.title}>{store.t('practice.title')}</Text>
+        {/* Two tools no longer fit beside the heading without wrapping it to
+            four lines, so they get their own row under it. */}
+        <Text style={s.title}>{store.t('practice.title')}</Text>
+        <View style={s.toolsRow}>
+          <Pressable style={s.tunerPill} onPress={() => router.push('/tuner')}>
+            <Text style={s.tunerPillText}>{store.t('tuner.tuner')}</Text>
+          </Pressable>
           <MetronomeButton compact />
         </View>
         <TextInput
@@ -391,7 +396,8 @@ export default function Practice() {
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  title: { fontFamily: F.head, fontSize: fs(32), color: C.ink, marginBottom: 26, lineHeight: fs(39) },
+  title: { fontFamily: F.head, fontSize: fs(32), color: C.ink, marginBottom: 16, lineHeight: fs(39) },
+  toolsRow: { flexDirection: 'row', gap: 8, marginBottom: 22 },
   group: { gap: 10 },
   search: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, paddingHorizontal: 14, fontFamily: F.body, fontSize: fs(15), color: C.ink, marginBottom: 18 },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
