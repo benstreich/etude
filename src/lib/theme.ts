@@ -77,17 +77,17 @@ export const FONT_SCALES = [
 
 const RADIUS_SCALE: Record<RadiusMode, number> = { sharp: 0.4, soft: 1, round: 1.6 };
 
-// display = Space Grotesk (headings, big numerals), accent = Newsreader italic
-// (tempo terms, "of N min" counters, note placeholder — musical voice only),
-// body = Instrument Sans. head/headBold map from the old Figtree 600/700.
+// Space Grotesk carries the whole app — display and body alike. accent stays
+// Newsreader italic (tempo terms, "of N min" counters, note placeholder):
+// Space Grotesk ships no italic, so the musical voice keeps its own face.
 export const F = {
   head: 'SpaceGrotesk_500Medium',
   headBold: 'SpaceGrotesk_600SemiBold',
   accent: 'Newsreader_400Regular_Italic',
   accentMed: 'Newsreader_500Medium_Italic',
-  body: 'InstrumentSans_400Regular',
-  bodyMed: 'InstrumentSans_500Medium',
-  bodySemi: 'InstrumentSans_600SemiBold',
+  body: 'SpaceGrotesk_400Regular',
+  bodyMed: 'SpaceGrotesk_500Medium',
+  bodySemi: 'SpaceGrotesk_600SemiBold',
 };
 
 export type T = {
