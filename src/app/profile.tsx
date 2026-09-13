@@ -1,5 +1,7 @@
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
+import * as Updates from 'expo-updates';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -322,6 +324,14 @@ export default function Profile() {
         </Card>
       )}
 
+      {/* Which bundle is actually running. The app version stays 1.0.0 across
+          every OTA update, so the update id is the only part that moves. */}
+      <Text style={s.version}>
+        {`Etude ${Constants.expoConfig?.version ?? '?'} · ${
+          Updates.isEmbeddedLaunch ? 'bundled' : (Updates.updateId?.slice(0, 8) ?? 'dev')
+        }`}
+      </Text>
+
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <Pressable style={s.backdrop} onPress={() => setEditing(null)}>
           <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
@@ -549,6 +559,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, paddingVertical: 8 },
   dataLabel: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
   dataSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+  version: { fontFamily: F.body, fontSize: fs(12), color: C.sub, textAlign: 'center', marginTop: 4 },
   dataFootRow: { flexDirection: 'row', gap: 7, paddingHorizontal: 4, alignItems: 'flex-start' },
   dataFoot: { flex: 1, fontFamily: F.body, fontSize: fs(12.5), lineHeight: fs(19), color: C.sub },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
