@@ -46,7 +46,7 @@ export const reminderLabel = ({ hour, minute }: { hour: number; minute: number }
 // Bundled by the expo-notifications config plugin (see app.json) — referenced
 // by base filename, which is all the plugin exposes. `undefined` falls back to
 // the system sound when the user has turned the app's cues off.
-const PING = 'cue-reminder.wav';
+const PING = 'cue_reminder.wav';
 
 export async function syncReminder(reminder: string, sounds = true): Promise<boolean> {
   if (Platform.OS === 'web' || !Notifications) return true; // ponytail: no web notifications — mobile-first app; null in Expo Go Android
