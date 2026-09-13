@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["PitchInputModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.pitchinput.PitchInputModule"]
+  }
+}
