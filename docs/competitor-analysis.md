@@ -130,19 +130,26 @@ That covers most of Modacity Premium and all of Andante Pro except drone and pro
 | Live pitch graph, vibrato analysis | Legato | skip: strings-only niche, heavy DSP |
 | Social / friends | Practis, Tonic | skip |
 
-### Pricing decision (2026-09-14)
+### Pricing decision (2026-09-14, final)
 
-Free download, fully unlocked for **30 days**, then a single one-time unlock at
-**CHF 8** (EUR 7.99 / USD 7.99 / GBP 6.99). No permanent free tier, no subscription.
-After day 30 the app is read-only: data stays visible, backup and CSV export keep
-working, logging needs the unlock. Purchase tied to the store account, restored via the
-stores' own "Restore purchases", so still no Étude account.
+**Paid upfront, CHF 6** (EUR 5.99 / USD 5.99 / GBP 4.99). No trial, no in-app purchase,
+no subscription, no free tier. Buy once, own it, all updates included. No purchase code
+in the app.
 
-Why not the alternatives: freemium leaves most users on the free tier forever;
-paid-upfront removes the trial and slows discovery; Andante's move from a $3.99 unlock
-to $29.99 lifetime shows a very low one-time price does not carry an app.
+Why: the whole point is to stand against subscriptions *and* trials. Freemium leaves most
+users on the free tier forever; a trial is still a clock and a lock screen; paid upfront
+is the honest version of "one price". Fairness comes from behaviour, not the number:
+price never rises for existing owners, no fake sales, Family Sharing on, refunds without
+argument, data always exportable, no ads / analytics / accounts. Six francs once against
+~20 a year for the nearest subscription is the generous end; going lower risks the app
+not being sustained, which is the unfairest outcome for buyers.
 
-Store mechanics: Apple guideline 3.1.1 allows a time-based trial via a free
-non-consumable item ("30-day Trial") followed by the paid unlock; Google Play has no
-such item, so the trial start lives on the device and a reinstall resets it (accepted).
-Price should be visible in Settings from day one ("23 days left, then CHF 8 once").
+What replaces the trial: the listing. A 30 s preview video and screenshots that lead with
+the differentiators (repertoire, tempo ladder, A/B compare, routines, widgets, later
+Insights) and put the timer last, a plain "why it costs money" paragraph, and the store
+refund window. A web demo (same code, Expo web export with sample data) was considered and
+parked: piracy exposure is no worse than the already-public source, but it is ongoing
+maintenance; revisit once #61 gives it something worth clicking through. Details in #55.
+
+Rejected on the way: 30-day trial + one-time unlock (#62, closed), freemium, $3.99-style
+low pricing (Andante had to abandon it).
