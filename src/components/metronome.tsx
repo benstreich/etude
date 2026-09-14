@@ -1,9 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { RollingNumber } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { LOCK_SCREEN_STEP, previewClick, useBeat, useMetronome } from '@/lib/metronome';
+import { LOCK_SCREEN_STEP, preloadClicks, previewClick, useBeat, useMetronome } from '@/lib/metronome';
 import { describeRamp, MAX_BPM, SOUND_SETS, SUBDIVS, tapTempo, type RampUnit, type SoundSet } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
@@ -55,6 +55,10 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
   const { toggle, setBpm, nudge, setTimeSig, setRamp, setSubdiv, cycleAccent, setSound, setVolume } = metronome;
   const beat = useBeat();
   const taps = useRef<number[]>([]);
+  // every sound set ready before the picker is touched (#78)
+  useEffect(() => {
+    if (visible) preloadClicks();
+  }, [visible]);
 
   const tap = () => {
     const now = Date.now();

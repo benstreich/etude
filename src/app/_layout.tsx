@@ -120,6 +120,8 @@ function Shell({ insets }: { insets: { bottom: number } }) {
               old adjustResize behaviour. Modal sheets have their own window (#75). */}
           <KeyboardAvoidingView behavior={SCREEN_AVOID} style={{ flex: 1 }}>
           <Tabs
+            // back goes to the previous screen, not to Home (#85)
+            backBehavior="history"
             screenOptions={{
               headerShown: false,
               tabBarHideOnKeyboard: true,

@@ -10,6 +10,12 @@ export type RatedSession = { title: string; min: number; date: string; rating?: 
 
 /** Fewer rated sessions than this and a rating card stays hidden. */
 export const MIN_RATED = 5;
+/** Insights (#61) stay hidden under this many practised days — a first week says nothing yet (#77). */
+export const MIN_INSIGHT_DAYS = 7;
+/** Concentration needs this many sessions before "x % went to n focuses" means anything. */
+export const MIN_CONC_SESSIONS = 10;
+/** A pace projected from fewer practised days than this in the 8-week window is noise. */
+export const MIN_PACE_DAYS = 7;
 
 export const rated = (sessions: RatedSession[]) => sessions.filter((s) => s.rating !== undefined && s.rating > 0);
 
@@ -226,13 +232,13 @@ export function qualityDrivers(sessions: (RatedSession & { planId?: string })[])
 
 export type Concentration = { pct: number; top: number; total: number };
 
-/** Share of minutes held by the fewest focuses that reach 80 %; null under 3 focuses. */
+/** Share of minutes held by the fewest focuses that reach 80 %; null under 3 focuses or MIN_CONC_SESSIONS sessions. */
 export function concentration(sessions: { title: string; min: number }[]): Concentration | null {
   const by: Record<string, number> = {};
   for (const s of sessions) by[s.title] = (by[s.title] ?? 0) + s.min;
   const mins = Object.values(by).sort((a, b) => b - a);
   const total = mins.reduce((a, b) => a + b, 0);
-  if (mins.length < 3 || !total) return null;
+  if (sessions.length < MIN_CONC_SESSIONS || mins.length < 3 || !total) return null;
   let acc = 0;
   let top = 0;
   while (acc / total < 0.8) acc += mins[top++];
@@ -269,17 +275,21 @@ export function streakSurvival(minutesByDate: Record<string, number>, today: str
 
 export type Projection = { hoursByYearEnd: number; milestoneH: number | null; milestoneDate: string | null };
 
-/** Year-end hours at the last 8 weeks' pace, and when the next round milestone lands. null without a pace. */
+/** Year-end hours at the last 8 weeks' pace, and when the next round milestone lands. null under MIN_PACE_DAYS practised days in the window. */
 export function projection(minutesByDate: Record<string, number>, totalMin: number, today: string): Projection | null {
   const from = shiftKey(today, -55);
   let recent = 0;
+  let recentDays = 0;
   let yearMin = 0;
   for (const [k, m] of Object.entries(minutesByDate)) {
-    if (k >= from && k <= today) recent += m;
+    if (k >= from && k <= today) {
+      recent += m;
+      if (m > 0) recentDays++;
+    }
     if (k.startsWith(today.slice(0, 4)) && k <= today) yearMin += m;
   }
   const perDay = recent / 56;
-  if (perDay <= 0) return null;
+  if (perDay <= 0 || recentDays < MIN_PACE_DAYS) return null;
   const hoursByYearEnd = Math.round((yearMin + perDay * daysBetween(today, `${today.slice(0, 4)}-12-31`)) / 60);
   const milestoneH = [10, 25, 50, 100, 250, 500, 1000, 2500].find((h) => h * 60 > totalMin) ?? null;
   const milestoneDate = milestoneH ? shiftKey(today, Math.ceil((milestoneH * 60 - totalMin) / perDay)) : null;

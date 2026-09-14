@@ -232,7 +232,7 @@
     },
     "newPlan": "+ New routine",
     "startSession": "Start session",
-    "logPastLink": "Forgot a day? Log past practice",
+    "logPast": "Log a past day",
     "defaultPlanName": "New routine"
   },
   "progress": {
