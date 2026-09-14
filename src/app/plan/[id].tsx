@@ -2,14 +2,14 @@
 // rest of the app; "Save plan" is just the way out.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFocus } from '@/components/add-focus';
 import { PlayIcon } from '@/components/icons';
 import { Tempo } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { SHEET_AVOID } from '@/components/ui';
+import { Sheet } from '@/components/ui';
 import { PlanSegment, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -134,12 +134,9 @@ export default function PlanBuilder() {
         </Pressable>
       </View>
 
-      <Modal visible={editIdx !== null} transparent animationType="fade" onRequestClose={closeEdit}>
-        <Pressable style={s.backdrop} onPress={closeEdit}>
-          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-            <Pressable style={s.sheet} onPress={() => {}}>
+      <Sheet visible={editIdx !== null} onClose={closeEdit} style={s.sheet} contentStyle={{ gap: 14 }}>
               <Text style={s.sheetTitle}>{editIdx === -1 ? store.t('plan.newSegment') : store.t('plan.editSegment')}</Text>
-              <ScrollView style={{ maxHeight: 150 }}>
+              <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
                 <View style={s.chipWrap}>
                   {focusOptions.map((f) => {
                     const sel = draft?.focus.name === f.name && draft.focus.kind === f.kind;
@@ -210,10 +207,7 @@ export default function PlanBuilder() {
               <Pressable style={[s.saveBtn, !draft?.focus && { opacity: 0.4 }]} disabled={!draft?.focus} onPress={saveEdit}>
                 <Text style={s.saveText}>{editIdx === -1 ? store.t('plan.addSegment') : store.t('plan.saveSegment')}</Text>
               </Pressable>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+      </Sheet>
     </View>
   );
 }
@@ -260,8 +254,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   deleteLink: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub, textDecorationLine: 'underline' },
   startBtn: { height: 56, borderRadius: r(14), backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   startText: { fontFamily: F.bodySemi, fontSize: fs(17), color: '#FFFFFF' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 14 },
+  sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },

@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFocus } from '@/components/add-focus';
@@ -13,7 +13,7 @@ import { MetronomeButton } from '@/components/metronome';
 import { ScorePill } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { InstrumentFilter, Overline, SCREEN_AVOID, useInstrumentFilter } from '@/components/ui';
+import { InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
 import { Piece, toStoredUri, useStore } from '@/lib/store';
@@ -59,8 +59,8 @@ export default function Practice() {
   }, [breakEnd]);
   const breakOver = breakEnd !== null && breakLeft === 0;
   // "+ New" sits at the bottom of the picker, so the keyboard covered the name
-  // field (#75). The KAV below shrinks the list; this then scrolls the creator's
-  // bottom edge to just above the keyboard. Android does that for a focused field
+  // field (#75). The root KeyboardAvoidingView in _layout shrinks the list; this
+  // then scrolls the creator's bottom edge to just above the keyboard. Android does that for a focused field
   // by itself when the ScrollView resizes, iOS does not, so it runs on both.
   const listRef = useRef<ScrollView>(null);
   const creatorOpen = useRef(false);
@@ -397,7 +397,7 @@ export default function Practice() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={SCREEN_AVOID} style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
         ref={listRef}
         contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}
@@ -512,7 +512,7 @@ export default function Practice() {
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
       <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} recording={recording} />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
