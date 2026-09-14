@@ -38,6 +38,10 @@ const INSTRUMENT_KEYS: Record<string, string> = {
   Bass: 'settings.instBass',
 };
 
+const REPO = 'https://github.com/benstreich/etude';
+// hosted as a gist because the app has no website to put it on (see docs/release.md)
+const PRIVACY_URL = 'https://gist.github.com/benstreich/838abedca283b1381b521958ddd46007';
+
 const DAY_KEYS: Record<string, string> = {
   Monday: 'settings.dayMonday',
   Tuesday: 'settings.dayTuesday',
@@ -336,6 +340,30 @@ export default function Profile() {
           </Pressable>
         </Card>
       )}
+
+      {/* About (#64): the openness is part of the product, so it is in the app,
+          not only in the README. */}
+      <Overline>{store.t('settings.about')}</Overline>
+      <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
+        {(
+          [
+            [store.t('settings.howBuilt'), store.t('settings.howBuiltSub'), `${REPO}/blob/main/docs/how-etude-is-built.md`],
+            [store.t('settings.sourceCode'), store.t('settings.sourceCodeSub'), REPO],
+            [store.t('settings.privacyPolicy'), store.t('settings.privacyPolicySub'), PRIVACY_URL],
+          ] as const
+        ).map(([label, sub, url], i) => (
+          <Pressable
+            key={label}
+            style={[s.dataRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+            onPress={() => Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')))}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.dataLabel}>{label}</Text>
+              <Text style={s.dataSub}>{sub}</Text>
+            </View>
+            <ChevronIcon />
+          </Pressable>
+        ))}
+      </Card>
 
       {/* Which bundle is actually running. The app version stays 1.0.0 across
           every OTA update, so the update id is the only part that moves. */}

@@ -150,7 +150,15 @@
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
     "notifBlocked": "Notifications are turned off for Etude — tap to open system settings.",
     "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings aren’t included — “Back up everything” covers those when switching phones.",
-    "save": "Save"
+    "save": "Save",
+    "about": "About",
+    "howBuilt": "How Étude is built",
+    "howBuiltSub": "The stack, the architecture, and what leaves your phone",
+    "sourceCode": "Source code",
+    "sourceCodeSub": "Public to read — Étude is still a paid app",
+    "privacyPolicy": "Privacy policy",
+    "privacyPolicySub": "Short, because there is not much to say",
+    "linkFailed": "Couldn't open that link"
   },
   "home": {
     "goodMorning": "Good morning",
