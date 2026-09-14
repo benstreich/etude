@@ -9,6 +9,7 @@ import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { tempoDelta } from '@/lib/growth-math';
 import { MAX_BPM } from '@/lib/metronome-math';
+import { maybeRequestReview } from '@/lib/review';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -75,8 +76,11 @@ export function TempoLadder({ piece }: { piece: Piece }) {
     setLogOpen(true);
   };
   const save = () => {
+    // crossing the target tempo is an earned moment (#68)
+    const reached = !!piece.targetBpm && draft >= piece.targetBpm && (last?.bpm ?? 0) < piece.targetBpm;
     store.logTempo(piece.id, draft);
     setLogOpen(false);
+    if (reached) setTimeout(() => maybeRequestReview(store), 1500);
   };
   const delta = tempoDelta(log, store.today);
 

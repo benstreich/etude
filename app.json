@@ -66,7 +66,52 @@
       "expo-asset",
       "expo-sharing",
       "@bacons/apple-targets",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Forest",
+            "ios": "./assets/icons/forest.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#4A7C59"
+            }
+          },
+          {
+            "name": "Indigo",
+            "ios": "./assets/icons/indigo.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#5B5BD6"
+            }
+          },
+          {
+            "name": "Ocean",
+            "ios": "./assets/icons/ocean.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#2E7DB3"
+            }
+          },
+          {
+            "name": "Plum",
+            "ios": "./assets/icons/plum.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#9D4A8E"
+            }
+          },
+          {
+            "name": "Slate",
+            "ios": "./assets/icons/slate.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#556270"
+            }
+          }
+        ]
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

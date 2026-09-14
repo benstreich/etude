@@ -12,6 +12,9 @@ struct WidgetData: Record {
   @Field var streak: Int = 0
   @Field var week: [Int] = []
   @Field var nextFocus: String?
+  // #80: [accent, mid, soft] hex per scheme; empty = brand terracotta
+  @Field var accentLight: [String] = []
+  @Field var accentDark: [String] = []
 }
 
 /**
@@ -29,6 +32,8 @@ public class EtudeWidgetsModule: Module {
       defaults.set(data.streak, forKey: "streak")
       defaults.set(data.week, forKey: "week")
       defaults.set(data.nextFocus, forKey: "nextFocus")
+      defaults.set(data.accentLight, forKey: "accentLight")
+      defaults.set(data.accentDark, forKey: "accentDark")
       #if canImport(WidgetKit)
       if #available(iOS 14.0, *) {
         WidgetCenter.shared.reloadAllTimelines()

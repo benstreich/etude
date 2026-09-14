@@ -10,6 +10,15 @@ export type RatedSession = { title: string; min: number; date: string; rating?: 
 
 /** Fewer rated sessions than this and a rating card stays hidden. */
 export const MIN_RATED = 5;
+/** Insights (#61) stay hidden under this many practised days — a first week says nothing yet (#77). */
+export const MIN_INSIGHT_DAYS = 7;
+/** Concentration needs this many sessions before "x % went to n focuses" means anything. */
+export const MIN_CONC_SESSIONS = 10;
+/** A pace projected from fewer practised days than this in the 8-week window is noise. */
+export const MIN_PACE_DAYS = 7;
+/** Goal calibration (#72) needs this many practised days / weeks with data in its window. */
+export const MIN_CALIBRATION_DAYS = 20;
+export const MIN_CALIBRATION_WEEKS = 6;
 
 export const rated = (sessions: RatedSession[]) => sessions.filter((s) => s.rating !== undefined && s.rating > 0);
 
@@ -226,20 +235,20 @@ export function qualityDrivers(sessions: (RatedSession & { planId?: string })[])
 
 export type Concentration = { pct: number; top: number; total: number };
 
-/** Share of minutes held by the fewest focuses that reach 80 %; null under 3 focuses. */
+/** Share of minutes held by the fewest focuses that reach 80 %; null under 3 focuses or MIN_CONC_SESSIONS sessions. */
 export function concentration(sessions: { title: string; min: number }[]): Concentration | null {
   const by: Record<string, number> = {};
   for (const s of sessions) by[s.title] = (by[s.title] ?? 0) + s.min;
   const mins = Object.values(by).sort((a, b) => b - a);
   const total = mins.reduce((a, b) => a + b, 0);
-  if (mins.length < 3 || !total) return null;
+  if (sessions.length < MIN_CONC_SESSIONS || mins.length < 3 || !total) return null;
   let acc = 0;
   let top = 0;
   while (acc / total < 0.8) acc += mins[top++];
   return { pct: Math.round((acc / total) * 100), top, total: mins.length };
 }
 
-export type StreakSurvival = { count: number; typicalLength: number; breakWeekday: number };
+export type StreakSurvival = { count: number; typicalLength: number; breakWeekday: number; lengths: number[] };
 
 /**
  * Past streaks (runs of consecutive practised days that have ended): their
@@ -264,24 +273,154 @@ export function streakSurvival(minutesByDate: Record<string, number>, today: str
     counts[wd] = (counts[wd] ?? 0) + 1;
   }
   const breakWeekday = Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
-  return { count: runs.length, typicalLength: Math.round(median(runs.map((r) => r.len))!), breakWeekday };
+  return { count: runs.length, typicalLength: Math.round(median(runs.map((r) => r.len))!), breakWeekday, lengths: runs.map((r) => r.len) };
 }
 
 export type Projection = { hoursByYearEnd: number; milestoneH: number | null; milestoneDate: string | null };
 
-/** Year-end hours at the last 8 weeks' pace, and when the next round milestone lands. null without a pace. */
+/** Year-end hours at the last 8 weeks' pace, and when the next round milestone lands. null under MIN_PACE_DAYS practised days in the window. */
 export function projection(minutesByDate: Record<string, number>, totalMin: number, today: string): Projection | null {
   const from = shiftKey(today, -55);
   let recent = 0;
+  let recentDays = 0;
   let yearMin = 0;
   for (const [k, m] of Object.entries(minutesByDate)) {
-    if (k >= from && k <= today) recent += m;
+    if (k >= from && k <= today) {
+      recent += m;
+      if (m > 0) recentDays++;
+    }
     if (k.startsWith(today.slice(0, 4)) && k <= today) yearMin += m;
   }
   const perDay = recent / 56;
-  if (perDay <= 0) return null;
+  if (perDay <= 0 || recentDays < MIN_PACE_DAYS) return null;
   const hoursByYearEnd = Math.round((yearMin + perDay * daysBetween(today, `${today.slice(0, 4)}-12-31`)) / 60);
   const milestoneH = [10, 25, 50, 100, 250, 500, 1000, 2500].find((h) => h * 60 > totalMin) ?? null;
   const milestoneDate = milestoneH ? shiftKey(today, Math.ceil((milestoneH * 60 - totalMin) / perDay)) : null;
   return { hoursByYearEnd, milestoneH, milestoneDate };
+}
+
+export type Calibration = { goal: number; suggested: number; hitCurrent: number; hitSuggested: number; n: number };
+
+const percentile60 = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.max(0, Math.ceil(0.6 * s.length) - 1)];
+};
+const hitRate = (xs: number[], goal: number) => Math.round((xs.filter((x) => x >= goal).length / xs.length) * 100);
+
+/**
+ * One goal against what actually happened (#72): the 60th percentile of the
+ * totals, rounded to `step`, is a goal you clear more often than not without
+ * being trivial. null when the goal is unset, the sample is too small, or the
+ * suggestion is within one step of the goal — nothing to say then.
+ */
+function calibrate(values: number[], goal: number, step: number, minN: number): Calibration | null {
+  if (goal <= 0 || values.length < minN) return null;
+  const suggested = Math.max(step, Math.round(percentile60(values) / step) * step);
+  if (Math.abs(suggested - goal) < step) return null;
+  return { goal, suggested, hitCurrent: hitRate(values, goal), hitSuggested: hitRate(values, suggested), n: values.length };
+}
+
+/**
+ * Daily goal against the practised days of the last 8 weeks, weekly goal against
+ * the last 8 completed weeks that had any practice. Zero days are left out of
+ * the daily sample on purpose: the question is "how much on a day I show up",
+ * consistency is measured elsewhere.
+ */
+export function goalCalibration(o: {
+  minutesByDate: Record<string, number>;
+  today: string;
+  dailyGoal: number;
+  weeklyGoal: number;
+  weekStart?: 'Monday' | 'Sunday';
+}): { daily: Calibration | null; weekly: Calibration | null } {
+  const from = shiftKey(o.today, -55);
+  const days = Object.entries(o.minutesByDate)
+    .filter(([k, m]) => k >= from && k <= o.today && m > 0)
+    .map(([, m]) => m);
+  const daily = calibrate(days, o.dailyGoal, 5, MIN_CALIBRATION_DAYS);
+
+  // start of the current week, then the 8 whole weeks before it
+  const startDow = o.weekStart === 'Sunday' ? 0 : 1;
+  let weekStart = o.today;
+  while (new Date(weekStart + 'T12:00:00').getDay() !== startDow) weekStart = shiftKey(weekStart, -1);
+  const weeks: number[] = [];
+  for (let i = 1; i <= 8; i++) {
+    const a = shiftKey(weekStart, -7 * i);
+    const b = shiftKey(a, 6);
+    let total = 0;
+    for (const [k, m] of Object.entries(o.minutesByDate)) if (k >= a && k <= b) total += m;
+    if (total > 0) weeks.push(total);
+  }
+  const weekly = calibrate(weeks, o.weeklyGoal, 15, MIN_CALIBRATION_WEEKS);
+  return { daily, weekly };
+}
+
+export type FocusDrift = { weeks: string[]; series: { title: string; share: number[] }[] };
+
+/**
+ * Stacked weekly share per focus over the last `weeks` calendar weeks (#71): the
+ * `top` focuses by minutes in the window, everything else folded into '' (the
+ * caller labels it "Other"). Shares within a week sum to 1; an empty week is all
+ * zeros. null under 2 focuses or 4 weeks with practice — no drift to show yet.
+ */
+export function focusDrift(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = 12, top = 4): FocusDrift | null {
+  const first = weekKey(today, mondayStart);
+  const keys: string[] = [];
+  for (let i = weeks - 1; i >= 0; i--) keys.push(shiftKey(first, -7 * i));
+  const idx = new Map(keys.map((k, i) => [k, i]));
+  const byTitle: Record<string, number[]> = {};
+  const totals = keys.map(() => 0);
+  for (const s of sessions) {
+    const w = idx.get(weekKey(s.date, mondayStart));
+    if (w === undefined) continue;
+    (byTitle[s.title] ??= keys.map(() => 0))[w] += s.min;
+    totals[w] += s.min;
+  }
+  const titles = Object.keys(byTitle).sort((a, b) => byTitle[b].reduce((x, y) => x + y, 0) - byTitle[a].reduce((x, y) => x + y, 0));
+  if (titles.length < 2 || totals.filter((t) => t > 0).length < 4) return null;
+  const keep = titles.slice(0, top);
+  const rest = titles.slice(top);
+  const series = keep.map((title) => ({ title, share: byTitle[title].map((m, w) => (totals[w] ? m / totals[w] : 0)) }));
+  if (rest.length) series.push({ title: '', share: keys.map((_, w) => (totals[w] ? rest.reduce((a, t) => a + byTitle[t][w], 0) / totals[w] : 0)) });
+  return { weeks: keys, series };
+}
+
+/** Minutes per calendar week for the last `weeks` weeks, oldest first, the current week last. */
+export function weeklyTotals(minutesByDate: Record<string, number>, today: string, mondayStart: boolean, weeks = 12): number[] {
+  const first = weekKey(today, mondayStart);
+  const keys: string[] = [];
+  for (let i = weeks - 1; i >= 0; i--) keys.push(shiftKey(first, -7 * i));
+  const idx = new Map(keys.map((k, i) => [k, i]));
+  const out = keys.map(() => 0);
+  for (const [k, m] of Object.entries(minutesByDate)) {
+    const w = idx.get(weekKey(k, mondayStart));
+    if (w !== undefined) out[w] += m;
+  }
+  return out;
+}
+
+/** Trailing mean over the last `n` points; null until `n` points exist. */
+export const rollingMean = (xs: number[], n = 4): (number | null)[] =>
+  xs.map((_, i) => (i + 1 < n ? null : Math.round(xs.slice(i + 1 - n, i + 1).reduce((a, b) => a + b, 0) / n)));
+
+export type Interleaving = { perDay: number; perWeek: number };
+
+/**
+ * How many distinct focuses a practice day and a practice week touch, over the last
+ * `weeks` weeks (#61 §2). The practice literature favours several short blocks
+ * over one long one; this is the number, the guide explains why. null under 7 practised days.
+ */
+export function interleaving(sessions: { title: string; date: string }[], today: string, mondayStart: boolean, weeks = 8): Interleaving | null {
+  const from = shiftKey(weekKey(today, mondayStart), -7 * (weeks - 1));
+  const byDay: Record<string, Set<string>> = {};
+  const byWeek: Record<string, Set<string>> = {};
+  for (const s of sessions) {
+    if (s.date < from || s.date > today) continue;
+    (byDay[s.date] ??= new Set()).add(s.title);
+    (byWeek[weekKey(s.date, mondayStart)] ??= new Set()).add(s.title);
+  }
+  const days = Object.values(byDay);
+  if (days.length < 7) return null;
+  const mean = (sets: Set<string>[]) => Math.round((sets.reduce((a, x) => a + x.size, 0) / sets.length) * 10) / 10;
+  return { perDay: mean(days), perWeek: mean(Object.values(byWeek)) };
 }

@@ -63,7 +63,8 @@
     "accentIndigo": "Indigo",
     "accentOcean": "Ozean",
     "accentPlum": "Pflaume",
-    "accentSlate": "Schiefer"
+    "accentSlate": "Schiefer",
+    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Auf manchen Android-Geräten schließt sich die App kurz, wenn sich das Symbol ändert."
   },
   "settings": {
     "breakEvery": "Pausenerinnerung",
@@ -232,7 +233,7 @@
     },
     "newPlan": "+ Neue Routine",
     "startSession": "Einheit starten",
-    "logPastLink": "Tag vergessen? Frühere Übung nachtragen",
+    "logPast": "Tag nachtragen",
     "defaultPlanName": "Neue Routine"
   },
   "progress": {
@@ -248,6 +249,11 @@
     "paceSentence": "Im Tempo der letzten 8 Wochen erreichst du dieses Jahr %{hours} Stunden.",
     "milestoneSentence": "%{hours} Stunden Übung erreichst du etwa am %{date}.",
     "dueSentence": "%{piece} wurde seit %{days} Tagen nicht gespielt — Zeit für eine Auffrischung.",
+    "goalDailySentence": "Dein Ziel von %{goal} Minuten erreichst du an %{hitCurrent} % der Übungstage; mit %{suggested} Minuten wären es %{hitSuggested} %.",
+    "goalWeeklySentence": "Dein Wochenziel von %{goal} Min. hast du in %{hitCurrent} % der letzten %{n} Wochen erreicht; mit %{suggested} Min. wären es %{hitSuggested} %.",
+    "interleavingSentence": "Ein Übungstag berührt im Schnitt %{perDay} Schwerpunkte, eine Woche %{perWeek}.",
+    "drift": "Schwerpunkt-Verlauf",
+    "other": "Andere",
     "consistency": "Regelmäßigkeit",
     "avgDaysPerWeek": "Ø %{n} Tage / Woche",
     "daysThisWeek": "%{n} von 7 Tagen diese Woche",

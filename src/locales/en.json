@@ -63,7 +63,8 @@
     "accentIndigo": "Indigo",
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
-    "accentSlate": "Slate"
+    "accentSlate": "Slate",
+    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes."
   },
   "settings": {
     "breakEvery": "Break reminder",
@@ -232,7 +233,7 @@
     },
     "newPlan": "+ New routine",
     "startSession": "Start session",
-    "logPastLink": "Forgot a day? Log past practice",
+    "logPast": "Log a past day",
     "defaultPlanName": "New routine"
   },
   "progress": {
@@ -248,6 +249,11 @@
     "paceSentence": "At the last 8 weeks’ pace you reach %{hours} hours this year.",
     "milestoneSentence": "%{hours} hours of practice land around %{date}.",
     "dueSentence": "%{piece} hasn’t been played in %{days} days — due for a maintenance pass.",
+    "goalDailySentence": "You reach your %{goal}-minute goal on %{hitCurrent} % of practice days; at %{suggested} minutes it would be %{hitSuggested} %.",
+    "goalWeeklySentence": "Your weekly goal of %{goal} min was met in %{hitCurrent} % of the last %{n} weeks; %{suggested} min would be %{hitSuggested} %.",
+    "interleavingSentence": "A practice day touches %{perDay} focuses on average, a week %{perWeek}.",
+    "drift": "Focus drift",
+    "other": "Other",
     "consistency": "Consistency",
     "avgDaysPerWeek": "avg %{n} days / week",
     "daysThisWeek": "%{n} of 7 days this week",

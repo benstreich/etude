@@ -11,6 +11,7 @@ import { Text } from '@/components/text';
 import { Stars } from '@/components/ui';
 import { achievements } from '@/lib/growth-math';
 import { cueVoice, primaryOf } from '@/lib/cue-voice';
+import { maybeRequestReview } from '@/lib/review';
 import { playSessionComplete } from '@/lib/sounds';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -57,15 +58,25 @@ export function SessionReview({
     playSessionComplete(soundsOn, voice);
   }, [openId, reduceMotion, rise, soundsOn, voice]);
 
-  if (!session) return null;
+  const chips = session
+    ? achievements({
+        streak: store.displayStreak,
+        sessionCount: store.sessions.length,
+        minutesByDate: store.minutesByDate,
+        dailyGoal: store.dailyGoal,
+        today: store.today,
+      })
+    : [];
+  // "Best week yet" is an earned moment (#68): ask for a review once the chord has
+  // played and the chips are on screen, never on top of the save button
+  const bestWeek = chips.some((c) => c.label === 'Best week yet');
+  useEffect(() => {
+    if (!openId || !bestWeek) return;
+    const t = setTimeout(() => maybeRequestReview(store), 2500);
+    return () => clearTimeout(t);
+  }, [openId, bestWeek, store]);
 
-  const chips = achievements({
-    streak: store.displayStreak,
-    sessionCount: store.sessions.length,
-    minutesByDate: store.minutesByDate,
-    dailyGoal: store.dailyGoal,
-    today: store.today,
-  });
+  if (!session) return null;
 
   const time = (t: number) => new Date(t).toLocaleTimeString(store.lang, { hour: 'numeric', minute: '2-digit' });
 

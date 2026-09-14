@@ -18,6 +18,7 @@ import {
   cycleLevel,
   fitAccents,
   parseSig,
+  SOUND_SETS,
   volumeGain,
   type Level,
   type Ramp,
@@ -95,6 +96,15 @@ function playClick(set: SoundSet, bank: number, gain: number) {
   setTimeout(() => {
     player.seekTo(0).catch(() => {});
   }, 150);
+}
+
+/**
+ * Build every set's player pool ahead of time (#78). createAudioPlayer loads
+ * asynchronously, so a pool built on the picker tap fired its first click late —
+ * right on top of the next beat, which sounded like a double click.
+ */
+export function preloadClicks() {
+  for (const set of SOUND_SETS) ensurePool(set);
 }
 
 /** One click of a set at full tilt, for the picker's preview tap. */

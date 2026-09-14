@@ -1,11 +1,10 @@
 // Shared edit-session bottom sheet — opened from Home recents, Progress day
 // detail, and a piece's history. Edits focus / minutes / note, or deletes.
 import React, { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { SHEET_AVOID, Stars } from '@/components/ui';
+import { Sheet, Stars } from '@/components/ui';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -15,9 +14,9 @@ export function EditSessionSheet({ session, onClose }: { session: Session | null
   const store = useStore();
   // ponytail: keyed remount resets drafts whenever a different session opens
   return (
-    <Modal visible={session !== null} transparent animationType="fade" onRequestClose={onClose}>
+    <Sheet visible={session !== null} onClose={onClose} fill align="bottom" grabber style={s.sheet} contentStyle={{ gap: 16 }}>
       {session && <Editor key={session.id} session={session} onClose={onClose} store={store} s={s} C={C} />}
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -40,8 +39,6 @@ function Editor({
   const [rating, setRating] = useState<number | undefined>(session.rating);
   const [pickerOpen, setPickerOpen] = useState(false);
   const repeat = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const winH = useWindowDimensions().height;
-  const insets = useSafeAreaInsets();
 
   const options = [
     ...store.pieces.filter((p) => !p.archived).map((p) => ({ title: p.name, meta: 'Piece' })),
@@ -80,12 +77,7 @@ function Editor({
   );
 
   return (
-    <Pressable style={s.backdrop} onPress={onClose}>
-      <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-        <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
-          <View style={s.grabber} />
-          {/* flex-end keeps the form at the bottom, within thumb reach, when it doesn't fill the sheet */}
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, flexGrow: 1, justifyContent: 'flex-end' }}>
+    <>
             <View style={s.headRow}>
               <Text style={s.title}>{store.t('editSession.title')}</Text>
               <Text style={s.stamp}>{dayLabel(session.date, store.today, store.t, store.lang)}</Text>
@@ -153,17 +145,12 @@ function Editor({
             <Pressable style={s.deleteBtn} onPress={remove}>
               <Text style={s.deleteText}>{store.t('editSession.deleteSession')}</Text>
             </Pressable>
-          </ScrollView>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Pressable>
+    </>
   );
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
-  grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive, alignSelf: 'center', marginBottom: 16 },
   headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   title: { fontFamily: F.head, fontSize: fs(19), color: C.ink },
   stamp: { fontFamily: F.body, fontSize: fs(13), color: C.sub },
