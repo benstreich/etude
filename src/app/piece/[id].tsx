@@ -3,7 +3,7 @@
 // in the app (pieces can't be renamed); move to id-joins if rename ever lands.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Calendar } from '@/components/calendar';
@@ -14,7 +14,7 @@ import { RecordingsList } from '@/components/recordings';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
-import { Card, Overline, SHEET_AVOID } from '@/components/ui';
+import { Card, Overline, Sheet } from '@/components/ui';
 import { deadlineStatus } from '@/lib/goal-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
@@ -276,10 +276,7 @@ export default function PieceDetail() {
         </Pressable>
       </Modal>
 
-      <Modal visible={tempoOpen} transparent animationType="fade" onRequestClose={() => setTempoOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setTempoOpen(false)}>
-          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-            <Pressable style={s.sheet} onPress={() => {}}>
+      <Sheet visible={tempoOpen} onClose={() => setTempoOpen(false)} style={s.sheet} contentStyle={{ gap: 14 }}>
               <Text style={s.sheetTitle}>{store.t('piece.targetTempo')}</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {(
@@ -302,10 +299,7 @@ export default function PieceDetail() {
               <Pressable style={s.saveBtn} onPress={saveTempo}>
                 <Text style={s.saveText}>{store.t('piece.save')}</Text>
               </Pressable>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+      </Sheet>
       <Modal visible={dateOpen} transparent animationType="fade" onRequestClose={() => setDateOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setDateOpen(false)}>
           <Pressable style={s.sheet} onPress={() => {}}>

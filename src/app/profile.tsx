@@ -3,14 +3,14 @@ import { useRouter } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
 import * as Updates from 'expo-updates';
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Linking, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFocus } from '@/components/add-focus';
 import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { TimeWheel } from '@/components/time-wheel';
-import { Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
+import { Card, Overline, ScreenTitle, Sheet } from '@/components/ui';
 import { filesOf } from '@/lib/attachment-math';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
@@ -406,10 +406,7 @@ export default function Profile() {
         }`}
       </Text>
 
-      <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
-        <Pressable style={s.backdrop} onPress={() => setEditing(null)}>
-          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-          <Pressable style={s.sheet} onPress={() => {}}>
+      <Sheet visible={editing !== null} onClose={() => setEditing(null)} style={s.sheet} contentStyle={{ gap: 16 }}>
             {editing && <Text style={s.sheetTitle}>{titles[editing]}</Text>}
 
             {(editing === 'name' || editing === 'goal') && (
@@ -494,7 +491,7 @@ export default function Profile() {
                       autoFocus
                     />
                     {/* ponytail: filter + map over ~90 names — no virtualized list for a chip grid this size */}
-                    <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
+                    <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                       <View style={s.chipWrap}>
                         {ALL_INSTRUMENTS.filter((v) => instLabel(v).toLowerCase().includes(query.trim().toLowerCase())).map((inst) => (
                           <Chip key={inst} label={instLabel(inst)} selected={list.includes(inst)} onPress={() => toggle(inst)} />
@@ -655,10 +652,7 @@ export default function Profile() {
                 <Text style={s.saveBtnText}>{store.t('settings.save')}</Text>
               </Pressable>
             )}
-          </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+      </Sheet>
     </ScrollView>
   );
 }
@@ -676,8 +670,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10 },
   rowLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: fs(14), color: C.sub },
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   input: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

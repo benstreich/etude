@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NoteIcon, SearchIcon } from '@/components/icons';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
-import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, SHEET_AVOID, useInstrumentFilter } from '@/components/ui';
+import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, Sheet, useInstrumentFilter } from '@/components/ui';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
@@ -43,7 +43,6 @@ export default function Repertoire() {
   const [openRecs, setOpenRecs] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [customTech, setCustomTech] = useState('');
-  const winH = useWindowDimensions().height;
 
   const closeAdd = () => {
     setAddOpen(false);
@@ -291,11 +290,7 @@ export default function Repertoire() {
         </View>
       )}
 
-      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={closeAdd}>
-        <Pressable style={s.backdrop} onPress={closeAdd}>
-          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-          <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <Sheet visible={addOpen} onClose={closeAdd} fill style={s.sheet} contentStyle={{ gap: 4 }}>
             <Text style={s.sheetTitle}>{store.t('repertoire.addToRepertoire')}</Text>
             <Overline style={{ marginBottom: 10 }}>{store.t('repertoire.song')}</Overline>
             {creating === null ? (
@@ -414,11 +409,7 @@ export default function Repertoire() {
             </View>
             </>
             )}
-            </ScrollView>
-          </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+      </Sheet>
 
       <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={() => setMenuPiece(null)}>
         <Pressable style={s.backdrop} onPress={() => setMenuPiece(null)}>
@@ -508,7 +499,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   moreBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
   moreText: { fontSize: fs(18), color: C.faint, lineHeight: fs(28), textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 4 },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink, marginBottom: 8 },
   sheetRow: { height: 52, justifyContent: 'center' },
   fabBtn: { width: 50, height: 50, borderRadius: r(25), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
