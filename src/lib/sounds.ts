@@ -5,11 +5,19 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { Platform } from 'react-native';
 
 import { applyAudioMode } from './audio-mode';
+import type { CueVoice } from './cue-voice';
 import { metronomeRunning } from './metronome';
 
-const SESSION_COMPLETE = require('../../assets/audio/cue-session-complete.wav');
+// same motif in four timbres; the voice follows the primary instrument (#53)
+const SESSION_COMPLETE: Record<CueVoice, number> = {
+  mallet: require('../../assets/audio/cue-session-complete.wav'),
+  pluck: require('../../assets/audio/cue-session-pluck.wav'),
+  bow: require('../../assets/audio/cue-session-bow.wav'),
+  perc: require('../../assets/audio/cue-session-perc.wav'),
+};
 
-let player: AudioPlayer | null = null;
+const players: Partial<Record<CueVoice, AudioPlayer>> = {};
+let lastPlay = 0;
 
 /**
  * "Mallet resolve" — plays once when a session is saved. Silent when the
@@ -17,12 +25,16 @@ let player: AudioPlayer | null = null;
  * click), or when the device is on silent: playsInSilentMode stays false, so
  * iOS mutes it for us rather than us second-guessing the ring switch.
  */
-export function playSessionComplete(enabled: boolean) {
+export function playSessionComplete(enabled: boolean, voice: CueVoice = 'mallet') {
   if (!enabled || Platform.OS === 'web' || metronomeRunning()) return;
+  // ponytail: one cue per 3s. The review effect fired twice and doubled the
+  // sound (#53); a window costs one comparison and survives whatever remount
+  // caused it. Drop it if the caller ever needs two cues back to back.
+  if (Date.now() - lastPlay < 3000) return;
+  lastPlay = Date.now();
   try {
     applyAudioMode({ playsInSilentMode: false, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
-    if (!player) player = createAudioPlayer(SESSION_COMPLETE);
-    const p = player;
+    const p = (players[voice] ??= createAudioPlayer(SESSION_COMPLETE[voice]));
     p.play();
     // rewind once it has finished, same trick as the metronome pool — seekTo is
     // async, so doing it before play() can race the playhead

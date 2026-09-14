@@ -17,7 +17,7 @@ import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
 
-export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string };
+export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string; rating?: number; at?: number };
 export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' }; note?: string; bpm?: number; min: number };
 export type Plan = { id: string; name: string; segments: PlanSegment[] };
 export type TempoEntry = { date: string; bpm: number };
@@ -63,6 +63,7 @@ type Settings = {
   name: string;
   language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
+  primaryInstrument: string; // '' = first in the list; picks the session cue's voice (#53)
   breakDays: string[];
   streakMode: StreakMode;
   theme: ThemeMode;
@@ -126,6 +127,7 @@ function seed(): State {
     name: '',
     language: 'system',
     instruments: [],
+    primaryInstrument: '',
     breakDays: ['Sunday'],
     streakMode: 'strict',
     theme: 'system',
@@ -205,7 +207,7 @@ type Store = State & {
   deleteTempoEntry: (pieceId: string, date: string) => void;
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
-  updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string }) => void;
+  updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
   updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
@@ -327,6 +329,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const logMinutes = (min: number, title: string, meta: string, date = dateKey(), planId?: string) => {
     const id = uid();
+    // wall-clock start only for sessions logged on the day itself; backdated logs have no time of day
+    const at = date === dateKey() ? Date.now() : undefined;
     setState((s) => {
       if (!s) return s;
       const minutesByDate = { ...s.minutesByDate, [date]: (s.minutesByDate[date] ?? 0) + min };
@@ -337,7 +341,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // full-history scan so streaks assembled from backdated logs count too
         bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
         // 0 on equal dates keeps the sort stable, so today's newest stays first
-        sessions: [{ id, title, meta, min, date, planId }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
+        sessions: [{ id, title, meta, min, date, planId, at }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
       };
     });
     return id;

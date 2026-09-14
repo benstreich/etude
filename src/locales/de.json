@@ -63,6 +63,8 @@
     "rate": "Gefällt dir Étude? Hinterlasse eine Bewertung",
     "rateSub": "Eine Bewertung hilft anderen Musiker:innen, die App zu finden",
     "instruments": "Instrumente",
+    "primaryInstrument": "Hauptinstrument",
+    "primaryInstrumentHint": "Der Abschluss-Klang einer Einheit klingt nach diesem Instrument.",
     "dailyGoal": "Tagesziel",
     "quickLog": "Schnell-Log-Vorgaben",
     "quickLogFocus": "Schnell-Log-Fokus",
