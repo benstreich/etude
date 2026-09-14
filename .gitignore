@@ -12,11 +12,20 @@ expo-env.d.ts
 # Native
 .kotlin/
 *.orig.*
+
+# Signing and store credentials. Nothing here is ever tracked: the release
+# keystore and the Apple certs live on EAS's servers, and a local
+# credentials.json only ever exists on this machine. See docs/release.md.
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+credentials.json
+google-services.json
+GoogleService-Info.plist
+.expo-shared/
 
 # Metro
 .metro-health-check*
@@ -25,13 +34,16 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+eas-build-*.log
 
 # macOS
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# local env files — everything but the committed template
+.env*
+!.env.example
 
 # typescript
 *.tsbuildinfo
