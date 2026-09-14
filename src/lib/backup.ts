@@ -1,5 +1,6 @@
 // Backup / restore / CSV export for the "Your data" settings section.
-// ponytail: the backup is one JSON file with recordings embedded as base64 —
+// ponytail: the backup is one JSON file with recordings and score pages
+// embedded as base64 —
 // no zip lib exists that works in Expo Go. Switch to a real archive if
 // hour-long recording libraries make the JSON too big to stringify.
 import * as DocumentPicker from 'expo-document-picker';
@@ -7,7 +8,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import { autoBackupDate, autoBackupPlan, buildCsv, isSafeRelPath, parseBackup } from './backup-math';
-import type { Recording, Session } from './store';
+import type { Session } from './store';
 
 const b64ToBytes = (b64: string) => {
   const bin = atob(b64);
@@ -23,13 +24,17 @@ const shareFile = async (name: string, content: string, mimeType: string) => {
   await Sharing.shareAsync(file.uri, { mimeType });
 };
 
-/** One file: full state JSON + every recording (documents-relative uri → base64). */
-export async function exportBackup(state: object, recordings: Recording[]) {
+/**
+ * One file: full state JSON + every attached file (recordings and score pages),
+ * each as documents-relative path → base64.
+ */
+export async function exportBackup(state: object, paths: string[]) {
   const files: Record<string, string> = {};
-  for (const r of recordings) {
-    if (r.uri.includes(':')) continue; // web/blob leftovers can't be bundled
-    const f = new File(Paths.document, r.uri);
-    if (f.exists) files[r.uri] = await f.base64();
+  for (const rel of paths) {
+    if (rel.includes(':')) continue; // web/blob leftovers can't be bundled
+    if (files[rel]) continue;
+    const f = new File(Paths.document, rel);
+    if (f.exists) files[rel] = await f.base64();
   }
   const date = new Date().toISOString().slice(0, 10);
   await shareFile(`etude-backup-${date}.json`, JSON.stringify({ etudeBackup: 1, state, files }), 'application/json');
@@ -94,7 +99,7 @@ export function runAutoBackup(state: object, everyDays: number, todayKey: string
   }
 }
 
-/** Writes the bundled recordings back into the documents directory. */
+/** Writes the bundled recordings and score pages back into the documents directory. */
 export function restoreFiles(files: Record<string, string>) {
   for (const [rel, b64] of Object.entries(files)) {
     // paths come from an untrusted file — nothing may escape the documents dir
@@ -107,7 +112,7 @@ export function restoreFiles(files: Record<string, string>) {
       f.create({ overwrite: true });
       f.write(b64ToBytes(b64));
     } catch {
-      // one unwritable recording must not abort the whole restore
+      // one unwritable file must not abort the whole restore
     }
   }
 }

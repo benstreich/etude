@@ -26,7 +26,12 @@
     "archived": "Archived",
     "restored": "Restored",
     "recordingSaved": "Recording saved",
-    "recordingDeleted": "Recording deleted"
+    "recordingDeleted": "Recording deleted",
+    "scoreAdded": {
+      "one": "Score added",
+      "other": "%{count} scores added"
+    },
+    "scoreDeleted": "Score deleted"
   },
   "appearance": {
     "backToSettings": "‹ Settings",
@@ -104,6 +109,13 @@
     "dayFriday": "Friday",
     "daySaturday": "Saturday",
     "daySunday": "Sunday",
+    "periodGoals": "Weekly · monthly · yearly",
+    "periodGoalsHint": "Leave a field empty to derive it from your daily goal and break days.",
+    "weeklyGoal": "Per week",
+    "monthlyGoal": "Per month",
+    "yearlyGoal": "Per year",
+    "goalAuto": "%{n} (from daily goal)",
+    "autoMark": "*",
     "errName": "Enter a name",
     "errGoal": "Goal needs to be at least 1 minute",
     "moreInstruments": "More…",
@@ -249,6 +261,22 @@
     "thisWeek": "This week",
     "avgPerDay": "Avg / day",
     "allTime": "All time",
+    "goals": "Goals",
+    "goal_week": "This week",
+    "goal_month": "This month",
+    "goal_year": "This year",
+    "goalMet": "Goal met",
+    "goalAhead": "%{min} min to go — ahead of pace",
+    "goalBehind": "%{min} min behind pace",
+    "deadlines": "Coming up",
+    "daysLeft": {
+      "one": "tomorrow",
+      "other": "in %{count} days"
+    },
+    "overdueBy": {
+      "one": "1 day over",
+      "other": "%{count} days over"
+    },
     "minUnit": "min",
     "hrUnit": "hr",
     "timeHM": "%{h}h %{m}m",
@@ -323,6 +351,22 @@
     "hoursMin": "%{h}h %{m}m",
     "min": "%{count} min",
     "targetTempo": "Target tempo",
+    "masterBy": "Mastered by",
+    "addTargetDate": "Set a target date",
+    "clearTargetDate": "Remove target date",
+    "mastered": "Mastered",
+    "onTrack": "On track",
+    "behind": "Behind",
+    "deadlineDone": "Reached the last stage — nicely done.",
+    "deadlineToday": "That's today.",
+    "deadlineIn": {
+      "one": "1 day left.",
+      "other": "%{count} days left."
+    },
+    "deadlineOverdue": {
+      "one": "1 day past the target.",
+      "other": "%{count} days past the target."
+    },
     "addTargetTempo": "Add target tempo",
     "recordingsCount": "Recordings · %{count}",
     "compare": "Compare",
@@ -569,5 +613,22 @@
     "error": "The microphone isn't available",
     "errorBody": "Another app may be using it. Close it and try again.",
     "retry": "Try again"
+  },
+  "score": {
+    "title": "Score",
+    "add": "Add",
+    "emptyHint": "Add a PDF or a photo of your sheet music — it opens here and during a session.",
+    "pages": {
+      "one": "%{count} page",
+      "other": "%{count} pages"
+    },
+    "pageOf": "Page %{n} of %{total}",
+    "namePlaceholder": "Name this score",
+    "save": "Save",
+    "delete": "Delete",
+    "done": "Done",
+    "unsupported": "That file is not a PDF or an image.",
+    "noPdfRenderer": "PDFs need the full app build. Photos work everywhere.",
+    "importFailed": "Could not add that file."
   }
 }

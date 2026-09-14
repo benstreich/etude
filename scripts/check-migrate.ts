@@ -8,6 +8,7 @@ const seed = () => ({
   stages: ['Learning', 'Polishing', 'Ready'],
   pieces: [] as { id: string; stage?: number; status?: string }[],
   recordings: [] as { id: string; uri: string }[],
+  attachments: [] as { id: string }[],
   breakDays: ['Sunday'],
   metroTimeSig: '4/4',
   metroBpm: 90,
@@ -90,5 +91,11 @@ assert.deepEqual(one.pieces.map((p: any) => p.instrument), ['Piano', 'Guitar']);
 assert.equal(one.sessions[0].instrument, 'Piano');
 const two = migrate(save({ instruments: ['Piano', 'Guitar'], pieces: [{ name: 'A', stage: 0 }] }), seed()) as any;
 assert.equal(two.pieces[0].instrument, undefined);
+
+// #60: a blob from before score attachments, and one with a broken array,
+// both have to come back as an empty list rather than undefined
+assert.deepEqual((migrate(save({ pieces: [] }), seed()) as any).attachments, []);
+assert.deepEqual((migrate(save({ attachments: null }), seed()) as any).attachments, []);
+assert.equal((migrate(save({ attachments: [{ id: 'a' }] }), seed()) as any).attachments.length, 1);
 
 console.log('check-migrate: all assertions passed');

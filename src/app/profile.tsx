@@ -11,9 +11,11 @@ import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { TimeWheel } from '@/components/time-wheel';
 import { Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
+import { filesOf } from '@/lib/attachment-math';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
+import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
@@ -52,7 +54,7 @@ const DAY_KEYS: Record<string, string> = {
   Sunday: 'settings.daySunday',
 };
 
-type EditKey = 'name' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
+type EditKey = 'name' | 'periodGoals' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
@@ -96,6 +98,7 @@ export default function Profile() {
       setList(store.instruments);
       setQuery(null);
     }
+    if (key === 'periodGoals') setList([store.weeklyGoal, store.monthlyGoal, store.yearlyGoal].map((n) => (n > 0 ? String(n) : '')));
     if (key === 'breakDays') setList(store.breakDays);
     if (key === 'quickLog') setList(store.quickLog.map(String));
     if (key === 'stages') setList(store.stages);
@@ -135,6 +138,11 @@ export default function Profile() {
       if (list.length) store.updateSettings({ instruments: list });
       else error = store.t('settings.errInstruments');
     }
+    if (editing === 'periodGoals') {
+      // blank or 0 means "derive from the daily goal" — goal-math does that, not a second flag
+      const [w, m, y] = list.map((v) => Math.min(999999, Math.max(0, Math.round(Number(v) || 0))));
+      store.updateSettings({ weeklyGoal: w, monthlyGoal: m, yearlyGoal: y });
+    }
     if (editing === 'breakDays') {
       // all 7 as break days would make the streak unbreakable and meaningless
       if (list.length < 7) store.updateSettings({ breakDays: list });
@@ -164,7 +172,11 @@ export default function Profile() {
   };
 
   const backup = () =>
-    exportBackup(store.backupState(), store.recordings).catch(() => store.showToast(store.t('settings.backupFailed')));
+    // recordings and score pages travel with the state, or a restored phone
+    // shows empty players and blank thumbnails
+    exportBackup(store.backupState(), [...store.recordings.map((r) => r.uri), ...filesOf(store.attachments)]).catch(() =>
+      store.showToast(store.t('settings.backupFailed'))
+    );
   const csv = () => exportCsv(store.sessions).catch(() => store.showToast(store.t('settings.exportFailed')));
   const confirmRestore = ({ state, files }: { state: object; files: Record<string, string> }) =>
     Alert.alert(store.t('settings.restoreConfirmTitle'), store.t('settings.restoreConfirmBody'), [
@@ -209,6 +221,25 @@ export default function Profile() {
     ]);
   };
 
+  // each period shows its effective target — the explicit one, or what the daily goal derives to
+  const goalOf = (period: GoalPeriod, goal: number) =>
+    goalProgress({
+      period,
+      goal,
+      todayKey: store.today,
+      minutesByDate: store.minutesByDate,
+      dailyGoal: store.dailyGoal,
+      breakDays: store.breakDays,
+      weekStart: store.weekStart,
+    }).target;
+  const periodGoalSummary = ([
+    [store.weeklyGoal, 'week'],
+    [store.monthlyGoal, 'month'],
+    [store.yearlyGoal, 'year'],
+  ] as const)
+    .map(([goal, period]) => `${goalOf(period, goal)}${goal > 0 ? '' : store.t('settings.autoMark')}`)
+    .join(' · ') + ` ${store.t('settings.min')}`;
+
   const rows: { key: EditKey; label: string; value: string }[] = [
     { key: 'instruments', label: store.t('settings.instruments'), value: store.instruments.map(instLabel).join(', ') },
     // only worth asking once there is something to choose between (#53)
@@ -216,6 +247,7 @@ export default function Profile() {
       ? [{ key: 'primaryInstrument' as const, label: store.t('settings.primaryInstrument'), value: instLabel(primaryOf(store.instruments, store.primaryInstrument)) }]
       : []),
     { key: 'goal', label: store.t('settings.dailyGoal'), value: `${store.dailyGoal} ${store.t('settings.min')}` },
+    { key: 'periodGoals', label: store.t('settings.periodGoals'), value: periodGoalSummary },
     { key: 'quickLog', label: store.t('settings.quickLog'), value: store.quickLog.map((n) => `${n}`).join(', ') + ` ${store.t('settings.min')}` },
     { key: 'breakEvery', label: store.t('settings.breakEvery'), value: store.breakEvery ? store.t('settings.everyMin', { min: store.breakEvery }) : store.t('settings.off') },
     { key: 'quickLogFocus', label: store.t('settings.quickLogFocus'), value: store.quickLogFocus?.name ?? store.t('settings.nothingSpecific') },
@@ -231,6 +263,7 @@ export default function Profile() {
     instruments: store.t('settings.instruments'),
     primaryInstrument: store.t('settings.primaryInstrument'),
     goal: store.t('settings.dailyGoal'),
+    periodGoals: store.t('settings.periodGoals'),
     quickLog: store.t('settings.quickLog'),
     breakEvery: store.t('settings.breakEvery'),
     quickLogFocus: store.t('settings.quickLogFocus'),
@@ -390,6 +423,24 @@ export default function Profile() {
                 autoFocus
                 onSubmitEditing={save}
               />
+            )}
+            {editing === 'periodGoals' && (
+              <>
+                {(['weekly', 'monthly', 'yearly'] as const).map((k, i) => (
+                  <View key={k}>
+                    <Text style={s.inputLabel}>{store.t(`settings.${k}Goal`)}</Text>
+                    <TextInput
+                      style={s.input}
+                      value={list[i] ?? ''}
+                      onChangeText={(t) => setList((l) => l.map((v, j) => (j === i ? t.replace(/\D/g, '').slice(0, 6) : v)))}
+                      keyboardType="number-pad"
+                      placeholder={store.t('settings.goalAuto', { n: goalOf((['week', 'month', 'year'] as const)[i], 0) })}
+                      placeholderTextColor={C.tertiary}
+                    />
+                  </View>
+                ))}
+                <Text style={s.editorHint}>{store.t('settings.periodGoalsHint')}</Text>
+              </>
             )}
             {editing === 'goal' && (
               <View style={s.chipWrap}>
@@ -634,6 +685,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   wheelSaveText: { color: C.bg, fontFamily: F.bodyMed, fontSize: fs(15) },
   addPresetBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   addPresetText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
+  inputLabel: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub, marginBottom: 8 },
   editorHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, marginTop: -6 },
   stageRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   moveBtn: { width: 34, height: 44, alignItems: 'center', justifyContent: 'center' },

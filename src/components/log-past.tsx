@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Calendar } from '@/components/calendar';
 import { Text } from '@/components/text';
 import { SHEET_AVOID } from '@/components/ui';
-import { dateKey, dayLabel, useStore } from '@/lib/store';
+import { dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -18,25 +19,6 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   const [pastFoci, setPastFoci] = useState<{ name: string; kind: 'Piece' | 'Technique' }[]>([]);
   const [addMore, setAddMore] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const [calMonth, setCalMonth] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d;
-  });
-
-  // calendar grid for the displayed month; today comes from the store so the
-  // grid follows midnight/month rollovers instead of freezing at first render
-  const todayKey = store.today;
-  const startDow = store.weekStart === 'Monday' ? 1 : 0;
-  const dowLetters = Array.from({ length: 7 }, (_, i) => store.t('logPast.dowLetters')[(i + startDow) % 7]);
-  const firstDow = (calMonth.getDay() - startDow + 7) % 7;
-  const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
-  const cells: (number | null)[] = [
-    ...Array.from({ length: firstDow }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  const atCurrentMonth = dateKey(calMonth).slice(0, 7) === todayKey.slice(0, 7);
-  const shiftMonth = (by: number) => setCalMonth((m) => new Date(m.getFullYear(), m.getMonth() + by, 1));
 
   const focusOptions: { name: string; kind: 'Piece' | 'Technique' }[] = [
     ...store.pieces.filter((p) => !p.archived).map((p) => ({ name: p.name, kind: 'Piece' as const })),
@@ -79,48 +61,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, flexGrow: 1, justifyContent: 'flex-end' }}>
             <Text style={s.sheetTitle}>{store.t('logPast.title')}</Text>
 
-            <View style={s.calHeader}>
-              <Pressable style={s.calNav} hitSlop={8} onPress={() => shiftMonth(-1)}>
-                <Text style={s.calNavText}>‹</Text>
-              </Pressable>
-              <Text style={s.calMonth}>{calMonth.toLocaleDateString(store.lang, { month: 'long', year: 'numeric' })}</Text>
-              <Pressable
-                style={[s.calNav, atCurrentMonth && { opacity: 0.25 }]}
-                hitSlop={8}
-                disabled={atCurrentMonth}
-                onPress={() => shiftMonth(1)}>
-                <Text style={s.calNavText}>›</Text>
-              </Pressable>
-            </View>
-            <View style={s.calGrid}>
-              {dowLetters.map((l, i) => (
-                <Text key={`h${i}`} style={s.calDow}>
-                  {l}
-                </Text>
-              ))}
-              {cells.map((day, i) => {
-                if (day === null) return <View key={`e${i}`} style={s.calCell} />;
-                const k = dateKey(new Date(calMonth.getFullYear(), calMonth.getMonth(), day));
-                const disabled = k > todayKey;
-                const sel = pastDate === k;
-                const isToday = k === todayKey; // outlined, so it still reads when selected (#42)
-                return (
-                  <Pressable key={k} style={s.calCell} disabled={disabled} onPress={() => setPastDate(k)}>
-                    <View style={[s.calDay, isToday && s.calToday, sel && { backgroundColor: C.accent, borderColor: C.accent }]}>
-                      <Text
-                        style={[
-                          s.calDayText,
-                          disabled && { color: C.faint },
-                          isToday && { fontFamily: F.bodySemi, color: C.accent },
-                          sel && { color: C.bg, fontFamily: F.bodySemi },
-                        ]}>
-                        {day}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Calendar value={pastDate} onPick={setPastDate} direction="past" />
 
             {focusOptions.length > 0 && (
               <View>
@@ -188,18 +129,6 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheet: { backgroundColor: C.card, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
   grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-  calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  calNav: { width: 32, height: 32, borderRadius: r(16), alignItems: 'center', justifyContent: 'center' },
-  calNavText: { fontSize: fs(22), color: C.sub, lineHeight: fs(26) },
-  calMonth: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calDow: { width: '14.28%', textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(11), color: C.tertiary, marginBottom: 6 },
-  calCell: { width: '14.28%', alignItems: 'center', paddingVertical: 2 },
-  // ponytail: r(999) not r(17) — days stay circles whatever the corner setting, so the
-  // selected fill matches today's outline (#52)
-  calDay: { width: 34, height: 34, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
-  calToday: { borderWidth: 1.5, borderColor: C.accent },
-  calDayText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
   focusScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 24 },
   focusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   showAll: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 10 },

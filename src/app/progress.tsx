@@ -9,6 +9,7 @@ import { ShareIcon } from '@/components/icons';
 import { RecapModal } from '@/components/recap-card';
 import { Text } from '@/components/text';
 import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, useInstrumentFilter } from '@/components/ui';
+import { deadlineStatus, goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { byLength, byTimeOfDay, concentration, consistency, MIN_RATED, projection, qualityDrivers, rated, ratingByFocus, ratingByWeek, staleness, streakSurvival, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
@@ -119,6 +120,31 @@ export default function Progress() {
     ...due.slice(0, 3).map((x) => store.t('progress.dueSentence', { piece: x.p.name, days: x.st!.daysSince })),
   ];
 
+  // period goals (#56) — each row is done/target plus whether today's pace is met
+  const goalRows = ([
+    ['week', store.weeklyGoal],
+    ['month', store.monthlyGoal],
+    ['year', store.yearlyGoal],
+  ] as const).map(([period, goal]) => ({
+    period: period as GoalPeriod,
+    ...goalProgress({
+      period,
+      goal,
+      todayKey: store.today,
+      minutesByDate: store.minutesByDate,
+      dailyGoal: store.dailyGoal,
+      breakDays: store.breakDays,
+      weekStart: store.weekStart,
+    }),
+  }));
+
+  // pieces with a "mastered by" date, soonest first; finished ones drop off
+  const deadlines = store.pieces
+    .filter((p) => !p.archived && p.targetDate)
+    .map((p) => ({ p, d: deadlineStatus({ targetDate: p.targetDate!, todayKey: store.today, addedAt: p.addedAt, stage: p.stage, stages: store.stages.length }) }))
+    .filter((x) => !x.d.done)
+    .sort((a, b) => a.d.days - b.d.days);
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -168,6 +194,55 @@ export default function Progress() {
           })}
         </View>
         </View>
+      )}
+
+      {!empty && goalRows.some((g) => g.target > 0) && (
+        <Card style={{ gap: 14 }}>
+          <Overline>{store.t('progress.goals')}</Overline>
+          {goalRows
+            .filter((g) => g.target > 0)
+            .map((g) => (
+              <View key={g.period} style={{ gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <Text style={s.goalLabel}>{store.t(`progress.goal_${g.period}`)}</Text>
+                  <Text style={s.goalValue}>
+                    {fmtTime(g.done, store.t)}
+                    <Text style={s.goalTarget}> / {fmtTime(g.target, store.t)}</Text>
+                  </Text>
+                </View>
+                <Bar pct={g.pct} color={g.onTrack ? C.success : C.accent} height={6} />
+                <Text style={[s.goalNote, !g.onTrack && { color: C.accent }]}>
+                  {g.left === 0
+                    ? store.t('progress.goalMet')
+                    : g.onTrack
+                      ? store.t('progress.goalAhead', { min: g.left })
+                      : store.t('progress.goalBehind', { min: g.pace - g.done })}
+                </Text>
+              </View>
+            ))}
+        </Card>
+      )}
+
+      {deadlines.length > 0 && (
+        <Card style={{ gap: 12 }}>
+          <Overline>{store.t('progress.deadlines')}</Overline>
+          {deadlines.map(({ p, d }) => (
+            <Pressable key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => router.push(`/piece/${p.id}`)}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.goalLabel} numberOfLines={1}>
+                  {p.name}
+                </Text>
+                <Text style={s.goalNote}>
+                  {new Date(p.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })} ·{' '}
+                  {d.overdue ? store.t('progress.overdueBy', { count: -d.days }) : store.t('progress.daysLeft', { count: d.days })}
+                </Text>
+              </View>
+              <Text style={[s.goalBadge, { color: d.overdue || !d.onTrack ? C.accent : C.success }]}>
+                {d.onTrack ? store.t('piece.onTrack') : store.t('piece.behind')}
+              </Text>
+            </Pressable>
+          ))}
+        </Card>
       )}
 
       {empty ? (
@@ -405,6 +480,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   bucketStars: { fontFamily: F.bodySemi, fontSize: fs(12), minWidth: 42, textAlign: 'right' },
   stat: { flex: 1 },
   statNum: { fontFamily: F.head, fontSize: fs(30), color: C.ink },
+  goalLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
+  goalValue: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  goalTarget: { fontFamily: F.body, fontSize: fs(13), color: C.sub },
+  goalNote: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
+  goalBadge: { fontFamily: F.bodySemi, fontSize: fs(12.5) },
   statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   chart: { height: 110, flexDirection: 'row', gap: 10 },
   col: { flex: 1 },

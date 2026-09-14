@@ -1,12 +1,14 @@
 // ponytail: SQLite via kv-store — real .db file, AsyncStorage-compatible API.
 // Move to relational tables if per-row queries ever matter.
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Paths } from 'expo-file-system';
 import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
+import { forPiece, type Attachment } from './attachment-math';
+import { deleteAttachmentFiles } from './attachments';
 import { runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
+import { resolveRecordingUri, toStoredUri } from './doc-path';
 import { i18n, resolveLang, tr, type Lang, type LanguageSetting } from './i18n';
 import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
@@ -17,6 +19,8 @@ import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } 
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
+export { resolveRecordingUri, toStoredUri };
+export type { Attachment };
 
 export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string; rating?: number; at?: number; instrument?: string };
 // kind 'Break' (#59): a rest — no focus, never logged, excluded from the saved session total
@@ -52,6 +56,7 @@ export type Piece = {
   currentBpm?: number;
   targetBpm?: number;
   instrument?: string; // #58; unset = shows under every instrument
+  targetDate?: string; // dateKey the piece should reach the last stage by (#56)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
 };
 
@@ -81,6 +86,10 @@ type Settings = {
   reminder: string;
   weekStart: WeekStart;
   quickLog: number[];
+  // Period goals in minutes; 0 = derive from dailyGoal × practice days (#56)
+  weeklyGoal: number;
+  monthlyGoal: number;
+  yearlyGoal: number;
   quickLogFocus: { name: string; kind: 'Piece' | 'Technique' } | null;
   stages: string[]; // ordered; last stage counts as "ready"
   // Metronome. Flat rather than nested so the shallow seed merge below backfills
@@ -110,6 +119,7 @@ type State = Settings & {
   techniques: string[];
   dailyGoal: number;
   recordings: Recording[];
+  attachments: Attachment[]; // sheet music / photos per piece (#60)
   plans: Plan[];
 };
 
@@ -128,8 +138,12 @@ function seed(): State {
     pieces: [],
     techniques: ['Scales & arpeggios', 'Sight reading'],
     recordings: [],
+    attachments: [],
     plans: [],
     dailyGoal: 45,
+    weeklyGoal: 0,
+    monthlyGoal: 0,
+    yearlyGoal: 0,
     onboarded: false,
     autoBackupDays: 0,
     focusPeriod: '30d',
@@ -182,22 +196,6 @@ export function dayLabel(key: string, todayKey: string, t: Store['t'], lang: Lan
   return new Date(yy, mm - 1, dd).toLocaleDateString(lang, { month: 'short', day: 'numeric' });
 }
 
-// Recordings persist a documents-relative path: absolute URIs rot on iOS, where
-// the app container UUID changes on every update. Anything that still has a
-// scheme (blob:, http:, a legacy file:// not under documents) passes through.
-const docUri = () => {
-  try {
-    const d = Paths.document.uri;
-    return d.endsWith('/') ? d : `${d}/`;
-  } catch {
-    return ''; // web
-  }
-};
-export const toStoredUri = (uri: string) => {
-  const d = docUri();
-  return d && uri.startsWith(d) ? uri.slice(d.length) : uri;
-};
-export const resolveRecordingUri = (stored: string) => (stored.includes(':') ? stored : docUri() + stored);
 
 type Store = State & {
   /** Translate a key from src/locales — identity from the store so language changes re-render. */
@@ -223,7 +221,7 @@ type Store = State & {
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
-  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'instrument'>>) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'instrument'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
@@ -239,6 +237,9 @@ type Store = State & {
   deleteRecording: (id: string) => void;
   renameRecording: (id: string, name: string) => void;
   updateRecording: (id: string, patch: Partial<Recording>) => void;
+  addAttachments: (list: Attachment[]) => void;
+  renameAttachment: (id: string, name: string) => void;
+  deleteAttachment: (id: string) => void;
   updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
 };
 
@@ -520,9 +521,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => {
       if (!s) return s;
       const gone = s.pieces.find((p) => p.id === id);
+      // the piece's scores go with it, files included — nothing orphaned in attachments/
+      const orphaned = gone ? forPiece(s.attachments, gone.name) : [];
+      deleteAttachmentFiles(orphaned.map((a) => a.id));
       return {
         ...s,
         pieces: s.pieces.filter((p) => p.id !== id),
+        attachments: orphaned.length ? s.attachments.filter((a) => !orphaned.includes(a)) : s.attachments,
         quickLogFocus: gone ? clearFocus(s, gone.name, 'Piece') : s.quickLogFocus,
       };
     });
@@ -570,6 +575,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateRecording: Store['updateRecording'] = (id, patch) => {
     setState((s) => (s ? { ...s, recordings: s.recordings.map((r) => (r.id === id ? { ...r, ...patch } : r)) } : s));
+  };
+
+  const addAttachments: Store['addAttachments'] = (list) => {
+    if (list.length === 0) return;
+    setState((s) => (s ? { ...s, attachments: [...list, ...s.attachments] } : s));
+    showToast(t('toast.scoreAdded', { count: list.length }));
+  };
+
+  const renameAttachment: Store['renameAttachment'] = (id, name) => {
+    const clean = name.trim();
+    if (!clean) return;
+    setState((s) =>
+      s ? { ...s, attachments: s.attachments.map((a) => (a.id === id ? { ...a, name: clean } : a)) } : s
+    );
+  };
+
+  const deleteAttachment: Store['deleteAttachment'] = (id) => {
+    deleteAttachmentFiles([id]);
+    setState((s) => (s ? { ...s, attachments: s.attachments.filter((a) => a.id !== id) } : s));
+    showToast(t('toast.scoreDeleted'));
   };
 
   const updateSettings: Store['updateSettings'] = (patch) => {
@@ -631,6 +656,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteRecording,
     renameRecording,
     updateRecording,
+    addAttachments,
+    renameAttachment,
+    deleteAttachment,
     toggleStar,
     updateSettings,
   };

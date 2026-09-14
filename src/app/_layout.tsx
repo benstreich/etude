@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -50,11 +51,14 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <StoreProvider>
-      <MetronomeProvider>
-        <Shell insets={insets} />
-      </MetronomeProvider>
-    </StoreProvider>
+    // the root gesture handler the score viewer's pinch/pan needs (#60)
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <StoreProvider>
+        <MetronomeProvider>
+          <Shell insets={insets} />
+        </MetronomeProvider>
+      </StoreProvider>
+    </GestureHandlerRootView>
   );
 }
 

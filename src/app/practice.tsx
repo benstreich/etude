@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddFocus } from '@/components/add-focus';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeButton } from '@/components/metronome';
+import { ScorePill } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
 import { InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
@@ -304,6 +305,8 @@ export default function Practice() {
           <Pressable style={s.tunerPill} onPress={() => router.push('/tuner')}>
             <Text style={s.tunerPillText}>{store.t('tuner.tuner')}</Text>
           </Pressable>
+          {/* the score opens over the running timer; nothing pauses (#60) */}
+          {focus.kind === 'Piece' && <ScorePill piece={focus.name} />}
         </View>
         <View style={s.runBtns}>
           <Pressable
