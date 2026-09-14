@@ -130,10 +130,19 @@ That covers most of Modacity Premium and all of Andante Pro except drone and pro
 | Live pitch graph, vibrato analysis | Legato | skip: strings-only niche, heavy DSP |
 | Social / friends | Practis, Tonic | skip |
 
-### Pricing note
+### Pricing decision (2026-09-14)
 
-Andante moved from a $3.99 one-time unlock to $29.99 lifetime / $17.99 a year, which
-says the low one-time price did not carry the app. Two store models fit "one-time, no
-subscription": paid-upfront (no trial, refunds only) or free download with a single
-"Étude Full" unlock. The unlock form lets people try the timer before paying and still
-honours #55; it also gives a natural free tier (timer + log) without feature nagging.
+Free download, fully unlocked for **30 days**, then a single one-time unlock at
+**CHF 8** (EUR 7.99 / USD 7.99 / GBP 6.99). No permanent free tier, no subscription.
+After day 30 the app is read-only: data stays visible, backup and CSV export keep
+working, logging needs the unlock. Purchase tied to the store account, restored via the
+stores' own "Restore purchases", so still no Étude account.
+
+Why not the alternatives: freemium leaves most users on the free tier forever;
+paid-upfront removes the trial and slows discovery; Andante's move from a $3.99 unlock
+to $29.99 lifetime shows a very low one-time price does not carry an app.
+
+Store mechanics: Apple guideline 3.1.1 allows a time-based trial via a free
+non-consumable item ("30-day Trial") followed by the paid unlock; Google Play has no
+such item, so the trial start lives on the device and a reinstall resets it (accepted).
+Price should be visible in Settings from day one ("23 days left, then CHF 8 once").
