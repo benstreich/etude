@@ -63,6 +63,8 @@
     "rate": "Enjoying Étude? Leave a review",
     "rateSub": "A rating helps other musicians find it",
     "instruments": "Instruments",
+    "primaryInstrument": "Primary instrument",
+    "primaryInstrumentHint": "The session-complete sound takes this instrument's voice.",
     "dailyGoal": "Daily goal",
     "quickLog": "Quick log presets",
     "quickLogFocus": "Quick log focus",

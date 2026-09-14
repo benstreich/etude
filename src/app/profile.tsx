@@ -13,6 +13,7 @@ import { TimeWheel } from '@/components/time-wheel';
 import { Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
+import { primaryOf } from '@/lib/cue-voice';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
@@ -47,7 +48,7 @@ const DAY_KEYS: Record<string, string> = {
   Sunday: 'settings.daySunday',
 };
 
-type EditKey = 'name' | 'instruments' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
+type EditKey = 'name' | 'instruments' | 'primaryInstrument' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
@@ -206,6 +207,10 @@ export default function Profile() {
 
   const rows: { key: EditKey; label: string; value: string }[] = [
     { key: 'instruments', label: store.t('settings.instruments'), value: store.instruments.map(instLabel).join(', ') },
+    // only worth asking once there is something to choose between (#53)
+    ...(store.instruments.length > 1
+      ? [{ key: 'primaryInstrument' as const, label: store.t('settings.primaryInstrument'), value: instLabel(primaryOf(store.instruments, store.primaryInstrument)) }]
+      : []),
     { key: 'goal', label: store.t('settings.dailyGoal'), value: `${store.dailyGoal} ${store.t('settings.min')}` },
     { key: 'quickLog', label: store.t('settings.quickLog'), value: store.quickLog.map((n) => `${n}`).join(', ') + ` ${store.t('settings.min')}` },
     { key: 'quickLogFocus', label: store.t('settings.quickLogFocus'), value: store.quickLogFocus?.name ?? store.t('settings.nothingSpecific') },
@@ -219,6 +224,7 @@ export default function Profile() {
   const titles: Record<EditKey, string> = {
     name: store.t('settings.yourName'),
     instruments: store.t('settings.instruments'),
+    primaryInstrument: store.t('settings.primaryInstrument'),
     goal: store.t('settings.dailyGoal'),
     quickLog: store.t('settings.quickLog'),
     quickLogFocus: store.t('settings.quickLogFocus'),
@@ -416,6 +422,21 @@ export default function Profile() {
                     </ScrollView>
                   </>
                 )}
+              </>
+            )}
+            {editing === 'primaryInstrument' && (
+              <>
+                <View style={s.chipWrap}>
+                  {store.instruments.map((inst) => (
+                    <Chip
+                      key={inst}
+                      label={instLabel(inst)}
+                      selected={primaryOf(store.instruments, store.primaryInstrument) === inst}
+                      onPress={() => pick({ primaryInstrument: inst })}
+                    />
+                  ))}
+                </View>
+                <Text style={s.editorHint}>{store.t('settings.primaryInstrumentHint')}</Text>
               </>
             )}
             {editing === 'breakDays' && (

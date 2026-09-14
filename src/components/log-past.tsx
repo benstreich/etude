@@ -195,7 +195,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calDow: { width: '14.28%', textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(11), color: C.tertiary, marginBottom: 6 },
   calCell: { width: '14.28%', alignItems: 'center', paddingVertical: 2 },
-  calDay: { width: 34, height: 34, borderRadius: r(17), alignItems: 'center', justifyContent: 'center' },
+  // ponytail: r(999) not r(17) — days stay circles whatever the corner setting, so the
+  // selected fill matches today's outline (#52)
+  calDay: { width: 34, height: 34, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
   calToday: { borderWidth: 1.5, borderColor: C.accent },
   calDayText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
   focusScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 24 },

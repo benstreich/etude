@@ -68,10 +68,12 @@
     "check:session": "node --experimental-strip-types --no-warnings scripts/check-session.ts",
     "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
     "check:tempo": "node --experimental-strip-types --no-warnings scripts/check-tempo.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats",
     "check:trim": "node --experimental-strip-types --no-warnings scripts/check-trim.ts",
     "check:tuner": "node --experimental-strip-types --no-warnings scripts/check-tuner.ts",
-    "check:stage": "node --experimental-strip-types --no-warnings scripts/check-stage.ts"
+    "check:stage": "node --experimental-strip-types --no-warnings scripts/check-stage.ts",
+    "check:stats": "node --experimental-strip-types --no-warnings scripts/check-stats.ts",
+    "check:cue": "node --experimental-strip-types --no-warnings scripts/check-cue-voice.ts"
   },
   "private": true
 }

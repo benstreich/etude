@@ -8,7 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlameIcon } from '@/components/icons';
 import { StaffProgress, WaveformIcon } from '@/components/motifs';
 import { Text } from '@/components/text';
+import { Stars } from '@/components/ui';
 import { achievements } from '@/lib/growth-math';
+import { cueVoice, primaryOf } from '@/lib/cue-voice';
 import { playSessionComplete } from '@/lib/sounds';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -33,8 +35,10 @@ export function SessionReview({
   const insets = useSafeAreaInsets();
   const { reduceMotion } = useTheme();
   const [note, setNote] = useState('');
+  const [rating, setRating] = useState<number | undefined>();
   const [rise] = useState(() => new Animated.Value(reduceMotion ? 1 : 0));
   const soundsOn = store.sounds;
+  const voice = cueVoice(primaryOf(store.instruments, store.primaryInstrument));
 
   // reset the draft whenever a new session opens the review
   const [prevId, setPrevId] = useState<string | null>(null);
@@ -49,8 +53,8 @@ export function SessionReview({
     if (!openId) return;
     rise.setValue(reduceMotion ? 1 : 0);
     if (!reduceMotion) Animated.timing(rise, { toValue: 1, duration: 700, useNativeDriver: true }).start();
-    playSessionComplete(soundsOn);
-  }, [openId, reduceMotion, rise, soundsOn]);
+    playSessionComplete(soundsOn, voice);
+  }, [openId, reduceMotion, rise, soundsOn, voice]);
 
   if (!session) return null;
 
