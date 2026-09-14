@@ -63,7 +63,7 @@ assert.equal(minPerBpm([{ date: '2026-09-01', bpm: 90 }, { date: '2026-09-10', b
 console.log('check-stats: all assertions passed');
 
 // ---- #61 insights
-import { concentration, goalCalibration, projection, qualityDrivers, staleness, streakSurvival, tempoForecast } from '../src/lib/stats-math.ts';
+import { concentration, focusDrift, goalCalibration, interleaving, projection, qualityDrivers, rollingMean, staleness, streakSurvival, tempoForecast, weeklyTotals } from '../src/lib/stats-math.ts';
 
 // --- tempoForecast: 2 BPM/day → 122 reached 10 days after the last entry; too short a log → null
 const tlog = [0, 7, 14, 21].map((d) => ({ date: `2026-08-${String(1 + d).padStart(2, '0')}`, bpm: 60 + 2 * d }));
@@ -105,6 +105,7 @@ const sv = streakSurvival(mbd, '2026-09-04')!;
 assert.equal(sv.count, 3);
 assert.equal(sv.typicalLength, 2);
 assert.equal(sv.breakWeekday, 2); // breaks on Thu, Wed, Tue — a three-way tie resolves to the lowest weekday
+assert.deepEqual(sv.lengths, [3, 2, 1]);
 assert.equal(streakSurvival({ '2026-08-03': 20 }, '2026-09-04'), null);
 
 // --- projection: 30 min/day for the last 56 days → next milestone 50 h, 44 days out
@@ -144,5 +145,40 @@ for (let w = 1; w <= 8; w++)
   }
 const gw = goalCalibration({ minutesByDate: wk, today: '2026-09-01', dailyGoal: 0, weeklyGoal: 180, weekStart: 'Monday' });
 assert.deepEqual(gw.weekly, { goal: 180, suggested: 90, hitCurrent: 0, hitSuggested: 100, n: 8 });
+
+// --- #71 focusDrift: 4 weeks, "a" fades out while "b" takes over; a fifth focus folds into '' (Other)
+const drift = focusDrift(
+  [
+    { title: 'a', min: 30, date: '2026-08-11' }, { title: 'b', min: 10, date: '2026-08-12' },
+    { title: 'a', min: 20, date: '2026-08-18' }, { title: 'b', min: 20, date: '2026-08-19' },
+    { title: 'a', min: 10, date: '2026-08-25' }, { title: 'b', min: 30, date: '2026-08-26' },
+    { title: 'b', min: 40, date: '2026-09-01' }, { title: 'c', min: 5, date: '2026-09-01' }, { title: 'd', min: 5, date: '2026-09-01' },
+    { title: 'e', min: 5, date: '2026-09-01' }, { title: 'f', min: 5, date: '2026-09-01' },
+  ],
+  '2026-09-01', true, 4
+)!;
+assert.deepEqual(drift.weeks, ['2026-08-10', '2026-08-17', '2026-08-24', '2026-08-31']);
+assert.deepEqual(drift.series.map((x) => x.title), ['b', 'a', 'c', 'd', '']); // top 4 by minutes, then Other
+assert.deepEqual(drift.series[1].share, [0.75, 0.5, 0.25, 0]);
+assert.ok(Math.abs(drift.series[4].share[3] - 10 / 60) < 1e-9);
+assert.equal(focusDrift([{ title: 'a', min: 30, date: '2026-09-01' }], '2026-09-01', true), null);
+
+// --- weeklyTotals + rollingMean
+const wt = weeklyTotals({ '2026-08-11': 30, '2026-08-13': 30, '2026-08-25': 15, '2026-09-01': 45 }, '2026-09-01', true, 4);
+assert.deepEqual(wt, [60, 0, 15, 45]);
+assert.deepEqual(rollingMean(wt, 4), [null, null, null, 30]);
+assert.deepEqual(rollingMean([10, 20, 30], 2), [null, 15, 25]);
+
+// --- interleaving: 7 practised days, two focuses on every other day → 1.5 per day, 2 per week
+const il: { title: string; date: string }[] = [];
+for (let i = 0; i < 7; i++) {
+  const d = `2026-08-${String(20 + i).padStart(2, '0')}`;
+  il.push({ title: 'a', date: d });
+  if (i % 2) il.push({ title: 'b', date: d });
+}
+const ilv = interleaving(il, '2026-09-01', true)!;
+assert.ok(Math.abs(ilv.perDay - 1.4) < 1e-9, String(ilv.perDay)); // 3 of 7 days had two focuses
+assert.equal(ilv.perWeek, 2);
+assert.equal(interleaving(il.slice(0, 5), '2026-09-01', true), null);
 
 console.log('check-stats: insights passed');
