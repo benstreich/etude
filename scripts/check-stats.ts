@@ -91,9 +91,12 @@ const drv = qualityDrivers([
 assert.deepEqual(drv, [{ dim: 'routine', best: 'routine', gap: 2 }]);
 assert.deepEqual(qualityDrivers(sessions), []);
 
-// --- concentration: 80 % held by the top 2 of 4 focuses
-assert.deepEqual(concentration([{ title: 'a', min: 50 }, { title: 'b', min: 30 }, { title: 'c', min: 10 }, { title: 'd', min: 10 }]), { pct: 80, top: 2, total: 4 });
+// --- concentration: 80 % held by the top 2 of 4 focuses, over 10 sessions (a×5, b×3, c, d)
+const tenSessions = [...'aaaaabbbcd'].map((title) => ({ title, min: 10 }));
+assert.deepEqual(concentration(tenSessions), { pct: 80, top: 2, total: 4 });
 assert.equal(concentration([{ title: 'a', min: 50 }]), null);
+// the same split from only 4 sessions is too thin to state (#77)
+assert.equal(concentration([{ title: 'a', min: 50 }, { title: 'b', min: 30 }, { title: 'c', min: 10 }, { title: 'd', min: 10 }]), null);
 
 // --- streakSurvival: three ended runs (3, 2, 1 days); the run that reached yesterday is still alive
 const mbd: Record<string, number> = {};
@@ -115,5 +118,7 @@ assert.equal(pj.milestoneH, 50); // 28 h done
 assert.equal(pj.milestoneDate, '2026-10-15'); // 22 h left at 0.5 h/day = 44 days
 assert.ok(pj.hoursByYearEnd > 80 && pj.hoursByYearEnd < 90, String(pj.hoursByYearEnd));
 assert.equal(projection({}, 0, '2026-09-01'), null);
+// three practised days are not a pace (#77)
+assert.equal(projection({ '2026-08-30': 30, '2026-08-31': 30, '2026-09-01': 30 }, 90, '2026-09-01'), null);
 
 console.log('check-stats: insights passed');

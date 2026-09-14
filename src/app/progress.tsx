@@ -11,7 +11,7 @@ import { Text } from '@/components/text';
 import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, useInstrumentFilter } from '@/components/ui';
 import { deadlineStatus, goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
-import { byLength, byTimeOfDay, concentration, consistency, MIN_RATED, projection, qualityDrivers, rated, ratingByFocus, ratingByWeek, staleness, streakSurvival, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
+import { byLength, byTimeOfDay, concentration, consistency, MIN_INSIGHT_DAYS, MIN_RATED, projection, qualityDrivers, rated, ratingByFocus, ratingByWeek, staleness, streakSurvival, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -111,7 +111,9 @@ export default function Progress() {
     .map((p) => ({ p, st: staleness(sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today) }))
     .filter((x) => x.st?.due)
     .sort((a, b) => b.st!.daysSince - a.st!.daysSince);
-  const insights: string[] = [
+  // a first week of data produces confident nonsense (#77) — say nothing until there is history
+  const enoughHistory = Object.keys(mbd).filter((k) => mbd[k] > 0 && k <= store.today).length >= MIN_INSIGHT_DAYS;
+  const insights: string[] = !enoughHistory ? [] : [
     ...(drivers.length ? [store.t('progress.driversSentence', { list: drivers.map(driverLabel).join(' · ') })] : []),
     ...(conc && conc.top < conc.total ? [store.t('progress.concentrationSentence', { pct: conc.pct, top: conc.top, total: conc.total })] : []),
     ...(survival ? [store.t('progress.streakSentence', { day: survival.typicalLength + 1, weekday: dayNames[survival.breakWeekday] })] : []),

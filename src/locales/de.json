@@ -232,7 +232,7 @@
     },
     "newPlan": "+ Neue Routine",
     "startSession": "Einheit starten",
-    "logPastLink": "Tag vergessen? Frühere Übung nachtragen",
+    "logPast": "Tag nachtragen",
     "defaultPlanName": "Neue Routine"
   },
   "progress": {
