@@ -63,7 +63,8 @@
     "accentIndigo": "Indigo",
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
-    "accentSlate": "Slate"
+    "accentSlate": "Slate",
+    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes."
   },
   "settings": {
     "breakEvery": "Break reminder",

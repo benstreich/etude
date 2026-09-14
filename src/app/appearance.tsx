@@ -111,6 +111,8 @@ export default function Appearance() {
             );
           })}
         </View>
+        {/* #80: icon and widgets follow along; the Android launcher may blink the app away for a moment */}
+        <Text style={s.accentHint}>{store.t('appearance.accentHint')}</Text>
       </View>
 
       <View>
@@ -175,6 +177,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
   dotRow: { flexDirection: 'row', gap: 12 },
+  accentHint: { fontFamily: F.body, fontSize: fs(12.5), lineHeight: fs(17), color: C.sub, marginTop: 10 },
   dotRing: { width: 40, height: 40, borderRadius: r(999), borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   dot: { width: 28, height: 28, borderRadius: r(999) },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },

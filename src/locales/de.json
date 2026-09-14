@@ -63,7 +63,8 @@
     "accentIndigo": "Indigo",
     "accentOcean": "Ozean",
     "accentPlum": "Pflaume",
-    "accentSlate": "Schiefer"
+    "accentSlate": "Schiefer",
+    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Auf manchen Android-Geräten schließt sich die App kurz, wenn sich das Symbol ändert."
   },
   "settings": {
     "breakEvery": "Pausenerinnerung",

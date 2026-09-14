@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Étude light palette (theme.ts LIGHT + terracotta); night variants alongside.
-     ponytail: widgets keep the brand terracotta even if the app accent is changed —
-     read the accent from the snapshot if that ever matters. -->
+     The accent triple is the fallback only: since #80 the snapshot carries the
+     in-app accent per scheme and the providers paint with that. -->
 <resources>
   <color name="etude_widget_bg">#FAF7F2</color>
   <color name="etude_widget_ink">#1C1A17</color>

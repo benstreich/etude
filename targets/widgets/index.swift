@@ -23,6 +23,14 @@ extension Color {
     )
   }
 
+  /// "#RRGGBB" from the snapshot (#80); nil when it is not one
+  init?(hexString: String) {
+    var s = hexString
+    if s.hasPrefix("#") { s.removeFirst() }
+    guard s.count == 6, let v = UInt(s, radix: 16) else { return nil }
+    self.init(hex: v)
+  }
+
   init(light: Color, dark: Color) {
     self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })
   }
@@ -34,6 +42,15 @@ struct Snapshot {
   var streak = 0
   var week: [Int] = Array(repeating: 0, count: 7)
   var nextFocus: String?
+  // #80: the in-app accent per scheme; the brand terracotta until the app has pushed one
+  var accentLight: String?
+  var accentDark: String?
+
+  var accent: Color {
+    let light = accentLight.flatMap { Color(hexString: $0) } ?? Color(hex: 0xB34A2E)
+    let dark = accentDark.flatMap { Color(hexString: $0) } ?? Color(hex: 0xD96B4A)
+    return Color(light: light, dark: dark)
+  }
 
   static func load() -> Snapshot {
     guard let d = UserDefaults(suiteName: appGroup) else { return Snapshot() }
@@ -43,6 +60,8 @@ struct Snapshot {
     s.streak = d.integer(forKey: "streak")
     s.week = (d.array(forKey: "week") as? [Int]) ?? s.week
     s.nextFocus = d.string(forKey: "nextFocus")
+    s.accentLight = (d.array(forKey: "accentLight") as? [String])?.first
+    s.accentDark = (d.array(forKey: "accentDark") as? [String])?.first
     return s
   }
 
@@ -68,12 +87,13 @@ struct Provider: TimelineProvider {
 struct GoalRing: View {
   let frac: Double
   let lineWidth: CGFloat
+  let tint: Color
   var body: some View {
     ZStack {
       Circle().stroke(Color.track, lineWidth: lineWidth)
       Circle()
         .trim(from: 0, to: frac)
-        .stroke(Color.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         .rotationEffect(.degrees(-90))
     }
   }
@@ -85,7 +105,7 @@ struct SmallView: View {
     VStack(alignment: .leading) {
       HStack(alignment: .top) {
         ZStack {
-          GoalRing(frac: snap.frac, lineWidth: 6)
+          GoalRing(frac: snap.frac, lineWidth: 6, tint: snap.accent)
           Text("\(Int(snap.frac * 100))%").font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(.ink)
         }
         .frame(width: 54, height: 54)
@@ -95,7 +115,7 @@ struct SmallView: View {
             Image(systemName: "flame.fill").font(.system(size: 11))
             Text("\(snap.streak)").font(.system(size: 13, weight: .semibold))
           }
-          .foregroundColor(.accent)
+          .foregroundColor(snap.accent)
         }
       }
       Spacer()
@@ -120,7 +140,7 @@ struct MediumView: View {
             .font(.system(size: 13, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: 110, height: 32)
-            .background(Capsule().fill(Color.accent))
+            .background(Capsule().fill(snap.accent))
         }
       }
       Spacer()
@@ -129,7 +149,7 @@ struct MediumView: View {
         ForEach(0..<7, id: \.self) { i in
           let v = i < snap.week.count ? snap.week[i] : 0
           RoundedRectangle(cornerRadius: 2)
-            .fill(v > 0 ? Color.accent.opacity(0.4 + 0.6 * Double(v) / Double(maxMin)) : Color.track)
+            .fill(v > 0 ? snap.accent.opacity(0.4 + 0.6 * Double(v) / Double(maxMin)) : Color.track)
             .frame(width: 10, height: v > 0 ? max(6, 54 * CGFloat(v) / CGFloat(maxMin)) : 4)
         }
       }
