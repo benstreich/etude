@@ -63,7 +63,7 @@ assert.equal(minPerBpm([{ date: '2026-09-01', bpm: 90 }, { date: '2026-09-10', b
 console.log('check-stats: all assertions passed');
 
 // ---- #61 insights
-import { concentration, projection, qualityDrivers, staleness, streakSurvival, tempoForecast } from '../src/lib/stats-math.ts';
+import { concentration, goalCalibration, projection, qualityDrivers, staleness, streakSurvival, tempoForecast } from '../src/lib/stats-math.ts';
 
 // --- tempoForecast: 2 BPM/day → 122 reached 10 days after the last entry; too short a log → null
 const tlog = [0, 7, 14, 21].map((d) => ({ date: `2026-08-${String(1 + d).padStart(2, '0')}`, bpm: 60 + 2 * d }));
@@ -120,5 +120,29 @@ assert.ok(pj.hoursByYearEnd > 80 && pj.hoursByYearEnd < 90, String(pj.hoursByYea
 assert.equal(projection({}, 0, '2026-09-01'), null);
 // three practised days are not a pace (#77)
 assert.equal(projection({ '2026-08-30': 30, '2026-08-31': 30, '2026-09-01': 30 }, 90, '2026-09-01'), null);
+
+// --- goalCalibration (#72): 20 practised days, half at 20 min and half at 40, goal 45
+//     → 60th percentile is 40, hit 0 % today, 50 % at the suggestion; no weekly goal set
+const cal: Record<string, number> = {};
+for (let i = 0; i < 20; i++) {
+  const d = new Date(2026, 8, 1 - i * 2);
+  cal[`2026-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`] = i % 2 ? 40 : 20;
+}
+const gc = goalCalibration({ minutesByDate: cal, today: '2026-09-01', dailyGoal: 45, weeklyGoal: 0 });
+assert.deepEqual(gc.daily, { goal: 45, suggested: 40, hitCurrent: 0, hitSuggested: 50, n: 20 });
+assert.equal(gc.weekly, null);
+// a goal already within one step of the suggestion has nothing to say; 19 days is too thin
+assert.equal(goalCalibration({ minutesByDate: cal, today: '2026-09-01', dailyGoal: 40, weeklyGoal: 0 }).daily, null);
+delete cal['2026-09-01'];
+assert.equal(goalCalibration({ minutesByDate: cal, today: '2026-09-01', dailyGoal: 45, weeklyGoal: 0 }).daily, null);
+// weekly: 8 completed weeks of 3 × 30 min against a 180-min goal → suggest 90, met 0 % → 100 %
+const wk: Record<string, number> = {};
+for (let w = 1; w <= 8; w++)
+  for (const off of [0, 2, 4]) {
+    const d = new Date(2026, 7, 31 - 7 * w + off); // Mondays before Mon 2026-08-31
+    wk[`2026-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`] = 30;
+  }
+const gw = goalCalibration({ minutesByDate: wk, today: '2026-09-01', dailyGoal: 0, weeklyGoal: 180, weekStart: 'Monday' });
+assert.deepEqual(gw.weekly, { goal: 180, suggested: 90, hitCurrent: 0, hitSuggested: 100, n: 8 });
 
 console.log('check-stats: insights passed');

@@ -16,6 +16,9 @@ export const MIN_INSIGHT_DAYS = 7;
 export const MIN_CONC_SESSIONS = 10;
 /** A pace projected from fewer practised days than this in the 8-week window is noise. */
 export const MIN_PACE_DAYS = 7;
+/** Goal calibration (#72) needs this many practised days / weeks with data in its window. */
+export const MIN_CALIBRATION_DAYS = 20;
+export const MIN_CALIBRATION_WEEKS = 6;
 
 export const rated = (sessions: RatedSession[]) => sessions.filter((s) => s.rating !== undefined && s.rating > 0);
 
@@ -294,4 +297,60 @@ export function projection(minutesByDate: Record<string, number>, totalMin: numb
   const milestoneH = [10, 25, 50, 100, 250, 500, 1000, 2500].find((h) => h * 60 > totalMin) ?? null;
   const milestoneDate = milestoneH ? shiftKey(today, Math.ceil((milestoneH * 60 - totalMin) / perDay)) : null;
   return { hoursByYearEnd, milestoneH, milestoneDate };
+}
+
+export type Calibration = { goal: number; suggested: number; hitCurrent: number; hitSuggested: number; n: number };
+
+const percentile60 = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.max(0, Math.ceil(0.6 * s.length) - 1)];
+};
+const hitRate = (xs: number[], goal: number) => Math.round((xs.filter((x) => x >= goal).length / xs.length) * 100);
+
+/**
+ * One goal against what actually happened (#72): the 60th percentile of the
+ * totals, rounded to `step`, is a goal you clear more often than not without
+ * being trivial. null when the goal is unset, the sample is too small, or the
+ * suggestion is within one step of the goal — nothing to say then.
+ */
+function calibrate(values: number[], goal: number, step: number, minN: number): Calibration | null {
+  if (goal <= 0 || values.length < minN) return null;
+  const suggested = Math.max(step, Math.round(percentile60(values) / step) * step);
+  if (Math.abs(suggested - goal) < step) return null;
+  return { goal, suggested, hitCurrent: hitRate(values, goal), hitSuggested: hitRate(values, suggested), n: values.length };
+}
+
+/**
+ * Daily goal against the practised days of the last 8 weeks, weekly goal against
+ * the last 8 completed weeks that had any practice. Zero days are left out of
+ * the daily sample on purpose: the question is "how much on a day I show up",
+ * consistency is measured elsewhere.
+ */
+export function goalCalibration(o: {
+  minutesByDate: Record<string, number>;
+  today: string;
+  dailyGoal: number;
+  weeklyGoal: number;
+  weekStart?: 'Monday' | 'Sunday';
+}): { daily: Calibration | null; weekly: Calibration | null } {
+  const from = shiftKey(o.today, -55);
+  const days = Object.entries(o.minutesByDate)
+    .filter(([k, m]) => k >= from && k <= o.today && m > 0)
+    .map(([, m]) => m);
+  const daily = calibrate(days, o.dailyGoal, 5, MIN_CALIBRATION_DAYS);
+
+  // start of the current week, then the 8 whole weeks before it
+  const startDow = o.weekStart === 'Sunday' ? 0 : 1;
+  let weekStart = o.today;
+  while (new Date(weekStart + 'T12:00:00').getDay() !== startDow) weekStart = shiftKey(weekStart, -1);
+  const weeks: number[] = [];
+  for (let i = 1; i <= 8; i++) {
+    const a = shiftKey(weekStart, -7 * i);
+    const b = shiftKey(a, 6);
+    let total = 0;
+    for (const [k, m] of Object.entries(o.minutesByDate)) if (k >= a && k <= b) total += m;
+    if (total > 0) weeks.push(total);
+  }
+  const weekly = calibrate(weeks, o.weeklyGoal, 15, MIN_CALIBRATION_WEEKS);
+  return { daily, weekly };
 }
