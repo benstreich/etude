@@ -99,6 +99,8 @@
     "daySunday": "Sonntag",
     "errName": "Gib einen Namen ein",
     "errGoal": "Das Ziel muss mindestens 1 Minute betragen",
+    "moreInstruments": "Mehr…",
+    "searchInstruments": "Instrument suchen",
     "errInstruments": "Wähle mindestens ein Instrument",
     "errBreakDays": "Behalte mindestens einen Übungstag",
     "errPresets": "Behalte mindestens eine Vorgabe",

@@ -99,6 +99,8 @@
     "daySunday": "Sunday",
     "errName": "Enter a name",
     "errGoal": "Goal needs to be at least 1 minute",
+    "moreInstruments": "More…",
+    "searchInstruments": "Search instruments",
     "errInstruments": "Pick at least one instrument",
     "errBreakDays": "Keep at least one practice day",
     "errPresets": "Keep at least one preset",
