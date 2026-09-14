@@ -26,7 +26,12 @@
     "archived": "Archiviert",
     "restored": "Wiederhergestellt",
     "recordingSaved": "Aufnahme gespeichert",
-    "recordingDeleted": "Aufnahme gelöscht"
+    "recordingDeleted": "Aufnahme gelöscht",
+    "scoreAdded": {
+      "one": "Noten hinzugefügt",
+      "other": "%{count} Noten hinzugefügt"
+    },
+    "scoreDeleted": "Noten gelöscht"
   },
   "appearance": {
     "backToSettings": "‹ Einstellungen",
@@ -104,6 +109,13 @@
     "dayFriday": "Freitag",
     "daySaturday": "Samstag",
     "daySunday": "Sonntag",
+    "periodGoals": "Woche · Monat · Jahr",
+    "periodGoalsHint": "Leer lassen, um das Ziel aus Tagesziel und Pausentagen abzuleiten.",
+    "weeklyGoal": "Pro Woche",
+    "monthlyGoal": "Pro Monat",
+    "yearlyGoal": "Pro Jahr",
+    "goalAuto": "%{n} (aus dem Tagesziel)",
+    "autoMark": "*",
     "errName": "Gib einen Namen ein",
     "errGoal": "Das Ziel muss mindestens 1 Minute betragen",
     "moreInstruments": "Mehr…",
@@ -249,6 +261,22 @@
     "thisWeek": "Diese Woche",
     "avgPerDay": "Ø / Tag",
     "allTime": "Insgesamt",
+    "goals": "Ziele",
+    "goal_week": "Diese Woche",
+    "goal_month": "Dieser Monat",
+    "goal_year": "Dieses Jahr",
+    "goalMet": "Ziel erreicht",
+    "goalAhead": "Noch %{min} min — über Plan",
+    "goalBehind": "%{min} min hinter Plan",
+    "deadlines": "Steht an",
+    "daysLeft": {
+      "one": "morgen",
+      "other": "in %{count} Tagen"
+    },
+    "overdueBy": {
+      "one": "1 Tag überfällig",
+      "other": "%{count} Tage überfällig"
+    },
     "minUnit": "min",
     "hrUnit": "Std",
     "timeHM": "%{h}h %{m}m",
@@ -323,6 +351,22 @@
     "hoursMin": "%{h}h %{m}m",
     "min": "%{count} Min",
     "targetTempo": "Zieltempo",
+    "masterBy": "Fertig bis",
+    "addTargetDate": "Zieldatum setzen",
+    "clearTargetDate": "Zieldatum entfernen",
+    "mastered": "Sitzt",
+    "onTrack": "Im Plan",
+    "behind": "Hinter Plan",
+    "deadlineDone": "Letzte Phase erreicht — stark.",
+    "deadlineToday": "Das ist heute.",
+    "deadlineIn": {
+      "one": "Noch 1 Tag.",
+      "other": "Noch %{count} Tage."
+    },
+    "deadlineOverdue": {
+      "one": "1 Tag über dem Ziel.",
+      "other": "%{count} Tage über dem Ziel."
+    },
     "addTargetTempo": "Zieltempo hinzufügen",
     "recordingsCount": "Aufnahmen · %{count}",
     "compare": "Vergleichen",
@@ -569,5 +613,22 @@
     "error": "Mikrofon nicht verfügbar",
     "errorBody": "Vielleicht nutzt es gerade eine andere App. Schließe sie und versuche es erneut.",
     "retry": "Erneut versuchen"
+  },
+  "score": {
+    "title": "Noten",
+    "add": "Hinzufügen",
+    "emptyHint": "Füge ein PDF oder ein Foto deiner Noten hinzu — sie öffnen sich hier und während einer Session.",
+    "pages": {
+      "one": "%{count} Seite",
+      "other": "%{count} Seiten"
+    },
+    "pageOf": "Seite %{n} von %{total}",
+    "namePlaceholder": "Noten benennen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "done": "Fertig",
+    "unsupported": "Diese Datei ist kein PDF und kein Bild.",
+    "noPdfRenderer": "PDFs brauchen den vollen App-Build. Fotos funktionieren überall.",
+    "importFailed": "Datei konnte nicht hinzugefügt werden."
   }
 }

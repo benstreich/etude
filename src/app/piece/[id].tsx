@@ -6,13 +6,16 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Calendar } from '@/components/calendar';
 import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
 import { MetronomeButton } from '@/components/metronome';
 import { RecordingsList } from '@/components/recordings';
+import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
 import { Card, Overline, SHEET_AVOID } from '@/components/ui';
+import { deadlineStatus } from '@/lib/goal-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
@@ -35,6 +38,7 @@ export default function PieceDetail() {
   const [cur, setCur] = useState('');
   const [target, setTarget] = useState('');
   const [editSess, setEditSess] = useState<Session | null>(null);
+  const [dateOpen, setDateOpen] = useState(false);
 
   const piece = store.pieces.find((p) => p.id === id);
   if (!piece) return null; // removed while open — the back nav below already left
@@ -48,6 +52,18 @@ export default function PieceDetail() {
   const stage = Math.min(piece.stage, n - 1);
   const added = piece.addedAt
     ? new Date(piece.addedAt).toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })
+    : null;
+
+  // "mastered by" deadline (#56): days left plus whether the stage kept pace
+  const deadline = piece.targetDate
+    ? deadlineStatus({ targetDate: piece.targetDate, todayKey: store.today, addedAt: piece.addedAt, stage, stages: n })
+    : null;
+  const deadlineNote = deadline
+    ? deadline.done
+      ? store.t('piece.deadlineDone')
+      : deadline.overdue
+        ? store.t('piece.deadlineOverdue', { count: -deadline.days })
+        : store.t(deadline.days === 0 ? 'piece.deadlineToday' : 'piece.deadlineIn', { count: deadline.days })
     : null;
 
   const openTempo = () => {
@@ -158,7 +174,32 @@ export default function PieceDetail() {
         </Pressable>
       )}
 
+      {piece.targetDate && deadline ? (
+        <Pressable onPress={() => setDateOpen(true)}>
+          <Card style={{ padding: 16, gap: 4 }}>
+            <View style={s.rowBetween}>
+              <Text style={s.cardLabel}>{store.t('piece.masterBy')}</Text>
+              <Text style={[s.stageName, { color: deadline.done ? C.success : deadline.onTrack ? C.sub : C.accent }]}>
+                {deadline.done ? store.t('piece.mastered') : deadline.onTrack ? store.t('piece.onTrack') : store.t('piece.behind')}
+              </Text>
+            </View>
+            <Text style={s.tempoValue}>
+              {new Date(piece.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { weekday: 'long', month: 'long', day: 'numeric' })}
+            </Text>
+            <Text style={s.tempoTarget}>{deadlineNote}</Text>
+          </Card>
+        </Pressable>
+      ) : (
+        <Pressable onPress={() => setDateOpen(true)}>
+          <Card style={[s.tempoRow, { padding: 16 }]}>
+            <Text style={s.ghostRowText}>{store.t('piece.addTargetDate')}</Text>
+          </Card>
+        </Pressable>
+      )}
+
       <TempoLadder piece={piece} />
+
+      <ScoreCard piece={piece.name} />
 
       {recordings.length > 0 && (
         <View style={{ gap: 12 }}>
@@ -263,6 +304,31 @@ export default function PieceDetail() {
               </Pressable>
             </Pressable>
           </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+      <Modal visible={dateOpen} transparent animationType="fade" onRequestClose={() => setDateOpen(false)}>
+        <Pressable style={s.backdrop} onPress={() => setDateOpen(false)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <Text style={s.sheetTitle}>{store.t('piece.masterBy')}</Text>
+            <Calendar
+              value={piece.targetDate ?? null}
+              direction="future"
+              onPick={(k) => {
+                store.updatePiece(piece.id, { targetDate: k });
+                setDateOpen(false);
+              }}
+            />
+            {!!piece.targetDate && (
+              <Pressable
+                style={s.sheetRow}
+                onPress={() => {
+                  store.updatePiece(piece.id, { targetDate: undefined });
+                  setDateOpen(false);
+                }}>
+                <Text style={[s.sheetRowText, { color: C.accent, textAlign: 'center' }]}>{store.t('piece.clearTargetDate')}</Text>
+              </Pressable>
+            )}
+          </Pressable>
         </Pressable>
       </Modal>
     </ScrollView>

@@ -20,6 +20,7 @@
     "expo-glass-effect": "~57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-image": "~57.0.3",
+    "expo-keep-awake": "~57.0.1",
     "expo-linking": "~57.0.6",
     "expo-localization": "~57.0.1",
     "expo-notifications": "~57.0.13",
@@ -69,13 +70,15 @@
     "check:session": "node --experimental-strip-types --no-warnings scripts/check-session.ts",
     "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
     "check:tempo": "node --experimental-strip-types --no-warnings scripts/check-tempo.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment",
     "check:trim": "node --experimental-strip-types --no-warnings scripts/check-trim.ts",
     "check:tuner": "node --experimental-strip-types --no-warnings scripts/check-tuner.ts",
     "check:stage": "node --experimental-strip-types --no-warnings scripts/check-stage.ts",
+    "check:goal": "node --experimental-strip-types --no-warnings scripts/check-goal.ts",
     "check:stats": "node --experimental-strip-types --no-warnings scripts/check-stats.ts",
     "check:cue": "node --experimental-strip-types --no-warnings scripts/check-cue-voice.ts",
-    "check:secrets": "node --experimental-strip-types --no-warnings scripts/check-secrets.ts"
+    "check:secrets": "node --experimental-strip-types --no-warnings scripts/check-secrets.ts",
+    "check:attachment": "node --experimental-strip-types --no-warnings scripts/check-attachment.ts"
   },
   "private": true
 }
