@@ -93,3 +93,47 @@ Cheap wins the comparison surfaces (in rough priority):
    timer — the timer is where every competitor looks the same.
 
 Not worth chasing: anything social or account-based, live audio, XP/tokens.
+
+## What the subscription apps lock behind the paywall (2026-09-14)
+
+Store pages were unreachable from the build environment; the lists below come from
+the apps' own sites and blog posts as quoted by search results.
+
+| App | Price | Free tier | Behind the paywall |
+|---|---|---|---|
+| **Legato** (ProximityLabs, "LegatoPlus") | $3.99/mo · $14.99/6 mo · $19.99/yr | tracker, multi-instrument profiles, daily goal + streaks, stats, routines, drills, metronome/tuner *outside* a session | using tools *during* a running session, cloud sync, advanced metronome (flexible tempos, subdivisions, accent patterns), live pitch graph, vibrato analysis, score scanning into a PDF library, audio recording in session |
+| **Modacity** | $12.99/mo · $129/yr | 10 items, 2 lists, 1 folder, 1 note + 1 recording per item, 3 deliberate-practice cycles/day, basic metronome + drone, basic stats | unlimited everything, tags, full history + statistics, practice breaks, advanced metronome, tuner, drone, unlimited notes |
+| **Andante** | $2.99/mo · $17.99/yr · $29.99 lifetime (was $3.99 one-time) | one journal, timer, basic log | multiple journals/profiles, session notes, drone tuner, reminders, folders, CSV export, Siri shortcuts |
+| **Practis** | $4.99/mo · $39.99/yr | timer, metronome, diary, streaks | analytics, collections with deadlines, routines, achievements (exact split unpublished) |
+
+### Already in Étude at one price
+
+Unlimited pieces / sessions / notes / recordings · full history and time-by-focus stats ·
+metronome with time signatures, ramp and lock-screen transport · recording *during* the
+session, waveform, star, A/B compare · routines with per-segment metronome · reminders ·
+CSV export + full backup/restore · widgets · tempo ladder · recap cards · theming.
+That covers most of Modacity Premium and all of Andante Pro except drone and profiles.
+
+### Gaps that recur behind paywalls
+
+| Gap | Who gates it | Effort in Étude |
+|---|---|---|
+| **Drone tones** | Legato, Modacity, Andante | small: 12 generated looping samples like the click set, pitch + octave picker in the metronome sheet |
+| **Tuner** (pitch detection) | Legato, Modacity | medium: needs raw mic PCM, so a third local Expo module (Kotlin/Swift, YIN or MPM); UI is a needle + cents |
+| **Metronome subdivisions + accent patterns** | Legato, Modacity | small: extra click sample, beat fraction in the scheduler, per-beat accent toggles |
+| **Session rating + deeper stats** (#54) | Modacity (full stats) | small–medium |
+| **Per-instrument tracking** | Legato (free), Andante (Pro) | medium: instrument on Session/Piece, filter in Progress; `settings.instruments` exists but nothing is tagged today |
+| **Weekly / monthly goal** | Musikus (free) | small |
+| **Practice breaks / focus cycles** | Modacity | small: optional break segment in routines or a "break every N min" toggle on the timer |
+| **Score attached to a piece** | Legato (scan → PDF), tuneUPGRADE | medium: image/PDF via `expo-document-picker` (already a dependency), shown from the piece page and the running session |
+| Cloud sync | Legato, Modacity | **skip** by design; substitute is the existing backup file plus "save automatic backups to a folder I choose" (system picker → Drive/iCloud, still no account) |
+| Live pitch graph, vibrato analysis | Legato | skip: strings-only niche, heavy DSP |
+| Social / friends | Practis, Tonic | skip |
+
+### Pricing note
+
+Andante moved from a $3.99 one-time unlock to $29.99 lifetime / $17.99 a year, which
+says the low one-time price did not carry the app. Two store models fit "one-time, no
+subscription": paid-upfront (no trial, refunds only) or free download with a single
+"Étude Full" unlock. The unlock form lets people try the timer before paying and still
+honours #55; it also gives a natural free tier (timer + log) without feature nagging.
