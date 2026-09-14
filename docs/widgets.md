@@ -5,7 +5,7 @@ Widgets need a native build — they never appear in Expo Go.
 ## How it works
 
 After anything that changes today's numbers, `WidgetSync` (mounted in the Shell)
-pushes `{today, goal, streak, week[7], nextFocus}` through the local module
+pushes `{today, goal, streak, week[7], nextFocus, accentLight[3], accentDark[3]}` through the local module
 `modules/etude-widgets`:
 
 - **Android**: written to `SharedPreferences("etude.widgets")`, then both
@@ -14,8 +14,10 @@ pushes `{today, goal, streak, week[7], nextFocus}` through the local module
   Two widgets: small (goal ring + streak + minutes) and medium (minutes, streak +
   next piece, Practice deep-link pill via `etude://practice`, 7 week bars).
   Ring and bars are drawn as bitmaps (RemoteViews has no arc primitive).
-  Widget colors are fixed brand terracotta with light/dark via `values-night`
-  (they do not follow the in-app accent setting).
+  Widget colors follow the in-app accent (#80): the snapshot carries an
+  `[accent, mid, soft]` triple per scheme and the providers paint with the one
+  matching the launcher's night mode; `colors.xml` terracotta is the fallback
+  until the app has pushed a snapshot. The Practice pill tint needs API 31.
 - **iOS (UNVERIFIED scaffold)**: written to the App Group
   `group.com.benstreich.etude` + `WidgetCenter.reloadAllTimelines()`. The
   WidgetKit extension lives in `targets/widgets/` and is generated at prebuild by
