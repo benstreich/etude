@@ -73,7 +73,8 @@
     "check:tuner": "node --experimental-strip-types --no-warnings scripts/check-tuner.ts",
     "check:stage": "node --experimental-strip-types --no-warnings scripts/check-stage.ts",
     "check:stats": "node --experimental-strip-types --no-warnings scripts/check-stats.ts",
-    "check:cue": "node --experimental-strip-types --no-warnings scripts/check-cue-voice.ts"
+    "check:cue": "node --experimental-strip-types --no-warnings scripts/check-cue-voice.ts",
+    "check:secrets": "node --experimental-strip-types --no-warnings scripts/check-secrets.ts"
   },
   "private": true
 }
