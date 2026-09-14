@@ -419,7 +419,20 @@
     "rampSummary": {
       "one": "%{sign}%{step} BPM every %{unit} → %{target}",
       "other": "%{sign}%{step} BPM every %{count} %{unit} → %{target}"
-    }
+    },
+    "subdivision": "Subdivision",
+    "subdivOff": "Off",
+    "subdiv2": "2 per beat",
+    "subdiv3": "3 per beat",
+    "subdiv4": "4 per beat",
+    "sound": "Click sound",
+    "soundWood": "Wood",
+    "soundClick": "Click",
+    "soundBeep": "Beep",
+    "soundSoft": "Soft",
+    "soundRim": "Rim",
+    "volume": "Click volume",
+    "accentsHint": "Tap a beat to change its accent, or mute it."
   },
   "tempoLadder": {
     "title": "Tempo ladder",

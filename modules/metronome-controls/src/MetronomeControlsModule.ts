@@ -13,6 +13,8 @@ declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEven
   startTicking(tick: MetronomeTick): void;
   /** Android: hand the click loop back to JS. No-op elsewhere. */
   stopTicking(): void;
+  /** Android: retune a loop that is already running — tempo, accents, subdivision, sound, volume. */
+  updateTicking(tick: MetronomeTick): void;
 }
 
 // Optional: in Expo Go the native side isn't there. Everything else still works,

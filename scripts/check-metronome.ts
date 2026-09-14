@@ -1,7 +1,23 @@
 // Self-check for the pure metronome math. Run: npm run check:metronome
 import assert from 'node:assert/strict';
 
-import { accentLevel, bpmAfter, clampBpm, describeRamp, parseSig, tapTempo, type Ramp } from '../src/lib/metronome-math.ts';
+import {
+  accentLevel,
+  bpmAfter,
+  clampBpm,
+  clampSound,
+  clampSubdiv,
+  clampVolume,
+  cycleLevel,
+  defaultAccents,
+  describeRamp,
+  fitAccents,
+  parseSig,
+  tapTempo,
+  advanceTick,
+  volumeGain,
+  type Ramp,
+} from '../src/lib/metronome-math.ts';
 
 const off: Ramp = { on: false, step: 2, every: 4, unit: 'bars', target: 140 };
 const up: Ramp = { on: true, step: 2, every: 4, unit: 'bars', target: 140 };
@@ -55,17 +71,63 @@ assert.deepEqual(parseSig('12/8'), { beats: 12, denom: 8 });
 assert.deepEqual(parseSig('nonsense'), { beats: 4, denom: 4 });
 assert.deepEqual(parseSig('99/3'), { beats: 4, denom: 4 });
 
+// Levels: 0 muted, 1 plain, 2 group start, 3 downbeat.
 // 4/4: downbeat only. 6/8: downbeat + a lighter click on beat 4. 1/4: flat.
 const four = parseSig('4/4');
-assert.deepEqual([0, 1, 2, 3].map((i) => accentLevel(i, four)), [2, 0, 0, 0]);
+assert.deepEqual([0, 1, 2, 3].map((i) => accentLevel(i, four)), [3, 1, 1, 1]);
 const six = parseSig('6/8');
-assert.deepEqual([0, 1, 2, 3, 4, 5].map((i) => accentLevel(i, six)), [2, 0, 0, 1, 0, 0]);
-assert.equal(accentLevel(9, six), 1); // second bar, beat 4
+assert.deepEqual([0, 1, 2, 3, 4, 5].map((i) => accentLevel(i, six)), [3, 1, 1, 2, 1, 1]);
+assert.equal(accentLevel(9, six), 2); // second bar, beat 4
 const twelve = parseSig('12/8');
-assert.deepEqual([0, 3, 6, 9].map((i) => accentLevel(i, twelve)), [2, 1, 1, 1]);
+assert.deepEqual([0, 3, 6, 9].map((i) => accentLevel(i, twelve)), [3, 2, 2, 2]);
 // 3/8 is a single group - no mid accent; 7/8 groupings vary by piece, so downbeat only
-assert.deepEqual([0, 1, 2].map((i) => accentLevel(i, parseSig('3/8'))), [2, 0, 0]);
-assert.deepEqual([0, 2, 4].map((i) => accentLevel(i, parseSig('7/8'))), [2, 0, 0]);
-assert.equal(accentLevel(5, parseSig('1/4')), 0);
+assert.deepEqual([0, 1, 2].map((i) => accentLevel(i, parseSig('3/8'))), [3, 1, 1]);
+assert.deepEqual([0, 2, 4].map((i) => accentLevel(i, parseSig('7/8'))), [3, 1, 1]);
+assert.equal(accentLevel(5, parseSig('1/4')), 1);
+
+// --- accent patterns (#57) --------------------------------------------
+// an edited bar wins over the default, and repeats bar after bar
+const backbeat = [0, 3, 0, 3];
+assert.deepEqual([0, 1, 2, 3].map((i) => accentLevel(i, four, backbeat)), [0, 3, 0, 3]);
+assert.deepEqual([4, 5, 6, 7].map((i) => accentLevel(i, four, backbeat)), [0, 3, 0, 3]);
+// the defaults are what the signature implied before patterns existed
+assert.deepEqual(defaultAccents(four), [3, 1, 1, 1]);
+assert.deepEqual(defaultAccents(six), [3, 1, 1, 2, 1, 1]);
+assert.deepEqual(defaultAccents(parseSig('1/4')), [1]);
+// a pattern from another signature is cut or topped up, never left ragged
+assert.deepEqual(fitAccents([0, 3, 0, 3], parseSig('3/4')), [0, 3, 0]);
+assert.deepEqual(fitAccents([0, 3], six), [0, 3, 1, 2, 1, 1]);
+assert.deepEqual(fitAccents([], four), [3, 1, 1, 1]);
+assert.deepEqual(fitAccents(undefined, four), [3, 1, 1, 1]);
+// garbage in a saved pattern clamps instead of playing a bank that isn't there
+assert.deepEqual(fitAccents([9, -4, NaN, 1.6], four), [3, 0, 1, 2]);
+// tapping a dot walks all four states and comes back round
+assert.deepEqual([3, 2, 1, 0].map(cycleLevel), [2, 1, 0, 3]);
+
+// --- subdivisions (#57) -----------------------------------------------
+// without subdivisions every tick is a beat
+assert.deepEqual(advanceTick({ beats: 0, sub: 0 }, 1), { beats: 1, sub: 0 });
+// with them, the beat only turns over on the last tick of the beat
+assert.deepEqual(advanceTick({ beats: 0, sub: 0 }, 3), { beats: 0, sub: 1 });
+assert.deepEqual(advanceTick({ beats: 0, sub: 1 }, 3), { beats: 0, sub: 2 });
+assert.deepEqual(advanceTick({ beats: 0, sub: 2 }, 3), { beats: 1, sub: 0 });
+// one bar of 4/4 in triplets is 12 ticks and lands back on a beat
+let pos = { beats: 0, sub: 0 };
+for (let i = 0; i < 12; i++) pos = advanceTick(pos, 3);
+assert.deepEqual(pos, { beats: 4, sub: 0 });
+// shrinking the subdivision mid-beat rolls over at the next tick, it doesn't strand the count
+assert.deepEqual(advanceTick({ beats: 2, sub: 3 }, 2), { beats: 3, sub: 0 });
+// anything that isn't a shipped subdivision means "just the beat"
+assert.equal(clampSubdiv(5), 1);
+assert.equal(clampSubdiv(0), 1);
+assert.equal(clampSubdiv(3), 3);
+
+// --- sound sets and volume (#57) --------------------------------------
+assert.equal(clampSound('beep'), 'beep');
+assert.equal(clampSound('theremin'), 'wood'); // a set removed in a later version
+assert.equal(clampVolume(140), 100);
+assert.equal(clampVolume(-3), 0);
+assert.equal(clampVolume(Number.NaN), 100); // never silence the metronome by accident
+assert.equal(volumeGain(50), 0.5);
 
 console.log('metronome math ok');
