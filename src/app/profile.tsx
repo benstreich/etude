@@ -13,13 +13,12 @@ import { TimeWheel } from '@/components/time-wheel';
 import { Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
+import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
 
-// Values are persisted in settings — never translated. Labels are looked up per value at display time.
-const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Cello', 'Flute', 'Voice', 'Drums', 'Bass'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const GOALS = [15, 30, 45, 60, 90];
 const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
@@ -77,6 +76,7 @@ export default function Profile() {
   const [time, setTime] = useState({ hour: 19, minute: 0 });
   const [notifAllowed, setNotifAllowed] = useState(true);
   const [list, setList] = useState<string[]>([]);
+  const [query, setQuery] = useState<string | null>(null); // null = full instrument list collapsed
 
   // persisted value → localized label (stored values stay English)
   const instLabel = (v: string) => (INSTRUMENT_KEYS[v] ? store.t(INSTRUMENT_KEYS[v]) : v);
@@ -87,7 +87,10 @@ export default function Profile() {
   const open = (key: EditKey) => {
     if (key === 'name') setText(store.name);
     if (key === 'goal') setText(String(store.dailyGoal));
-    if (key === 'instruments') setList(store.instruments);
+    if (key === 'instruments') {
+      setList(store.instruments);
+      setQuery(null);
+    }
     if (key === 'breakDays') setList(store.breakDays);
     if (key === 'quickLog') setList(store.quickLog.map(String));
     if (key === 'stages') setList(store.stages);
@@ -385,11 +388,35 @@ export default function Profile() {
               </>
             )}
             {editing === 'instruments' && (
-              <View style={s.chipWrap}>
-                {INSTRUMENTS.map((inst) => (
-                  <Chip key={inst} label={instLabel(inst)} selected={list.includes(inst)} onPress={() => toggle(inst)} />
-                ))}
-              </View>
+              <>
+                <View style={s.chipWrap}>
+                  {[...INSTRUMENTS, ...list.filter((v) => !INSTRUMENTS.includes(v))].map((inst) => (
+                    <Chip key={inst} label={instLabel(inst)} selected={list.includes(inst)} onPress={() => toggle(inst)} />
+                  ))}
+                  <Chip label={store.t('settings.moreInstruments')} selected={query !== null} onPress={() => setQuery(query === null ? '' : null)} />
+                </View>
+                {query !== null && (
+                  <>
+                    <TextInput
+                      style={s.input}
+                      value={query}
+                      onChangeText={setQuery}
+                      placeholder={store.t('settings.searchInstruments')}
+                      placeholderTextColor={C.tertiary}
+                      autoCorrect={false}
+                      autoFocus
+                    />
+                    {/* ponytail: filter + map over ~90 names — no virtualized list for a chip grid this size */}
+                    <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
+                      <View style={s.chipWrap}>
+                        {ALL_INSTRUMENTS.filter((v) => instLabel(v).toLowerCase().includes(query.trim().toLowerCase())).map((inst) => (
+                          <Chip key={inst} label={instLabel(inst)} selected={list.includes(inst)} onPress={() => toggle(inst)} />
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </>
+                )}
+              </>
             )}
             {editing === 'breakDays' && (
               <View style={s.chipWrap}>
