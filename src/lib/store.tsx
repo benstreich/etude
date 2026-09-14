@@ -66,6 +66,8 @@ export type WeekStart = 'Monday' | 'Sunday';
 
 type Settings = {
   onboarded: boolean;
+  installedAt: number; // first hydration on this device, ms; the review prompt (#68) counts from here
+  reviewPromptedAt: number; // 0 until the automatic review sheet has been asked for once (#68)
   autoBackupDays: number; // 0 = off; otherwise auto backup every N days into Documents/Backups
   focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
   name: string;
@@ -145,6 +147,8 @@ function seed(): State {
     monthlyGoal: 0,
     yearlyGoal: 0,
     onboarded: false,
+    installedAt: 0,
+    reviewPromptedAt: 0,
     autoBackupDays: 0,
     focusPeriod: '30d',
     name: '',
@@ -293,7 +297,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           raw = await legacy.getItem(KEY);
         } catch {}
       }
-      setState(migrate(raw, seed()));
+      const next = migrate(raw, seed());
+      // first hydration stamps the install; upgrades from before the field count from the upgrade
+      setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });
     };
     // a storage read that throws must never leave the app on a blank screen forever
     load().catch(() => setState(seed()));

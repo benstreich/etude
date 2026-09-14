@@ -248,6 +248,8 @@
     "paceSentence": "Im Tempo der letzten 8 Wochen erreichst du dieses Jahr %{hours} Stunden.",
     "milestoneSentence": "%{hours} Stunden Übung erreichst du etwa am %{date}.",
     "dueSentence": "%{piece} wurde seit %{days} Tagen nicht gespielt — Zeit für eine Auffrischung.",
+    "goalDailySentence": "Dein Ziel von %{goal} Minuten erreichst du an %{hitCurrent} % der Übungstage; mit %{suggested} Minuten wären es %{hitSuggested} %.",
+    "goalWeeklySentence": "Dein Wochenziel von %{goal} Min. hast du in %{hitCurrent} % der letzten %{n} Wochen erreicht; mit %{suggested} Min. wären es %{hitSuggested} %.",
     "consistency": "Regelmäßigkeit",
     "avgDaysPerWeek": "Ø %{n} Tage / Woche",
     "daysThisWeek": "%{n} von 7 Tagen diese Woche",
