@@ -150,7 +150,15 @@
     "streaksHint": "Streng beendet die Serie nach einem verpassten Tag; Entspannt verzeiht einen einzelnen verpassten Tag. Pausentage zählen nie dagegen, und das Nachtragen eines vergangenen Tages belebt die Serie in beiden Fällen wieder.",
     "notifBlocked": "Mitteilungen für Etude sind aus — tippen, um die Systemeinstellungen zu öffnen.",
     "autoBackupHint": "Speichert deine Einheiten, Stücke und Einstellungen im Speicher der App und behält die letzten drei. Aufnahmen sind nicht enthalten — „Alles sichern“ deckt sie beim Handywechsel ab.",
-    "save": "Speichern"
+    "save": "Speichern",
+    "about": "Über Étude",
+    "howBuilt": "Wie Étude gebaut ist",
+    "howBuiltSub": "Technik, Aufbau und was das Handy verlässt",
+    "sourceCode": "Quellcode",
+    "sourceCodeSub": "Öffentlich lesbar — Étude bleibt eine bezahlte App",
+    "privacyPolicy": "Datenschutz",
+    "privacyPolicySub": "Kurz, weil es wenig zu sagen gibt",
+    "linkFailed": "Link konnte nicht geöffnet werden"
   },
   "home": {
     "goodMorning": "Guten Morgen",

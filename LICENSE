@@ -11,7 +11,17 @@ Viewing the code on the hosting platform, forking it there solely as the
 platform's mechanism for viewing, and quoting short excerpts for review or
 commentary are permitted. Nothing else is.
 
-No trademark rights to the name "Etude" or its logo are granted.
+BRAND ASSETS
+
+The name "Etude" / "Étude", the logo, and everything under assets/images/
+(app icon, adaptive icon, splash art, tab icons) are excluded from every
+permission granted above, including the platform fork allowance. They may not
+be reproduced, adapted or used to identify any other software, whether or not
+that software is derived from this source. No trademark rights to the name or
+the logo are granted.
+
+Nothing in this file restricts anyone from describing, reviewing or naming
+Etude in ordinary speech.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
