@@ -248,7 +248,7 @@ export function concentration(sessions: { title: string; min: number }[]): Conce
   return { pct: Math.round((acc / total) * 100), top, total: mins.length };
 }
 
-export type StreakSurvival = { count: number; typicalLength: number; breakWeekday: number };
+export type StreakSurvival = { count: number; typicalLength: number; breakWeekday: number; lengths: number[] };
 
 /**
  * Past streaks (runs of consecutive practised days that have ended): their
@@ -273,7 +273,7 @@ export function streakSurvival(minutesByDate: Record<string, number>, today: str
     counts[wd] = (counts[wd] ?? 0) + 1;
   }
   const breakWeekday = Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
-  return { count: runs.length, typicalLength: Math.round(median(runs.map((r) => r.len))!), breakWeekday };
+  return { count: runs.length, typicalLength: Math.round(median(runs.map((r) => r.len))!), breakWeekday, lengths: runs.map((r) => r.len) };
 }
 
 export type Projection = { hoursByYearEnd: number; milestoneH: number | null; milestoneDate: string | null };
@@ -353,4 +353,74 @@ export function goalCalibration(o: {
   }
   const weekly = calibrate(weeks, o.weeklyGoal, 15, MIN_CALIBRATION_WEEKS);
   return { daily, weekly };
+}
+
+export type FocusDrift = { weeks: string[]; series: { title: string; share: number[] }[] };
+
+/**
+ * Stacked weekly share per focus over the last `weeks` calendar weeks (#71): the
+ * `top` focuses by minutes in the window, everything else folded into '' (the
+ * caller labels it "Other"). Shares within a week sum to 1; an empty week is all
+ * zeros. null under 2 focuses or 4 weeks with practice — no drift to show yet.
+ */
+export function focusDrift(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = 12, top = 4): FocusDrift | null {
+  const first = weekKey(today, mondayStart);
+  const keys: string[] = [];
+  for (let i = weeks - 1; i >= 0; i--) keys.push(shiftKey(first, -7 * i));
+  const idx = new Map(keys.map((k, i) => [k, i]));
+  const byTitle: Record<string, number[]> = {};
+  const totals = keys.map(() => 0);
+  for (const s of sessions) {
+    const w = idx.get(weekKey(s.date, mondayStart));
+    if (w === undefined) continue;
+    (byTitle[s.title] ??= keys.map(() => 0))[w] += s.min;
+    totals[w] += s.min;
+  }
+  const titles = Object.keys(byTitle).sort((a, b) => byTitle[b].reduce((x, y) => x + y, 0) - byTitle[a].reduce((x, y) => x + y, 0));
+  if (titles.length < 2 || totals.filter((t) => t > 0).length < 4) return null;
+  const keep = titles.slice(0, top);
+  const rest = titles.slice(top);
+  const series = keep.map((title) => ({ title, share: byTitle[title].map((m, w) => (totals[w] ? m / totals[w] : 0)) }));
+  if (rest.length) series.push({ title: '', share: keys.map((_, w) => (totals[w] ? rest.reduce((a, t) => a + byTitle[t][w], 0) / totals[w] : 0)) });
+  return { weeks: keys, series };
+}
+
+/** Minutes per calendar week for the last `weeks` weeks, oldest first, the current week last. */
+export function weeklyTotals(minutesByDate: Record<string, number>, today: string, mondayStart: boolean, weeks = 12): number[] {
+  const first = weekKey(today, mondayStart);
+  const keys: string[] = [];
+  for (let i = weeks - 1; i >= 0; i--) keys.push(shiftKey(first, -7 * i));
+  const idx = new Map(keys.map((k, i) => [k, i]));
+  const out = keys.map(() => 0);
+  for (const [k, m] of Object.entries(minutesByDate)) {
+    const w = idx.get(weekKey(k, mondayStart));
+    if (w !== undefined) out[w] += m;
+  }
+  return out;
+}
+
+/** Trailing mean over the last `n` points; null until `n` points exist. */
+export const rollingMean = (xs: number[], n = 4): (number | null)[] =>
+  xs.map((_, i) => (i + 1 < n ? null : Math.round(xs.slice(i + 1 - n, i + 1).reduce((a, b) => a + b, 0) / n)));
+
+export type Interleaving = { perDay: number; perWeek: number };
+
+/**
+ * How many distinct focuses a practice day and a practice week touch, over the last
+ * `weeks` weeks (#61 §2). The practice literature favours several short blocks
+ * over one long one; this is the number, the guide explains why. null under 7 practised days.
+ */
+export function interleaving(sessions: { title: string; date: string }[], today: string, mondayStart: boolean, weeks = 8): Interleaving | null {
+  const from = shiftKey(weekKey(today, mondayStart), -7 * (weeks - 1));
+  const byDay: Record<string, Set<string>> = {};
+  const byWeek: Record<string, Set<string>> = {};
+  for (const s of sessions) {
+    if (s.date < from || s.date > today) continue;
+    (byDay[s.date] ??= new Set()).add(s.title);
+    (byWeek[weekKey(s.date, mondayStart)] ??= new Set()).add(s.title);
+  }
+  const days = Object.values(byDay);
+  if (days.length < 7) return null;
+  const mean = (sets: Set<string>[]) => Math.round((sets.reduce((a, x) => a + x.size, 0) / sets.length) * 10) / 10;
+  return { perDay: mean(days), perWeek: mean(Object.values(byWeek)) };
 }
