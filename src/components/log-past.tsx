@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Calendar } from '@/components/calendar';
 import { Text } from '@/components/text';
-import { SHEET_AVOID } from '@/components/ui';
+import { Sheet } from '@/components/ui';
 import { dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -12,8 +11,6 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   const s = useS();
   const C = useC();
   const store = useStore();
-  const winH = useWindowDimensions().height;
-  const insets = useSafeAreaInsets();
   const [pastDate, setPastDate] = useState<string | null>(null);
   const [pastMin, setPastMin] = useState('');
   const [pastFoci, setPastFoci] = useState<{ name: string; kind: 'Piece' | 'Technique' }[]>([]);
@@ -52,13 +49,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
-        <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-        <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
-          <View style={s.grabber} />
-          {/* flex-end keeps the form at the bottom, within thumb reach, when it doesn't fill the sheet */}
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, flexGrow: 1, justifyContent: 'flex-end' }}>
+    <Sheet visible={visible} onClose={onClose} fill align="bottom" grabber style={s.sheet} contentStyle={{ gap: 16 }}>
             <Text style={s.sheetTitle}>{store.t('logPast.title')}</Text>
 
             <Calendar value={pastDate} onPick={setPastDate} direction="past" />
@@ -116,18 +107,12 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
             <Pressable style={[s.saveBtn, (!pastDate || !Number(pastMin)) && { opacity: 0.4 }]} onPress={logPast}>
               <Text style={s.saveBtnText}>{store.t('logPast.add')}</Text>
             </Pressable>
-          </ScrollView>
-        </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
-    </Modal>
+    </Sheet>
   );
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
-  grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   focusScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 24 },
   focusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

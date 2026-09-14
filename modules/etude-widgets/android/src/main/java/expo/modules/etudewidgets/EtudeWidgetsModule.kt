@@ -12,6 +12,9 @@ class WidgetData(
   @Field val streak: Int = 0,
   @Field val week: List<Int> = emptyList(),
   @Field val nextFocus: String? = null,
+  // #80: [accent, mid, soft] hex per scheme; empty = the brand terracotta from colors.xml
+  @Field val accentLight: List<String> = emptyList(),
+  @Field val accentDark: List<String> = emptyList(),
 ) : Record
 
 /** Persists the widget snapshot and repaints placed widgets. */
@@ -25,6 +28,8 @@ object WidgetStore {
       .putInt("streak", data.streak)
       .putString("week", data.week.joinToString(","))
       .putString("nextFocus", data.nextFocus)
+      .putString("accentLight", data.accentLight.joinToString(","))
+      .putString("accentDark", data.accentDark.joinToString(","))
       .apply()
   }
 
@@ -37,6 +42,8 @@ object WidgetStore {
       streak = p.getInt("streak", 0),
       week = week,
       nextFocus = p.getString("nextFocus", null),
+      accentLight = p.getString("accentLight", "")!!.split(',').filter { it.isNotBlank() },
+      accentDark = p.getString("accentDark", "")!!.split(',').filter { it.isNotBlank() },
     )
   }
 }

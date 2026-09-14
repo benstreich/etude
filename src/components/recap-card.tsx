@@ -3,7 +3,7 @@
 // The monthly card keeps the brand cream/terracotta regardless of theme, like
 // the LogoMark; hence the literal hex here and nowhere else.
 import * as Sharing from 'expo-sharing';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
@@ -13,6 +13,7 @@ import { Text } from '@/components/text';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
 import { projection, ratingSummary } from '@/lib/stats-math';
 import { useInstrumentFilter } from '@/components/ui';
+import { maybeRequestReview } from '@/lib/review';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -47,6 +48,12 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   const inst = useInstrumentFilter();
   const [mode, setMode] = useState<'month' | 'year'>('month');
   const shotRef = useRef<View>(null);
+  // opening the recap is an earned moment (#68); the once-guard in maybeRequestReview does the rest
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => maybeRequestReview(store), 2000);
+    return () => clearTimeout(t);
+  }, [visible, store]);
 
   if (!visible) return null;
 

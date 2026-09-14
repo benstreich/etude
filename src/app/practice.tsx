@@ -7,7 +7,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddFocus } from '@/components/add-focus';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeButton } from '@/components/metronome';
 import { ScorePill } from '@/components/score';
@@ -385,7 +384,7 @@ export default function Practice() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
+      <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]} keyboardShouldPersistTaps="handled">
         {/* Two tools no longer fit beside the heading without wrapping it to
             four lines, so they get their own row under it. */}
         <Text style={s.title}>{store.t('practice.title')}</Text>
@@ -394,6 +393,10 @@ export default function Practice() {
             <Text style={s.tunerPillText}>{store.t('tuner.tuner')}</Text>
           </Pressable>
           <MetronomeButton compact />
+          {/* logging a missed day is a tool, not a footnote under Start (#81) */}
+          <Pressable style={s.tunerPill} onPress={() => setPastOpen(true)}>
+            <Text style={s.tunerPillText}>{store.t('practice.logPast')}</Text>
+          </Pressable>
         </View>
         <InstrumentFilter style={{ marginBottom: 14 }} />
         <TextInput
@@ -428,10 +431,6 @@ export default function Practice() {
         {pieces.length === 0 && techniques.length === 0 && plans.length === 0 && (
           <Text style={s.noMatch}>{store.t('practice.noMatches', { query: query.trim() })}</Text>
         )}
-        {/* pick a focus that doesn't exist yet without a detour via Repertoire (#40) */}
-        <View style={{ alignItems: 'flex-start', marginTop: 16 }}>
-          <AddFocus onAdded={(f) => setFocus(f)} />
-        </View>
         {!q && (
           <>
             <Overline style={{ marginBottom: 10, marginTop: pieces.length + techniques.length > 0 ? 22 : 0 }}>
@@ -475,9 +474,6 @@ export default function Practice() {
           }}>
           <Text style={s.startBtnText}>{store.t('practice.startSession')}</Text>
         </Pressable>
-        <Pressable hitSlop={8} onPress={() => setPastOpen(true)}>
-          <Text style={s.pastLink}>{store.t('practice.logPastLink')}</Text>
-        </Pressable>
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
       <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} recording={recording} />
@@ -489,18 +485,17 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   title: { fontFamily: F.head, fontSize: fs(32), color: C.ink, marginBottom: 16, lineHeight: fs(39) },
-  toolsRow: { flexDirection: 'row', gap: 8, marginBottom: 22 },
+  toolsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 22 },
   group: { gap: 10 },
   search: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, paddingHorizontal: 14, fontFamily: F.body, fontSize: fs(15), color: C.ink, marginBottom: 18 },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { height: 52, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, justifyContent: 'center', paddingHorizontal: 16 },
   optionText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   planMeta: { fontFamily: F.body, fontSize: fs(12), color: C.sub, marginTop: 1 },
-  planAdd: { height: 50, borderRadius: r(14), borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.chartInactive, alignItems: 'center', justifyContent: 'center' },
-  planAddText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
+  planAdd: { alignSelf: 'flex-start', borderWidth: 1, borderStyle: 'dashed', borderColor: C.inputBorder, borderRadius: r(999), paddingVertical: 9, paddingHorizontal: 14 },
+  planAddText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
   startBtn: { height: 60, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   startBtnText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
-  pastLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 14, textAlign: 'center', textDecorationLine: 'underline' },
   runPage: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   timer: { fontFamily: F.head, fontSize: fs(90), color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
   status: { fontFamily: F.bodyMed, fontSize: fs(15) },

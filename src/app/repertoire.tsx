@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NoteIcon, SearchIcon } from '@/components/icons';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
-import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, SHEET_AVOID, useInstrumentFilter } from '@/components/ui';
+import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, Sheet, useInstrumentFilter } from '@/components/ui';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
@@ -40,10 +40,8 @@ export default function Repertoire() {
   // shows nor counts as this query's answer (#38)
   const [suggestions, setSuggestions] = useState<{ q: string; list: Suggestion[] }>({ q: '', list: [] });
   const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
-  const [openRecs, setOpenRecs] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [customTech, setCustomTech] = useState('');
-  const winH = useWindowDimensions().height;
 
   const closeAdd = () => {
     setAddOpen(false);
@@ -63,11 +61,13 @@ export default function Repertoire() {
   const [addInst, setAddInst] = useState<string | null>(null); // instrument for the piece being added; null = primary
   // untagged pieces show under every instrument (#58)
   const active = store.pieces.filter((p) => !p.archived && (!inst || !p.instrument || p.instrument === inst));
-  const archived = store.pieces.filter((p) => p.archived);
+  // #83: techniques are pieces of kind 'Technique' — same rows, same detail page
+  const techniques = store.allPieces.filter((p) => p.kind === 'Technique' && !p.archived && (!inst || !p.instrument || p.instrument === inst));
+  const archived = store.allPieces.filter((p) => p.archived);
 
   // invested time from the session log, matched by title — pieces and
   // techniques are both logged under their display name
-  const techStats = (name: string) => {
+  const investedIn = (name: string) => {
     let min = 0;
     let last: string | null = null;
     for (const sess of store.sessions) {
@@ -78,7 +78,7 @@ export default function Repertoire() {
     }
     return { min, last };
   };
-  const stats = (p: Piece) => techStats(p.name);
+  const stats = (p: Piece) => investedIn(p.name);
   const stale = (p: Piece) => staleness(store.sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today);
 
   // song/artist suggestions from the iTunes Search API (public, no key)
@@ -127,6 +127,40 @@ export default function Repertoire() {
     setAddOpen(false);
   };
 
+  // one row for pieces and techniques alike; recordings and scores live on the page (#84)
+  const renderRow = (p: Piece, i: number) => {
+    const st = stats(p);
+    return (
+      <Pressable
+        key={p.id}
+        style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+        onPress={() => router.push(`/piece/${p.id}`)}>
+        <View style={s.rowTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.pieceName}>{p.name}</Text>
+            {!!p.by && <Text style={s.composer}>{p.by}</Text>}
+            {st.min > 0 && st.last && (
+              <Text style={s.invested}>
+                {store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })}
+              </Text>
+            )}
+            {/* #61 §2: a finished piece left past twice its usual gap is due for a maintenance pass */}
+            {p.stage >= store.stages.length - 1 && stale(p)?.due && (
+              <Text style={[s.invested, { color: C.accent }]}>{store.t('repertoire.dueForReview', { days: stale(p)!.daysSince })}</Text>
+            )}
+          </View>
+          <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
+            {store.stages[Math.min(p.stage, store.stages.length - 1)]}
+          </Text>
+          <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
+            <Text style={s.moreText}>⋯</Text>
+          </Pressable>
+        </View>
+        <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />
+      </Pressable>
+    );
+  };
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -165,99 +199,28 @@ export default function Repertoire() {
         </>
       ) : (
       <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
-        {active.map((p, i) => {
-          const st = stats(p);
-          const recs = store.recordings.filter((r) => r.piece === p.name);
-          return (
-            <Pressable
-              key={p.id}
-              style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-              onPress={() => router.push(`/piece/${p.id}`)}>
-              <View style={s.rowTop}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.pieceName}>{p.name}</Text>
-                  {!!p.by && <Text style={s.composer}>{p.by}</Text>}
-                  {st.min > 0 && st.last && (
-                    <Text style={s.invested}>
-                      {store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })}
-                    </Text>
-                  )}
-                  {/* #61 §2: a finished piece left past twice its usual gap is due for a maintenance pass */}
-                  {p.stage >= store.stages.length - 1 && stale(p)?.due && (
-                    <Text style={[s.invested, { color: C.accent }]}>{store.t('repertoire.dueForReview', { days: stale(p)!.daysSince })}</Text>
-                  )}
-                </View>
-                <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
-                  {store.stages[Math.min(p.stage, store.stages.length - 1)]}
-                </Text>
-                <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
-                  <Text style={s.moreText}>⋯</Text>
-                </Pressable>
-              </View>
-              <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />
-              {recs.length > 0 && (
-                <Pressable hitSlop={8} onPress={() => setOpenRecs(openRecs === p.id ? null : p.id)}>
-                  <Text style={s.recsToggle}>
-                    {openRecs === p.id ? '▾' : '▸'} {store.t('repertoire.recordingsCount', { count: recs.length })}
-                  </Text>
-                </Pressable>
-              )}
-              {openRecs === p.id && <RecordingsList recordings={recs} />}
-            </Pressable>
-          );
-        })}
+        {active.map(renderRow)}
       </Card>
       )}
 
       {active.length > 0 && <Text style={s.hint}>{store.t('repertoire.tapHint')}</Text>}
 
-      {/* Techniques earn their place next to the pieces — they are just as much
-          "what I practise" — but they have no detail screen, so the rows only
-          report time invested. Collapsible, and the choice sticks (#45). */}
-      {store.techniques.length > 0 && (
+      {/* Techniques are pieces of kind 'Technique' (#83): same rows, same detail page with
+          stages, tempo ladder, recordings and scores. Collapsible, and the choice sticks (#45). */}
+      {techniques.length > 0 && (
         <View style={{ gap: 12 }}>
           <Pressable hitSlop={8} onPress={() => store.updateSettings({ showTechniques: !store.showTechniques })}>
             <Overline>
               {store.showTechniques ? '▾' : '▸'} {store.t('repertoire.techniques')}
             </Overline>
           </Pressable>
-          {store.showTechniques && (
-            <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
-              {store.techniques.map((name, i) => {
-                const st = techStats(name);
-                const recs = store.recordings.filter((r) => r.piece === name);
-                const key = `tech:${name}`;
-                return (
-                  <View key={name} style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
-                    <View style={s.rowTop}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.pieceName}>{name}</Text>
-                        <Text style={s.composer}>
-                          {st.min > 0 && st.last
-                            ? store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })
-                            : store.t('repertoire.notPractisedYet')}
-                        </Text>
-                      </View>
-                    </View>
-                    {recs.length > 0 && (
-                      <Pressable hitSlop={8} onPress={() => setOpenRecs(openRecs === key ? null : key)}>
-                        <Text style={s.recsToggle}>
-                          {openRecs === key ? '▾' : '▸'} {store.t('repertoire.recordingsCount', { count: recs.length })}
-                        </Text>
-                      </Pressable>
-                    )}
-                    {openRecs === key && <RecordingsList recordings={recs} />}
-                  </View>
-                );
-              })}
-            </Card>
-          )}
+          {store.showTechniques && <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>{techniques.map(renderRow)}</Card>}
         </View>
       )}
 
-      {/* ponytail: recordings made on a technique focus have no piece row — surface them here */}
+      {/* recordings whose focus has since been deleted have no page to live on — surface them here */}
       {(() => {
-        const names = new Set([...store.pieces.map((p) => p.name), ...store.techniques]);
+        const names = new Set(store.allPieces.map((p) => p.name));
         const orphans = store.recordings.filter((r) => !names.has(r.piece));
         return orphans.length > 0 ? (
           <View style={{ gap: 12 }}>
@@ -291,11 +254,7 @@ export default function Repertoire() {
         </View>
       )}
 
-      <Modal visible={addOpen} transparent animationType="fade" onRequestClose={closeAdd}>
-        <Pressable style={s.backdrop} onPress={closeAdd}>
-          <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none">
-          <Pressable style={[s.sheet, { height: winH - insets.top - 12 }]} onPress={() => {}}>
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <Sheet visible={addOpen} onClose={closeAdd} fill style={s.sheet} contentStyle={{ gap: 4 }}>
             <Text style={s.sheetTitle}>{store.t('repertoire.addToRepertoire')}</Text>
             <Overline style={{ marginBottom: 10 }}>{store.t('repertoire.song')}</Overline>
             {creating === null ? (
@@ -414,11 +373,7 @@ export default function Repertoire() {
             </View>
             </>
             )}
-            </ScrollView>
-          </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+      </Sheet>
 
       <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={() => setMenuPiece(null)}>
         <Pressable style={s.backdrop} onPress={() => setMenuPiece(null)}>
@@ -426,7 +381,6 @@ export default function Repertoire() {
             {menuPiece && (
               <>
                 <Text style={s.sheetTitle}>{menuPiece.name}</Text>
-                <RecordingsList recordings={store.recordings.filter((r) => r.piece === menuPiece.name)} />
                 {store.instruments.length > 1 && (
                   <View style={[s.chipWrap, { paddingVertical: 10 }]}>
                     {store.instruments.map((i) => {
@@ -504,11 +458,10 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   tag: { fontFamily: F.bodySemi, fontSize: fs(11.5), letterSpacing: 0.8, textTransform: 'uppercase' },
   hint: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, textAlign: 'center' },
   invested: { fontFamily: F.body, fontSize: fs(12), color: C.subStrong, marginTop: 3 },
-  recsToggle: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.sub, marginTop: 10 },
   moreBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
   moreText: { fontSize: fs(18), color: C.faint, lineHeight: fs(28), textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 4 },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink, marginBottom: 8 },
   sheetRow: { height: 52, justifyContent: 'center' },
   fabBtn: { width: 50, height: 50, borderRadius: r(25), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },

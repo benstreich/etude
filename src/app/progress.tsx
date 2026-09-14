@@ -6,12 +6,13 @@ import Svg, { Circle, Polyline, Rect } from 'react-native-svg';
 
 import { EditSessionSheet } from '@/components/edit-session';
 import { ShareIcon } from '@/components/icons';
+import { MiniBars, MiniTrend, StackedShares } from '@/components/mini-charts';
 import { RecapModal } from '@/components/recap-card';
 import { Text } from '@/components/text';
 import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, useInstrumentFilter } from '@/components/ui';
 import { deadlineStatus, goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
-import { byLength, byTimeOfDay, concentration, consistency, MIN_RATED, projection, qualityDrivers, rated, ratingByFocus, ratingByWeek, staleness, streakSurvival, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
+import { byLength, byTimeOfDay, concentration, consistency, focusDrift, goalCalibration, interleaving, MIN_INSIGHT_DAYS, MIN_RATED, projection, qualityDrivers, rated, ratingByFocus, ratingByWeek, rollingMean, staleness, streakSurvival, TIME_OF_DAY, weeklyTotals, type Bucket } from '@/lib/stats-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -111,13 +112,39 @@ export default function Progress() {
     .map((p) => ({ p, st: staleness(sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today) }))
     .filter((x) => x.st?.due)
     .sort((a, b) => b.st!.daysSince - a.st!.daysSince);
-  const insights: string[] = [
-    ...(drivers.length ? [store.t('progress.driversSentence', { list: drivers.map(driverLabel).join(' · ') })] : []),
-    ...(conc && conc.top < conc.total ? [store.t('progress.concentrationSentence', { pct: conc.pct, top: conc.top, total: conc.total })] : []),
-    ...(survival ? [store.t('progress.streakSentence', { day: survival.typicalLength + 1, weekday: dayNames[survival.breakWeekday] })] : []),
-    ...(proj ? [store.t('progress.paceSentence', { hours: proj.hoursByYearEnd })] : []),
-    ...(proj?.milestoneDate ? [store.t('progress.milestoneSentence', { hours: proj.milestoneH, date: new Date(proj.milestoneDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })] : []),
-    ...due.slice(0, 3).map((x) => store.t('progress.dueSentence', { piece: x.p.name, days: x.st!.daysSince })),
+  // a first week of data produces confident nonsense (#77) — say nothing until there is history
+  const enoughHistory = Object.keys(mbd).filter((k) => mbd[k] > 0 && k <= store.today).length >= MIN_INSIGHT_DAYS;
+  const cal = goalCalibration({ minutesByDate: mbd, today: store.today, dailyGoal: store.dailyGoal, weeklyGoal: store.weeklyGoal, weekStart: store.weekStart });
+  const inter = interleaving(sessions, store.today, start === 1);
+  // #71: the pictures under the sentences — weekly totals with a 4-week mean, past streak lengths, when sessions start
+  const weekMins = weeklyTotals(mbd, store.today, start === 1);
+  const streakHist = survival
+    ? [1, 2, 3, [4, 6], [7, Infinity]].map((b) => survival.lengths.filter((l) => (Array.isArray(b) ? l >= b[0] && l <= b[1] : l === b)).length)
+    : [];
+  const drift = focusDrift(sessions, store.today, start === 1);
+  const driftColors = [C.accent, C.accentDark, heat2, heat1, C.track];
+  const insights: { text: string; chart?: React.ReactNode }[] = !enoughHistory ? [] : [
+    ...(cal.daily ? [{ text: store.t('progress.goalDailySentence', cal.daily) }] : []),
+    ...(cal.weekly ? [{ text: store.t('progress.goalWeeklySentence', cal.weekly) }] : []),
+    ...(drivers.length
+      ? [{
+          text: store.t('progress.driversSentence', { list: drivers.map(driverLabel).join(' · ') }),
+          chart: drivers.some((d) => d.dim === 'timeOfDay') ? (
+            <MiniBars values={timeOfDay.map((b) => b.min)} labels={TIME_OF_DAY.map((k) => store.t(`progress.${k}`))} highlight={TIME_OF_DAY.indexOf(drivers.find((d) => d.dim === 'timeOfDay')!.best)} />
+          ) : undefined,
+        }]
+      : []),
+    ...(inter ? [{ text: store.t('progress.interleavingSentence', inter) }] : []),
+    ...(conc && conc.top < conc.total ? [{ text: store.t('progress.concentrationSentence', { pct: conc.pct, top: conc.top, total: conc.total }) }] : []),
+    ...(survival
+      ? [{
+          text: store.t('progress.streakSentence', { day: survival.typicalLength + 1, weekday: dayNames[survival.breakWeekday] }),
+          chart: <MiniBars values={streakHist} labels={['1', '2', '3', '4–6', '7+']} />,
+        }]
+      : []),
+    ...(proj ? [{ text: store.t('progress.paceSentence', { hours: proj.hoursByYearEnd }), chart: <MiniTrend values={weekMins} mean={rollingMean(weekMins, 4)} /> }] : []),
+    ...(proj?.milestoneDate ? [{ text: store.t('progress.milestoneSentence', { hours: proj.milestoneH, date: new Date(proj.milestoneDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) }) }] : []),
+    ...due.slice(0, 3).map((x) => ({ text: store.t('progress.dueSentence', { piece: x.p.name, days: x.st!.daysSince }) })),
   ];
 
   // period goals (#56) — each row is done/target plus whether today's pace is met
@@ -377,6 +404,25 @@ export default function Progress() {
         </Card>
       )}
 
+      {drift && (
+        <Card>
+          <View style={s.focusHead}>
+            <Overline>{store.t('progress.drift')}</Overline>
+            <Text style={s.skillLevel}>{store.t('progress.last12Weeks')}</Text>
+          </View>
+          {/* a focus being neglected shows here weeks before it goes stale (#71) */}
+          <StackedShares series={drift.series} colors={driftColors} />
+          <View style={s.driftLegend}>
+            {drift.series.map((sr, i) => (
+              <View key={sr.title || '_other'} style={s.driftItem}>
+                <View style={[s.legendSwatch, { backgroundColor: driftColors[i % driftColors.length] }]} />
+                <Text style={s.legendText} numberOfLines={1}>{sr.title || store.t('progress.other')}</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
+      )}
+
       {sessions.length > 0 && (
         <Card>
           <View style={s.focusHead}>
@@ -446,9 +492,10 @@ export default function Progress() {
       {insights.length > 0 && (
         <Card>
           <Overline style={{ marginBottom: 6 }}>{store.t('progress.insights')}</Overline>
-          {insights.map((line, i) => (
-            <View key={i} style={s.bucketRow}>
-              <Text style={s.insight}>{line}</Text>
+          {insights.map((item, i) => (
+            <View key={i} style={s.insightRow}>
+              <Text style={s.insight}>{item.text}</Text>
+              {item.chart}
             </View>
           ))}
         </Card>
@@ -475,6 +522,9 @@ function BucketRow({ label, b, value, stars, s }: { label: string; b: Bucket; va
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
   bucketRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.hairline },
+  insightRow: { gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: C.hairline },
+  driftLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  driftItem: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '48%' },
   bucketLabel: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
   insight: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },
   bucketStars: { fontFamily: F.bodySemi, fontSize: fs(12), minWidth: 42, textAlign: 'right' },

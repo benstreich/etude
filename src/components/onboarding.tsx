@@ -1,11 +1,12 @@
 // First-run flow: welcome + 3 steps (instruments/name, daily goal, reminders).
 // Rendered by Shell instead of the tab navigator until store.onboarded is set.
 import React, { useEffect, useState } from 'react';
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LockIcon, LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
+import { SCREEN_AVOID } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -86,7 +87,7 @@ export function Onboarding() {
     );
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: C.bg }}>
+    <KeyboardAvoidingView behavior={SCREEN_AVOID} style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={[s.page, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
         {header}
         {/* ponytail: instant step swap — the 'shift' slide isn't worth an animation rig here */}

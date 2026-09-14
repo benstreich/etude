@@ -6,4 +6,7 @@ export type WidgetData = {
   streak: number; // current display streak (days)
   week: number[]; // last 7 days of minutes, oldest first, today last
   nextFocus: string | null; // suggested next piece/technique, if any
+  /** #80: the in-app accent as [accent, mid, soft] hex, one triple per scheme; empty = brand terracotta */
+  accentLight: string[];
+  accentDark: string[];
 };

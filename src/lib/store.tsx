@@ -58,6 +58,7 @@ export type Piece = {
   instrument?: string; // #58; unset = shows under every instrument
   targetDate?: string; // dateKey the piece should reach the last stage by (#56)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
+  kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
 };
 
 export type FocusPeriod = '7d' | '30d' | 'all';
@@ -66,6 +67,8 @@ export type WeekStart = 'Monday' | 'Sunday';
 
 type Settings = {
   onboarded: boolean;
+  installedAt: number; // first hydration on this device, ms; the review prompt (#68) counts from here
+  reviewPromptedAt: number; // 0 until the automatic review sheet has been asked for once (#68)
   autoBackupDays: number; // 0 = off; otherwise auto backup every N days into Documents/Backups
   focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
   name: string;
@@ -116,7 +119,6 @@ type State = Settings & {
   bestStreak: number;
   totalMin: number;
   pieces: Piece[];
-  techniques: string[];
   dailyGoal: number;
   recordings: Recording[];
   attachments: Attachment[]; // sheet music / photos per piece (#60)
@@ -135,8 +137,12 @@ function seed(): State {
     sessions: [],
     bestStreak: 0,
     totalMin: 0,
-    pieces: [],
-    techniques: ['Scales & arpeggios', 'Sight reading'],
+    // two starter techniques so the Practice picker isn't bare — ordinary pieces of
+    // kind 'Technique' (#83), deletable like any other
+    pieces: [
+      { id: 'tech-scales', name: 'Scales & arpeggios', by: '', stage: 0, pct: 10, kind: 'Technique' },
+      { id: 'tech-sight', name: 'Sight reading', by: '', stage: 0, pct: 10, kind: 'Technique' },
+    ],
     recordings: [],
     attachments: [],
     plans: [],
@@ -145,6 +151,8 @@ function seed(): State {
     monthlyGoal: 0,
     yearlyGoal: 0,
     onboarded: false,
+    installedAt: 0,
+    reviewPromptedAt: 0,
     autoBackupDays: 0,
     focusPeriod: '30d',
     name: '',
@@ -229,6 +237,10 @@ type Store = State & {
   addPiece: (name: string, by?: string, instrument?: string) => void;
   addTechnique: (name: string) => void;
   removeTechnique: (name: string) => void;
+  /** Every piece including techniques; `pieces` alone is the repertoire proper (#83). */
+  allPieces: Piece[];
+  /** Active technique names, derived from the pieces of kind 'Technique'. */
+  techniques: string[];
   cyclePiece: (id: string) => void;
   removePiece: (id: string) => void;
   setArchived: (id: string, archived: boolean) => void;
@@ -293,7 +305,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           raw = await legacy.getItem(KEY);
         } catch {}
       }
-      setState(migrate(raw, seed()));
+      const next = migrate(raw, seed());
+      // first hydration stamps the install; upgrades from before the field count from the upgrade
+      setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });
     };
     // a storage read that throws must never leave the app on a blank screen forever
     load().catch(() => setState(seed()));
@@ -464,37 +478,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t('toast.sessionDeleted'));
   };
 
-  const addPiece: Store['addPiece'] = (name, by = '', instrument) => {
+  // Pieces and techniques share one list (#83). Identity elsewhere is the display
+  // name, so a case- or space-different twin would silently split its stats and
+  // recordings — the duplicate check spans both kinds. Techniques stay untagged by
+  // instrument unless the user tags them, so they show under every instrument.
+  const insertPiece = (kind: 'Piece' | 'Technique', name: string, by = '', instrument?: string) => {
     const clean = name.trim();
-    // piece identity elsewhere is the display name — a duplicate doubles stats and recordings
     const dup = state.pieces.some((p) => p.name.trim().toLowerCase() === clean.toLowerCase());
     if (!dup)
       setState((s) =>
-        s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10, addedAt: Date.now(), instrument: instrument ?? (primaryOf(s.instruments, s.primaryInstrument) || undefined) }, ...s.pieces] } : s
+        s
+          ? {
+              ...s,
+              pieces: [
+                {
+                  id: uid(),
+                  name: clean,
+                  by,
+                  stage: 0,
+                  pct: 10,
+                  addedAt: Date.now(),
+                  kind,
+                  instrument: instrument ?? (kind === 'Piece' ? primaryOf(s.instruments, s.primaryInstrument) || undefined : undefined),
+                },
+                ...s.pieces,
+              ],
+            }
+          : s
       );
+    return dup;
+  };
+
+  const addPiece: Store['addPiece'] = (name, by = '', instrument) => {
+    const dup = insertPiece('Piece', name, by, instrument);
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.addedToRepertoire'));
   };
 
   const addTechnique = (name: string) => {
-    // same identity rule as addPiece — the name is the key everywhere else, so a
-    // case- or space-different twin silently splits that technique's stats
-    const clean = name.trim();
-    const dup = state.techniques.some((x) => x.trim().toLowerCase() === clean.toLowerCase());
-    if (!dup) setState((s) => (s ? { ...s, techniques: [...s.techniques, clean] } : s));
+    if (!name.trim()) return;
+    const dup = insertPiece('Technique', name);
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.techniqueAdded'));
   };
 
   // a removed focus target must not keep collecting quick-log sessions
   const clearFocus = (s: State, name: string, kind: 'Piece' | 'Technique') =>
     s.quickLogFocus?.kind === kind && s.quickLogFocus.name === name ? null : s.quickLogFocus;
-
-  const removeTechnique = (name: string) => {
-    setState((s) =>
-      s
-        ? { ...s, techniques: s.techniques.filter((t) => t !== name), quickLogFocus: clearFocus(s, name, 'Technique') }
-        : s
-    );
-  };
 
   const cyclePiece = (id: string) => {
     setState((s) => {
@@ -528,10 +556,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         pieces: s.pieces.filter((p) => p.id !== id),
         attachments: orphaned.length ? s.attachments.filter((a) => !orphaned.includes(a)) : s.attachments,
-        quickLogFocus: gone ? clearFocus(s, gone.name, 'Piece') : s.quickLogFocus,
+        quickLogFocus: gone ? clearFocus(s, gone.name, gone.kind ?? 'Piece') : s.quickLogFocus,
       };
     });
     showToast(t('toast.removedFromRepertoire'));
+  };
+
+  /** The add-sheet chips toggle by name; removing deletes the technique piece like any other (#83). */
+  const removeTechnique = (name: string) => {
+    const tech = state.pieces.find((p) => p.kind === 'Technique' && p.name === name);
+    if (tech) removePiece(tech.id);
   };
 
   const setArchived = (id: string, archived: boolean) => {
@@ -625,6 +659,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const store: Store = {
     ...state,
+    // #83: `pieces` is the repertoire proper; techniques ride along as pieces of kind 'Technique'
+    pieces: state.pieces.filter((p) => p.kind !== 'Technique'),
+    allPieces: state.pieces,
+    techniques: state.pieces.filter((p) => p.kind === 'Technique' && !p.archived).map((p) => p.name),
     t,
     lang,
     now,
