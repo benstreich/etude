@@ -25,6 +25,18 @@ export function migrate<S>(raw: string | null, seedState: S): S {
       stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
     }),
   );
+  // #83: techniques used to be bare names next to the pieces; they are pieces of
+  // kind 'Technique' now. A name that already exists as a piece is not doubled.
+  if (Array.isArray(saved.techniques)) {
+    const have = new Set(merged.pieces.map((p: { name?: string }) => String(p.name ?? '').trim().toLowerCase()));
+    for (const raw of saved.techniques) {
+      const name = typeof raw === 'string' ? raw.trim() : '';
+      if (!name || have.has(name.toLowerCase())) continue;
+      have.add(name.toLowerCase());
+      merged.pieces.push({ id: 'tech-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, by: '', stage: 0, pct: 10, kind: 'Technique' });
+    }
+  }
+  delete merged.techniques;
   // plans arrived with #17 — older blobs (and hand-edited ones) may lack the array
   if (!Array.isArray(merged.plans)) merged.plans = [];
   // score attachments arrived with #60 — same guard, same reason

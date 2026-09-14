@@ -40,7 +40,7 @@ export default function PieceDetail() {
   const [editSess, setEditSess] = useState<Session | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
 
-  const piece = store.pieces.find((p) => p.id === id);
+  const piece = store.allPieces.find((p) => p.id === id); // techniques live here too (#83)
   if (!piece) return null; // removed while open — the back nav below already left
 
   const sessions = store.sessions.filter((x) => x.title === piece.name);
@@ -93,7 +93,9 @@ export default function PieceDetail() {
 
       <View>
         <Text style={s.title}>{piece.name}</Text>
-        <Text style={s.meta}>{[piece.by, added && store.t('piece.added', { date: added })].filter(Boolean).join(' · ') || ' '}</Text>
+        <Text style={s.meta}>
+          {[piece.kind === 'Technique' ? store.t('addFocus.technique') : piece.by, added && store.t('piece.added', { date: added })].filter(Boolean).join(' · ') || ' '}
+        </Text>
       </View>
 
       <Card style={{ padding: 16, gap: 12 }}>
