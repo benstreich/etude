@@ -203,6 +203,16 @@
     "defaultPlanName": "Neue Routine"
   },
   "progress": {
+    "consistency": "Regelmäßigkeit",
+    "avgDaysPerWeek": "Ø %{n} Tage / Woche",
+    "daysThisWeek": "%{n} von 7 Tagen diese Woche",
+    "ratingOverTime": "Bewertung im Verlauf",
+    "last12Weeks": "letzte 12 Wochen",
+    "bestTimeOfDay": "Beste Tageszeit",
+    "morning": "Morgens",
+    "afternoon": "Nachmittags",
+    "evening": "Abends",
+    "sessionLength": "Sitzungslänge",
     "thisWeek": "Diese Woche",
     "avgPerDay": "Ø / Tag",
     "allTime": "Insgesamt",
@@ -268,6 +278,7 @@
     "pickHint": "Tippe auf einen Take, um ihn zu A zu machen; B übernimmt den anderen Platz."
   },
   "piece": {
+    "minPerBpm": "%{n} Min pro gewonnenem BPM",
     "added": "hinzugefügt am %{date}",
     "stage": "Phase",
     "total": "Gesamt",
@@ -392,6 +403,7 @@
     "axisTarget": "Ziel %{target}"
   },
   "editSession": {
+    "rating": "Bewertung",
     "title": "Einheit bearbeiten",
     "focus": "Fokus",
     "minutes": "Minuten",
@@ -415,6 +427,7 @@
     "addedToast": "%{min} Min hinzugefügt · %{day}"
   },
   "sessionReview": {
+    "rateSession": "Wie hat es sich angefühlt?",
     "ofGoalMin": "von %{goal} Min",
     "done": "Fertig",
     "niceWork": "Gut gemacht",
@@ -437,6 +450,8 @@
     "delete": "Löschen"
   },
   "recap": {
+    "avgRating": "Ø Bewertung",
+    "bestRated": "Bestbewertetes Stück",
     "thisMonth": "Dieser Monat",
     "yearSoFar": "Jahr bisher",
     "sharingUnavailable": "Teilen ist hier nicht verfügbar",

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, TextProps, View, ViewProps } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextProps, View, ViewProps } from 'react-native';
 
 import { Text } from '@/components/text';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -26,6 +26,22 @@ export const Overline = ({ style, ...p }: TextProps) => {
 export const ScreenTitle = ({ style, ...p }: TextProps) => {
   const s = useS();
   return <Text style={[s.title, style]} {...p} />;
+};
+
+/** 1–5 star rating row (#54). Tapping the current value clears it; `onChange` omitted = read-only. */
+export const Stars = ({ value, onChange, size = 28 }: { value?: number; onChange?: (v: number | undefined) => void; size?: number }) => {
+  const C = useC();
+  return (
+    <View style={{ flexDirection: 'row', gap: size * 0.25 }} accessibilityRole="adjustable" accessibilityValue={{ now: value ?? 0, min: 0, max: 5 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Pressable key={n} disabled={!onChange} hitSlop={4} onPress={() => onChange?.(value === n ? undefined : n)} accessibilityLabel={`${n}`}>
+          <Text style={{ fontSize: size, lineHeight: size * 1.15, color: value !== undefined && n <= value ? C.accent : C.chartInactive }}>
+            {value !== undefined && n <= value ? '★' : '☆'}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
 };
 
 export const Bar = ({ pct, color, height = 4 }: { pct: number; color?: string; height?: number }) => {

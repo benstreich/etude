@@ -2,13 +2,13 @@
 // minutes must move totalMin and that day's minutesByDate by the same delta —
 // these three are the source of every stat, streak, and heatmap cell.
 
-type Sess = { id: string; title: string; meta: string; min: number; date: string; note?: string };
+type Sess = { id: string; title: string; meta: string; min: number; date: string; note?: string; rating?: number };
 type Totals = { sessions: Sess[]; minutesByDate: Record<string, number>; totalMin: number };
 
 export function applySessionUpdate<S extends Totals>(
   s: S,
   id: string,
-  patch: { title?: string; meta?: string; min?: number; note?: string },
+  patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number },
 ): S {
   const sess = s.sessions.find((x) => x.id === id);
   if (!sess) return s;

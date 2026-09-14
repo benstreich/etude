@@ -5,7 +5,7 @@ import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { SHEET_AVOID } from '@/components/ui';
+import { SHEET_AVOID, Stars } from '@/components/ui';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -37,6 +37,7 @@ function Editor({
   const [focus, setFocus] = useState({ title: session.title, meta: session.meta });
   const [min, setMin] = useState(session.min);
   const [note, setNote] = useState(session.note ?? '');
+  const [rating, setRating] = useState<number | undefined>(session.rating);
   const [pickerOpen, setPickerOpen] = useState(false);
   const repeat = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const winH = useWindowDimensions().height;
@@ -54,7 +55,7 @@ function Editor({
   const holdEnd = () => clearInterval(repeat.current);
 
   const save = () => {
-    store.updateSession(session.id, { title: focus.title, meta: focus.meta, min, note });
+    store.updateSession(session.id, { title: focus.title, meta: focus.meta, min, note, rating });
     store.showToast(store.t('toast.saved'));
     onClose();
   };
@@ -127,6 +128,11 @@ function Editor({
                 </View>
                 {stepBtn('+', +5)}
               </View>
+            </View>
+
+            <View>
+              <Text style={s.label}>{store.t('editSession.rating')}</Text>
+              <Stars value={rating} onChange={setRating} />
             </View>
 
             <View>

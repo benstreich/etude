@@ -45,6 +45,7 @@ export function SessionReview({
   if (session && session.id !== prevId) {
     setPrevId(session.id);
     setNote('');
+    setRating(undefined);
   }
 
   // the soul-pass moment: content rises in, the completion cue plays once
@@ -84,6 +85,7 @@ export function SessionReview({
 
   const close = () => {
     if (note.trim()) store.setSessionNote(session.id, note);
+    if (rating) store.updateSession(session.id, { rating });
     onClose();
   };
 
@@ -130,7 +132,13 @@ export function SessionReview({
             )}
           </Animated.View>
 
-          <View style={s.noteCard}>
+          {/* optional 1–5 rating (#54): unrated stays unrated, no nag */}
+          <View style={{ alignItems: 'center', gap: 8, marginTop: 'auto' }}>
+            <Text style={s.meta}>{store.t('sessionReview.rateSession')}</Text>
+            <Stars value={rating} onChange={setRating} />
+          </View>
+
+          <View style={[s.noteCard, { marginTop: 0 }]}>
             <Text style={s.pencil}>✎</Text>
             <TextInput
               style={[s.noteInput, !note && s.noteIdle]}

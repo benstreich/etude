@@ -14,6 +14,7 @@ import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
 import { Card, Overline, SHEET_AVOID } from '@/components/ui';
 import { MAX_BPM } from '@/lib/metronome-math';
+import { minPerBpm } from '@/lib/stats-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
@@ -132,6 +133,10 @@ export default function PieceDetail() {
                 {piece.currentBpm ?? '—'}
                 <Text style={s.tempoTarget}> / {piece.targetBpm ?? '—'} BPM</Text>
               </Text>
+              {/* #54: practice cost of tempo gained, from the tempo log and this piece's sessions */}
+              {minPerBpm(piece.tempoLog ?? [], sessions) !== null && (
+                <Text style={s.tempoTarget}>{store.t('piece.minPerBpm', { n: minPerBpm(piece.tempoLog ?? [], sessions) })}</Text>
+              )}
             </Pressable>
             <MetronomeButton compact presetBpm={piece.currentBpm ?? piece.targetBpm} />
           </View>
