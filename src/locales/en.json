@@ -430,9 +430,6 @@
     },
     "subdivision": "Subdivision",
     "subdivOff": "Off",
-    "subdiv2": "2 per beat",
-    "subdiv3": "3 per beat",
-    "subdiv4": "4 per beat",
     "sound": "Click sound",
     "soundWood": "Wood",
     "soundClick": "Click",
@@ -440,7 +437,8 @@
     "soundSoft": "Soft",
     "soundRim": "Rim",
     "volume": "Click volume",
-    "accentsHint": "Tap a beat to change its accent, or mute it."
+    "accentsHint": "Tap a beat to change its accent, or mute it.",
+    "subdivHint": "Clicks per beat."
   },
   "tempoLadder": {
     "title": "Tempo ladder",

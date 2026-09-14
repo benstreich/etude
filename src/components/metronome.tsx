@@ -13,13 +13,9 @@ const UNITS: RampUnit[] = ['bars', 'seconds'];
 const UNIT_KEY: Record<RampUnit, string> = { bars: 'metronome.bars', seconds: 'metronome.seconds' };
 const UNIT_ONE_KEY: Record<RampUnit, string> = { bars: 'metronome.bar', seconds: 'metronome.second' };
 const TIME_SIGS = ['1/4', '2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'];
-// "2 per beat", not "eighths": in 6/8 a beat is already an eighth, so note names lie
-const SUBDIV_KEY: Record<number, string> = {
-  1: 'metronome.subdivOff',
-  2: 'metronome.subdiv2',
-  3: 'metronome.subdiv3',
-  4: 'metronome.subdiv4',
-};
+// Bare counts, with "clicks per beat" spelled out underneath: "2 per beat" in
+// four languages did not fit one row on a phone, and note names would lie
+// anyway (in 6/8 a beat is already an eighth).
 const SOUND_KEY: Record<SoundSet, string> = {
   wood: 'metronome.soundWood',
   click: 'metronome.soundClick',
@@ -149,12 +145,15 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
                 {SUBDIVS.map((n, i) => (
                   <Pressable
                     key={n}
-                    style={[s.segBtn, i > 0 && s.segBtnDivider, subdiv === n && s.segBtnSel]}
+                    style={[s.segBtn, s.segBtnWide, i > 0 && s.segBtnDivider, subdiv === n && s.segBtnSel]}
                     onPress={() => setSubdiv(n)}>
-                    <Text style={[s.segText, subdiv === n && s.segTextSel]}>{t(SUBDIV_KEY[n])}</Text>
+                    <Text style={[s.segText, subdiv === n && s.segTextSel]}>
+                      {n === 1 ? t('metronome.subdivOff') : n}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
+              <Text style={s.hint}>{t('metronome.subdivHint')}</Text>
             </View>
 
             <View style={{ gap: 10 }}>
@@ -341,6 +340,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   // deliberately unlike the loose chips above, which mean a many-way pick
   seg: { flexDirection: 'row', height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, overflow: 'hidden' },
   segBtn: { paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  segBtnWide: { flex: 1 }, // four equal cells, so nothing runs off a phone screen
   segBtnDivider: { borderLeftWidth: 1, borderLeftColor: C.inputBorder },
   segBtnSel: { backgroundColor: C.accentTint },
   segText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
