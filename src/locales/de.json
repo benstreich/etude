@@ -1,5 +1,7 @@
 {
   "common": {
+    "all": "Alle",
+    "dayNames": "Sonntag,Montag,Dienstag,Mittwoch,Donnerstag,Freitag,Samstag",
     "today": "Heute",
     "yesterday": "Gestern",
     "dayLetters": "SMDMDFS"
@@ -59,6 +61,9 @@
     "accentSlate": "Schiefer"
   },
   "settings": {
+    "breakEvery": "Pausenerinnerung",
+    "everyMin": "alle %{min} Min",
+    "breakEveryHint": "Der Timer erinnert dich nach so vielen Minuten an eine Pause. Pausen halten die Sitzung an und zählen nicht als Übung.",
     "title": "Einstellungen",
     "rate": "Gefällt dir Étude? Hinterlasse eine Bewertung",
     "rateSub": "Eine Bewertung hilft anderen Musiker:innen, die App zu finden",
@@ -173,6 +178,14 @@
     "nothingSpecific": "Nichts Bestimmtes"
   },
   "practice": {
+    "breakDue": "%{min} Min — kurz Pause machen?",
+    "startBreak": "Pause starten",
+    "skip": "Überspringen",
+    "onBreak": "Pause",
+    "breakOver": "Pause vorbei",
+    "breakChannel": "Pausen",
+    "breakOverTitle": "Pause vorbei",
+    "breakOverBody": "Weiter üben?",
     "micPermissionNeeded": "Mikrofonberechtigung erforderlich",
     "recordStartFailed": "Aufnahme konnte nicht gestartet werden",
     "paused": "Pausiert",
@@ -203,6 +216,18 @@
     "defaultPlanName": "Neue Routine"
   },
   "progress": {
+    "insights": "Einsichten",
+    "lengthMin": "%{range} Min",
+    "weekend": "am Wochenende",
+    "weekday": "an Wochentagen",
+    "routine": "mit einer Routine",
+    "free": "in einer freien Sitzung",
+    "driversSentence": "Deine bestbewerteten Sitzungen: %{list}.",
+    "concentrationSentence": "%{pct} % dieses Zeitraums gingen an %{top} von %{total} Schwerpunkten.",
+    "streakSentence": "Deine Serien reißen meist an Tag %{day}, am häufigsten an einem %{weekday}.",
+    "paceSentence": "Im Tempo der letzten 8 Wochen erreichst du dieses Jahr %{hours} Stunden.",
+    "milestoneSentence": "%{hours} Stunden Übung erreichst du etwa am %{date}.",
+    "dueSentence": "%{piece} wurde seit %{days} Tagen nicht gespielt — Zeit für eine Auffrischung.",
     "consistency": "Regelmäßigkeit",
     "avgDaysPerWeek": "Ø %{n} Tage / Woche",
     "daysThisWeek": "%{n} von 7 Tagen diese Woche",
@@ -235,6 +260,7 @@
     "nothingInPeriod": "In diesem Zeitraum nichts eingetragen"
   },
   "repertoire": {
+    "dueForReview": "Seit %{days} Tagen nicht gespielt — Auffrischung fällig",
     "emptyTitle": "Woran arbeitest du gerade?",
     "emptyText": "Füge das Stück hinzu, das du lernst — die Suche ergänzt den Künstler für dich.",
     "addAPiece": "Stück hinzufügen",
@@ -278,6 +304,8 @@
     "pickHint": "Tippe auf einen Take, um ihn zu A zu machen; B übernimmt den anderen Platz."
   },
   "piece": {
+    "forecast": "In diesem Tempo: %{target} BPM etwa am %{date}",
+    "plateau": "Plateau — drei Wochen ohne Tempozuwachs. Passage wechseln, langsamer, in Stücke teilen.",
     "minPerBpm": "%{n} Min pro gewonnenem BPM",
     "added": "hinzugefügt am %{date}",
     "stage": "Phase",
@@ -299,6 +327,7 @@
     "save": "Speichern"
   },
   "plan": {
+    "break": "Pause",
     "savePlan": "Routine speichern",
     "planName": "Routinenname",
     "segmentCount": {
@@ -323,6 +352,8 @@
     "saveSegment": "Segment speichern"
   },
   "planRun": {
+    "break": "Pause",
+    "breakHint": "Erholung — diese Zeit wird nicht gezählt",
     "end": "Beenden",
     "endTitle": "Routine beenden?",
     "endMessage": "Das aktuelle Segment wird so gespeichert.",
@@ -450,6 +481,7 @@
     "delete": "Löschen"
   },
   "recap": {
+    "onPace": "Auf Kurs für",
     "avgRating": "Ø Bewertung",
     "bestRated": "Bestbewertetes Stück",
     "thisMonth": "Dieser Monat",

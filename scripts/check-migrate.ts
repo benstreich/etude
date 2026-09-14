@@ -84,4 +84,11 @@ assert.equal((migrate(save({ pieces: [] }), { ...seed(), onboarded: false }) as 
 assert.equal((migrate(save({ pieces: [], onboarded: false }), { ...seed(), onboarded: false }) as any).onboarded, false);
 assert.equal((migrate(null, { ...seed(), onboarded: false }) as any).onboarded, false);
 
+// #58: a single instrument tags every untagged piece and session; two instruments leave them alone
+const one = migrate(save({ instruments: ['Piano'], pieces: [{ name: 'A', stage: 0 }, { name: 'B', stage: 0, instrument: 'Guitar' }], sessions: [{ id: 's', title: 'A', meta: 'Piece', min: 5, date: '2026-09-01' }] }), seed()) as any;
+assert.deepEqual(one.pieces.map((p: any) => p.instrument), ['Piano', 'Guitar']);
+assert.equal(one.sessions[0].instrument, 'Piano');
+const two = migrate(save({ instruments: ['Piano', 'Guitar'], pieces: [{ name: 'A', stage: 0 }] }), seed()) as any;
+assert.equal(two.pieces[0].instrument, undefined);
+
 console.log('check-migrate: all assertions passed');

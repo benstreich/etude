@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NoteIcon, SearchIcon } from '@/components/icons';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
-import { Bar, Card, Overline, ScreenTitle, SHEET_AVOID } from '@/components/ui';
+import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, SHEET_AVOID, useInstrumentFilter } from '@/components/ui';
+import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
@@ -58,7 +59,10 @@ export default function Repertoire() {
     else store.addTechnique(t.trim());
   };
 
-  const active = store.pieces.filter((p) => !p.archived);
+  const inst = useInstrumentFilter();
+  const [addInst, setAddInst] = useState<string | null>(null); // instrument for the piece being added; null = primary
+  // untagged pieces show under every instrument (#58)
+  const active = store.pieces.filter((p) => !p.archived && (!inst || !p.instrument || p.instrument === inst));
   const archived = store.pieces.filter((p) => p.archived);
 
   // invested time from the session log, matched by title — pieces and
@@ -75,6 +79,7 @@ export default function Repertoire() {
     return { min, last };
   };
   const stats = (p: Piece) => techStats(p.name);
+  const stale = (p: Piece) => staleness(store.sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today);
 
   // song/artist suggestions from the iTunes Search API (public, no key)
   useEffect(() => {
@@ -113,7 +118,8 @@ export default function Repertoire() {
 
   const add = (n: string, by: string) => {
     if (!n) return;
-    store.addPiece(n, by);
+    store.addPiece(n, by, addInst ?? (inst || undefined));
+    setAddInst(null);
     setName('');
     setArtist('');
     setCreating(null);
@@ -129,6 +135,7 @@ export default function Repertoire() {
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
+      <InstrumentFilter style={{ marginTop: -10 }} />
 
       {active.length === 0 ? (
         <>
@@ -174,6 +181,10 @@ export default function Repertoire() {
                     <Text style={s.invested}>
                       {store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })}
                     </Text>
+                  )}
+                  {/* #61 §2: a finished piece left past twice its usual gap is due for a maintenance pass */}
+                  {p.stage >= store.stages.length - 1 && stale(p)?.due && (
+                    <Text style={[s.invested, { color: C.accent }]}>{store.t('repertoire.dueForReview', { days: stale(p)!.daysSince })}</Text>
                   )}
                 </View>
                 <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
@@ -337,6 +348,18 @@ export default function Repertoire() {
             ) : (
               <View>
                 <Text style={s.creatingLabel}>{store.t('repertoire.addingNamed', { name: creating })}</Text>
+                {store.instruments.length > 1 && (
+                  <View style={[s.chipWrap, { marginBottom: 10 }]}>
+                    {store.instruments.map((i) => {
+                      const sel = (addInst ?? inst ?? '') === i || (!addInst && !inst && i === store.instruments[0]);
+                      return (
+                        <Pressable key={i} style={[s.chip, sel && s.chipSel]} onPress={() => setAddInst(i)}>
+                          <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
                 <View style={s.addRow}>
                   <TextInput
                     style={s.input}
@@ -404,6 +427,24 @@ export default function Repertoire() {
               <>
                 <Text style={s.sheetTitle}>{menuPiece.name}</Text>
                 <RecordingsList recordings={store.recordings.filter((r) => r.piece === menuPiece.name)} />
+                {store.instruments.length > 1 && (
+                  <View style={[s.chipWrap, { paddingVertical: 10 }]}>
+                    {store.instruments.map((i) => {
+                      const sel = menuPiece.instrument === i;
+                      return (
+                        <Pressable
+                          key={i}
+                          style={[s.chip, sel && s.chipSel]}
+                          onPress={() => {
+                            store.updatePiece(menuPiece.id, { instrument: sel ? undefined : i });
+                            setMenuPiece({ ...menuPiece, instrument: sel ? undefined : i });
+                          }}>
+                          <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
                 <Pressable
                   style={s.sheetRow}
                   onPress={() => {

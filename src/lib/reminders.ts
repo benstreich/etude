@@ -73,6 +73,30 @@ export async function syncReminder(reminder: string, sounds = true): Promise<boo
   return true;
 }
 
+/**
+ * One-off notification when a practice break ends (#59), for when the app is
+ * backgrounded during the break. Returns the id to cancel with, or null.
+ */
+export async function scheduleBreakEnd(sec: number): Promise<string | null> {
+  if (Platform.OS === 'web' || !Notifications || sec <= 0) return null;
+  try {
+    const { granted } = await Notifications.getPermissionsAsync();
+    if (!granted) return null;
+    if (Platform.OS === 'android')
+      await Notifications.setNotificationChannelAsync('breaks', { name: tr('practice.breakChannel'), importance: Notifications.AndroidImportance.DEFAULT });
+    return await Notifications.scheduleNotificationAsync({
+      content: { title: tr('practice.breakOverTitle'), body: tr('practice.breakOverBody') },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: sec, channelId: Platform.OS === 'android' ? 'breaks' : undefined },
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function cancelBreakEnd(id: string | null) {
+  if (id && Notifications) Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+}
+
 // false only when the OS has actually blocked us — unknown/unsupported reads as allowed
 export async function notificationsAllowed(): Promise<boolean> {
   if (Platform.OS === 'web' || !Notifications) return true;

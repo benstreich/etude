@@ -61,3 +61,59 @@ assert.equal(minPerBpm(log.slice(1), sessions), null);
 assert.equal(minPerBpm([{ date: '2026-09-01', bpm: 90 }, { date: '2026-09-10', bpm: 85 }], sessions), null);
 
 console.log('check-stats: all assertions passed');
+
+// ---- #61 insights
+import { concentration, projection, qualityDrivers, staleness, streakSurvival, tempoForecast } from '../src/lib/stats-math.ts';
+
+// --- tempoForecast: 2 BPM/day → 122 reached 10 days after the last entry; too short a log → null
+const tlog = [0, 7, 14, 21].map((d) => ({ date: `2026-08-${String(1 + d).padStart(2, '0')}`, bpm: 60 + 2 * d }));
+const fc = tempoForecast(tlog, 122, '2026-08-23', [])!;
+assert.equal(fc.bpmPerWeek, 14);
+assert.equal(fc.reachDate, '2026-09-01'); // 102 → 122 at 2/day = 10 days after 08-22
+assert.equal(fc.plateau, false);
+assert.equal(tempoForecast(tlog.slice(0, 3), 122, '2026-08-23', []), null);
+assert.equal(tempoForecast(tlog, 90, '2026-08-23', [])!.reachDate, null); // already past the target
+// plateau: plenty of recent minutes, nothing above the pre-window best
+const flat = [{ date: '2026-07-01', bpm: 80 }, { date: '2026-07-10', bpm: 84 }, { date: '2026-08-20', bpm: 84 }, { date: '2026-09-01', bpm: 83 }];
+assert.equal(tempoForecast(flat, 120, '2026-09-05', [{ min: 70, date: '2026-08-30' }])!.plateau, true);
+assert.equal(tempoForecast(flat, 120, '2026-09-05', [{ min: 20, date: '2026-08-30' }])!.plateau, false);
+
+// --- staleness: a weekly piece untouched for 20 days is due; a fresh one is not
+assert.deepEqual(staleness(['2026-08-01', '2026-08-08', '2026-08-15'], '2026-09-04'), { daysSince: 20, medianGap: 7, due: true });
+assert.equal(staleness(['2026-08-25'], '2026-09-04')!.due, false);
+assert.equal(staleness([], '2026-09-04'), null);
+
+// --- qualityDrivers: 8 routine 5-star vs 8 free 3-star → routine wins by 2.0; no other dimension has 8 a side
+const drv = qualityDrivers([
+  ...Array.from({ length: 8 }, (_, i) => ({ title: 'A', min: 30, date: `2026-08-${String(i + 1).padStart(2, '0')}`, rating: 5, planId: 'p' })),
+  ...Array.from({ length: 8 }, (_, i) => ({ title: 'A', min: 30, date: `2026-08-${String(i + 11).padStart(2, '0')}`, rating: 3 })),
+]);
+assert.deepEqual(drv, [{ dim: 'routine', best: 'routine', gap: 2 }]);
+assert.deepEqual(qualityDrivers(sessions), []);
+
+// --- concentration: 80 % held by the top 2 of 4 focuses
+assert.deepEqual(concentration([{ title: 'a', min: 50 }, { title: 'b', min: 30 }, { title: 'c', min: 10 }, { title: 'd', min: 10 }]), { pct: 80, top: 2, total: 4 });
+assert.equal(concentration([{ title: 'a', min: 50 }]), null);
+
+// --- streakSurvival: three ended runs (3, 2, 1 days); the run that reached yesterday is still alive
+const mbd: Record<string, number> = {};
+for (const d of ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-10', '2026-08-11', '2026-08-17', '2026-09-03']) mbd[d] = 20;
+const sv = streakSurvival(mbd, '2026-09-04')!;
+assert.equal(sv.count, 3);
+assert.equal(sv.typicalLength, 2);
+assert.equal(sv.breakWeekday, 2); // breaks on Thu, Wed, Tue — a three-way tie resolves to the lowest weekday
+assert.equal(streakSurvival({ '2026-08-03': 20 }, '2026-09-04'), null);
+
+// --- projection: 30 min/day for the last 56 days → next milestone 50 h, 44 days out
+const daily: Record<string, number> = {};
+for (let i = 0; i < 56; i++) {
+  const d = new Date(2026, 8, 1 - i);
+  daily[`2026-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`] = 30;
+}
+const pj = projection(daily, 56 * 30, '2026-09-01')!;
+assert.equal(pj.milestoneH, 50); // 28 h done
+assert.equal(pj.milestoneDate, '2026-10-15'); // 22 h left at 0.5 h/day = 44 days
+assert.ok(pj.hoursByYearEnd > 80 && pj.hoursByYearEnd < 90, String(pj.hoursByYearEnd));
+assert.equal(projection({}, 0, '2026-09-01'), null);
+
+console.log('check-stats: insights passed');

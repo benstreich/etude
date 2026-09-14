@@ -14,7 +14,7 @@ import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
 import { Card, Overline, SHEET_AVOID } from '@/components/ui';
 import { MAX_BPM } from '@/lib/metronome-math';
-import { minPerBpm } from '@/lib/stats-math';
+import { minPerBpm, tempoForecast } from '@/lib/stats-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
@@ -43,6 +43,7 @@ export default function PieceDetail() {
   const recordings = store.recordings.filter((r) => r.piece === piece.name);
   const totalMin = sessions.reduce((a, x) => a + x.min, 0);
   const last = sessions[0]?.date; // sessions are kept sorted newest-first
+  const forecast = tempoForecast(piece.tempoLog ?? [], piece.targetBpm, store.today, sessions);
   const n = store.stages.length;
   const stage = Math.min(piece.stage, n - 1);
   const added = piece.addedAt
@@ -137,6 +138,13 @@ export default function PieceDetail() {
               {minPerBpm(piece.tempoLog ?? [], sessions) !== null && (
                 <Text style={s.tempoTarget}>{store.t('piece.minPerBpm', { n: minPerBpm(piece.tempoLog ?? [], sessions) })}</Text>
               )}
+              {/* #61 §1: straight-line forecast to the target, and a plateau nudge */}
+              {forecast?.reachDate && (
+                <Text style={s.tempoTarget}>
+                  {store.t('piece.forecast', { target: piece.targetBpm, date: new Date(forecast.reachDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })}
+                </Text>
+              )}
+              {forecast?.plateau && <Text style={[s.tempoTarget, { color: C.accent }]}>{store.t('piece.plateau')}</Text>}
             </Pressable>
             <MetronomeButton compact presetBpm={piece.currentBpm ?? piece.targetBpm} />
           </View>

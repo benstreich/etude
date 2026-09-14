@@ -8,9 +8,9 @@ import { EditSessionSheet } from '@/components/edit-session';
 import { ShareIcon } from '@/components/icons';
 import { RecapModal } from '@/components/recap-card';
 import { Text } from '@/components/text';
-import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
+import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, useInstrumentFilter } from '@/components/ui';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
-import { byLength, byTimeOfDay, consistency, MIN_RATED, rated, ratingByFocus, ratingByWeek, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
+import { byLength, byTimeOfDay, concentration, consistency, MIN_RATED, projection, qualityDrivers, rated, ratingByFocus, ratingByWeek, staleness, streakSurvival, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -31,7 +31,14 @@ export default function Progress() {
   const insets = useSafeAreaInsets();
   const [selDate, setSelDate] = useState<string | null>(null);
   const [recapOpen, setRecapOpen] = useState(false);
-  const empty = store.totalMin === 0 && store.sessions.length === 0;
+  // #58: one instrument's slice of the log; the heatmap and week stats re-derive their
+  // daily minutes from the filtered sessions instead of the global rollup
+  const inst = useInstrumentFilter();
+  const sessions = inst ? store.sessions.filter((x) => x.instrument === inst) : store.sessions;
+  const mbd = inst
+    ? sessions.reduce<Record<string, number>>((a, x) => ((a[x.date] = (a[x.date] ?? 0) + x.min), a), {})
+    : store.minutesByDate;
+  const empty = store.totalMin === 0 && sessions.length === 0;
 
   // calendar week honoring the "Week starts on" setting; chart below stays rolling last-7-days.
   // anchored on store.now so the numbers follow the calendar instead of freezing at mount
@@ -42,7 +49,7 @@ export default function Progress() {
   for (let i = 0; i < elapsed; i++) {
     const d = new Date(store.now);
     d.setDate(d.getDate() - i);
-    const min = store.minutesByDate[dateKey(d)] ?? 0;
+    const min = mbd[dateKey(d)] ?? 0;
     weekTotal += min;
     if (min > 0) weekPracticed++;
   }
@@ -62,7 +69,7 @@ export default function Progress() {
   const todayDayNum = base.getDate();
   const elapsedDays = monthOff === 0 ? todayDayNum : daysInMonth;
   let practiced = 0;
-  for (let d = 1; d <= elapsedDays; d++) if ((store.minutesByDate[dateKey(new Date(mY, mM, d))] ?? 0) > 0) practiced++;
+  for (let d = 1; d <= elapsedDays; d++) if ((mbd[dateKey(new Date(mY, mM, d))] ?? 0) > 0) practiced++;
   const weeks = monthGrid(mY, mM, start === 1);
   const letters = store.t('common.dayLetters').split('');
   const dow = start === 1 ? [...letters.slice(1), letters[0]] : letters;
@@ -77,18 +84,40 @@ export default function Progress() {
   cutoffDate.setDate(cutoffDate.getDate() - ((period.days ?? 1) - 1));
   const cutoff = period.days ? dateKey(cutoffDate) : '';
   // the period picker filters every session-based card below; the heatmap and week stats stay calendar-based
-  const inPeriod = store.sessions.filter((sess) => sess.date >= cutoff);
+  const inPeriod = sessions.filter((sess) => sess.date >= cutoff);
   const focusRows = ratingByFocus(inPeriod);
   const focusMax = focusRows[0]?.min ?? 1;
 
   // rating statistics (#54) — hidden below MIN_RATED rated sessions in the period rather than showing noise
   const enoughRated = rated(inPeriod).length >= MIN_RATED;
   // ponytail: the trend always spans 12 weeks over all sessions — a 7-day window has no trend to draw
-  const weekPoints = ratingByWeek(store.sessions, store.today, start === 1);
+  const weekPoints = ratingByWeek(sessions, store.today, start === 1);
   const timeOfDay = byTimeOfDay(inPeriod);
   const lengths = byLength(inPeriod);
-  const cons = consistency(store.minutesByDate, store.today, start === 1);
+  const cons = consistency(mbd, store.today, start === 1);
   const stars = (v: number | null) => (v === null ? '—' : `★ ${v.toFixed(1)}`);
+
+  // #61 insights — one sentence each; every helper returns null when the data is too thin
+  const dayNames = store.t('common.dayNames').split(',');
+  const drivers = enoughRated ? qualityDrivers(inPeriod) : [];
+  const driverLabel = (d: (typeof drivers)[number]) =>
+    d.dim === 'timeOfDay' ? store.t(`progress.${d.best}`).toLowerCase() : d.dim === 'length' ? store.t('progress.lengthMin', { range: d.best }) : store.t(`progress.${d.best}`);
+  const conc = concentration(inPeriod);
+  const survival = streakSurvival(mbd, store.today);
+  const proj = projection(mbd, inst ? sessions.reduce((a, x) => a + x.min, 0) : store.totalMin, store.today);
+  const due = store.pieces
+    .filter((p) => !p.archived && p.stage >= store.stages.length - 1 && (!inst || !p.instrument || p.instrument === inst))
+    .map((p) => ({ p, st: staleness(sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today) }))
+    .filter((x) => x.st?.due)
+    .sort((a, b) => b.st!.daysSince - a.st!.daysSince);
+  const insights: string[] = [
+    ...(drivers.length ? [store.t('progress.driversSentence', { list: drivers.map(driverLabel).join(' · ') })] : []),
+    ...(conc && conc.top < conc.total ? [store.t('progress.concentrationSentence', { pct: conc.pct, top: conc.top, total: conc.total })] : []),
+    ...(survival ? [store.t('progress.streakSentence', { day: survival.typicalLength + 1, weekday: dayNames[survival.breakWeekday] })] : []),
+    ...(proj ? [store.t('progress.paceSentence', { hours: proj.hoursByYearEnd })] : []),
+    ...(proj?.milestoneDate ? [store.t('progress.milestoneSentence', { hours: proj.milestoneH, date: new Date(proj.milestoneDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })] : []),
+    ...due.slice(0, 3).map((x) => store.t('progress.dueSentence', { piece: x.p.name, days: x.st!.daysSince })),
+  ];
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
@@ -126,6 +155,8 @@ export default function Progress() {
       </View>
 
       {!empty && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <InstrumentFilter />
         <View style={s.segTrack}>
           {PERIODS.map((p) => {
             const sel = p.key === period.key;
@@ -135,6 +166,7 @@ export default function Progress() {
               </Pressable>
             );
           })}
+        </View>
         </View>
       )}
 
@@ -193,7 +225,7 @@ export default function Progress() {
             {row.map((day, di) => {
               if (day === null) return <View key={di} style={s.cell} />;
               const key = dateKey(new Date(mY, mM, day));
-              const level = heatLevel(store.minutesByDate[key] ?? 0);
+              const level = heatLevel(mbd[key] ?? 0);
               const future = monthOff === 0 && day > elapsedDays;
               const isToday = monthOff === 0 && day === todayDayNum;
               const bg = future ? 'transparent' : [C.track, heat1, heat2, C.accent][level];
@@ -227,9 +259,9 @@ export default function Progress() {
           <View style={s.dayDetail}>
             <View style={s.skillRow}>
               <Text style={s.skillName}>{dayLabel(selDate, store.today, store.t, store.lang)}</Text>
-              <Text style={s.skillLevel}>{fmtTime(store.minutesByDate[selDate] ?? 0, store.t)}</Text>
+              <Text style={s.skillLevel}>{fmtTime(mbd[selDate] ?? 0, store.t)}</Text>
             </View>
-            {store.sessions
+            {sessions
               .filter((sess) => sess.date === selDate)
               .map((sess) => (
                 <Pressable key={sess.id} style={{ marginTop: 6 }} onPress={() => setEditSess(sess)}>
@@ -243,7 +275,7 @@ export default function Progress() {
                   {!!sess.note && <Text style={s.detailNote}>{sess.note}</Text>}
                 </Pressable>
               ))}
-            {!store.sessions.some((sess) => sess.date === selDate) && (
+            {!sessions.some((sess) => sess.date === selDate) && (
               <Text style={s.detailEmpty}>{store.t('progress.noSessionDetails')}</Text>
             )}
           </View>
@@ -251,7 +283,7 @@ export default function Progress() {
       </Card>
       )}
 
-      {store.sessions.length > 0 && (
+      {sessions.length > 0 && (
         <Card>
           <Overline style={{ marginBottom: 4 }}>{store.t('progress.timeByFocus')}</Overline>
           {focusRows.length === 0 && <Text style={s.detailEmpty}>{store.t('progress.nothingInPeriod')}</Text>}
@@ -270,7 +302,7 @@ export default function Progress() {
         </Card>
       )}
 
-      {store.sessions.length > 0 && (
+      {sessions.length > 0 && (
         <Card>
           <View style={s.focusHead}>
             <Overline>{store.t('progress.consistency')}</Overline>
@@ -336,6 +368,17 @@ export default function Progress() {
         </>
       )}
 
+      {insights.length > 0 && (
+        <Card>
+          <Overline style={{ marginBottom: 6 }}>{store.t('progress.insights')}</Overline>
+          {insights.map((line, i) => (
+            <View key={i} style={s.bucketRow}>
+              <Text style={s.insight}>{line}</Text>
+            </View>
+          ))}
+        </Card>
+      )}
+
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
       <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
     </ScrollView>
@@ -358,6 +401,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
   bucketRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.hairline },
   bucketLabel: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
+  insight: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },
   bucketStars: { fontFamily: F.bodySemi, fontSize: fs(12), minWidth: 42, textAlign: 'right' },
   stat: { flex: 1 },
   statNum: { fontFamily: F.head, fontSize: fs(30), color: C.ink },
