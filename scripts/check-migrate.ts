@@ -98,4 +98,11 @@ assert.deepEqual((migrate(save({ pieces: [] }), seed()) as any).attachments, [])
 assert.deepEqual((migrate(save({ attachments: null }), seed()) as any).attachments, []);
 assert.equal((migrate(save({ attachments: [{ id: 'a' }] }), seed()) as any).attachments.length, 1);
 
+// #83: bare technique names become pieces of kind 'Technique'; a name that already
+// is a piece is not doubled, blanks are dropped, and the old array is gone
+const tech = migrate(save({ pieces: [{ id: 'p1', name: 'Scales & arpeggios', stage: 1 }], techniques: ['Scales & arpeggios', 'Sight reading', ' '] }), seed()) as any;
+assert.deepEqual(tech.pieces.map((p: any) => [p.name, p.kind ?? 'Piece']), [['Scales & arpeggios', 'Piece'], ['Sight reading', 'Technique']]);
+assert.equal(tech.pieces[1].id, 'tech-sight-reading');
+assert.equal('techniques' in tech, false);
+
 console.log('check-migrate: all assertions passed');
