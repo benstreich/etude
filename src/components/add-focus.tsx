@@ -10,13 +10,17 @@ import { F, themed, useC, type T } from '@/lib/theme';
 
 export type Focus = { name: string; kind: 'Piece' | 'Technique' };
 
-export function AddFocus({ onAdded }: { onAdded?: (focus: Focus) => void }) {
+export function AddFocus({ onAdded, onOpenChange }: { onAdded?: (focus: Focus) => void; onOpenChange?: (open: boolean) => void }) {
   const s = useS();
   const C = useC();
   const store = useStore();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Focus['kind']>('Piece');
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
 
   const submit = () => {
     const n = name.trim();
@@ -25,12 +29,12 @@ export function AddFocus({ onAdded }: { onAdded?: (focus: Focus) => void }) {
     else store.addTechnique(n);
     onAdded?.({ name: n, kind });
     setName('');
-    setOpen(false);
+    toggle(false);
   };
 
   if (!open)
     return (
-      <Pressable style={s.newChip} onPress={() => setOpen(true)}>
+      <Pressable style={s.newChip} onPress={() => toggle(true)}>
         <Text style={s.newChipText}>{store.t('addFocus.new')}</Text>
       </Pressable>
     );
@@ -60,7 +64,7 @@ export function AddFocus({ onAdded }: { onAdded?: (focus: Focus) => void }) {
         <Pressable style={[s.addBtn, !name.trim() && { opacity: 0.4 }]} disabled={!name.trim()} onPress={submit}>
           <Text style={s.addBtnText}>{store.t('addFocus.add')}</Text>
         </Pressable>
-        <Pressable hitSlop={8} onPress={() => { setOpen(false); setName(''); }}>
+        <Pressable hitSlop={8} onPress={() => { toggle(false); setName(''); }}>
           <Text style={s.cancel}>×</Text>
         </Pressable>
       </View>

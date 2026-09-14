@@ -6,13 +6,22 @@ import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 /**
- * KeyboardAvoidingView behavior for a bottom sheet inside a <Modal> (#39, #48).
- * On Android the window already resizes for the keyboard, so padding on top of
- * that lifts the sheet twice — the fix is to keep the KAV (it scrolls the focused
- * input into view) with no behavior at all, per Expo's keyboard-handling guide.
- * iOS never resizes, so there the sheet does need the padding.
+ * KeyboardAvoidingView behaviors. Android has two kinds of window here and they
+ * react to the keyboard differently (#39, #48, #75):
+ *
+ * - A <Modal>'s dialog window: RN sets SOFT_INPUT_ADJUST_RESIZE on it and, with
+ *   statusBarTranslucent off, fitsSystemWindows — so the window itself shrinks when
+ *   the keyboard opens. Padding on top of that lifts the sheet twice. Sheets keep the
+ *   KAV for its scroll-into-view but give it no behavior on Android.
+ * - The activity window: Expo 57 draws edge-to-edge, and an edge-to-edge window no
+ *   longer honours adjustResize (the framework stops applying the IME inset), so
+ *   nothing moves. Full-screen views with a text field near the bottom need the
+ *   padding on Android as well as iOS.
+ *
+ * iOS windows never resize, so both use padding there.
  */
 export const SHEET_AVOID = Platform.OS === 'ios' ? ('padding' as const) : undefined;
+export const SCREEN_AVOID = 'padding' as const;
 
 export const Card = ({ style, ...p }: ViewProps) => {
   const s = useS();
