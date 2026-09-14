@@ -430,9 +430,6 @@
     },
     "subdivision": "Unterteilung",
     "subdivOff": "Aus",
-    "subdiv2": "2 pro Schlag",
-    "subdiv3": "3 pro Schlag",
-    "subdiv4": "4 pro Schlag",
     "sound": "Klick-Klang",
     "soundWood": "Holz",
     "soundClick": "Klick",
@@ -440,7 +437,8 @@
     "soundSoft": "Weich",
     "soundRim": "Rim",
     "volume": "Klick-Lautstärke",
-    "accentsHint": "Tippe einen Schlag an, um seine Betonung zu ändern oder ihn stummzuschalten."
+    "accentsHint": "Tippe einen Schlag an, um seine Betonung zu ändern oder ihn stummzuschalten.",
+    "subdivHint": "Klicks pro Schlag."
   },
   "tempoLadder": {
     "title": "Tempoleiter",
