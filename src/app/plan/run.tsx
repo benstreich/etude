@@ -67,8 +67,10 @@ function Runner({ id }: { id: string }) {
     return () => clearInterval(t);
   }, [startedAt, accum, review]);
 
+  const isBreak = seg?.focus.kind === 'Break';
+
   const logSegment = (sec: number) => {
-    if (!plan || !seg) return '';
+    if (!plan || !seg || seg.focus.kind === 'Break') return ''; // #59: rests are never logged
     const min = Math.max(1, Math.round(sec / 60));
     return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id);
   };
@@ -81,13 +83,15 @@ function Runner({ id }: { id: string }) {
     setStartedAt(Date.now());
     const next = plan.segments[i];
     if (metro.running && next.bpm) metro.setBpm(next.bpm);
+    if (metro.running && next.focus.kind === 'Break') metro.toggle(); // silence for the rest (#59)
   };
 
   const finish = (lastId: string) => {
     if (!plan) return;
     if (metro.running) metro.toggle();
     setActiveRun(null);
-    const total = plan.segments.slice(0, idx).reduce((a, x) => a + x.min, 0) + Math.round(seconds / 60);
+    // break segments don't count as practice (#59)
+    const total = plan.segments.slice(0, idx).reduce((a, x) => a + (x.focus.kind === 'Break' ? 0 : x.min), 0) + (isBreak ? 0 : Math.round(seconds / 60));
     setStartedAt(null);
     setReview({ id: lastId, min: Math.max(1, total), focusName: plan.name, start: runStart, end: Date.now() });
   };
@@ -140,9 +144,12 @@ function Runner({ id }: { id: string }) {
   const doneMin = plan.segments.slice(0, idx).reduce((a, sg) => a + sg.min, 0);
   const runDone = Math.min(1, (doneMin + Math.min(seg.min, seconds / 60)) / planMin);
 
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const ss = String(seconds % 60).padStart(2, '0');
-  const title = seg.note ? `${seg.focus.name} · ${seg.note}` : seg.focus.name;
+  const focusName = isBreak ? store.t('planRun.break') : seg.focus.name;
+  const title = seg.note ? `${focusName} · ${seg.note}` : focusName;
+  // a break counts down; practice counts up
+  const shown = isBreak ? Math.max(0, segSec - seconds) : seconds;
+  const mm = String(Math.floor(shown / 60)).padStart(2, '0');
+  const ss = String(shown % 60).padStart(2, '0');
   const chipBpm = metro.running ? metro.bpm : (seg.bpm ?? null);
 
   // opens the full sheet so tempo/time-sig/ramp stay adjustable mid-session (#31)
@@ -174,11 +181,13 @@ function Runner({ id }: { id: string }) {
         <Text style={s.timer} numberOfLines={1} adjustsFontSizeToFit>
           {mm}:{ss}
         </Text>
-        <Text style={s.of}>{store.t('planRun.ofMin', { min: seg.min })}</Text>
+        <Text style={s.of}>{isBreak ? store.t('planRun.breakHint') : store.t('planRun.ofMin', { min: seg.min })}</Text>
+        {!isBreak && (
         <Pressable style={s.metroChip} onPress={openMetro}>
           <TickDot bpm={chipBpm ?? 0} on={metro.running} color={C.accent} />
           {chipBpm ? <Tempo bpm={chipBpm} size={13.5} /> : <Text style={s.metroText}>{store.t('metronome.metronome')}</Text>}
         </Pressable>
+        )}
       </View>
 
       <View style={s.controls}>

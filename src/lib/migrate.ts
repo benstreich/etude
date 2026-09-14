@@ -39,5 +39,12 @@ export function migrate<S>(raw: string | null, seedState: S): S {
       uri: typeof r.uri === 'string' ? r.uri.replace(/^.*?\/(Documents|files)\//, '') : r.uri,
     }),
   );
+  // #58: with exactly one instrument every untagged piece and session belongs to it
+  if (Array.isArray(merged.instruments) && merged.instruments.length === 1) {
+    const inst = merged.instruments[0];
+    merged.pieces = merged.pieces.map((p: { instrument?: string }) => ({ ...p, instrument: p.instrument ?? inst }));
+    if (Array.isArray(merged.sessions))
+      merged.sessions = merged.sessions.map((x: { instrument?: string }) => ({ ...x, instrument: x.instrument ?? inst }));
+  }
   return merged as S;
 }

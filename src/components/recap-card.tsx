@@ -11,7 +11,8 @@ import { captureRef } from 'react-native-view-shot';
 import { LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
-import { ratingSummary } from '@/lib/stats-math';
+import { projection, ratingSummary } from '@/lib/stats-math';
+import { useInstrumentFilter } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -43,6 +44,7 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   const s = useS();
   const C = useC();
   const store = useStore();
+  const inst = useInstrumentFilter();
   const [mode, setMode] = useState<'month' | 'year'>('month');
   const shotRef = useRef<View>(null);
 
@@ -85,6 +87,7 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     [store.t('recap.tempoGained'), tempoGained > 0 ? store.t('recap.bpmGained', { n: tempoGained }) : null],
   ]);
 
+  const proj = projection(store.minutesByDate, store.totalMin, store.today);
   // year extras
   const finished = store.pieces.filter((p) => !p.archived && p.stage >= store.stages.length - 1).length;
   const bestMonth = stats.monthlyMinutes.some((m) => m > 0)
@@ -95,11 +98,13 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     [store.t('recap.bestMonth'), bestMonth],
     [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
     [store.t('recap.bestRated'), ratings.bestPiece],
+    [store.t('recap.onPace'), proj ? store.t('recap.hoursCount', { count: proj.hoursByYearEnd }) : null],
   ]);
 
   const barMax = Math.max(...stats.monthlyMinutes, 1);
   const barColor = (v: number) => (v > barMax * 0.66 ? C.accent : v > barMax * 0.33 ? '#DE8A66' : '#F2CDBB');
-  const instrument = store.instruments[0];
+  // ponytail: the card names the filtered instrument but the numbers stay global — one card per instrument when someone asks
+  const instrument = inst || store.instruments[0];
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>

@@ -18,12 +18,12 @@ assert.equal(isSafeRelPath(''), false);
 // --- backup: CSV quoting round-trips commas, quotes, and newlines
 assert.equal(
   buildCsv([
-    { date: '2026-08-20', title: 'Clair de Lune', meta: 'Piece', min: 30, note: undefined, rating: 4 },
+    { date: '2026-08-20', title: 'Clair de Lune', meta: 'Piece', min: 30, note: undefined, rating: 4, instrument: 'Piano' },
     { date: '2026-08-19', title: 'Scales, arpeggios', meta: 'Technique', min: 15, note: 'said "ok"\ntwice' },
   ]),
-  'date,focus,kind,minutes,rating,note\n' +
-    '2026-08-20,Clair de Lune,Piece,30,4,\n' +
-    '2026-08-19,"Scales, arpeggios",Technique,15,,"said ""ok""\ntwice"',
+  'date,focus,kind,minutes,rating,instrument,note\n' +
+    '2026-08-20,Clair de Lune,Piece,30,4,Piano,\n' +
+    '2026-08-19,"Scales, arpeggios",Technique,15,,,"said ""ok""\ntwice"',
 );
 
 // --- backup: payload validation — junk throws, unsafe/non-string files are dropped

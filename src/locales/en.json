@@ -1,5 +1,7 @@
 {
   "common": {
+    "all": "All",
+    "dayNames": "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
     "today": "Today",
     "yesterday": "Yesterday",
     "dayLetters": "SMTWTFS"
@@ -59,6 +61,9 @@
     "accentSlate": "Slate"
   },
   "settings": {
+    "breakEvery": "Break reminder",
+    "everyMin": "every %{min} min",
+    "breakEveryHint": "The timer nudges you to rest after this many minutes. Breaks pause the session and don’t count as practice.",
     "title": "Settings",
     "rate": "Enjoying Étude? Leave a review",
     "rateSub": "A rating helps other musicians find it",
@@ -173,6 +178,14 @@
     "nothingSpecific": "Nothing specific"
   },
   "practice": {
+    "breakDue": "%{min} min — take a break?",
+    "startBreak": "Start break",
+    "skip": "Skip",
+    "onBreak": "On a break",
+    "breakOver": "Break over",
+    "breakChannel": "Breaks",
+    "breakOverTitle": "Break over",
+    "breakOverBody": "Back to practice?",
     "micPermissionNeeded": "Microphone permission needed",
     "recordStartFailed": "Couldn’t start recording",
     "paused": "Paused",
@@ -203,6 +216,18 @@
     "defaultPlanName": "New routine"
   },
   "progress": {
+    "insights": "Insights",
+    "lengthMin": "%{range} min",
+    "weekend": "at the weekend",
+    "weekday": "on weekdays",
+    "routine": "with a routine",
+    "free": "in a free session",
+    "driversSentence": "Your best-rated sessions: %{list}.",
+    "concentrationSentence": "%{pct} % of this period went to %{top} of %{total} focuses.",
+    "streakSentence": "Your streaks tend to break on day %{day}, mostly on a %{weekday}.",
+    "paceSentence": "At the last 8 weeks’ pace you reach %{hours} hours this year.",
+    "milestoneSentence": "%{hours} hours of practice land around %{date}.",
+    "dueSentence": "%{piece} hasn’t been played in %{days} days — due for a maintenance pass.",
     "consistency": "Consistency",
     "avgDaysPerWeek": "avg %{n} days / week",
     "daysThisWeek": "%{n} of 7 days this week",
@@ -235,6 +260,7 @@
     "nothingInPeriod": "Nothing logged in this period"
   },
   "repertoire": {
+    "dueForReview": "Not played in %{days} days — due for review",
     "emptyTitle": "What are you working on?",
     "emptyText": "Add the piece you’re learning — search fills in the artist for you.",
     "addAPiece": "Add a piece",
@@ -278,6 +304,8 @@
     "pickHint": "Tap a take to make it A, then B keeps the other slot."
   },
   "piece": {
+    "forecast": "At this rate: %{target} BPM around %{date}",
+    "plateau": "Plateau — three weeks without a tempo gain. Change the passage, slow down, chunk it.",
     "minPerBpm": "%{n} min per BPM gained",
     "added": "added %{date}",
     "stage": "Stage",
@@ -299,6 +327,7 @@
     "save": "Save"
   },
   "plan": {
+    "break": "Break",
     "savePlan": "Save routine",
     "planName": "Routine name",
     "segmentCount": {
@@ -323,6 +352,8 @@
     "saveSegment": "Save segment"
   },
   "planRun": {
+    "break": "Break",
+    "breakHint": "Rest — this time isn’t logged",
     "end": "End",
     "endTitle": "End routine?",
     "endMessage": "The current segment will be saved as-is.",
@@ -450,6 +481,7 @@
     "delete": "Delete"
   },
   "recap": {
+    "onPace": "On pace for",
     "avgRating": "Average rating",
     "bestRated": "Best-rated piece",
     "thisMonth": "This month",

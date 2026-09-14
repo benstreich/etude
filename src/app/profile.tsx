@@ -48,7 +48,7 @@ const DAY_KEYS: Record<string, string> = {
   Sunday: 'settings.daySunday',
 };
 
-type EditKey = 'name' | 'instruments' | 'primaryInstrument' | 'goal' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
+type EditKey = 'name' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
@@ -213,6 +213,7 @@ export default function Profile() {
       : []),
     { key: 'goal', label: store.t('settings.dailyGoal'), value: `${store.dailyGoal} ${store.t('settings.min')}` },
     { key: 'quickLog', label: store.t('settings.quickLog'), value: store.quickLog.map((n) => `${n}`).join(', ') + ` ${store.t('settings.min')}` },
+    { key: 'breakEvery', label: store.t('settings.breakEvery'), value: store.breakEvery ? store.t('settings.everyMin', { min: store.breakEvery }) : store.t('settings.off') },
     { key: 'quickLogFocus', label: store.t('settings.quickLogFocus'), value: store.quickLogFocus?.name ?? store.t('settings.nothingSpecific') },
     { key: 'breakDays', label: store.t('settings.breakDays'), value: store.breakDays.length ? store.breakDays.map(dayName).join(', ') : store.t('settings.none') },
     { key: 'streaks', label: store.t('settings.streaks'), value: store.t(STREAK_KEYS[store.streakMode]) },
@@ -227,6 +228,7 @@ export default function Profile() {
     primaryInstrument: store.t('settings.primaryInstrument'),
     goal: store.t('settings.dailyGoal'),
     quickLog: store.t('settings.quickLog'),
+    breakEvery: store.t('settings.breakEvery'),
     quickLogFocus: store.t('settings.quickLogFocus'),
     breakDays: store.t('settings.breakDays'),
     streaks: store.t('settings.streaks'),
@@ -508,6 +510,16 @@ export default function Profile() {
                   </Pressable>
                 )}
                 <Text style={s.editorHint}>{store.t('settings.stagesHint')}</Text>
+              </>
+            )}
+            {editing === 'breakEvery' && (
+              <>
+                <View style={s.chipWrap}>
+                  {[0, 20, 25, 30, 45].map((m) => (
+                    <Chip key={m} label={m ? store.t('settings.everyMin', { min: m }) : store.t('settings.off')} selected={store.breakEvery === m} onPress={() => pick({ breakEvery: m })} />
+                  ))}
+                </View>
+                <Text style={s.editorHint}>{store.t('settings.breakEveryHint')}</Text>
               </>
             )}
             {editing === 'streaks' && (

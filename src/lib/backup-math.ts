@@ -9,11 +9,11 @@ const csvCell = (v: string | number) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-type Sess = { date: string; title: string; meta: string; min: number; note?: string; rating?: number };
+type Sess = { date: string; title: string; meta: string; min: number; note?: string; rating?: number; instrument?: string };
 
 export function buildCsv(sessions: Sess[]): string {
-  const rows = ['date,focus,kind,minutes,rating,note'];
-  for (const s of sessions) rows.push([s.date, csvCell(s.title), csvCell(s.meta), s.min, s.rating ?? '', csvCell(s.note ?? '')].join(','));
+  const rows = ['date,focus,kind,minutes,rating,instrument,note'];
+  for (const s of sessions) rows.push([s.date, csvCell(s.title), csvCell(s.meta), s.min, s.rating ?? '', csvCell(s.instrument ?? ''), csvCell(s.note ?? '')].join(','));
   return rows.join('\n');
 }
 

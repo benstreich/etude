@@ -1,5 +1,6 @@
 import { RecordingPresets, requestNotificationPermissionsAsync, requestRecordingPermissionsAsync, useAudioRecorder } from 'expo-audio';
 import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -11,8 +12,9 @@ import { LogPastModal } from '@/components/log-past';
 import { MetronomeButton } from '@/components/metronome';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { Overline } from '@/components/ui';
+import { InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
+import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
 import { Piece, toStoredUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -33,6 +35,52 @@ export default function Practice() {
   const [review, setReview] = useState<ReviewSession | null>(null); // saved session shown in the review moment
   const sessionStart = useRef(0); // wall clock when the session was started
   const paused = startedAt === null;
+  const inst = useInstrumentFilter();
+  // practice breaks (#59): the reminder fires each time the timer crosses another
+  // `breakEvery` interval; a break pauses the session timer and counts down separately
+  const [breaksSeen, setBreaksSeen] = useState(0); // intervals already answered (started or skipped)
+  const [breakEnd, setBreakEnd] = useState<number | null>(null); // wall clock when the current break ends
+  const [breakLeft, setBreakLeft] = useState(0);
+  const breakNotif = useRef<string | null>(null);
+  const breakDue = store.breakEvery > 0 && !paused && breakEnd === null && seconds >= store.breakEvery * 60 * (breaksSeen + 1);
+  const buzz = () => {
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+  };
+  useEffect(() => {
+    if (breakDue) buzz();
+  }, [breakDue]);
+  useEffect(() => {
+    if (breakEnd === null) return;
+    const tick = () => setBreakLeft(Math.max(0, Math.ceil((breakEnd - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [breakEnd]);
+  const breakOver = breakEnd !== null && breakLeft === 0;
+  useEffect(() => {
+    if (breakOver) buzz();
+  }, [breakOver]);
+  const startBreak = (min = 5) => {
+    setAccum(seconds);
+    setStartedAt(null);
+    setBreaksSeen((n) => n + 1);
+    setBreakEnd(Date.now() + min * 60000);
+    scheduleBreakEnd(min * 60).then((id) => (breakNotif.current = id));
+  };
+  const adjustBreak = (dMin: number) => {
+    if (breakEnd === null) return;
+    const total = Math.round((breakEnd - Date.now()) / 60000) + dMin; // whole minutes left after the change
+    if (total < 1 || total > 10) return;
+    setBreakEnd(breakEnd + dMin * 60000);
+    cancelBreakEnd(breakNotif.current);
+    scheduleBreakEnd(Math.round((breakEnd + dMin * 60000 - Date.now()) / 1000)).then((id) => (breakNotif.current = id));
+  };
+  const endBreak = () => {
+    cancelBreakEnd(breakNotif.current);
+    breakNotif.current = null;
+    setBreakEnd(null);
+    setStartedAt(Date.now());
+  };
   const jsStop = useRef(false); // a JS-initiated stop; mutes the status listener below
   const finishRef = useRef<() => void>(() => {});
   // directory: 'document' so recordings survive cache cleanup; 48kHz/256kbps AAC (~2MB/min)
@@ -167,7 +215,7 @@ export default function Practice() {
   // Finished ones sort last so "what are you working on" still reads right.
   const finished = (p: Piece) => p.stage >= store.stages.length - 1;
   const pieces = store.pieces
-    .filter((p) => !p.archived && p.name.toLowerCase().includes(q))
+    .filter((p) => !p.archived && p.name.toLowerCase().includes(q) && (!inst || !p.instrument || p.instrument === inst))
     .sort((a, b) => Number(finished(a)) - Number(finished(b)));
   const techniques = store.techniques.filter((t) => t.toLowerCase().includes(q));
   const plans = store.plans.filter((p) => p.name.toLowerCase().includes(q));
@@ -181,6 +229,8 @@ export default function Practice() {
     setStartedAt(null);
     setAccum(0);
     setSeconds(0);
+    setBreaksSeen(0);
+    if (breakEnd !== null) endBreak();
     // focus stays set until the review closes — "Attach take" files under it
     setReview({ id, min, focusName: focus.name, start: sessionStart.current, end: Date.now() });
   };
@@ -202,6 +252,40 @@ export default function Practice() {
           {mm}:{ss}
         </Text>
         <Text style={[s.status, paused ? { color: C.sub } : { color: C.accent }]}>{paused ? store.t('practice.paused') : store.t('practice.running')}</Text>
+        {breakDue && (
+          <View style={s.breakBanner}>
+            <Text style={s.breakText}>{store.t('practice.breakDue', { min: store.breakEvery * (breaksSeen + 1) })}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable style={s.breakBtn} onPress={() => startBreak()}>
+                <Text style={[s.breakBtnText, { color: C.accent }]}>{store.t('practice.startBreak')}</Text>
+              </Pressable>
+              <Pressable style={s.breakBtn} onPress={() => setBreaksSeen((n) => n + 1)}>
+                <Text style={s.breakBtnText}>{store.t('practice.skip')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+        {breakEnd !== null && (
+          <View style={s.breakBanner}>
+            <Text style={s.breakText}>{breakOver ? store.t('practice.breakOver') : store.t('practice.onBreak')}</Text>
+            {!breakOver && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Pressable hitSlop={8} onPress={() => adjustBreak(-1)}>
+                  <Text style={s.breakStep}>−</Text>
+                </Pressable>
+                <Text style={s.breakClock}>
+                  {String(Math.floor(breakLeft / 60)).padStart(2, '0')}:{String(breakLeft % 60).padStart(2, '0')}
+                </Text>
+                <Pressable hitSlop={8} onPress={() => adjustBreak(1)}>
+                  <Text style={s.breakStep}>+</Text>
+                </Pressable>
+              </View>
+            )}
+            <Pressable style={[s.breakBtn, breakOver && { borderColor: C.accent, backgroundColor: C.accentTint }]} onPress={endBreak}>
+              <Text style={[s.breakBtnText, breakOver && { color: C.accent }]}>{store.t('practice.resume')}</Text>
+            </Pressable>
+          </View>
+        )}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Pressable style={[s.recBtn, recording && !recPaused && s.recBtnOn]} onPress={toggleRec}>
             <View style={[s.recDot, recording && !recPaused && { backgroundColor: C.bg }]} />
@@ -223,7 +307,8 @@ export default function Practice() {
         </View>
         <View style={s.runBtns}>
           <Pressable
-            style={s.outlineBtn}
+            style={[s.outlineBtn, breakEnd !== null && { opacity: 0.4 }]}
+            disabled={breakEnd !== null}
             onPress={() => {
               if (paused) setStartedAt(Date.now());
               else {
@@ -265,6 +350,8 @@ export default function Practice() {
               setStartedAt(null);
               setAccum(0);
               setSeconds(0);
+              setBreaksSeen(0);
+              if (breakEnd !== null) endBreak();
             };
             // ponytail: Alert.alert is a no-op on web; window.confirm covers it
             if (Platform.OS === 'web') {
@@ -305,6 +392,7 @@ export default function Practice() {
           </Pressable>
           <MetronomeButton compact />
         </View>
+        <InstrumentFilter style={{ marginBottom: 14 }} />
         <TextInput
           style={s.search}
           value={query}
@@ -378,6 +466,7 @@ export default function Practice() {
             setSeconds(0);
             setAccum(0);
             sessionStart.current = Date.now();
+            setBreaksSeen(0);
             setStartedAt(Date.now());
             setRunning(true);
           }}>
@@ -412,6 +501,12 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   runPage: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   timer: { fontFamily: F.head, fontSize: fs(90), color: C.ink, fontVariant: ['tabular-nums'], marginVertical: 8 },
   status: { fontFamily: F.bodyMed, fontSize: fs(15) },
+  breakBanner: { alignItems: 'center', gap: 10, marginTop: 14, padding: 14, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignSelf: 'stretch' },
+  breakText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink, textAlign: 'center' },
+  breakBtn: { height: 38, paddingHorizontal: 16, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  breakBtnText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.ink },
+  breakClock: { fontFamily: F.head, fontSize: fs(30), color: C.ink, fontVariant: ['tabular-nums'], minWidth: 84, textAlign: 'center' },
+  breakStep: { fontSize: fs(24), color: C.sub, paddingHorizontal: 6 },
   runBtns: { flexDirection: 'row', gap: 12, marginTop: 16, alignSelf: 'stretch' },
   // matches MetronomeButton's compact pill so the two read as a pair
   tunerPill: { height: 36, paddingHorizontal: 14, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },

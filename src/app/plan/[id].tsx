@@ -38,7 +38,7 @@ export default function PlanBuilder() {
   ];
 
   const openEdit = (idx: number) => {
-    setDraft(idx === -1 ? { focus: focusOptions[0], min: 10 } : { ...plan.segments[idx] });
+    setDraft(idx === -1 ? { focus: focusOptions[0] ?? { name: 'Break', kind: 'Break' }, min: 10 } : { ...plan.segments[idx] });
     setEditIdx(idx);
   };
   const closeEdit = () => {
@@ -96,8 +96,8 @@ export default function PlanBuilder() {
             <Pressable key={i} style={s.segCard} onPress={() => openEdit(i)}>
               <Text style={s.handle}>⠿</Text>
               <View style={{ flex: 1 }}>
-                <Text style={s.segTitle} numberOfLines={1}>
-                  {seg.focus.name}
+                <Text style={[s.segTitle, seg.focus.kind === 'Break' && { color: C.sub }]} numberOfLines={1}>
+                  {seg.focus.kind === 'Break' ? store.t('plan.break') : seg.focus.name}
                   {seg.note ? ` · ${seg.note}` : ''}
                 </Text>
                 {!!seg.bpm && <Tempo bpm={seg.bpm} size={12.5} />}
@@ -152,6 +152,12 @@ export default function PlanBuilder() {
                       </Pressable>
                     );
                   })}
+                  {/* #59: a rest between blocks — no focus, never logged */}
+                  <Pressable
+                    style={[s.chip, draft?.focus.kind === 'Break' && s.chipSel]}
+                    onPress={() => setDraft((d) => (d ? { ...d, focus: { name: 'Break', kind: 'Break' }, bpm: undefined } : d))}>
+                    <Text style={[s.chipText, draft?.focus.kind === 'Break' && { color: C.accent }]}>{store.t('plan.break')}</Text>
+                  </Pressable>
                   <AddFocus onAdded={(f) => setDraft((d) => (d ? { ...d, focus: f } : d))} />
                 </View>
                 {focusOptions.length === 0 && <Text style={s.emptyHint}>{store.t('plan.addFocusFirst')}</Text>}

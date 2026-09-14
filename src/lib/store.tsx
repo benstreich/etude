@@ -6,6 +6,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
 import { runAutoBackup } from './backup';
+import { primaryOf } from './cue-voice';
 import { i18n, resolveLang, tr, type Lang, type LanguageSetting } from './i18n';
 import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
@@ -17,8 +18,9 @@ import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
 
-export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string; rating?: number; at?: number };
-export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' }; note?: string; bpm?: number; min: number };
+export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string; rating?: number; at?: number; instrument?: string };
+// kind 'Break' (#59): a rest — no focus, never logged, excluded from the saved session total
+export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' | 'Break' }; note?: string; bpm?: number; min: number };
 export type Plan = { id: string; name: string; segments: PlanSegment[] };
 export type TempoEntry = { date: string; bpm: number };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
@@ -49,6 +51,7 @@ export type Piece = {
   addedAt?: number;
   currentBpm?: number;
   targetBpm?: number;
+  instrument?: string; // #58; unset = shows under every instrument
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
 };
 
@@ -64,6 +67,8 @@ type Settings = {
   language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
   primaryInstrument: string; // '' = first in the list; picks the session cue's voice (#53)
+  instrumentFilter: string; // '' = all; the last instrument chosen in Practice/Repertoire/Progress (#58)
+  breakEvery: number; // minutes between break reminders in the free timer; 0 = off (#59)
   breakDays: string[];
   streakMode: StreakMode;
   theme: ThemeMode;
@@ -128,6 +133,8 @@ function seed(): State {
     language: 'system',
     instruments: [],
     primaryInstrument: '',
+    instrumentFilter: '',
+    breakEvery: 0,
     breakDays: ['Sunday'],
     streakMode: 'strict',
     theme: 'system',
@@ -208,12 +215,12 @@ type Store = State & {
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
-  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm'>>) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'instrument'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
   backupState: () => State;
-  addPiece: (name: string, by?: string) => void;
+  addPiece: (name: string, by?: string, instrument?: string) => void;
   addTechnique: (name: string) => void;
   removeTechnique: (name: string) => void;
   cyclePiece: (id: string) => void;
@@ -333,6 +340,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const at = date === dateKey() ? Date.now() : undefined;
     setState((s) => {
       if (!s) return s;
+      // #58: the piece's instrument, else the primary one; undefined with no instruments set
+      const instrument = s.pieces.find((p) => p.name === title)?.instrument || primaryOf(s.instruments, s.primaryInstrument) || undefined;
       const minutesByDate = { ...s.minutesByDate, [date]: (s.minutesByDate[date] ?? 0) + min };
       return {
         ...s,
@@ -341,7 +350,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // full-history scan so streaks assembled from backdated logs count too
         bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
         // 0 on equal dates keeps the sort stable, so today's newest stays first
-        sessions: [{ id, title, meta, min, date, planId, at }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
+        sessions: [{ id, title, meta, min, date, planId, at, instrument }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
       };
     });
     return id;
@@ -446,13 +455,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t('toast.sessionDeleted'));
   };
 
-  const addPiece = (name: string, by = '') => {
+  const addPiece: Store['addPiece'] = (name, by = '', instrument) => {
     const clean = name.trim();
     // piece identity elsewhere is the display name — a duplicate doubles stats and recordings
     const dup = state.pieces.some((p) => p.name.trim().toLowerCase() === clean.toLowerCase());
     if (!dup)
       setState((s) =>
-        s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10, addedAt: Date.now() }, ...s.pieces] } : s
+        s ? { ...s, pieces: [{ id: uid(), name: clean, by, stage: 0, pct: 10, addedAt: Date.now(), instrument: instrument ?? (primaryOf(s.instruments, s.primaryInstrument) || undefined) }, ...s.pieces] } : s
       );
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.addedToRepertoire'));
   };
