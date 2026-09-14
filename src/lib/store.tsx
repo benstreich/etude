@@ -92,6 +92,10 @@ type Settings = {
   metroRampEvery: number;
   metroRampUnit: RampUnit;
   metroRampTarget: number; // below metroBpm means the ramp runs downwards
+  metroSubdiv: number; // clicks per beat: 1 none, 2 eighths, 3 triplets, 4 sixteenths
+  metroAccents: number[]; // level per beat of the bar: 0 muted, 1 plain, 2 mid, 3 accent
+  metroSound: string; // sample set id from metronome-math SOUND_SETS
+  metroVolume: number; // 0-100, the click's own gain under the system volume
   // Tuner. Flat like the metronome keys, same reason.
   tunerInstrument: string; // an id from tuner-math INSTRUMENTS
   tunerRefA: number; // reference pitch in Hz, 415–445
@@ -158,6 +162,10 @@ function seed(): State {
     metroRampEvery: 4,
     metroRampUnit: 'bars',
     metroRampTarget: 120,
+    metroSubdiv: 1,
+    metroAccents: [], // empty = "whatever the signature implies"; the sheet fills it in on first edit
+    metroSound: 'wood',
+    metroVolume: 100,
     tunerInstrument: 'chromatic',
     tunerRefA: 440,
   };

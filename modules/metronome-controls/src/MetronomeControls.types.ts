@@ -17,6 +17,12 @@ export type MetronomeControlsState = {
 /** Config for the native background click loop (Android only). */
 export type MetronomeTick = {
   bpm: number;
-  /** Accent level per beat of one bar: 2 = downbeat, 1 = group start, 0 = plain. */
+  /** Level per beat of one bar: 0 = muted, 1 = plain, 2 = group start, 3 = downbeat. */
   pattern: number[];
+  /** Clicks per beat: 1 none, 2 eighths, 3 triplets, 4 sixteenths. */
+  subdiv: number;
+  /** Sample set id — the service loads `<sound>_beat|mid|accent|sub` from res/raw. */
+  sound: string;
+  /** 0-100. */
+  volume: number;
 };

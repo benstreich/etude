@@ -3,8 +3,8 @@ import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 
 import { RollingNumber } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { LOCK_SCREEN_STEP, useBeat, useMetronome } from '@/lib/metronome';
-import { accentLevel, describeRamp, MAX_BPM, tapTempo, type RampUnit } from '@/lib/metronome-math';
+import { LOCK_SCREEN_STEP, previewClick, useBeat, useMetronome } from '@/lib/metronome';
+import { describeRamp, MAX_BPM, SOUND_SETS, SUBDIVS, tapTempo, type RampUnit, type SoundSet } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -13,6 +13,20 @@ const UNITS: RampUnit[] = ['bars', 'seconds'];
 const UNIT_KEY: Record<RampUnit, string> = { bars: 'metronome.bars', seconds: 'metronome.seconds' };
 const UNIT_ONE_KEY: Record<RampUnit, string> = { bars: 'metronome.bar', seconds: 'metronome.second' };
 const TIME_SIGS = ['1/4', '2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'];
+// "2 per beat", not "eighths": in 6/8 a beat is already an eighth, so note names lie
+const SUBDIV_KEY: Record<number, string> = {
+  1: 'metronome.subdivOff',
+  2: 'metronome.subdiv2',
+  3: 'metronome.subdiv3',
+  4: 'metronome.subdiv4',
+};
+const SOUND_KEY: Record<SoundSet, string> = {
+  wood: 'metronome.soundWood',
+  click: 'metronome.soundClick',
+  beep: 'metronome.soundBeep',
+  soft: 'metronome.soundSoft',
+  rim: 'metronome.soundRim',
+};
 
 /** Opens the metronome sheet; shows the live tempo once it is running. */
 export function MetronomeButton({ compact = false, presetBpm }: { compact?: boolean; presetBpm?: number }) {
@@ -41,7 +55,8 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
   const { fs } = useTheme(); // the roll travels exactly one line height per digit
   const { t } = useStore();
   const metronome = useMetronome();
-  const { running, bpm, startBpm, timeSig, sig, ramp, toggle, setBpm, nudge, setTimeSig, setRamp } = metronome;
+  const { running, bpm, startBpm, timeSig, ramp, subdiv, accents, sound, volume } = metronome;
+  const { toggle, setBpm, nudge, setTimeSig, setRamp, setSubdiv, cycleAccent, setSound, setVolume } = metronome;
   const beat = useBeat();
   const taps = useRef<number[]>([]);
 
@@ -72,22 +87,23 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18 }}>
             <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
 
+            {/* tap a dot to cycle its accent: accent → mid → plain → muted (#57) */}
             <View style={s.dots}>
-              {Array.from({ length: sig.beats }, (_, i) => {
-                const level = accentLevel(i, sig);
-                return (
+              {accents.map((level, i) => (
+                <Pressable key={i} hitSlop={6} onPress={() => cycleAccent(i)}>
                   <View
-                    key={i}
                     style={[
                       s.dot,
-                      level === 2 && s.dotDown,
-                      level === 1 && s.dotMid,
-                      running && beat === i && (level === 2 ? s.dotDownLit : s.dotLit),
+                      level === 3 && s.dotDown,
+                      level === 2 && s.dotMid,
+                      level === 0 && s.dotMuted,
+                      running && beat === i && (level === 3 ? s.dotDownLit : level === 0 ? s.dotMutedLit : s.dotLit),
                     ]}
                   />
-                );
-              })}
+                </Pressable>
+              ))}
             </View>
+            <Text style={[s.hint, { textAlign: 'center', marginTop: -12 }]}>{t('metronome.accentsHint')}</Text>
 
             <View style={s.bpmRow}>
               <Step label="−5" onPress={() => nudge(-5)} />
@@ -125,6 +141,46 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
                 ))}
               </View>
               <Text style={s.hint}>{t('metronome.compoundHint')}</Text>
+            </View>
+
+            <View style={{ gap: 10 }}>
+              <Text style={s.label}>{t('metronome.subdivision')}</Text>
+              <View style={s.seg}>
+                {SUBDIVS.map((n, i) => (
+                  <Pressable
+                    key={n}
+                    style={[s.segBtn, i > 0 && s.segBtnDivider, subdiv === n && s.segBtnSel]}
+                    onPress={() => setSubdiv(n)}>
+                    <Text style={[s.segText, subdiv === n && s.segTextSel]}>{t(SUBDIV_KEY[n])}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={{ gap: 10 }}>
+              <Text style={s.label}>{t('metronome.sound')}</Text>
+              <View style={s.chipRow}>
+                {SOUND_SETS.map((id) => (
+                  <Pressable
+                    key={id}
+                    style={[s.chip, sound === id && s.chipSel]}
+                    onPress={() => {
+                      setSound(id);
+                      // a picker you can't hear is a guessing game — preview on every tap
+                      if (!running) previewClick(id, volume);
+                    }}>
+                    <Text style={[s.chipText, sound === id && { color: C.accent }]}>{t(SOUND_KEY[id])}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={{ gap: 10 }}>
+              <View style={s.fieldRow}>
+                <Text style={[s.label, { flex: 1 }]}>{t('metronome.volume')}</Text>
+                <Text style={s.hint}>{volume}%</Text>
+              </View>
+              <VolumeSlider value={volume} onChange={setVolume} />
             </View>
 
             <View style={{ gap: 12 }}>
@@ -174,6 +230,27 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
         </Pressable>
       </Pressable>
     </Modal>
+  );
+}
+
+/**
+ * 0-100 in one bar. ponytail: the responder props RN already has, like the trim
+ * handle in recordings.tsx — no gesture library, no slider dependency.
+ */
+function VolumeSlider({ value, onChange }: { value: number; onChange: (pct: number) => void }) {
+  const s = useS();
+  const width = useRef(1);
+  const at = (x: number) => onChange(Math.round((Math.min(width.current, Math.max(0, x)) / width.current) * 100));
+  return (
+    <View
+      style={s.volTrack}
+      onLayout={(e) => (width.current = Math.max(1, e.nativeEvent.layout.width))}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderGrant={(e) => at(e.nativeEvent.locationX)}
+      onResponderMove={(e) => at(e.nativeEvent.locationX)}>
+      <View style={[s.volFill, { width: `${value}%` }]} />
+    </View>
   );
 }
 
@@ -230,8 +307,13 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: r(5), backgroundColor: C.track },
   dotDown: { width: 14, height: 14, borderRadius: r(7) },
   dotMid: { width: 12, height: 12, borderRadius: r(6) },
+  dotMuted: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: C.track },
   dotLit: { backgroundColor: C.faint },
   dotDownLit: { backgroundColor: C.accent },
+  dotMutedLit: { borderColor: C.faint },
+
+  volTrack: { height: 12, borderRadius: r(999), backgroundColor: C.track, overflow: 'hidden', justifyContent: 'center' },
+  volFill: { height: 12, borderRadius: r(999), backgroundColor: C.accent },
 
   bpmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bpmBox: { alignItems: 'center', minWidth: 96 },

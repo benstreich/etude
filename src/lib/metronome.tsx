@@ -7,15 +7,64 @@ import { AppState, Platform } from 'react-native';
 
 import Controls from '../../modules/metronome-controls';
 import { applyAudioMode } from './audio-mode';
-import { accentLevel, bpmAfter, clampBpm, parseSig, type Ramp, type TimeSig } from './metronome-math';
+import {
+  accentLevel,
+  advanceTick,
+  bpmAfter,
+  clampBpm,
+  clampSound,
+  clampSubdiv,
+  clampVolume,
+  cycleLevel,
+  fitAccents,
+  parseSig,
+  volumeGain,
+  type Level,
+  type Ramp,
+  type SoundSet,
+  type Subdiv,
+  type TimeSig,
+} from './metronome-math';
 import { useStore } from './store';
 
-// accent level per beat of one bar, for the native background tick loop
-const patternFor = (sig: TimeSig) => Array.from({ length: sig.beats }, (_, i) => accentLevel(i, sig));
+// The four samples of a set, in the order both the JS pool and the Kotlin
+// SoundPool index them: plain, group start, downbeat, subdivision.
+const SAMPLES: Record<SoundSet, number[]> = {
+  wood: [
+    require('../../assets/audio/wood_beat.wav'),
+    require('../../assets/audio/wood_mid.wav'),
+    require('../../assets/audio/wood_accent.wav'),
+    require('../../assets/audio/wood_sub.wav'),
+  ],
+  click: [
+    require('../../assets/audio/click_beat.wav'),
+    require('../../assets/audio/click_mid.wav'),
+    require('../../assets/audio/click_accent.wav'),
+    require('../../assets/audio/click_sub.wav'),
+  ],
+  beep: [
+    require('../../assets/audio/beep_beat.wav'),
+    require('../../assets/audio/beep_mid.wav'),
+    require('../../assets/audio/beep_accent.wav'),
+    require('../../assets/audio/beep_sub.wav'),
+  ],
+  soft: [
+    require('../../assets/audio/soft_beat.wav'),
+    require('../../assets/audio/soft_mid.wav'),
+    require('../../assets/audio/soft_accent.wav'),
+    require('../../assets/audio/soft_sub.wav'),
+  ],
+  rim: [
+    require('../../assets/audio/rim_beat.wav'),
+    require('../../assets/audio/rim_mid.wav'),
+    require('../../assets/audio/rim_accent.wav'),
+    require('../../assets/audio/rim_sub.wav'),
+  ],
+};
 
-const CLICK = require('../../assets/audio/click.wav');
-const MID = require('../../assets/audio/click-mid.wav');
-const ACCENT = require('../../assets/audio/click-accent.wav');
+/** Bank index for a level; the subdivision click is bank 3. */
+const SUB_BANK = 3;
+const bankFor = (level: Level) => level - 1; // 1 plain → 0, 2 mid → 1, 3 accent → 2
 
 /** How much the lock-screen buttons move the tempo. */
 export const LOCK_SCREEN_STEP = 5;
@@ -23,26 +72,35 @@ export const LOCK_SCREEN_STEP = 5;
 // --- click playback -------------------------------------------------------
 // Two players per sound, used alternately: a player is rewound right after it
 // fires, so the beat itself is a bare play() with no await in the way.
+// ponytail: pools are built per sound set on first use and kept — five sets of
+// eight players is cheap, and rebuilding one mid-run would drop a click.
 
-// bank index = accent level: 0 plain, 1 group start, 2 bar downbeat
-let pool: AudioPlayer[][] | null = null;
-const cursor = [0, 0, 0];
+const pools: Partial<Record<SoundSet, AudioPlayer[][]>> = {};
+const cursor = [0, 0, 0, 0];
 
-function ensurePool() {
-  if (pool) return;
+function ensurePool(set: SoundSet) {
+  if (pools[set]) return;
   const pair = (source: number) => [createAudioPlayer(source), createAudioPlayer(source)];
-  pool = [pair(CLICK), pair(MID), pair(ACCENT)];
+  pools[set] = SAMPLES[set].map(pair);
 }
 
-function playClick(bank: 0 | 1 | 2) {
-  if (!pool) return;
+function playClick(set: SoundSet, bank: number, gain: number) {
+  const pool = pools[set];
+  if (!pool || gain <= 0) return;
   const players = pool[bank];
   const player = players[cursor[bank]++ % players.length];
+  player.volume = gain;
   player.play();
   // rewind long before this player's turn comes round again (2 beats = 400ms at 300 BPM)
   setTimeout(() => {
     player.seekTo(0).catch(() => {});
   }, 150);
+}
+
+/** One click of a set at full tilt, for the picker's preview tap. */
+export function previewClick(set: SoundSet, volume: number) {
+  ensurePool(set);
+  playClick(set, bankFor(3), volumeGain(volume));
 }
 
 // Module-level mirror of `running` so non-React callers (the sound cues, which
@@ -78,6 +136,8 @@ type Run = {
   baseBeats: number;
   /** Beats played since start; drives the bar accent, never rebased. */
   beats: number;
+  /** Subdivision ticks played inside the current beat; 0 means the beat itself. */
+  sub: number;
   /** Wall-clock target for the next tick. */
   nextAt: number;
   timer: ReturnType<typeof setTimeout> | null;
@@ -92,6 +152,13 @@ type Metronome = {
   timeSig: string;
   sig: TimeSig;
   ramp: Ramp;
+  /** Clicks per beat: 1 none, 2 eighths, 3 triplets, 4 sixteenths. */
+  subdiv: Subdiv;
+  /** Level per beat of the bar, always the full length of the signature. */
+  accents: Level[];
+  sound: SoundSet;
+  /** 0-100, the metronome's own gain under the system volume. */
+  volume: number;
   start: () => void;
   stop: () => void;
   toggle: () => void;
@@ -99,6 +166,11 @@ type Metronome = {
   nudge: (by: number) => void;
   setTimeSig: (sig: string) => void;
   setRamp: (patch: Partial<Ramp>) => void;
+  setSubdiv: (n: number) => void;
+  /** Tap a beat dot: accent → mid → plain → muted → accent. */
+  cycleAccent: (beat: number) => void;
+  setSound: (set: SoundSet) => void;
+  setVolume: (pct: number) => void;
 };
 
 const Ctx = createContext<Metronome | null>(null);
@@ -108,6 +180,11 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   const [running, setRunning] = useState(false);
   const [bpm, setLiveBpm] = useState(store.metroBpm);
   const sig = useMemo(() => parseSig(store.metroTimeSig), [store.metroTimeSig]);
+  const subdiv = clampSubdiv(store.metroSubdiv);
+  const sound = clampSound(store.metroSound);
+  const volume = clampVolume(store.metroVolume);
+  // stored empty until the user edits a bar, so a new signature just works
+  const accents = useMemo(() => fitAccents(store.metroAccents, sig), [store.metroAccents, sig]);
 
   const ramp: Ramp = useMemo(
     () => ({
@@ -122,20 +199,36 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
 
   const run = useRef<Run | null>(null);
   // latest config for the scheduler, which runs outside React's render cycle
-  const latest = useRef({ bpm, sig, ramp, startBpm: store.metroBpm });
+  const latest = useRef({ bpm, sig, ramp, subdiv, accents, sound, volume, startBpm: store.metroBpm });
   useEffect(() => {
-    latest.current = { bpm, sig, ramp, startBpm: store.metroBpm };
+    latest.current = { bpm, sig, ramp, subdiv, accents, sound, volume, startBpm: store.metroBpm };
   });
 
+  // everything the native background loop needs to sound like the in-app one
+  const tickConfig = useCallback(() => {
+    const l = latest.current;
+    return { bpm: l.bpm, pattern: l.accents, subdiv: l.subdiv, sound: l.sound, volume: l.volume };
+  }, []);
+
+  // Fires once per subdivision tick. The beat counter only moves on `sub === 0`,
+  // so the ramp below still measures whole beats however finely we are clicking.
   const tick = useCallback(function tickFn() {
     const r = run.current;
     if (!r) return;
-    const { sig: liveSig, ramp: liveRamp } = latest.current;
+    const { sig: liveSig, ramp: liveRamp, subdiv: n, accents: bar, sound: set, volume: vol } = latest.current;
+    const gain = volumeGain(vol);
 
-    const index = r.beats;
-    playClick(accentLevel(index, liveSig));
-    emitBeat(index % liveSig.beats);
-    r.beats = index + 1;
+    if (r.sub === 0) {
+      const level = accentLevel(r.beats, liveSig, bar);
+      if (level > 0) playClick(set, bankFor(level), gain); // 0 = the user muted this beat
+      emitBeat(r.beats % liveSig.beats);
+    } else {
+      playClick(set, SUB_BANK, gain);
+    }
+
+    const pos = advanceTick(r, n);
+    r.beats = pos.beats;
+    r.sub = pos.sub;
 
     const since = r.beats - r.baseBeats;
     const next = bpmAfter(r.baseBpm, liveRamp, {
@@ -144,24 +237,25 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     });
     setLiveBpm((current) => (current === next ? current : next));
 
-    r.nextAt += 60000 / next;
+    const interval = 60000 / next / n;
+    r.nextAt += interval;
     // after a long suspend, resync instead of firing a burst of catch-up clicks
-    if (r.nextAt < Date.now() - 500) r.nextAt = Date.now() + 60000 / next;
+    if (r.nextAt < Date.now() - 500) r.nextAt = Date.now() + interval;
     r.timer = setTimeout(tickFn, Math.max(0, r.nextAt - Date.now()));
   }, []);
 
   const start = useCallback(() => {
     if (run.current) return;
-    ensurePool();
+    ensurePool(latest.current.sound);
     const startBpm = latest.current.bpm;
     const now = Date.now();
-    run.current = { startedAt: now, baseBpm: startBpm, baseBeats: 0, beats: 0, nextAt: now, timer: null };
+    run.current = { startedAt: now, baseBpm: startBpm, baseBeats: 0, beats: 0, sub: 0, nextAt: now, timer: null };
     metroRunning = true;
     setRunning(true);
     Controls?.show({ bpm: startBpm, running: true });
     if (Platform.OS === 'android' && AppState.currentState !== 'active') {
       // started from the lock screen — JS timers are frozen, the service clicks
-      Controls?.startTicking({ bpm: startBpm, pattern: patternFor(latest.current.sig) });
+      Controls?.startTicking(tickConfig());
     } else {
       tick();
     }
@@ -173,7 +267,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
           if (run.current) Controls?.update({ bpm: latest.current.bpm, running: true });
         })
         .catch(() => {});
-  }, [tick]);
+  }, [tick, tickConfig]);
 
   const stop = useCallback(() => {
     if (run.current?.timer) clearTimeout(run.current.timer);
@@ -223,7 +317,41 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   const nudge = useCallback((by: number) => setBpm(latest.current.bpm + by), [setBpm]);
   const toggle = useCallback(() => (run.current ? stop() : start()), [start, stop]);
 
-  const setTimeSig = useCallback((next: string) => store.updateSettings({ metroTimeSig: next }), [store]);
+  // a new signature drops any edited bar: an accent on beat 5 means nothing in 3/4
+  const setTimeSig = useCallback(
+    (next: string) => store.updateSettings({ metroTimeSig: next, metroAccents: [] }),
+    [store]
+  );
+
+  const setSubdiv = useCallback(
+    (n: number) => {
+      const value = clampSubdiv(n);
+      // land on the next beat rather than mid-figure, so the pulse never limps
+      if (run.current) run.current.sub = 0;
+      store.updateSettings({ metroSubdiv: value });
+    },
+    [store]
+  );
+
+  const cycleAccent = useCallback(
+    (beat: number) => {
+      const bar = [...latest.current.accents];
+      if (beat < 0 || beat >= bar.length) return;
+      bar[beat] = cycleLevel(bar[beat]);
+      store.updateSettings({ metroAccents: bar });
+    },
+    [store]
+  );
+
+  const setSound = useCallback(
+    (set: SoundSet) => {
+      ensurePool(set);
+      store.updateSettings({ metroSound: clampSound(set) });
+    },
+    [store]
+  );
+
+  const setVolume = useCallback((pct: number) => store.updateSettings({ metroVolume: clampVolume(pct) }), [store]);
 
   const setRamp = useCallback(
     (patch: Partial<Ramp>) => {
@@ -270,22 +398,28 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       if (state === 'active') {
         Controls?.stopTicking();
         if (r && r.timer === null) {
-          const interval = 60000 / latest.current.bpm;
+          const interval = 60000 / latest.current.bpm / latest.current.subdiv;
           r.nextAt = Date.now() + interval;
           r.timer = setTimeout(tick, interval);
         }
       } else if (r) {
         if (r.timer) clearTimeout(r.timer);
         r.timer = null;
-        Controls?.startTicking({ bpm: latest.current.bpm, pattern: patternFor(latest.current.sig) });
+        Controls?.startTicking(tickConfig());
       }
     });
     return () => sub.remove();
-  }, [tick]);
+  }, [tick, tickConfig]);
 
   useEffect(() => {
     if (running) Controls?.update({ bpm, running: true });
   }, [bpm, running]);
+
+  // the native loop keeps ticking while backgrounded — push edits made from the
+  // sheet (or a widget) straight at it, or the lock screen drifts out of step
+  useEffect(() => {
+    if (running) Controls?.updateTicking(tickConfig());
+  }, [running, subdiv, accents, sound, volume, tickConfig]);
 
   // a stopped metronome follows the saved start tempo, including edits made elsewhere
   useEffect(() => {
@@ -302,6 +436,10 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       timeSig: store.metroTimeSig,
       sig,
       ramp,
+      subdiv,
+      accents,
+      sound,
+      volume,
       start,
       stop,
       toggle,
@@ -309,8 +447,15 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       nudge,
       setTimeSig,
       setRamp,
+      setSubdiv,
+      cycleAccent,
+      setSound,
+      setVolume,
     }),
-    [running, bpm, store.metroBpm, store.metroTimeSig, sig, ramp, start, stop, toggle, setBpm, nudge, setTimeSig, setRamp]
+    [
+      running, bpm, store.metroBpm, store.metroTimeSig, sig, ramp, subdiv, accents, sound, volume,
+      start, stop, toggle, setBpm, nudge, setTimeSig, setRamp, setSubdiv, cycleAccent, setSound, setVolume,
+    ]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

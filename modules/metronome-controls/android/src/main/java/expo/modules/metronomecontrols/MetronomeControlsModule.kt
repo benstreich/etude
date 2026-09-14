@@ -38,9 +38,25 @@ class ControlsState(
 
 class TickState(
   @Field val bpm: Int = 120,
-  // accent level per beat of one bar: 2 downbeat, 1 group start, 0 plain
-  @Field val pattern: List<Int> = listOf(2, 0, 0, 0)
+  // level per beat of one bar: 0 muted, 1 plain, 2 group start, 3 downbeat
+  @Field val pattern: List<Int> = listOf(3, 1, 1, 1),
+  // clicks per beat: 1 none, 2 eighths, 3 triplets, 4 sixteenths
+  @Field val subdiv: Int = 1,
+  @Field val sound: String = "wood",
+  @Field val volume: Int = 100
 ) : Record
+
+// Sample sets, mirroring SOUND_SETS in src/lib/metronome-math.ts. The four ids
+// are in the order the levels index them: plain, group start, downbeat,
+// subdivision — the same order as the JS click pool, and the reason a set can
+// be swapped on either side without the other noticing.
+private val SOUND_SETS: Map<String, IntArray> = mapOf(
+  "wood" to intArrayOf(R.raw.wood_beat, R.raw.wood_mid, R.raw.wood_accent, R.raw.wood_sub),
+  "click" to intArrayOf(R.raw.click_beat, R.raw.click_mid, R.raw.click_accent, R.raw.click_sub),
+  "beep" to intArrayOf(R.raw.beep_beat, R.raw.beep_mid, R.raw.beep_accent, R.raw.beep_sub),
+  "soft" to intArrayOf(R.raw.soft_beat, R.raw.soft_mid, R.raw.soft_accent, R.raw.soft_sub),
+  "rim" to intArrayOf(R.raw.rim_beat, R.raw.rim_mid, R.raw.rim_accent, R.raw.rim_sub)
+)
 
 /**
  * Foreground service whose only job is the ongoing notification carrying the
@@ -60,7 +76,7 @@ class MetronomeControlsService : Service() {
     instance = this
     // preload the clicks now so the first background beat isn't silent while they load
     soundPool = SoundPool.Builder()
-      .setMaxStreams(3)
+      .setMaxStreams(4) // four, so a subdivision click can overlap the beat's tail
       .setAudioAttributes(
         AudioAttributes.Builder()
           .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -68,17 +84,21 @@ class MetronomeControlsService : Service() {
           .build()
       )
       .build()
-      .also {
-        soundIds[0] = it.load(this, R.raw.click, 1)
-        soundIds[1] = it.load(this, R.raw.click_mid, 1)
-        soundIds[2] = it.load(this, R.raw.click_accent, 1)
-      }
+    loadSet(tickSound)
+  }
+
+  /** Load a sample set into the pool, once each. Unknown ids fall back to wood. */
+  private fun loadSet(id: String) {
+    val pool = soundPool ?: return
+    val set = SOUND_SETS[id] ?: SOUND_SETS.getValue("wood")
+    loaded.getOrPut(id) { IntArray(set.size) { i -> pool.load(this, set[i], 1) } }
   }
 
   override fun onDestroy() {
     stopTicking()
     soundPool?.release()
     soundPool = null
+    loaded.clear()
     instance = null
     super.onDestroy()
   }
@@ -112,38 +132,68 @@ class MetronomeControlsService : Service() {
   // click loop over on backgrounding and takes it back on resume.
 
   private var soundPool: SoundPool? = null
-  private val soundIds = IntArray(3) // index = accent level
+  private val loaded = mutableMapOf<String, IntArray>() // set id -> SoundPool ids, by level
   private var tickThread: HandlerThread? = null
   private var tickHandler: Handler? = null
   @Volatile private var tickBpm = 120
-  @Volatile private var tickPattern = intArrayOf(2, 0, 0, 0)
+  @Volatile private var tickPattern = intArrayOf(3, 1, 1, 1)
+  @Volatile private var tickSubdiv = 1
+  @Volatile private var tickSound = "wood"
+  @Volatile private var tickGain = 1f
   private var tickBeat = 0
+  private var tickSub = 0 // position inside the beat; 0 is the beat itself
   private var tickNextAt = 0.0 // fractional ms so odd tempos don't drift
 
   private val tickRunnable = object : Runnable {
     override fun run() {
       val pattern = tickPattern
-      val level = pattern[tickBeat % pattern.size].coerceIn(0, 2)
-      soundPool?.play(soundIds[level], 1f, 1f, 1, 0, 1f)
-      tickBeat++
-      tickNextAt += 60000.0 / tickBpm
+      val subdiv = tickSubdiv.coerceIn(1, 4)
+      val ids = loaded[tickSound] ?: loaded["wood"]
+      if (ids != null) {
+        if (tickSub == 0) {
+          // level 0 means the user muted this beat — count it, don't play it
+          val level = pattern[tickBeat % pattern.size].coerceIn(0, 3)
+          if (level > 0) soundPool?.play(ids[level - 1], tickGain, tickGain, 1, 0, 1f)
+        } else {
+          soundPool?.play(ids[SUB_BANK], tickGain, tickGain, 1, 0, 1f)
+        }
+      }
+      tickSub++
+      if (tickSub >= subdiv) {
+        tickSub = 0
+        tickBeat++
+      }
+      val interval = 60000.0 / tickBpm / subdiv
+      tickNextAt += interval
       val now = SystemClock.uptimeMillis()
-      if (tickNextAt < now) tickNextAt = now + 60000.0 / tickBpm
+      if (tickNextAt < now) tickNextAt = now + interval
       tickHandler?.postAtTime(this, tickNextAt.toLong())
     }
   }
 
   private var wakeLock: PowerManager.WakeLock? = null
 
-  fun startTicking(bpm: Int, pattern: IntArray) {
+  /** Tempo, bar, subdivision, sound and volume — applied from the next tick. */
+  fun tune(bpm: Int, pattern: IntArray, subdiv: Int, sound: String, volume: Int) {
     tickBpm = bpm.coerceIn(20, 300)
     if (pattern.isNotEmpty()) tickPattern = pattern
-    if (tickThread != null) return // already ticking; new tempo/pattern apply from the next beat
+    tickSubdiv = subdiv.coerceIn(1, 4)
+    tickGain = volume.coerceIn(0, 100) / 100f
+    if (sound != tickSound && SOUND_SETS.containsKey(sound)) {
+      loadSet(sound)
+      tickSound = sound
+    }
+  }
+
+  fun startTicking(bpm: Int, pattern: IntArray, subdiv: Int, sound: String, volume: Int) {
+    tune(bpm, pattern, subdiv, sound, volume)
+    if (tickThread != null) return // already ticking; the new config applies from the next tick
     // without a wakelock the CPU naps between beats once the screen is off
     wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
       .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "etude:metronome")
       .also { it.acquire(4 * 60 * 60 * 1000L) } // 4h safety cap
     tickBeat = 0
+    tickSub = 0
     tickThread = HandlerThread("metronome-tick").also { it.start() }
     tickHandler = Handler(tickThread!!.looper)
     tickNextAt = SystemClock.uptimeMillis().toDouble()
@@ -209,6 +259,9 @@ class MetronomeControlsService : Service() {
   }
 
   companion object {
+    /** The subdivision sample sits after the three beat levels in every set. */
+    const val SUB_BANK = 3
+
     const val EXTRA_BPM = "bpm"
     const val EXTRA_RUNNING = "running"
     const val EXTRA_SUBTITLE = "subtitle"
@@ -259,7 +312,15 @@ class MetronomeControlsModule : Module() {
     Function("hide") { hide() }
 
     Function("startTicking") { state: TickState ->
-      MetronomeControlsService.instance?.startTicking(state.bpm, state.pattern.toIntArray())
+      MetronomeControlsService.instance?.startTicking(
+        state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume
+      )
+    }
+
+    Function("updateTicking") { state: TickState ->
+      MetronomeControlsService.instance?.tune(
+        state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume
+      )
     }
 
     Function("stopTicking") {
