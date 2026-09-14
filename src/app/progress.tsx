@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Polyline, Rect } from 'react-native-svg';
 
 import { EditSessionSheet } from '@/components/edit-session';
 import { ShareIcon } from '@/components/icons';
@@ -9,6 +10,7 @@ import { RecapModal } from '@/components/recap-card';
 import { Text } from '@/components/text';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
+import { byLength, byTimeOfDay, consistency, MIN_RATED, rated, ratingByFocus, ratingByWeek, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
 import { dateKey, dayLabel, FocusPeriod, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -74,10 +76,19 @@ export default function Progress() {
   const cutoffDate = new Date(store.now);
   cutoffDate.setDate(cutoffDate.getDate() - ((period.days ?? 1) - 1));
   const cutoff = period.days ? dateKey(cutoffDate) : '';
-  const byFocus: Record<string, number> = {};
-  for (const sess of store.sessions) if (sess.date >= cutoff) byFocus[sess.title] = (byFocus[sess.title] ?? 0) + sess.min;
-  const focusRows = Object.entries(byFocus).sort((a, b) => b[1] - a[1]);
-  const focusMax = focusRows[0]?.[1] ?? 1;
+  // the period picker filters every session-based card below; the heatmap and week stats stay calendar-based
+  const inPeriod = store.sessions.filter((sess) => sess.date >= cutoff);
+  const focusRows = ratingByFocus(inPeriod);
+  const focusMax = focusRows[0]?.min ?? 1;
+
+  // rating statistics (#54) — hidden below MIN_RATED rated sessions in the period rather than showing noise
+  const enoughRated = rated(inPeriod).length >= MIN_RATED;
+  // ponytail: the trend always spans 12 weeks over all sessions — a 7-day window has no trend to draw
+  const weekPoints = ratingByWeek(store.sessions, store.today, start === 1);
+  const timeOfDay = byTimeOfDay(inPeriod);
+  const lengths = byLength(inPeriod);
+  const cons = consistency(store.minutesByDate, store.today, start === 1);
+  const stars = (v: number | null) => (v === null ? '—' : `★ ${v.toFixed(1)}`);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
@@ -113,6 +124,19 @@ export default function Progress() {
           </Text>
         </Card>
       </View>
+
+      {!empty && (
+        <View style={s.segTrack}>
+          {PERIODS.map((p) => {
+            const sel = p.key === period.key;
+            return (
+              <Pressable key={p.key} style={[s.segBtn, sel && s.segBtnSel]} onPress={() => store.updateSettings({ focusPeriod: p.key })}>
+                <Text style={[s.segText, sel && { color: C.ink }]}>{store.t(p.labelKey)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       {empty ? (
         <Card>
@@ -211,7 +235,10 @@ export default function Progress() {
                 <Pressable key={sess.id} style={{ marginTop: 6 }} onPress={() => setEditSess(sess)}>
                   <View style={s.detailRow}>
                     <Text style={s.detailTitle}>{sess.title}</Text>
-                    <Text style={s.skillLevel}>{fmtTime(sess.min, store.t)}</Text>
+                    <Text style={s.skillLevel}>
+                      {!!sess.rating && <Text style={{ color: C.accent }}>★ {sess.rating} · </Text>}
+                      {fmtTime(sess.min, store.t)}
+                    </Text>
                   </View>
                   {!!sess.note && <Text style={s.detailNote}>{sess.note}</Text>}
                 </Pressable>
@@ -226,30 +253,87 @@ export default function Progress() {
 
       {store.sessions.length > 0 && (
         <Card>
-          <View style={s.focusHead}>
-            <Overline>{store.t('progress.timeByFocus')}</Overline>
-            <View style={s.segTrack}>
-              {PERIODS.map((p) => {
-                const sel = p.key === period.key;
-                return (
-                  <Pressable key={p.key} style={[s.segBtn, sel && s.segBtnSel]} onPress={() => store.updateSettings({ focusPeriod: p.key })}>
-                    <Text style={[s.segText, sel && { color: C.ink }]}>{store.t(p.labelKey)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <Overline style={{ marginBottom: 4 }}>{store.t('progress.timeByFocus')}</Overline>
           {focusRows.length === 0 && <Text style={s.detailEmpty}>{store.t('progress.nothingInPeriod')}</Text>}
-          {focusRows.map(([name, min]) => (
-            <View key={name} style={{ marginTop: 16 }}>
+          {focusRows.map((f) => (
+            <View key={f.title} style={{ marginTop: 16 }}>
               <View style={s.skillRow}>
-                <Text style={s.skillName}>{name}</Text>
-                <Text style={s.skillLevel}>{fmtTime(min, store.t)}</Text>
+                <Text style={s.skillName}>{f.title}</Text>
+                <Text style={s.skillLevel}>
+                  {f.avgRating !== null && <Text style={{ color: C.accent }}>{stars(f.avgRating)} · </Text>}
+                  {fmtTime(f.min, store.t)}
+                </Text>
               </View>
-              <Bar pct={(min / focusMax) * 100} />
+              <Bar pct={(f.min / focusMax) * 100} />
             </View>
           ))}
         </Card>
+      )}
+
+      {store.sessions.length > 0 && (
+        <Card>
+          <View style={s.focusHead}>
+            <Overline>{store.t('progress.consistency')}</Overline>
+            <Text style={s.skillLevel}>{store.t('progress.avgDaysPerWeek', { n: cons.average })}</Text>
+          </View>
+          <View style={[s.chart, { height: 56 }]}>
+            {cons.perWeek.map((d, i) => (
+              <View key={i} style={s.col}>
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                  <View style={{ height: `${Math.max(4, (d / 7) * 100)}%`, backgroundColor: i === cons.perWeek.length - 1 ? C.accent : C.track, borderRadius: 3 }} />
+                </View>
+              </View>
+            ))}
+          </View>
+          <Text style={[s.detailEmpty, { marginTop: 10 }]}>{store.t('progress.daysThisWeek', { n: cons.current })}</Text>
+        </Card>
+      )}
+
+      {enoughRated && (
+        <>
+          <Card>
+            <View style={s.focusHead}>
+              <Overline>{store.t('progress.ratingOverTime')}</Overline>
+              <Text style={s.skillLevel}>{store.t('progress.last12Weeks')}</Text>
+            </View>
+            {/* minutes as bars behind, weekly average rating as a line — hand-drawn like the tempo ladder */}
+            <Svg width="100%" height={96} viewBox="0 0 240 96" preserveAspectRatio="none">
+              {weekPoints.map((w, i) => {
+                const max = Math.max(1, ...weekPoints.map((x) => x.min));
+                const h = (w.min / max) * 80;
+                return <Rect key={w.week} x={i * 20 + 3} y={88 - h} width={14} height={h} rx={2} fill={C.track} />;
+              })}
+              <Polyline
+                points={weekPoints
+                  .map((w, i) => (w.avgRating === null ? null : `${i * 20 + 10},${88 - ((w.avgRating - 1) / 4) * 80}`))
+                  .filter(Boolean)
+                  .join(' ')}
+                fill="none"
+                stroke={C.accent}
+                strokeWidth={2}
+                strokeLinejoin="round"
+              />
+              {weekPoints.map((w, i) =>
+                w.avgRating === null ? null : <Circle key={w.week} cx={i * 20 + 10} cy={88 - ((w.avgRating - 1) / 4) * 80} r={3} fill={C.accent} />
+              )}
+            </Svg>
+          </Card>
+
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Card style={{ flex: 1 }}>
+              <Overline style={{ marginBottom: 12 }}>{store.t('progress.bestTimeOfDay')}</Overline>
+              {timeOfDay.map((b, i) => (
+                <BucketRow key={b.label} label={store.t(`progress.${TIME_OF_DAY[i]}`)} b={b} value={fmtTime(b.min, store.t)} stars={stars} s={s} />
+              ))}
+            </Card>
+            <Card style={{ flex: 1 }}>
+              <Overline style={{ marginBottom: 12 }}>{store.t('progress.sessionLength')}</Overline>
+              {lengths.map((b) => (
+                <BucketRow key={b.label} label={b.label} b={b} value={String(b.n)} stars={stars} s={s} />
+              ))}
+            </Card>
+          </View>
+        </>
       )}
 
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
@@ -258,8 +342,23 @@ export default function Progress() {
   );
 }
 
+/** One line of a bucket card: label, count/minutes, average rating. */
+function BucketRow({ label, b, value, stars, s }: { label: string; b: Bucket; value: string; stars: (v: number | null) => string; s: ReturnType<typeof useS> }) {
+  const C = useC();
+  return (
+    <View style={s.bucketRow}>
+      <Text style={[s.bucketLabel, b.n === 0 && { color: C.tertiary }]}>{label}</Text>
+      <Text style={s.skillLevel}>{b.n === 0 ? '—' : value}</Text>
+      <Text style={[s.bucketStars, { color: b.avgRating === null ? C.tertiary : C.accent }]}>{stars(b.avgRating)}</Text>
+    </View>
+  );
+}
+
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
+  bucketRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, paddingVertical: 5, borderTopWidth: 1, borderTopColor: C.hairline },
+  bucketLabel: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
+  bucketStars: { fontFamily: F.bodySemi, fontSize: fs(12), minWidth: 42, textAlign: 'right' },
   stat: { flex: 1 },
   statNum: { fontFamily: F.head, fontSize: fs(30), color: C.ink },
   statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
@@ -278,7 +377,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   legendSwatch: { width: 11, height: 11, borderRadius: r(3.5) },
   legendText: { fontFamily: F.body, fontSize: fs(10.5), color: C.tertiary, marginHorizontal: 2 },
   focusHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  segTrack: { flexDirection: 'row', backgroundColor: C.track, borderRadius: r(999), padding: 2.5 },
+  segTrack: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: C.track, borderRadius: r(999), padding: 2.5 },
   segBtn: { height: 26, paddingHorizontal: 12, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
   segBtnSel: { backgroundColor: C.card, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   segText: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.sub },

@@ -11,6 +11,7 @@ import { captureRef } from 'react-native-view-shot';
 import { LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
+import { ratingSummary } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -73,10 +74,14 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     const d = tempoDelta(p.tempoLog ?? [], store.today);
     return a + Math.max(0, d);
   }, 0);
+  // ratings (#54): null below 5 rated sessions in the period, so the rows simply drop out
+  const prefix = mode === 'month' ? `${year}-${String(month + 1).padStart(2, '0')}-` : `${year}-`;
+  const ratings = ratingSummary(store.sessions.filter((x) => x.date.startsWith(prefix)));
   const monthRows = rows([
     [store.t('recap.daysPracticed'), stats.daysPracticed ? String(stats.daysPracticed) : null],
     [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
     [store.t('recap.topPiece'), stats.topPiece],
+    [store.t('recap.avgRating'), ratings.avgRating !== null ? `★ ${ratings.avgRating.toFixed(1)}` : null],
     [store.t('recap.tempoGained'), tempoGained > 0 ? store.t('recap.bpmGained', { n: tempoGained }) : null],
   ]);
 
@@ -89,6 +94,7 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     [store.t('recap.piecesFinished'), finished ? String(finished) : null],
     [store.t('recap.bestMonth'), bestMonth],
     [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
+    [store.t('recap.bestRated'), ratings.bestPiece],
   ]);
 
   const barMax = Math.max(...stats.monthlyMinutes, 1);

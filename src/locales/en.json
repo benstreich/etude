@@ -203,6 +203,16 @@
     "defaultPlanName": "New routine"
   },
   "progress": {
+    "consistency": "Consistency",
+    "avgDaysPerWeek": "avg %{n} days / week",
+    "daysThisWeek": "%{n} of 7 days this week",
+    "ratingOverTime": "Rating over time",
+    "last12Weeks": "last 12 weeks",
+    "bestTimeOfDay": "Best time of day",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening",
+    "sessionLength": "Session length",
     "thisWeek": "This week",
     "avgPerDay": "Avg / day",
     "allTime": "All time",
@@ -268,6 +278,7 @@
     "pickHint": "Tap a take to make it A, then B keeps the other slot."
   },
   "piece": {
+    "minPerBpm": "%{n} min per BPM gained",
     "added": "added %{date}",
     "stage": "Stage",
     "total": "Total",
@@ -392,6 +403,7 @@
     "axisTarget": "%{target} target"
   },
   "editSession": {
+    "rating": "Rating",
     "title": "Edit session",
     "focus": "Focus",
     "minutes": "Minutes",
@@ -415,6 +427,7 @@
     "addedToast": "Added %{min} min · %{day}"
   },
   "sessionReview": {
+    "rateSession": "How did it feel?",
     "ofGoalMin": "of %{goal} min",
     "done": "Done",
     "niceWork": "Nice work",
@@ -437,6 +450,8 @@
     "delete": "Delete"
   },
   "recap": {
+    "avgRating": "Average rating",
+    "bestRated": "Best-rated piece",
     "thisMonth": "This month",
     "yearSoFar": "Year so far",
     "sharingUnavailable": "Sharing isn’t available here",
