@@ -1,10 +1,7 @@
 import React from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   TextProps,
   useWindowDimensions,
@@ -14,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
@@ -21,26 +19,23 @@ import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 /**
- * KeyboardAvoidingView behaviors. Android has two kinds of window here and they
- * react to the keyboard differently (#39, #48, #75):
+ * Keyboard handling, app-wide, lives in one place now (#39, #48, #75).
  *
- * - A <Modal>'s dialog window: RN sets SOFT_INPUT_ADJUST_RESIZE on it and, with
- *   statusBarTranslucent off, fitsSystemWindows — so the window itself shrinks when
- *   the keyboard opens. Padding on top of that lifts the sheet twice. Sheets keep the
- *   KAV for its scroll-into-view but give it no behavior on Android.
- * - The activity window: Expo 57 draws edge-to-edge, and an edge-to-edge window no
- *   longer honours adjustResize (the framework stops applying the IME inset), so
- *   nothing moves. Full-screen views with a text field near the bottom need the
- *   padding on Android as well as iOS.
+ * Expo 57 draws edge-to-edge, and an edge-to-edge Android window no longer
+ * honours adjustResize: the framework stops applying the IME inset, so the
+ * window never shrinks and RN's own KeyboardAvoidingView — which waits for that
+ * resize — has nothing to react to. Every screen and sheet left its focused
+ * field under the keyboard.
  *
- * iOS windows never resize, so both use padding there.
+ * KeyboardAwareScrollView (react-native-keyboard-controller, the version Expo
+ * pins for this SDK) subscribes to the inset animation itself and scrolls the
+ * focused field into view. It works inside a Modal on Android, which the
+ * Reanimated equivalent does not, and a sheet is a Modal.
  */
-export const SHEET_AVOID = Platform.OS === 'ios' ? ('padding' as const) : undefined;
-export const SCREEN_AVOID = 'padding' as const;
 
 /**
  * Bottom sheet in a <Modal> that can never be taller than the window it lives in (#75).
- * The dialog window shrinks when the keyboard opens (see SHEET_AVOID); a sheet sized
+ * The dialog window shrinks when the keyboard opens; a sheet sized
  * from useWindowDimensions did not, so its top ran off the screen and anything up
  * there — the repertoire search field, a title — became invisible. Here the sheet is
  * flex-sized against the window and scrolls inside, so the keyboard only ever makes
@@ -77,19 +72,20 @@ export function Sheet({
           does not reach inside it: without this, gestures in a sheet never fire. */}
       <GestureHandlerRootView style={{ flex: 1 }}>
         <Pressable style={s.backdrop} onPress={onClose}>
-        <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none" style={[s.avoid, { paddingTop: insets.top }]}>
+        <View pointerEvents="box-none" style={[s.avoid, { paddingTop: insets.top }]}>
           <Pressable style={[s.sheet, { maxHeight: winH - insets.top - 12 }, fill && s.sheetFill, style]} onPress={() => {}}>
             {grabber && <View style={s.grabber} />}
-            <ScrollView
+            <KeyboardAwareScrollView
               style={fill ? s.scrollFill : s.scroll}
               keyboardShouldPersistTaps="handled"
               scrollEnabled={scrollEnabled}
               showsVerticalScrollIndicator={false}
+              bottomOffset={16}
               contentContainerStyle={[align === 'bottom' && s.contentBottom, contentStyle]}>
               {children}
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </Pressable>
-          </KeyboardAvoidingView>
+          </View>
         </Pressable>
       </GestureHandlerRootView>
     </Modal>

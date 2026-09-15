@@ -2,7 +2,8 @@
 // the plain note prompt. Shows the day's progress on a staff, achievement chips,
 // a note field, and can attach a take via the practice screen's recorder.
 import React, { useEffect, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlameIcon } from '@/components/icons';
@@ -105,8 +106,11 @@ export function SessionReview({
 
   return (
     <Modal visible transparent={false} animationType="slide" onRequestClose={close}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: C.bg }}>
-        <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
+        <KeyboardAwareScrollView
+          bottomOffset={16}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[s.page, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
           <View style={s.topRow}>
             <View style={{ width: 44 }} />
             <Pressable hitSlop={10} onPress={close}>
@@ -178,8 +182,8 @@ export function SessionReview({
               <Text style={s.saveText}>{store.t('sessionReview.saveSession')}</Text>
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </Modal>
   );
 }
