@@ -32,3 +32,25 @@ assert.equal(mix('#000000', '#ffffff', 0.5), '#808080');
 assert.equal(mix('#ff0000', '#00ff00', 0.5), '#808000');
 
 console.log('check-heatmap: all assertions passed');
+
+// --- chart series (line/bar views of the heatmap card) ---------------------
+import { chartSeries } from '../src/lib/heatmap-math.ts';
+
+const mbd = { '2026-09-14': 30, '2026-09-13': 20, '2026-09-08': 45, '2026-08-30': 10 };
+const week = chartSeries(mbd, '2026-09-14', '7d');
+assert.equal(week.length, 7, '7d gives one point per day');
+assert.equal(week[6].label, '2026-09-14', 'last point is today');
+assert.equal(week[6].min, 30);
+assert.equal(week[5].min, 20);
+assert.equal(week[0].label, '2026-09-08', 'window starts six days back');
+assert.equal(week[0].min, 45);
+assert.equal(chartSeries(mbd, '2026-09-14', '30d').length, 30);
+assert.equal(chartSeries({}, '2026-09-14', '30d').every((p) => p.min === 0), true, 'no data is a flat line, not a crash');
+
+const all = chartSeries(mbd, '2026-09-14', 'all');
+assert.equal(all.length, 3, 'three 7-day buckets cover 2026-08-30 to 2026-09-14');
+assert.equal(all[2].min, 95, 'this week: 30 + 20 + 45');
+assert.equal(all[0].min, 10, 'oldest bucket holds the lone August session');
+assert.equal(chartSeries({}, '2026-09-14', 'all').length, 0, 'no practice, no series');
+assert.ok(chartSeries({ '2020-01-01': 5, '2026-09-14': 5 }, '2026-09-14', 'all').length <= 52, 'long histories are capped');
+console.log('check-heatmap: chart series passed');

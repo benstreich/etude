@@ -24,3 +24,37 @@ export function monthGrid(year: number, month: number, weekStartsMonday: boolean
 
 /** 0 none · 1 light (1–24 min) · 2 mid (25–39) · 3 full (40+). */
 export const heatLevel = (min: number) => (min <= 0 ? 0 : min < 25 ? 1 : min < 40 ? 2 : 3);
+
+export type ChartPoint = { label: string; min: number };
+
+/**
+ * Minutes over time for the heatmap card's line and bar views, following the
+ * period selector: daily points for 7d and 30d, 7-day buckets ending today for
+ * all-time (capped at a year so the axis stays readable).
+ */
+export function chartSeries(mbd: Record<string, number>, today: string, period: '7d' | '30d' | 'all'): ChartPoint[] {
+  const day = (offset: number) => {
+    const d = new Date(today + 'T12:00:00');
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+
+  if (period !== 'all') {
+    const n = period === '7d' ? 7 : 30;
+    return Array.from({ length: n }, (_, i) => {
+      const key = day(i - (n - 1));
+      return { label: key, min: mbd[key] ?? 0 };
+    });
+  }
+
+  const practised = Object.keys(mbd).filter((k) => mbd[k] > 0 && k <= today).sort();
+  if (practised.length === 0) return [];
+  const span = Math.round((new Date(today + 'T12:00:00').getTime() - new Date(practised[0] + 'T12:00:00').getTime()) / 86_400_000);
+  const buckets = Math.min(52, Math.max(1, Math.ceil((span + 1) / 7)));
+  return Array.from({ length: buckets }, (_, b) => {
+    const end = -(buckets - 1 - b) * 7;
+    let min = 0;
+    for (let d = 0; d < 7; d++) min += mbd[day(end - d)] ?? 0;
+    return { label: day(end - 6), min };
+  });
+}

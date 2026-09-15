@@ -370,6 +370,19 @@
       "timeOfDay": "Morgens, nachmittags oder abends",
       "sessionLength": "Welche Sessionlängen am besten bewertet sind",
       "last7": "Minuten pro Tag, letzte sieben Tage"
+    },
+    "chartCalendar": "Kalender",
+    "chartLine": "Linie",
+    "chartBars": "Balken",
+    "chartEmpty": "In diesem Zeitraum ist noch nichts erfasst.",
+    "unavailable": {
+      "sessions": "Erfasse zuerst eine Einheit.",
+      "pieces": "Füge zuerst ein Stück zu deinem Repertoire hinzu.",
+      "rated": "Braucht %{need} bewertete Einheiten — du hast %{have}.",
+      "history": "Braucht %{need} Tage Übung — du hast %{have}.",
+      "recordings": "Braucht ein Stück mit zwei Aufnahmen.",
+      "goals": "Setze zuerst ein Tagesziel oder eine Frist für ein Stück.",
+      "ready": "Braucht ein Stück auf der letzten Stufe."
     }
   },
   "repertoire": {

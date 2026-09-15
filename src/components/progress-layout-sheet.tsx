@@ -6,6 +6,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { Text } from '@/components/text';
 import { Sheet } from '@/components/ui';
+import { sectionUnavailable, type Unavailable } from '@/lib/progress-availability';
 import { resolveLayout, type LayoutItem } from '@/lib/progress-sections';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -21,6 +22,18 @@ export function ProgressLayoutSheet({ visible, onClose }: { visible: boolean; on
   const C = useC();
   const store = useStore();
   const layout = resolveLayout(store.progressLayout);
+  // Judged on the whole library rather than the current filter: the question is
+  // whether the data exists at all, not whether this week happens to show it.
+  const blockedBy = {
+    sessions: store.sessions,
+    pieces: store.pieces.filter((p) => !p.archived),
+    recordings: store.recordings,
+    mbd: store.minutesByDate,
+    today: store.today,
+    monday: store.weekStart === 'Monday',
+    lastStage: store.stages.length - 1,
+    hasGoals: store.dailyGoal > 0 || store.pieces.some((p) => !!p.targetDate),
+  };
   const [dragging, setDragging] = useState(false);
   const active = useSharedValue(-1); // index of the row being dragged
   const dragY = useSharedValue(0);
@@ -50,6 +63,7 @@ export function ProgressLayoutSheet({ visible, onClose }: { visible: boolean; on
             index={i}
             count={n}
             item={l}
+            blocked={sectionUnavailable(l.key, blockedBy)}
             active={active}
             dragY={dragY}
             onToggle={(v) => save(layout.map((x) => (x.key === l.key ? { key: x.key, on: v } : x)))}
@@ -69,6 +83,7 @@ function Row({
   index,
   count,
   item,
+  blocked,
   active,
   dragY,
   onToggle,
@@ -78,6 +93,7 @@ function Row({
   index: number;
   count: number;
   item: { key: string; on: boolean };
+  blocked: Unavailable | null;
   active: SharedValue<number>;
   dragY: SharedValue<number>;
   onToggle: (v: boolean) => void;
@@ -128,13 +144,21 @@ function Row({
           ))}
         </View>
       </GestureDetector>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, opacity: blocked ? 0.55 : 1 }}>
         <Text style={s.label}>{store.t(`progress.section.${item.key}`)}</Text>
-        <Text style={s.desc} numberOfLines={1}>
-          {store.t(`progress.sectionDesc.${item.key}`)}
+        <Text style={blocked ? s.blocked : s.desc} numberOfLines={2}>
+          {blocked
+            ? store.t(`progress.unavailable.${blocked.reason}`, { have: blocked.have, need: blocked.need })
+            : store.t(`progress.sectionDesc.${item.key}`)}
         </Text>
       </View>
-      <Switch value={item.on} onValueChange={onToggle} trackColor={{ true: C.accent, false: C.track }} thumbColor="#FFFFFF" />
+      <Switch
+        value={item.on && !blocked}
+        disabled={!!blocked}
+        onValueChange={onToggle}
+        trackColor={{ true: C.accent, false: C.track }}
+        thumbColor="#FFFFFF"
+      />
     </Animated.View>
   );
 }
@@ -149,6 +173,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   handleLine: { height: 2, borderRadius: r(1) },
   label: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   desc: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+  blocked: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, marginTop: 1, fontStyle: 'italic' },
   reset: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16, marginTop: 8 },
   resetText: { fontFamily: F.bodySemi, fontSize: fs(14) },
 }));

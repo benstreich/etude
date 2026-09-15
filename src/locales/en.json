@@ -370,6 +370,19 @@
       "timeOfDay": "Morning, afternoon or evening",
       "sessionLength": "Which session lengths rate best",
       "last7": "Minutes per day, last seven days"
+    },
+    "chartCalendar": "Calendar",
+    "chartLine": "Line",
+    "chartBars": "Bars",
+    "chartEmpty": "Nothing logged in this period yet.",
+    "unavailable": {
+      "sessions": "Log a session first.",
+      "pieces": "Add a piece to your repertoire first.",
+      "rated": "Needs %{need} rated sessions — you have %{have}.",
+      "history": "Needs %{need} days of practice — you have %{have}.",
+      "recordings": "Needs a piece with two recordings.",
+      "goals": "Set a daily goal or a piece deadline first.",
+      "ready": "Needs a piece at the final stage."
     }
   },
   "repertoire": {

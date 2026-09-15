@@ -29,6 +29,11 @@ The first version. Everything below is new.
 **Progress**
 - Lives on Home now, and it is yours: every section is a switch, drag them
   into your order, or reset to the default four. Settings sits behind the gear.
+  A section that cannot show yet is locked with the reason why — "needs 5 rated
+  sessions, you have 2" — instead of a switch that does nothing.
+- The practice calendar switches to a line or a bar chart of the same minutes,
+  following the period filter, so you can see the shape of a month or a year
+  rather than only its squares.
 - "Moving": which pieces are actually getting better — stage reached, tempo
   climbing toward the target, stars rising — and which have stalled or are due.
 - Your session stars count as a grade per piece: a rolling average, a trend,
