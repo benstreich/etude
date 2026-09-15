@@ -149,14 +149,16 @@ export default function Repertoire() {
               <Text style={[s.invested, { color: C.accent }]}>{store.t('repertoire.dueForReview', { days: stale(p)!.daysSince })}</Text>
             )}
           </View>
-          <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
-            {store.stages[Math.min(p.stage, store.stages.length - 1)]}
-          </Text>
+          {p.stage >= 0 && (
+            <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
+              {store.stages[Math.min(p.stage, store.stages.length - 1)]}
+            </Text>
+          )}
           <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
             <Text style={s.moreText}>⋯</Text>
           </Pressable>
         </View>
-        <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />
+        {p.stage >= 0 && <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />}
       </Pressable>
     );
   };

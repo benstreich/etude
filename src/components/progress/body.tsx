@@ -7,6 +7,7 @@ import { SlidersIcon } from '@/components/icons';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { Text } from '@/components/text';
 import { Card, InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
+import { Segmented } from '@/components/segmented';
 import { resolveLayout } from '@/lib/progress-sections';
 import { dateKey, FocusPeriod, Session, useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -65,16 +66,11 @@ export function ProgressBody({ header }: { header?: React.ReactNode }) {
       {!empty && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <InstrumentFilter />
-          <View style={s.segTrack}>
-            {PERIODS.map((p) => {
-              const sel = p.key === period.key;
-              return (
-                <Pressable key={p.key} style={[s.segBtn, sel && s.segBtnSel]} onPress={() => store.updateSettings({ focusPeriod: p.key })}>
-                  <Text style={[s.segText, sel && { color: C.ink }]}>{store.t(p.labelKey)}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Segmented
+            value={period.key}
+            onChange={(key) => store.updateSettings({ focusPeriod: key })}
+            options={PERIODS.map((p) => ({ key: p.key, label: store.t(p.labelKey) }))}
+          />
           <Pressable style={s.slidersBtn} hitSlop={8} accessibilityLabel={store.t('settings.progressSections')} onPress={() => setLayoutOpen(true)}>
             <SlidersIcon size={16} />
           </Pressable>

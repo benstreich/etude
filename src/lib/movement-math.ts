@@ -66,7 +66,7 @@ export function pieceMovement(piece: Piece, sessions: Session[], todayKey: strin
   const stageLog = piece.stageLog ?? [];
   for (let i = stageLog.length - 1; i >= 1; i--) {
     if (stageLog[i].date < cut) break;
-    if (stageLog[i].stage > stageLog[i - 1].stage) return { ...base, move: { kind: 'stage', from: stageLog[i - 1].stage, to: stageLog[i].stage } };
+    if (stageLog[i - 1].stage >= 0 && stageLog[i].stage > stageLog[i - 1].stage) return { ...base, move: { kind: 'stage', from: stageLog[i - 1].stage, to: stageLog[i].stage } };
   }
   if (spark.length >= 2 && spark[spark.length - 1] - spark[0] >= 3) return { ...base, move: { kind: 'tempo', deltaBpm: spark[spark.length - 1] - spark[0] } };
   if (trend && trend.delta >= 0.5) return { ...base, move: { kind: 'rating', delta: trend.delta } };

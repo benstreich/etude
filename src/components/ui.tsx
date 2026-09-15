@@ -11,12 +11,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { Easing, FadeInDown } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
 import { useStore } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 /**
  * Keyboard handling, app-wide, lives in one place now (#39, #48, #75).
@@ -92,9 +93,13 @@ export function Sheet({
   );
 }
 
+// Every card settles in with a short fade-up, the one motion the whole app
+// shares; off under the reduce-motion setting.
+const CARD_IN = FadeInDown.duration(320).easing(Easing.bezier(0.33, 1, 0.68, 1));
 export const Card = ({ style, ...p }: ViewProps) => {
   const s = useS();
-  return <View style={[s.card, style]} {...p} />;
+  const { reduceMotion } = useTheme();
+  return <Animated.View entering={reduceMotion ? undefined : CARD_IN} style={[s.card, style]} {...p} />;
 };
 
 export const Overline = ({ style, ...p }: TextProps) => {
