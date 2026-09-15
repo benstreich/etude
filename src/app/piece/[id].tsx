@@ -150,8 +150,12 @@ export default function PieceDetail() {
           ] as const
         ).map(([label, value]) => (
           <Card key={label} style={s.stat}>
-            <Overline style={{ marginBottom: 8 }}>{label}</Overline>
-            <Text style={s.statNum} numberOfLines={1}>
+            <Overline style={{ marginBottom: 8 }} numberOfLines={1}>
+              {label}
+            </Overline>
+            {/* a third of the width cannot hold "Yesterday" at full size, so the
+                value steps down with its length rather than being cut off (#86) */}
+            <Text style={[s.statNum, value.length > 9 ? s.statNumXs : value.length > 6 ? s.statNumSm : null]} numberOfLines={1}>
               {value}
             </Text>
           </Card>
@@ -370,6 +374,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stageLabel: { flex: 1, fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
   stat: { flex: 1, padding: 14 },
   statNum: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
+  statNumSm: { fontSize: fs(16) },
+  statNumXs: { fontSize: fs(13) },
   tempoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tempoValue: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink, marginTop: 2 },
   tempoTarget: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },

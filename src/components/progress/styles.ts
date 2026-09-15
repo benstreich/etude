@@ -17,8 +17,12 @@ export const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   bucketLabel: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
   insight: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },
   bucketStars: { fontFamily: F.bodySemi, fontSize: fs(12), minWidth: 42, textAlign: 'right' },
-  volumeRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  volumeCell: { flex: 1, gap: 6 },
+  // 2x2 rather than 4 across: a German label like INSGESAMT has no room in a
+  // quarter of the card, and the reserved two-line label height keeps every
+  // number on the same baseline whatever the language or font scale (#87).
+  volumeRow: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 14, columnGap: 12 },
+  volumeCell: { flexBasis: '46%', flexGrow: 1, gap: 4 },
+  volumeLabel: { lineHeight: fs(15), minHeight: fs(30) },
   volumeNum: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   volumeUnit: { fontFamily: F.bodyMed, fontSize: fs(12), color: C.sub },
   goalLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
