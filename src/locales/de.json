@@ -171,7 +171,9 @@
     "sourceCodeSub": "Öffentlich lesbar — Étude bleibt eine bezahlte App",
     "privacyPolicy": "Datenschutz",
     "privacyPolicySub": "Kurz, weil es wenig zu sagen gibt",
-    "linkFailed": "Link konnte nicht geöffnet werden"
+    "linkFailed": "Link konnte nicht geöffnet werden",
+    "progressSections": "Fortschritts-Bereiche",
+    "resetDefault": "Auf Standard zurücksetzen"
   },
   "home": {
     "goodMorning": "Guten Morgen",
@@ -299,7 +301,29 @@
     "period7d": "7T",
     "period30d": "30T",
     "periodAll": "Alle",
-    "nothingInPeriod": "In diesem Zeitraum nichts eingetragen"
+    "nothingInPeriod": "In diesem Zeitraum nichts eingetragen",
+    "customise": "Anpassen",
+    "customHint": "Dieser Tab gehört dir – schalte Bereiche ein und aus und ordne sie, wie du willst.",
+    "hintDismiss": "Verstanden",
+    "ratingSessions": "%{n} bewertete Sessions",
+    "section": {
+      "movement": "In Bewegung",
+      "goals": "Ziele & Termine",
+      "heatmap": "Übungskalender",
+      "volume": "Umfang",
+      "hear": "Hör den Unterschied",
+      "pipeline": "Repertoire-Pipeline",
+      "performable": "Heute vorspielbar",
+      "changed": "Seit letztem Monat",
+      "insights": "Einblicke",
+      "timeByFocus": "Zeit pro Fokus",
+      "drift": "Fokus-Drift",
+      "consistency": "Regelmässigkeit",
+      "rating": "Bewertung über die Zeit",
+      "timeOfDay": "Beste Tageszeit",
+      "sessionLength": "Session-Länge",
+      "last7": "Letzte 7 Tage"
+    }
   },
   "repertoire": {
     "dueForReview": "Seit %{days} Tagen nicht gespielt — Auffrischung fällig",
