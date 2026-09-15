@@ -35,6 +35,11 @@ existing progress screen, 3 moves the result into Home and adds Tools.
   volume. It must stand out on its own.
 - Tab bar becomes **Home, Practice, Repertoire, Tools** (four). Settings moves
   to a gear icon in the Home header. Appearance stays reachable from Settings.
+- The two stat boxes on Settings (total practice, best streak) go; the numbers
+  live in the `volume` section on Home.
+- Use every signal the store already holds: stars, tempo logs, stages, recordings,
+  session minutes, plan runs. If a signal exists and no section reads it, that is
+  a gap, not a simplification.
 - No new dependencies. Charts stay `react-native-svg`; drag uses the installed
   `react-native-reanimated` + `react-native-gesture-handler`.
 
