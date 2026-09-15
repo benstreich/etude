@@ -14,6 +14,15 @@ export type MetronomeControlsState = {
   subtitle?: string;
 };
 
+/** One click through the native SoundPool (Android only). */
+export type MetronomeClick = {
+  sound: string;
+  /** 0 plain, 1 group start, 2 downbeat, 3 subdivision. */
+  bank: number;
+  /** 0-100. */
+  volume: number;
+};
+
 /** Config for the native background click loop (Android only). */
 export type MetronomeTick = {
   bpm: number;

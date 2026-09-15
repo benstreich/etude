@@ -36,6 +36,13 @@ class ControlsState(
   @Field val subtitle: String? = null
 ) : Record
 
+class Click(
+  @Field val sound: String = "wood",
+  // 0 plain, 1 group start, 2 downbeat, 3 subdivision — the JS bank index
+  @Field val bank: Int = 0,
+  @Field val volume: Int = 100
+) : Record
+
 class TickState(
   @Field val bpm: Int = 120,
   // level per beat of one bar: 0 muted, 1 plain, 2 group start, 3 downbeat
@@ -59,10 +66,47 @@ private val SOUND_SETS: Map<String, IntArray> = mapOf(
 )
 
 /**
- * Foreground service whose only job is the ongoing notification carrying the
- * − / play-pause / + buttons. The clicks themselves are played by expo-audio up
- * in JS; this service exists so Android keeps the process alive while the screen
- * is off and puts the controls on the lock screen.
+ * The one click engine, shared by the in-app beat and the background loop (#78).
+ * Two engines at the same nominal gain sounded nothing alike: ExoPlayer streams,
+ * and spinning a pipeline up per play smears the first milliseconds of a 30 ms
+ * sample — where all of a click's loudness lives. SoundPool holds decoded PCM and
+ * fires it whole. ponytail: lives for the process; twenty 4 KB samples.
+ */
+object Clicks {
+  const val SUB_BANK = 3 // the subdivision sample sits after the three beat levels
+  private var pool: SoundPool? = null
+  private val loaded = mutableMapOf<String, IntArray>() // set id -> SoundPool ids, by bank
+
+  fun preload(context: Context): SoundPool {
+    pool?.let { return it }
+    val p = SoundPool.Builder()
+      .setMaxStreams(4) // four, so a subdivision click can overlap the beat's tail
+      .setAudioAttributes(
+        AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .build()
+      )
+      .build()
+    val app = context.applicationContext
+    for ((id, set) in SOUND_SETS) loaded[id] = IntArray(set.size) { i -> p.load(app, set[i], 1) }
+    pool = p
+    return p
+  }
+
+  /** Unknown set ids fall back to wood; a gain of 0 is a muted beat, not a play. */
+  fun play(context: Context, sound: String, bank: Int, gain: Float) {
+    if (gain <= 0f) return
+    val ids = loaded[sound] ?: loaded.getValue("wood")
+    preload(context).play(ids[bank.coerceIn(0, SUB_BANK)], gain, gain, 1, 0, 1f)
+  }
+}
+
+/**
+ * Foreground service whose job is the ongoing notification carrying the
+ * − / play-pause / + buttons, plus the click loop while JS timers are frozen.
+ * It keeps the process alive while the screen is off and puts the controls on
+ * the lock screen.
  */
 class MetronomeControlsService : Service() {
   private var bpm = 120
@@ -74,31 +118,11 @@ class MetronomeControlsService : Service() {
   override fun onCreate() {
     super.onCreate()
     instance = this
-    // preload the clicks now so the first background beat isn't silent while they load
-    soundPool = SoundPool.Builder()
-      .setMaxStreams(4) // four, so a subdivision click can overlap the beat's tail
-      .setAudioAttributes(
-        AudioAttributes.Builder()
-          .setUsage(AudioAttributes.USAGE_MEDIA)
-          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-          .build()
-      )
-      .build()
-    loadSet(tickSound)
-  }
-
-  /** Load a sample set into the pool, once each. Unknown ids fall back to wood. */
-  private fun loadSet(id: String) {
-    val pool = soundPool ?: return
-    val set = SOUND_SETS[id] ?: SOUND_SETS.getValue("wood")
-    loaded.getOrPut(id) { IntArray(set.size) { i -> pool.load(this, set[i], 1) } }
+    Clicks.preload(this) // so the first background beat isn't silent while samples load
   }
 
   override fun onDestroy() {
     stopTicking()
-    soundPool?.release()
-    soundPool = null
-    loaded.clear()
     instance = null
     super.onDestroy()
   }
@@ -131,8 +155,6 @@ class MetronomeControlsService : Service() {
   // Android freezes JS timers while the activity is paused, so JS hands the
   // click loop over on backgrounding and takes it back on resume.
 
-  private var soundPool: SoundPool? = null
-  private val loaded = mutableMapOf<String, IntArray>() // set id -> SoundPool ids, by level
   private var tickThread: HandlerThread? = null
   private var tickHandler: Handler? = null
   @Volatile private var tickBpm = 120
@@ -148,15 +170,12 @@ class MetronomeControlsService : Service() {
     override fun run() {
       val pattern = tickPattern
       val subdiv = tickSubdiv.coerceIn(1, 4)
-      val ids = loaded[tickSound] ?: loaded["wood"]
-      if (ids != null) {
-        if (tickSub == 0) {
-          // level 0 means the user muted this beat — count it, don't play it
-          val level = pattern[tickBeat % pattern.size].coerceIn(0, 3)
-          if (level > 0) soundPool?.play(ids[level - 1], tickGain, tickGain, 1, 0, 1f)
-        } else {
-          soundPool?.play(ids[SUB_BANK], tickGain, tickGain, 1, 0, 1f)
-        }
+      if (tickSub == 0) {
+        // level 0 means the user muted this beat — count it, don't play it
+        val level = pattern[tickBeat % pattern.size].coerceIn(0, 3)
+        if (level > 0) Clicks.play(this@MetronomeControlsService, tickSound, level - 1, tickGain)
+      } else {
+        Clicks.play(this@MetronomeControlsService, tickSound, Clicks.SUB_BANK, tickGain)
       }
       tickSub++
       if (tickSub >= subdiv) {
@@ -179,10 +198,7 @@ class MetronomeControlsService : Service() {
     if (pattern.isNotEmpty()) tickPattern = pattern
     tickSubdiv = subdiv.coerceIn(1, 4)
     tickGain = volume.coerceIn(0, 100) / 100f
-    if (sound != tickSound && SOUND_SETS.containsKey(sound)) {
-      loadSet(sound)
-      tickSound = sound
-    }
+    if (SOUND_SETS.containsKey(sound)) tickSound = sound
   }
 
   fun startTicking(bpm: Int, pattern: IntArray, subdiv: Int, sound: String, volume: Int) {
@@ -259,9 +275,6 @@ class MetronomeControlsService : Service() {
   }
 
   companion object {
-    /** The subdivision sample sits after the three beat levels in every set. */
-    const val SUB_BANK = 3
-
     const val EXTRA_BPM = "bpm"
     const val EXTRA_RUNNING = "running"
     const val EXTRA_SUBTITLE = "subtitle"
@@ -325,6 +338,12 @@ class MetronomeControlsModule : Module() {
 
     Function("stopTicking") {
       MetronomeControlsService.instance?.stopTicking()
+    }
+
+    Function("preloadClicks") { Clicks.preload(context) }
+
+    Function("click") { c: Click ->
+      Clicks.play(context, c.sound, c.bank, c.volume.coerceIn(0, 100) / 100f)
     }
   }
 
