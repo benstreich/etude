@@ -87,4 +87,17 @@ const sameDay = deadlineStatus({ targetDate: '2026-09-16', todayKey: '2026-09-16
 assert.ok(Number.isFinite(sameDay.days));
 assert.equal(sameDay.days, 0);
 
+// rating target (spec 2026-09-15): on track only if the forecast lands before the deadline
+const withRating = deadlineStatus({ ...dl, stage: 1, targetRating: 4.5, ratingAvg: 3.2, ratingReachDate: '2027-01-01' });
+assert.ok(withRating.lagging.includes('rating'));
+assert.equal(withRating.onTrack, false);
+const ratingOk = deadlineStatus({ ...dl, stage: 1, targetRating: 4.5, ratingAvg: 4.6, ratingReachDate: null });
+assert.ok(!ratingOk.lagging.includes('rating'));
+assert.equal(ratingOk.onTrack, true);
+const ratingSoon = deadlineStatus({ ...dl, stage: 1, targetRating: 4.5, ratingAvg: 4.0, ratingReachDate: '2026-09-20' });
+assert.ok(!ratingSoon.lagging.includes('rating'), 'forecast before the deadline is on pace');
+assert.deepEqual(deadlineStatus({ ...dl, stage: 0 }).lagging, ['stage']);
+assert.deepEqual(deadlineStatus({ ...dl, stage: 1, targetBpm: 120, tempoReachDate: '2026-12-01' }).lagging, ['tempo']);
+assert.deepEqual(deadlineStatus({ ...dl, stage: 2, targetRating: 5, ratingAvg: 2, ratingReachDate: null }).lagging, ['rating'], 'done stage still lags on rating');
+
 console.log('goal ok');

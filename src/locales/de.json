@@ -382,7 +382,12 @@
     "remove": "Entfernen",
     "currentBpm": "Aktuelle BPM",
     "targetBpm": "Ziel-BPM",
-    "save": "Speichern"
+    "save": "Speichern",
+    "targetRating": "Zielbewertung",
+    "lagging": "im Rückstand bei %{list}",
+    "ratingWord": "Bewertung",
+    "tempoWord": "Tempo",
+    "stageWord": "Stufe"
   },
   "plan": {
     "break": "Pause",
@@ -542,7 +547,8 @@
     },
     "firstSession": "Erste Einheit",
     "bestWeek": "Beste Woche bisher",
-    "goalStraight": "Ziel 7 Tage in Folge erreicht"
+    "goalStraight": "Ziel 7 Tage in Folge erreicht",
+    "lastTime": "Letztes Mal: %{n} ★"
   },
   "recordings": {
     "namePlaceholder": "Take benennen",
