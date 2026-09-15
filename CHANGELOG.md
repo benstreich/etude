@@ -45,6 +45,11 @@ The first version. Everything below is new.
 **Tools**
 - A Tools tab: full-screen metronome with tap tempo, the tuner, and a drone —
   a steady pitch to play against, any note, A4 adjustable.
+- Practice science: fifteen findings on how to practise and how learning works,
+  each in plain language with its source linked. Where the popular version
+  overstates the evidence — the 10,000 hours story, sleep, slow practice,
+  external focus, interleaving — the entry says so and links the replication.
+  A few entries show one line from your own practice next to the finding.
 - Metronome: 20–300 BPM, time signatures, tempo ramps, subdivisions, editable
   accent patterns, five click sounds, its own volume — and it keeps clicking
   with the screen locked, with controls on the lock screen.

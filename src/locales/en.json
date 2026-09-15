@@ -721,7 +721,9 @@
     "tuner": "Tuner",
     "tunerBlurb": "Chromatic, cents readout",
     "drone": "Drone",
-    "droneBlurb": "A steady pitch to play against"
+    "droneBlurb": "A steady pitch to play against",
+    "learn": "Practice science",
+    "learnBlurb": "What the research actually says"
   },
   "drone": {
     "title": "Drone",
@@ -731,5 +733,93 @@
     "octave": "Octave",
     "reference": "A4 reference",
     "hint": "Loops until you stop it. Tune to it, play scales against it, or hold it while you work on intonation."
+  },
+  "learn": {
+    "title": "Practice science",
+    "back": "‹ Tools",
+    "intro": "What the research actually says about practising — including where the popular version overstates it. Every claim links to its source.",
+    "groupPractice": "How to practise",
+    "groupLearning": "How learning works",
+    "groupPeople": "People worth reading",
+    "contested": "Contested",
+    "free": "Free to read",
+    "yours": "In your data",
+    "statInterleaving": "A practice day of yours touches %{n} focuses on average.",
+    "statSpacing": "You practise on %{n} days in a typical week.",
+    "statSessionLength": "Your average session runs %{n} minutes.",
+    "e": {
+      "deliberatePractice": {
+        "takeaway": "Hours matter, but far less than the legend",
+        "finding": "The 1993 violinist study found that the best students had accumulated more solitary practice than the merely good ones. It became the foundation of the idea that expertise is mostly accumulated hours.",
+        "caveat": "The “10,000-hour rule” is not in that paper — Ericsson rejected the phrase. A 2019 replication found the good group had practised more than the best group, and a meta-analysis puts practice at roughly a fifth of the variance in music. Practice is necessary, not sufficient."
+      },
+      "slowPractice": {
+        "takeaway": "Slow practice: universal, and barely studied",
+        "finding": "Almost every classical musician surveyed uses slow practice, and expert practicers vary their tempo deliberately instead of grinding at one speed.",
+        "caveat": "There is no adequate controlled evidence that slow practice itself improves learning. The two studies that did manipulate tempo point the other way: skills learned at one tempo transfer poorly to another, and a tempo-pattern intervention came out null. Vary tempo by all means — just know the evidence is habit, not proof."
+      },
+      "interleaving": {
+        "takeaway": "Mixing pieces may beat drilling one",
+        "finding": "Learners who shuffled problem types did worse during practice and better at the delayed test. Lab motor tasks show the same shape: messier in the room, stronger a week later.",
+        "caveat": "The classic studies are maths problems and lab button presses, not instruments. A 2023 review calls the benefit in sports practice a myth, and the big learning-technique review rates interleaving only moderate."
+      },
+      "mentalPractice": {
+        "takeaway": "Practising in your head works — alongside the instrument",
+        "finding": "In the best-powered music study, mental and vocal rehearsal combined with playing improved expressive performance more than playing alone. It costs nothing, makes no noise and cannot strain a tendon.",
+        "caveat": "Imagery on its own did not beat no practice in that study. A 24-year follow-up meta-analysis puts mental practice at about 1.7% of the variance, well under the figure still quoted, and none of the pooled numbers come from musicians."
+      },
+      "externalFocus": {
+        "takeaway": "Think about the sound, not your fingers — perhaps",
+        "finding": "Musicians told to focus on the instrument or the resulting sound were rated higher than those told to focus on their hands, matching two decades of motor-learning reports.",
+        "caveat": "A 2024 Bayesian meta-analysis found that literature is shaped by reporting bias. Corrected for it, the average effect on performance, retention and transfer is negligible. Worth trying on yourself; not worth treating as settled."
+      },
+      "exercise": {
+        "takeaway": "A hard walk near practice may help it stick",
+        "finding": "Pooling controlled studies, a bout of cardiovascular exercise before or after motor practice improved later retention, with the larger effects at higher intensity.",
+        "caveat": "The underlying tasks are lab motor sequences rather than instruments, so treat the direction as promising and the size as unknown for music."
+      },
+      "anxiety": {
+        "takeaway": "Stage fright responds to treatment",
+        "finding": "A 2025 review of music performance anxiety treatments across all ages found structured approaches help, with cognitive behavioural therapy the best studied and online delivery no worse than in person."
+      },
+      "injury": {
+        "takeaway": "Playing hurts more musicians than you would think",
+        "finding": "Across the studies reviewed, between 41% and 93% of professional musicians reported a playing-related musculoskeletal complaint within the previous year.",
+        "caveat": "That is a prevalence figure, not a prescription. Trials of warm-ups and prevention programmes in musicians are few and weak, so breaks and load management are sensible rather than proven."
+      },
+      "spacing": {
+        "takeaway": "Spread it out, and match the gap to the deadline",
+        "finding": "Across hundreds of experiments, the same practice spread over days beat it massed together. The best gap scales with how long you need to hold on: a recital next month wants longer gaps than a lesson tomorrow.",
+        "caveat": "This synthesis covers verbal recall, not motor skill. The direction is about as well supported as findings get; the specific gaps do not transfer straight to an instrument."
+      },
+      "retrieval": {
+        "takeaway": "Testing yourself beats going over it again",
+        "finding": "Learners who tested themselves remembered substantially more a week later than those who restudied the same material for the same time. Playing a passage from memory is the musical version of the test.",
+        "caveat": "The gains shrink when the test format differs from how you practised, so rehearse recall in the form you actually need it: from memory, at tempo, in one take."
+      },
+      "sleep": {
+        "takeaway": "Sleep and skill: the famous result did not hold",
+        "finding": "A 2002 study reported that a practised motor sequence improved overnight without further practice. It became the standard claim that sleep consolidates motor skill.",
+        "caveat": "A 2008 study failed to replicate it, and a meta-analysis of 88 groups found no compelling evidence for sleep-specific gains once averaging artefacts, time of day and fatigue were accounted for. Sleep well regardless; the overnight-improvement story is not established."
+      },
+      "overview": {
+        "takeaway": "One free paper that rates the study techniques",
+        "finding": "Five researchers reviewed ten common learning techniques and graded each by how well the evidence supports it. Practice testing and distributed practice scored high; highlighting and rereading scored low."
+      },
+      "kageyama": {
+        "takeaway": "Performance psychology, written for players",
+        "finding": "Noa Kageyama teaches at Juilliard and writes about performing under pressure, practice quality and the research behind both.",
+        "caveat": "The site also sells courses, and posts sometimes generalise from small studies."
+      },
+      "gebrian": {
+        "takeaway": "A violist who reads the neuroscience properly",
+        "finding": "Molly Gebrian works across music and neuroscience, and her 2024 guide builds practice advice on memory and motor-learning research."
+      },
+      "klickstein": {
+        "takeaway": "Craft guidance on practice, performance and health",
+        "finding": "Gerald Klickstein's book and site cover practice routines, performance preparation and musician wellness.",
+        "caveat": "Experienced craft advice rather than an evidence review — useful at the music stand, not a source of research findings."
+      }
+    }
   }
 }

@@ -34,6 +34,7 @@ it up before you switch phones — Settings does that, recordings included.
 src/app/          screens; the file tree is the navigation (Expo Router)
 src/components/   shared UI — sheets, the metronome sheet, recordings, cards
 src/components/progress/  one file per progress section, picked by src/lib/progress-sections.ts
+src/lib/evidence.ts       the cited reading list behind Tools → Practice science
 src/lib/          the brain: one store, many pure modules
 modules/          local native modules (widgets, metronome controls)
 scripts/          the checks, and the audio generators

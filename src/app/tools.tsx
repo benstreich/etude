@@ -24,6 +24,7 @@ export default function Tools() {
     { href: '/metronome', title: store.t('tools.metronome'), blurb: running ? `♩ ${bpm}` : store.t('tools.metronomeBlurb'), glyph: <MetronomeIcon size={26} /> },
     { href: '/tuner', title: store.t('tools.tuner'), blurb: store.t('tools.tunerBlurb'), glyph: <Text style={s.glyph}>♯</Text> },
     { href: '/drone', title: store.t('tools.drone'), blurb: store.t('tools.droneBlurb'), glyph: <Text style={s.glyph}>~</Text> },
+    { href: '/learn', title: store.t('tools.learn'), blurb: store.t('tools.learnBlurb'), glyph: <Text style={s.glyph}>§</Text> },
   ];
 
   return (
