@@ -40,8 +40,10 @@ export function VolumeSection({ mbd, monday, sessions, inst }: SectionProps) {
       <View style={s.volumeRow}>
         {cells.map(([label, num, unit]) => (
           <View key={label} style={s.volumeCell}>
-            <Overline>{label}</Overline>
-            <Text style={s.volumeNum}>
+            <Overline style={s.volumeLabel} numberOfLines={2}>
+              {label}
+            </Overline>
+            <Text style={s.volumeNum} numberOfLines={1}>
               {num}
               {!!unit && <Text style={s.volumeUnit}> {unit}</Text>}
             </Text>
