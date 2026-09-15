@@ -171,7 +171,9 @@
     "sourceCodeSub": "Public to read — Étude is still a paid app",
     "privacyPolicy": "Privacy policy",
     "privacyPolicySub": "Short, because there is not much to say",
-    "linkFailed": "Couldn't open that link"
+    "linkFailed": "Couldn't open that link",
+    "progressSections": "Progress sections",
+    "resetDefault": "Reset to default"
   },
   "home": {
     "goodMorning": "Good morning",
@@ -299,7 +301,29 @@
     "period7d": "7d",
     "period30d": "30d",
     "periodAll": "All",
-    "nothingInPeriod": "Nothing logged in this period"
+    "nothingInPeriod": "Nothing logged in this period",
+    "customise": "Customise",
+    "customHint": "This tab is yours — switch sections on and off, and put them in your order.",
+    "hintDismiss": "Got it",
+    "ratingSessions": "%{n} rated sessions",
+    "section": {
+      "movement": "Moving",
+      "goals": "Goals & deadlines",
+      "heatmap": "Practice calendar",
+      "volume": "Volume",
+      "hear": "Hear the difference",
+      "pipeline": "Repertoire pipeline",
+      "performable": "Performable today",
+      "changed": "Since last month",
+      "insights": "Insights",
+      "timeByFocus": "Time by focus",
+      "drift": "Focus drift",
+      "consistency": "Consistency",
+      "rating": "Rating over time",
+      "timeOfDay": "Best time of day",
+      "sessionLength": "Session length",
+      "last7": "Last 7 days"
+    }
   },
   "repertoire": {
     "dueForReview": "Not played in %{days} days — due for review",
