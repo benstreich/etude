@@ -71,21 +71,29 @@ const bankFor = (level: Level) => level - 1; // 1 plain → 0, 2 mid → 1, 3 ac
 export const LOCK_SCREEN_STEP = 5;
 
 // --- click playback -------------------------------------------------------
-// Two players per sound, used alternately: a player is rewound right after it
-// fires, so the beat itself is a bare play() with no await in the way.
+// Android (dev build): the native SoundPool, the same engine the background loop
+// uses, so in-app and lock-screen clicks are the same click (#78). expo-audio's
+// ExoPlayer smeared the onset of these 30 ms samples — quiet and thin in the
+// app, and its rewind replayed them as a fast double.
+// Elsewhere: two expo-audio players per sound, used alternately; a player is
+// rewound right after it fires, so the beat itself is a bare play().
 // ponytail: pools are built per sound set on first use and kept — five sets of
 // eight players is cheap, and rebuilding one mid-run would drop a click.
 
+const nativeClicks = typeof Controls?.click === 'function';
 const pools: Partial<Record<SoundSet, AudioPlayer[][]>> = {};
 const cursor = [0, 0, 0, 0];
 
 function ensurePool(set: SoundSet) {
+  if (nativeClicks) return Controls!.preloadClicks!();
   if (pools[set]) return;
   const pair = (source: number) => [createAudioPlayer(source), createAudioPlayer(source)];
   pools[set] = SAMPLES[set].map(pair);
 }
 
-function playClick(set: SoundSet, bank: number, gain: number) {
+function playClick(set: SoundSet, bank: number, volume: number) {
+  if (nativeClicks) return Controls!.click!({ sound: set, bank, volume });
+  const gain = volumeGain(volume);
   const pool = pools[set];
   if (!pool || gain <= 0) return;
   const players = pool[bank];
@@ -110,7 +118,7 @@ export function preloadClicks() {
 /** One click of a set at full tilt, for the picker's preview tap. */
 export function previewClick(set: SoundSet, volume: number) {
   ensurePool(set);
-  playClick(set, bankFor(3), volumeGain(volume));
+  playClick(set, bankFor(3), volume);
 }
 
 // Module-level mirror of `running` so non-React callers (the sound cues, which
@@ -226,14 +234,13 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     const r = run.current;
     if (!r) return;
     const { sig: liveSig, ramp: liveRamp, subdiv: n, accents: bar, sound: set, volume: vol } = latest.current;
-    const gain = volumeGain(vol);
 
     if (r.sub === 0) {
       const level = accentLevel(r.beats, liveSig, bar);
-      if (level > 0) playClick(set, bankFor(level), gain); // 0 = the user muted this beat
+      if (level > 0) playClick(set, bankFor(level), vol); // 0 = the user muted this beat
       emitBeat(r.beats % liveSig.beats);
     } else {
-      playClick(set, SUB_BANK, gain);
+      playClick(set, SUB_BANK, vol);
     }
 
     const pos = advanceTick(r, n);

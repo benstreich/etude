@@ -1,6 +1,11 @@
 import { NativeModule, requireOptionalNativeModule } from 'expo';
 
-import type { MetronomeControlsEvents, MetronomeControlsState, MetronomeTick } from './MetronomeControls.types';
+import type {
+  MetronomeClick,
+  MetronomeControlsEvents,
+  MetronomeControlsState,
+  MetronomeTick,
+} from './MetronomeControls.types';
 
 declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEvents> {
   /** Put the controls up (Android: start the foreground service). */
@@ -15,6 +20,10 @@ declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEven
   stopTicking(): void;
   /** Android: retune a loop that is already running — tempo, accents, subdivision, sound, volume. */
   updateTicking(tick: MetronomeTick): void;
+  /** Android: decode every sample set into the SoundPool. Absent on iOS. */
+  preloadClicks?(): void;
+  /** Android: fire one click from the same SoundPool the background loop uses (#78). Absent on iOS. */
+  click?(click: MetronomeClick): void;
 }
 
 // Optional: in Expo Go the native side isn't there. Everything else still works,
