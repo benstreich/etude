@@ -14,6 +14,7 @@ import type { RampUnit } from './metronome-math';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
 import { applySessionUpdate } from './session-math';
+import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
 import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
@@ -27,6 +28,7 @@ export type Session = { id: string; title: string; meta: string; min: number; da
 export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' | 'Break' }; note?: string; bpm?: number; min: number };
 export type Plan = { id: string; name: string; segments: PlanSegment[] };
 export type TempoEntry = { date: string; bpm: number };
+export type StageEntry = { date: string; stage: number };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
 export type Recording = {
   id: string;
@@ -59,6 +61,7 @@ export type Piece = {
   targetDate?: string; // dateKey the piece should reach the last stage by (#56)
   targetRating?: number; // 1-5 rolling-average star target for the deadline (spec 2026-09-15)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
+  stageLog?: StageEntry[]; // every stage change, ascending, one per day; backfilled by migrate (spec 2026-09-15)
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
 };
 
@@ -72,6 +75,8 @@ type Settings = {
   reviewPromptedAt: number; // 0 until the automatic review sheet has been asked for once (#68)
   autoBackupDays: number; // 0 = off; otherwise auto backup every N days into Documents/Backups
   focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
+  progressLayout: { key: string; on: boolean }[]; // section order + visibility; [] = registry default (spec 2026-09-15)
+  progressHintSeen: boolean; // the one-time "this tab is yours" hint under the progress header
   name: string;
   language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
@@ -156,6 +161,8 @@ function seed(): State {
     reviewPromptedAt: 0,
     autoBackupDays: 0,
     focusPeriod: '30d',
+    progressLayout: [],
+    progressHintSeen: false,
     name: '',
     language: 'system',
     instruments: [],
@@ -454,8 +461,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (p.id !== id) return p;
           const next = { ...p, ...patch };
           // same pct rule as cyclePiece so the repertoire bar stays consistent
-          if (patch.stage !== undefined)
+          if (patch.stage !== undefined) {
             next.pct = stagePct(patch.stage, n);
+            next.stageLog = appendStageLog(p.stageLog, dateKey(), patch.stage);
+          }
           return next;
         }),
       };
@@ -534,7 +543,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         pieces: s.pieces.map((p) => {
           if (p.id !== id) return p;
           const stage = (Math.min(p.stage, n - 1) + 1) % n;
-          return { ...p, stage, pct: stagePct(stage, n) };
+          return { ...p, stage, pct: stagePct(stage, n), stageLog: appendStageLog(p.stageLog, dateKey(), stage) };
         }),
       };
     });
@@ -643,7 +652,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const n = patch.stages.length;
         next.pieces = next.pieces.map((p) => {
           const stage = Math.min(p.stage, n - 1);
-          return { ...p, stage, pct: stagePct(stage, n) };
+          return { ...p, stage, pct: stagePct(stage, n), stageLog: stage === p.stage ? p.stageLog : appendStageLog(p.stageLog, dateKey(), stage) };
         });
       }
       return next;
