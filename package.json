@@ -71,7 +71,7 @@
     "check:session": "node --experimental-strip-types --no-warnings scripts/check-session.ts",
     "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
     "check:tempo": "node --experimental-strip-types --no-warnings scripts/check-tempo.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment && npm run check:review && npm run check:rating && npm run check:movement && npm run check:drone",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment && npm run check:review && npm run check:rating && npm run check:movement && npm run check:drone && npm run check:evidence",
     "check:trim": "node --experimental-strip-types --no-warnings scripts/check-trim.ts",
     "check:tuner": "node --experimental-strip-types --no-warnings scripts/check-tuner.ts",
     "check:stage": "node --experimental-strip-types --no-warnings scripts/check-stage.ts",
@@ -81,6 +81,7 @@
     "check:secrets": "node --experimental-strip-types --no-warnings scripts/check-secrets.ts",
     "check:review": "node --experimental-strip-types --no-warnings scripts/check-review.ts",
     "check:attachment": "node --experimental-strip-types --no-warnings scripts/check-attachment.ts",
+    "check:evidence": "node --experimental-strip-types --no-warnings scripts/check-evidence.ts",
     "check:drone": "node --experimental-strip-types --no-warnings scripts/check-drone.ts",
     "check:rating": "node --experimental-strip-types --no-warnings scripts/check-rating.ts",
     "check:movement": "node --experimental-strip-types --no-warnings scripts/check-movement.ts"

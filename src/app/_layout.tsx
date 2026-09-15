@@ -159,6 +159,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="profile" options={{ href: null }} />
             <Tabs.Screen name="metronome" options={{ href: null }} />
             <Tabs.Screen name="drone" options={{ href: null }} />
+            <Tabs.Screen name="learn" options={{ href: null }} />
             <Tabs.Screen name="appearance" options={{ href: null }} />
             <Tabs.Screen name="piece/[id]" options={{ href: null }} />
             <Tabs.Screen name="plan/[id]" options={{ href: null }} />

@@ -721,7 +721,9 @@
     "tuner": "Stimmgerät",
     "tunerBlurb": "Chromatisch, mit Cent-Anzeige",
     "drone": "Bordun",
-    "droneBlurb": "Ein Halteton zum Mitspielen"
+    "droneBlurb": "Ein Halteton zum Mitspielen",
+    "learn": "Übewissen",
+    "learnBlurb": "Was die Forschung wirklich sagt"
   },
   "drone": {
     "title": "Bordun",
@@ -731,5 +733,93 @@
     "octave": "Oktave",
     "reference": "Kammerton A4",
     "hint": "Läuft, bis du ihn stoppst. Stimme danach, spiele Tonleitern darüber oder halte ihn für die Intonation."
+  },
+  "learn": {
+    "title": "Übewissen",
+    "back": "‹ Werkzeuge",
+    "intro": "Was die Forschung wirklich über das Üben sagt — auch dort, wo die populäre Fassung übertreibt. Jede Aussage verlinkt ihre Quelle.",
+    "groupPractice": "Wie man übt",
+    "groupLearning": "Wie Lernen funktioniert",
+    "groupPeople": "Lesenswerte Stimmen",
+    "contested": "Umstritten",
+    "free": "Frei lesbar",
+    "yours": "In deinen Daten",
+    "statInterleaving": "Ein Übetag von dir berührt im Schnitt %{n} Schwerpunkte.",
+    "statSpacing": "Du übst in einer typischen Woche an %{n} Tagen.",
+    "statSessionLength": "Deine Einheit dauert im Schnitt %{n} Minuten.",
+    "e": {
+      "deliberatePractice": {
+        "takeaway": "Stunden zählen, aber viel weniger als die Legende",
+        "finding": "Die Geigenstudie von 1993 fand, dass die besten Studierenden mehr Einzelübezeit angesammelt hatten als die guten. Daraus wurde die Vorstellung, Könnerschaft sei vor allem Summe der Stunden.",
+        "caveat": "Die „10.000-Stunden-Regel“ steht nicht in dieser Arbeit — Ericsson hat den Begriff abgelehnt. Eine Replikation von 2019 fand, dass die gute Gruppe mehr geübt hatte als die beste, und eine Metaanalyse beziffert den Anteil des Übens an den Unterschieden in der Musik auf etwa ein Fünftel. Üben ist notwendig, nicht hinreichend."
+      },
+      "slowPractice": {
+        "takeaway": "Langsames Üben: überall, kaum untersucht",
+        "finding": "Fast alle befragten klassischen Musikerinnen und Musiker üben langsam, und erfahrene Übende variieren das Tempo bewusst, statt in einem Tempo zu verharren.",
+        "caveat": "Es gibt keine belastbare kontrollierte Evidenz, dass langsames Üben an sich das Lernen verbessert. Die beiden Studien, die das Tempo tatsächlich variierten, deuten in die andere Richtung: In einem Tempo Gelerntes überträgt sich schlecht auf ein anderes, und eine Tempo-Intervention blieb ohne Effekt. Tempo zu variieren ist sinnvoll — nur ist es Gewohnheit, nicht Beweis."
+      },
+      "interleaving": {
+        "takeaway": "Mischen kann besser sein als Drillen",
+        "finding": "Wer Aufgabentypen mischte, war während des Übens schlechter und im späteren Test besser. Motorische Laboraufgaben zeigen dasselbe Muster: unruhiger im Raum, stärker eine Woche später.",
+        "caveat": "Die klassischen Studien sind Mathematikaufgaben und Labortastendrücke, keine Instrumente. Eine Übersicht von 2023 nennt den Nutzen im Sporttraining einen Mythos, und die große Übersicht zu Lerntechniken bewertet Verschachtelung nur als mittelmäßig belegt."
+      },
+      "mentalPractice": {
+        "takeaway": "Üben im Kopf wirkt — zusätzlich zum Instrument",
+        "finding": "In der am besten abgesicherten Musikstudie verbesserte mentales und vokales Üben zusammen mit dem Spielen den Ausdruck stärker als Spielen allein. Es kostet nichts, macht keinen Lärm und belastet keine Sehne.",
+        "caveat": "Vorstellung allein schlug in dieser Studie nicht einmal gar kein Üben. Eine Metaanalyse 24 Jahre nach der ersten beziffert mentales Üben auf rund 1,7 % der Varianz, deutlich unter der oft zitierten Zahl, und keine der gepoolten Zahlen stammt von Musizierenden."
+      },
+      "externalFocus": {
+        "takeaway": "An den Klang denken statt an die Finger — vielleicht",
+        "finding": "Musizierende, die auf das Instrument oder den entstehenden Klang achten sollten, wurden besser bewertet als jene, die auf ihre Hände achteten — passend zu zwei Jahrzehnten Bewegungsforschung.",
+        "caveat": "Eine bayesianische Metaanalyse von 2024 zeigt, dass diese Literatur von Berichtsverzerrung geprägt ist. Korrigiert man dafür, ist der mittlere Effekt auf Leistung, Behalten und Transfer vernachlässigbar. Ausprobieren ja, als gesichert behandeln nein."
+      },
+      "exercise": {
+        "takeaway": "Ein flotter Gang ums Üben herum kann helfen",
+        "finding": "Über kontrollierte Studien hinweg verbesserte eine Ausdauereinheit vor oder nach motorischem Üben das spätere Behalten, mit größeren Effekten bei höherer Intensität.",
+        "caveat": "Die zugrunde liegenden Aufgaben sind motorische Laborsequenzen, keine Instrumente. Die Richtung ist vielversprechend, die Größe für Musik unbekannt."
+      },
+      "anxiety": {
+        "takeaway": "Lampenfieber ist behandelbar",
+        "finding": "Eine Übersicht von 2025 zu Auftrittsangst über alle Altersgruppen fand, dass strukturierte Verfahren helfen; kognitive Verhaltenstherapie ist am besten untersucht, und online vermittelt wirkt sie nicht schlechter als vor Ort."
+      },
+      "injury": {
+        "takeaway": "Spielen tut mehr Musizierenden weh als gedacht",
+        "finding": "In den ausgewerteten Studien berichteten zwischen 41 % und 93 % der Berufsmusizierenden innerhalb eines Jahres über spielbedingte Beschwerden am Bewegungsapparat.",
+        "caveat": "Das ist eine Häufigkeitszahl, keine Handlungsanweisung. Studien zu Aufwärmen und Prävention bei Musizierenden sind selten und schwach, Pausen und Belastungssteuerung also vernünftig, aber nicht belegt."
+      },
+      "spacing": {
+        "takeaway": "Verteilen — und den Abstand zum Termin passen",
+        "finding": "Über Hunderte Experimente hinweg schlug dieselbe Übezeit, über Tage verteilt, dieselbe Zeit am Stück. Der beste Abstand wächst mit der Behaltensdauer: ein Vorspiel nächsten Monat verlangt größere Abstände als der Unterricht morgen.",
+        "caveat": "Diese Synthese betrifft verbales Behalten, nicht Motorik. Die Richtung ist so gut belegt, wie Befunde nur sein können; die konkreten Abstände lassen sich nicht direkt aufs Instrument übertragen."
+      },
+      "retrieval": {
+        "takeaway": "Sich abfragen schlägt nochmal durchgehen",
+        "finding": "Wer sich selbst abfragte, behielt eine Woche später deutlich mehr als jene, die dasselbe Material gleich lange erneut durchgingen. Eine Stelle auswendig zu spielen ist die musikalische Fassung dieses Tests.",
+        "caveat": "Der Gewinn schrumpft, wenn die Prüfform vom Üben abweicht. Also das Abrufen so üben, wie es gebraucht wird: auswendig, im Tempo, in einem Durchgang."
+      },
+      "sleep": {
+        "takeaway": "Schlaf und Können: der berühmte Befund hielt nicht",
+        "finding": "Eine Studie von 2002 berichtete, dass sich eine geübte Bewegungsfolge über Nacht ohne weiteres Üben verbesserte. Daraus wurde die Standardaussage, Schlaf festige motorisches Können.",
+        "caveat": "Eine Studie von 2008 konnte das nicht replizieren, und eine Metaanalyse über 88 Gruppen fand keine überzeugende Evidenz für schlafspezifische Gewinne, sobald Mittelungsartefakte, Tageszeit und Ermüdung berücksichtigt wurden. Gut schlafen bleibt richtig; die Geschichte vom Fortschritt über Nacht ist es nicht."
+      },
+      "overview": {
+        "takeaway": "Eine frei lesbare Arbeit, die Lerntechniken bewertet",
+        "finding": "Fünf Forschende prüften zehn verbreitete Lerntechniken und bewerteten jede danach, wie gut die Evidenz sie stützt. Selbsttests und verteiltes Üben schnitten hoch ab, Markieren und erneutes Lesen niedrig."
+      },
+      "kageyama": {
+        "takeaway": "Auftrittspsychologie, für Spielende geschrieben",
+        "finding": "Noa Kageyama unterrichtet an der Juilliard School und schreibt über Auftritte unter Druck, Übequalität und die Forschung dahinter.",
+        "caveat": "Die Seite verkauft auch Kurse, und Beiträge verallgemeinern gelegentlich aus kleinen Studien."
+      },
+      "gebrian": {
+        "takeaway": "Eine Bratschistin, die die Neurowissenschaft richtig liest",
+        "finding": "Molly Gebrian arbeitet zwischen Musik und Neurowissenschaft; ihr Leitfaden von 2024 stützt Übepraxis auf Gedächtnis- und Bewegungsforschung."
+      },
+      "klickstein": {
+        "takeaway": "Handwerkliche Anleitung zu Üben, Auftritt und Gesundheit",
+        "finding": "Gerald Klicksteins Buch und Website behandeln Übeabläufe, Auftrittsvorbereitung und die Gesundheit von Musizierenden.",
+        "caveat": "Erfahrenes Handwerkswissen, keine Evidenzübersicht — nützlich am Notenpult, aber keine Quelle für Forschungsbefunde."
+      }
+    }
   }
 }
