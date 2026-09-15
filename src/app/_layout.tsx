@@ -9,8 +9,9 @@ import { Tabs, usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
-import { KeyboardAvoidingView, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,7 +19,6 @@ import { ClockIcon, HomeIcon, MetronomeIcon, NoteIcon } from '@/components/icons
 import { Onboarding } from '@/components/onboarding';
 import { Text } from '@/components/text';
 import { Toast } from '@/components/toast';
-import { SCREEN_AVOID } from '@/components/ui';
 import { WidgetSync } from '@/components/widget-sync';
 import { MetronomeProvider } from '@/lib/metronome';
 import { useActiveRun } from '@/lib/plan-run-state';
@@ -54,11 +54,15 @@ export default function RootLayout() {
   return (
     // the root gesture handler the score viewer's pinch/pan needs (#60)
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StoreProvider>
-        <MetronomeProvider>
-          <Shell insets={insets} />
-        </MetronomeProvider>
-      </StoreProvider>
+      {/* Reports the real keyboard inset animation. Edge-to-edge killed
+          adjustResize, so nothing below can rely on the window shrinking. */}
+      <KeyboardProvider>
+        <StoreProvider>
+          <MetronomeProvider>
+            <Shell insets={insets} />
+          </MetronomeProvider>
+        </StoreProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
@@ -115,10 +119,6 @@ function Shell({ insets }: { insets: { bottom: number } }) {
   return (
         <View style={{ flex: 1, backgroundColor: C.bg }}>
           <StatusBar style={dark ? 'light' : 'dark'} />
-          {/* The activity window is edge-to-edge and no longer resizes for the keyboard
-              (see SCREEN_AVOID in ui.tsx); this one padding view gives every screen the
-              old adjustResize behaviour. Modal sheets have their own window (#75). */}
-          <KeyboardAvoidingView behavior={SCREEN_AVOID} style={{ flex: 1 }}>
           <Tabs
             // back goes to the previous screen, not to Home (#85)
             backBehavior="history"
@@ -167,7 +167,6 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="compare" options={{ href: null }} />
             <Tabs.Screen name="tuner" options={{ href: null }} />
           </Tabs>
-          </KeyboardAvoidingView>
           <RunPill bottom={56 + insets.bottom + 12} />
           <Toast />
           <WidgetSync />

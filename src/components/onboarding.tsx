@@ -1,12 +1,12 @@
 // First-run flow: welcome + 3 steps (instruments/name, daily goal, reminders).
 // Rendered by Shell instead of the tab navigator until store.onboarded is set.
 import React, { useEffect, useState } from 'react';
-import { BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LockIcon, LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
-import { SCREEN_AVOID } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -87,11 +87,11 @@ export function Onboarding() {
     );
 
   return (
-    <KeyboardAvoidingView behavior={SCREEN_AVOID} style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={[s.page, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
         {header}
         {/* ponytail: instant step swap — the 'shift' slide isn't worth an animation rig here */}
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={16}>
           {step === 1 && (
             <>
               <View style={s.headerBlock}>
@@ -188,7 +188,7 @@ export function Onboarding() {
               </View>
             </>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
         {step === 3 ? (
           <View style={{ gap: 6 }}>
             {primary(store.t('onboarding.turnOnReminders'), () => finish(time))}
@@ -200,7 +200,7 @@ export function Onboarding() {
           primary(store.t('onboarding.continue'), () => setStep(step + 1))
         )}
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
