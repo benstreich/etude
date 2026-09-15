@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type StyleProp, type TextStyle } from 'react-native';
+import Svg, { Polyline } from 'react-native-svg';
 
 import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
-import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
+import { chartSeries, heatLevel, mix, monthGrid, type ChartPoint } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
 
 import { fmtTime, useS } from './styles';
 import type { SectionProps } from './types';
 
-/** Month heatmap with paging and a per-day session detail (tap a session to edit it). */
-export function HeatmapSection({ mbd, monday, sessions, onEditSession }: SectionProps) {
+const PERIOD_KEY: Record<string, string> = { '7d': 'progress.period7d', '30d': 'progress.period30d', all: 'progress.periodAll' };
+
+/**
+ * The same minutes, three ways: a month heatmap with paging and a per-day session
+ * detail, or a line or bar chart over the selected period. The choice persists.
+ */
+export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }: SectionProps) {
   const s = useS();
   const C = useC();
   const store = useStore();
@@ -39,20 +45,51 @@ export function HeatmapSection({ mbd, monday, sessions, onEditSession }: Section
   const heat1 = mix(C.accent, C.bg, 0.65); // 1–24 min
   const heat2 = mix(C.accent, C.bg, 0.35); // 25–39 min
 
+  const view = store.progressChart;
+  const series = view === 'calendar' ? [] : chartSeries(mbd, store.today, period);
+  const seriesTotal = series.reduce((a, pt) => a + pt.min, 0);
+  const setView = (v: 'calendar' | 'line' | 'bars') => {
+    store.updateSettings({ progressChart: v });
+    setSelDate(null);
+  };
+
   return (
     <Card>
       <View style={s.monthHead}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Pressable hitSlop={10} onPress={() => pageMonth(1)}>
-            <Text style={[s.monthChev, { color: C.sub }]}>‹</Text>
-          </Pressable>
-          <Text style={s.monthTitle}>{monthTitle}</Text>
-          <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => pageMonth(-1)}>
-            <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
-          </Pressable>
-        </View>
-        <Text style={s.monthCount}>{store.t('progress.daysPracticed', { practiced, days: elapsedDays })}</Text>
+        {view === 'calendar' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Pressable hitSlop={10} onPress={() => pageMonth(1)}>
+              <Text style={[s.monthChev, { color: C.sub }]}>‹</Text>
+            </Pressable>
+            <Text style={s.monthTitle}>{monthTitle}</Text>
+            <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => pageMonth(-1)}>
+              <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text style={s.monthTitle}>{store.t(PERIOD_KEY[period])}</Text>
+        )}
+        <Text style={s.monthCount}>
+          {view === 'calendar'
+            ? store.t('progress.daysPracticed', { practiced, days: elapsedDays })
+            : fmtTime(seriesTotal, store.t)}
+        </Text>
       </View>
+      <View style={s.viewRow}>
+        {(['calendar', 'line', 'bars'] as const).map((v) => (
+          <Pressable
+            key={v}
+            hitSlop={4}
+            style={[s.viewPill, view === v && { backgroundColor: C.accentTint }]}
+            onPress={() => setView(v)}>
+            <Text style={[s.viewPillText, { color: view === v ? C.accent : C.sub }]}>
+              {store.t(`progress.chart${v[0].toUpperCase()}${v.slice(1)}`)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {view !== 'calendar' && <MinutesChart points={series} kind={view} accent={C.accent} track={C.track} empty={store.t('progress.chartEmpty')} emptyStyle={s.detailEmpty} />}
+      {view === 'calendar' && (
       <View style={s.dowRow}>
         {dow.map((d, i) => (
           <Text key={i} style={s.dowText}>
@@ -60,7 +97,8 @@ export function HeatmapSection({ mbd, monday, sessions, onEditSession }: Section
           </Text>
         ))}
       </View>
-      {weeks.map((row, wi) => (
+      )}
+      {view === 'calendar' && weeks.map((row, wi) => (
         <View key={wi} style={s.weekRow}>
           {row.map((day, di) => {
             if (day === null) return <View key={di} style={s.cell} />;
@@ -88,6 +126,7 @@ export function HeatmapSection({ mbd, monday, sessions, onEditSession }: Section
           })}
         </View>
       ))}
+      {view === 'calendar' && (
       <View style={s.legendRow}>
         <Text style={s.legendText}>{store.t('progress.less')}</Text>
         {[C.track, heat1, heat2, C.accent].map((c, i) => (
@@ -95,6 +134,7 @@ export function HeatmapSection({ mbd, monday, sessions, onEditSession }: Section
         ))}
         <Text style={s.legendText}>{store.t('progress.more')}</Text>
       </View>
+      )}
       {selDate && (
         <View style={s.dayDetail}>
           <View style={s.skillRow}>
@@ -119,5 +159,48 @@ export function HeatmapSection({ mbd, monday, sessions, onEditSession }: Section
         </View>
       )}
     </Card>
+  );
+}
+
+/** Minutes over the selected period. Bars are plain views; the line is one polyline. */
+function MinutesChart({
+  points,
+  kind,
+  accent,
+  track,
+  empty,
+  emptyStyle,
+}: {
+  points: ChartPoint[];
+  kind: 'line' | 'bars';
+  accent: string;
+  track: string;
+  empty: string;
+  emptyStyle: StyleProp<TextStyle>;
+}) {
+  const s = useS();
+  const [w, setW] = useState(0);
+  const H = 108;
+  if (points.length === 0) return <Text style={emptyStyle}>{empty}</Text>;
+  const max = Math.max(1, ...points.map((p) => p.min));
+  const x = (i: number) => (points.length === 1 ? w / 2 : 2 + (i * (w - 4)) / (points.length - 1));
+  const y = (min: number) => H - 6 - (min / max) * (H - 18);
+
+  return (
+    <View style={s.chartBox} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+      {kind === 'bars' ? (
+        <View style={s.barRow}>
+          {points.map((p) => (
+            <View key={p.label} style={[s.bar, { height: `${Math.max(2, (p.min / max) * 100)}%`, backgroundColor: p.min > 0 ? accent : track }]} />
+          ))}
+        </View>
+      ) : (
+        w > 0 && (
+          <Svg width={w} height={H}>
+            <Polyline points={points.map((p, i) => `${x(i)},${y(p.min)}`).join(' ')} fill="none" stroke={accent} strokeWidth={2} strokeLinejoin="round" />
+          </Svg>
+        )
+      )}
+    </View>
   );
 }

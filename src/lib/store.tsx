@@ -77,6 +77,7 @@ type Settings = {
   focusPeriod: FocusPeriod; // Progress "time by focus" filter, persisted
   progressLayout: { key: string; on: boolean }[]; // section order + visibility; [] = registry default (spec 2026-09-15)
   progressHintSeen: boolean; // the one-time "this tab is yours" hint under the progress header
+  progressChart: 'calendar' | 'line' | 'bars'; // how the heatmap card draws the same minutes
   name: string;
   language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
@@ -163,6 +164,7 @@ function seed(): State {
     focusPeriod: '30d',
     progressLayout: [],
     progressHintSeen: false,
+    progressChart: 'calendar',
     name: '',
     language: 'system',
     instruments: [],

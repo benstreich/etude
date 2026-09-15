@@ -13,6 +13,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
@@ -72,7 +73,10 @@ export function Sheet({
   const winH = useWindowDimensions().height;
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
+      {/* A Modal is its own native view tree, so the app's root handler in _layout
+          does not reach inside it: without this, gestures in a sheet never fire. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Pressable style={s.backdrop} onPress={onClose}>
         <KeyboardAvoidingView behavior={SHEET_AVOID} pointerEvents="box-none" style={[s.avoid, { paddingTop: insets.top }]}>
           <Pressable style={[s.sheet, { maxHeight: winH - insets.top - 12 }, fill && s.sheetFill, style]} onPress={() => {}}>
             {grabber && <View style={s.grabber} />}
@@ -85,8 +89,9 @@ export function Sheet({
               {children}
             </ScrollView>
           </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
