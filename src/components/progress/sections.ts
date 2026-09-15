@@ -3,23 +3,31 @@ import type React from 'react';
 import type { SectionKey } from '@/lib/progress-sections';
 
 import { SessionLengthSection, TimeOfDaySection } from './buckets';
+import { ChangedSection } from './changed';
 import { ConsistencySection } from './consistency';
 import { DriftSection } from './drift';
 import { GoalsSection } from './goals';
+import { HearSection } from './hear';
 import { HeatmapSection } from './heatmap';
 import { InsightsSection } from './insights';
 import { Last7Section } from './last7';
+import { MovementSection } from './movement';
+import { PerformableSection } from './performable';
+import { PipelineSection } from './pipeline';
 import { RatingSection } from './rating';
 import { TimeByFocusSection } from './time-by-focus';
 import type { SectionProps } from './types';
 import { VolumeSection } from './volume';
 
-// The five piece-first sections (movement, hear, pipeline, performable, changed)
-// land in Task 5 of the 2026-09-15 plan; ProgressBody skips a key with no component.
-export const SECTIONS: Partial<Record<SectionKey, React.FC<SectionProps>>> = {
+export const SECTIONS: Record<SectionKey, React.FC<SectionProps>> = {
+  movement: MovementSection,
   goals: GoalsSection,
   heatmap: HeatmapSection,
   volume: VolumeSection,
+  hear: HearSection,
+  pipeline: PipelineSection,
+  performable: PerformableSection,
+  changed: ChangedSection,
   insights: InsightsSection,
   timeByFocus: TimeByFocusSection,
   drift: DriftSection,
