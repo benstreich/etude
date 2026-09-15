@@ -140,9 +140,7 @@
     "backupUnreadable": "Dieses Backup kann nicht gelesen werden",
     "addYourName": "Füge deinen Namen hinzu",
     "setInstruments": "Lege unten deine Instrumente fest",
-    "totalPractice": "Übungszeit gesamt",
     "bestStreak": "Beste Serie",
-    "hrsUnit": "Std.",
     "daysUnit": "Tage",
     "yourData": "Deine Daten",
     "backupEverything": "Alles sichern",
@@ -173,7 +171,10 @@
     "privacyPolicySub": "Kurz, weil es wenig zu sagen gibt",
     "linkFailed": "Link konnte nicht geöffnet werden",
     "progressSections": "Fortschritts-Bereiche",
-    "resetDefault": "Auf Standard zurücksetzen"
+    "resetDefault": "Auf Standard zurücksetzen",
+    "nOfM": "%{n} von %{m}",
+    "progressSectionsHelp": "Bereiche ein- und ausschalten. Griff halten und ziehen, um die Reihenfolge zu ändern.",
+    "dragToReorder": "Ziehen zum Umsortieren"
   },
   "home": {
     "goodMorning": "Guten Morgen",
@@ -350,7 +351,25 @@
     "changedPromoted": "Stufenaufstiege",
     "changedHours": "Stunden",
     "changedBpm": "BPM gewonnen",
-    "changedStars": "Sterne im Schnitt"
+    "changedStars": "Sterne im Schnitt",
+    "sectionDesc": {
+      "movement": "Welche Stücke sich bewegen, stocken oder fällig sind",
+      "goals": "Zeitraumziele und Fristen für Stücke",
+      "heatmap": "Ein Monat Übetage, antippen für Details",
+      "volume": "Diese Woche, Schnitt, gesamt, beste Serie",
+      "hear": "Erste vs. neueste Aufnahme eines Stücks",
+      "pipeline": "Stücke pro Stufe und der Zufluss zur letzten",
+      "performable": "Fertige Stücke und wie frisch sie sind",
+      "changed": "Dieser Monat gegen dieselben Tage des Vormonats",
+      "insights": "Sätze darüber, wann und wie du am besten übst",
+      "timeByFocus": "Minuten pro Stück und Technik",
+      "drift": "Wie sich dein Fokus über 12 Wochen verschob",
+      "consistency": "Übetage pro Woche",
+      "rating": "Sterne pro Stück im Verlauf",
+      "timeOfDay": "Morgens, nachmittags oder abends",
+      "sessionLength": "Welche Sessionlängen am besten bewertet sind",
+      "last7": "Minuten pro Tag, letzte sieben Tage"
+    }
   },
   "repertoire": {
     "dueForReview": "Seit %{days} Tagen nicht gespielt — Auffrischung fällig",

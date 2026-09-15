@@ -140,9 +140,7 @@
     "backupUnreadable": "That backup can’t be read",
     "addYourName": "Add your name",
     "setInstruments": "Set your instruments below",
-    "totalPractice": "Total practice",
     "bestStreak": "Best streak",
-    "hrsUnit": "hrs",
     "daysUnit": "days",
     "yourData": "Your data",
     "backupEverything": "Back up everything",
@@ -173,7 +171,10 @@
     "privacyPolicySub": "Short, because there is not much to say",
     "linkFailed": "Couldn't open that link",
     "progressSections": "Progress sections",
-    "resetDefault": "Reset to default"
+    "resetDefault": "Reset to default",
+    "nOfM": "%{n} of %{m}",
+    "progressSectionsHelp": "Switch sections on and off. Hold the handle and drag to change the order.",
+    "dragToReorder": "Drag to reorder"
   },
   "home": {
     "goodMorning": "Good morning",
@@ -350,7 +351,25 @@
     "changedPromoted": "Stage promotions",
     "changedHours": "Hours",
     "changedBpm": "BPM gained",
-    "changedStars": "Average stars"
+    "changedStars": "Average stars",
+    "sectionDesc": {
+      "movement": "Which pieces are moving, stalled or due",
+      "goals": "Period goals and piece deadlines",
+      "heatmap": "A month of practice days, tap for details",
+      "volume": "This week, average, all time, best streak",
+      "hear": "First vs. latest recording of a piece",
+      "pipeline": "Pieces per stage and the flow into the last",
+      "performable": "Ready pieces and how fresh they are",
+      "changed": "This month against the same days last month",
+      "insights": "Sentences about when and how you practise best",
+      "timeByFocus": "Minutes per piece and technique",
+      "drift": "How your focus shifted over 12 weeks",
+      "consistency": "Practice days per week",
+      "rating": "Stars per piece over time",
+      "timeOfDay": "Morning, afternoon or evening",
+      "sessionLength": "Which session lengths rate best",
+      "last7": "Minutes per day, last seven days"
+    }
   },
   "repertoire": {
     "dueForReview": "Not played in %{days} days — due for review",

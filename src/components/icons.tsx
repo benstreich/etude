@@ -169,3 +169,16 @@ export const LogoMark = ({ size = 26 }: { size?: number }) => {
   </View>
   );
 };
+
+export const SlidersIcon = ({ color: colorProp, size = 20 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.ink;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 7h16M4 12h16M4 17h16" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Circle cx={9} cy={7} r={2.2} fill={C.card} stroke={color} strokeWidth={1.8} />
+      <Circle cx={15} cy={12} r={2.2} fill={C.card} stroke={color} strokeWidth={1.8} />
+      <Circle cx={7} cy={17} r={2.2} fill={C.card} stroke={color} strokeWidth={1.8} />
+    </Svg>
+  );
+};

@@ -10,6 +10,7 @@ import { AddFocus } from '@/components/add-focus';
 import { ChevronIcon, LockIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { TimeWheel } from '@/components/time-wheel';
+import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { Card, Overline, ScreenTitle, Sheet } from '@/components/ui';
 import { filesOf } from '@/lib/attachment-math';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
@@ -18,6 +19,7 @@ import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
+import { resolveLayout } from '@/lib/progress-sections';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -73,6 +75,10 @@ export default function Profile() {
   const store = useStore();
   const insets = useSafeAreaInsets();
   const [editing, setEditing] = useState<EditKey | null>(null);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const layoutAll = resolveLayout(store.progressLayout);
+  const layoutTotal = layoutAll.length;
+  const layoutOn = layoutAll.filter((l) => l.on).length;
   // ponytail: native in-app review sheet; row hides where no store flow exists (web, sideloads)
   const [canRate, setCanRate] = useState(false);
   useEffect(() => {
@@ -240,7 +246,7 @@ export default function Profile() {
     .map(([goal, period]) => `${goalOf(period, goal)}${goal > 0 ? '' : store.t('settings.autoMark')}`)
     .join(' · ') + ` ${store.t('settings.min')}`;
 
-  const rows: { key: EditKey; label: string; value: string }[] = [
+  const rows: { key: EditKey | 'progressSections'; label: string; value: string }[] = [
     { key: 'instruments', label: store.t('settings.instruments'), value: store.instruments.map(instLabel).join(', ') },
     // only worth asking once there is something to choose between (#53)
     ...(store.instruments.length > 1
@@ -256,6 +262,7 @@ export default function Profile() {
     { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : store.reminder },
     { key: 'weekStart', label: store.t('settings.weekStart'), value: dayName(store.weekStart) },
     { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
+    { key: 'progressSections', label: store.t('settings.progressSections'), value: store.t('settings.nOfM', { n: layoutOn, m: layoutTotal }) },
   ];
 
   const titles: Record<EditKey, string> = {
@@ -289,25 +296,6 @@ export default function Profile() {
         <Text style={s.sub}>{store.instruments.length ? store.instruments.map(instLabel).join(' & ') : store.t('settings.setInstruments')}</Text>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Card style={s.stat}>
-          <Overline style={{ marginBottom: 10 }}>{store.t('settings.totalPractice')}</Overline>
-          <Text style={s.statNum}>
-            {Math.round(store.totalMin / 60)}
-            <Text style={s.statUnit}> {store.t('settings.hrsUnit')}</Text>
-          </Text>
-        </Card>
-        {store.streakMode !== 'off' && (
-          <Card style={s.stat}>
-            <Overline style={{ marginBottom: 10 }}>{store.t('settings.bestStreak')}</Overline>
-            <Text style={s.statNum}>
-              {store.bestStreak}
-              <Text style={s.statUnit}> {store.t('settings.daysUnit')}</Text>
-            </Text>
-          </Card>
-        )}
-      </View>
-
       <Card style={{ paddingVertical: 4, paddingHorizontal: 20 }}>
         <Pressable style={s.row} onPress={() => router.push('/appearance')}>
           <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
@@ -320,7 +308,7 @@ export default function Profile() {
           <Pressable
             key={row.key}
             style={[s.row, { borderTopWidth: 1, borderTopColor: C.hairline }]}
-            onPress={() => open(row.key)}>
+            onPress={() => (row.key === 'progressSections' ? setLayoutOpen(true) : open(row.key))}>
             <Text style={s.rowLabel}>{row.label}</Text>
             <Text style={s.rowValue} numberOfLines={1}>
               {row.value}
@@ -653,6 +641,7 @@ export default function Profile() {
               </Pressable>
             )}
       </Sheet>
+      <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
     </ScrollView>
   );
 }
@@ -664,9 +653,6 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   avatarText: { fontFamily: F.head, fontSize: fs(24), color: C.bg },
   name: { fontFamily: F.head, fontSize: fs(26), color: C.ink },
   sub: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
-  stat: { flex: 1 },
-  statNum: { fontFamily: F.head, fontSize: fs(30), color: C.ink },
-  statUnit: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10 },
   rowLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: fs(14), color: C.sub },

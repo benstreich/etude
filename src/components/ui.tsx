@@ -55,6 +55,7 @@ export function Sheet({
   grabber,
   style,
   contentStyle,
+  scrollEnabled = true,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -64,6 +65,7 @@ export function Sheet({
   grabber?: boolean;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  scrollEnabled?: boolean; // off while a row inside is being dragged
 }) {
   const s = useS();
   const insets = useSafeAreaInsets();
@@ -77,6 +79,7 @@ export function Sheet({
             <ScrollView
               style={fill ? s.scrollFill : s.scroll}
               keyboardShouldPersistTaps="handled"
+              scrollEnabled={scrollEnabled}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={[align === 'bottom' && s.contentBottom, contentStyle]}>
               {children}
