@@ -13,7 +13,8 @@ analytics compute, and the two things that ever touch the network.
 
 - Practice timer with pause / end-and-save / discard, plus quick-log presets for sessions you forgot to time
 - Repertoire of pieces and techniques — every logged minute is attributed to what you actually worked on
-- Progress: weekly and all-time stats, time-by-focus breakdown, tappable day-by-day history, on-device insights
+- Progress on Home: customisable sections (switch, reorder) — which pieces are moving, stars as a per-piece grade, hear first vs latest recording, pipeline, heatmap, goals, insights
+- Tools tab: full-screen metronome, tuner, drone
 - Log past practice via a full month calendar, splitting minutes across several pieces
 - Routines, break reminders, metronome, tuner, recordings you can trim and compare, home-screen widgets
 - Localised, dark/light, all data local on device (SQLite) — no account, no server
