@@ -91,6 +91,13 @@ export const ENTRIES: Entry[] = [
         url: 'https://doi.org/10.2307/3345837',
       },
       {
+        authors: 'Henley',
+        year: 2001,
+        title: 'Effects of modeling and tempo patterns as practice techniques on the performance of high school instrumentalists',
+        where: 'Journal of Research in Music Education, 49(2), 169–180',
+        url: 'https://doi.org/10.2307/3345868',
+      },
+      {
         authors: 'Duke, Simmons & Cash',
         year: 2009,
         title: "It's not how much; it's how: Characteristics of practice behavior and retention of performance skills",

@@ -751,12 +751,12 @@
       "deliberatePractice": {
         "takeaway": "Hours matter, but far less than the legend",
         "finding": "The 1993 violinist study found that the best students had accumulated more solitary practice than the merely good ones. It became the foundation of the idea that expertise is mostly accumulated hours.",
-        "caveat": "The “10,000-hour rule” is not in that paper — Ericsson rejected the phrase. A 2019 replication found the good group had practised more than the best group, and a meta-analysis puts practice at roughly a fifth of the variance in music. Practice is necessary, not sufficient."
+        "caveat": "The “10,000-hour rule” is not in that paper — Ericsson rejected the phrase, and its own figures are 7,410 hours for the best violinists at age 18. A 2019 replication found the good group had practised more than the best group, and a meta-analysis puts practice at 23% of the variance in music. Practice is necessary, not sufficient."
       },
       "slowPractice": {
         "takeaway": "Slow practice: universal, and barely studied",
         "finding": "Almost every classical musician surveyed uses slow practice, and expert practicers vary their tempo deliberately instead of grinding at one speed.",
-        "caveat": "There is no adequate controlled evidence that slow practice itself improves learning. The two studies that did manipulate tempo point the other way: skills learned at one tempo transfer poorly to another, and a tempo-pattern intervention came out null. Vary tempo by all means — just know the evidence is habit, not proof."
+        "caveat": "There is no adequate controlled evidence that slow practice itself improves learning. The only randomised test of tempo patterns found no effect, and a separate study found that what you learn at one tempo transfers poorly to another. Varying tempo is what strong practicers do — but it rests on habit and observation, not proof."
       },
       "interleaving": {
         "takeaway": "Mixing pieces may beat drilling one",
