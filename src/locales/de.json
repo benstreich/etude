@@ -713,5 +713,23 @@
     "unsupported": "Diese Datei ist kein PDF und kein Bild.",
     "noPdfRenderer": "PDFs brauchen den vollen App-Build. Fotos funktionieren überall.",
     "importFailed": "Datei konnte nicht hinzugefügt werden."
+  },
+  "tools": {
+    "title": "Werkzeuge",
+    "metronome": "Metronom",
+    "metronomeBlurb": "Klick, Rampe, Unterteilung",
+    "tuner": "Stimmgerät",
+    "tunerBlurb": "Chromatisch, mit Cent-Anzeige",
+    "drone": "Bordun",
+    "droneBlurb": "Ein Halteton zum Mitspielen"
+  },
+  "drone": {
+    "title": "Bordun",
+    "back": "‹ Werkzeuge",
+    "play": "Abspielen",
+    "stop": "Stopp",
+    "octave": "Oktave",
+    "reference": "Kammerton A4",
+    "hint": "Läuft, bis du ihn stoppst. Stimme danach, spiele Tonleitern darüber oder halte ihn für die Intonation."
   }
 }

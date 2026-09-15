@@ -47,6 +47,28 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
 
 export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useS();
+  const { t } = useStore();
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={s.backdrop} onPress={onClose}>
+        <Pressable style={s.sheet} onPress={() => {}}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18 }}>
+            <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
+            <MetronomeControls active={visible} />
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/**
+ * Every metronome control, no chrome: the sheet wraps it in a Modal, the Tools
+ * tab's /metronome page lays it out full screen. `active` preloads the click
+ * sets the moment the host is shown (#78).
+ */
+export function MetronomeControls({ active = true }: { active?: boolean }) {
+  const s = useS();
   const C = useC();
   const { fs } = useTheme(); // the roll travels exactly one line height per digit
   const { t } = useStore();
@@ -57,8 +79,8 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
   const taps = useRef<number[]>([]);
   // every sound set ready before the picker is touched (#78)
   useEffect(() => {
-    if (visible) preloadClicks();
-  }, [visible]);
+    if (active) preloadClicks();
+  }, [active]);
 
   const tap = () => {
     const now = Date.now();
@@ -81,12 +103,7 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
     : null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={() => {}}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18 }}>
-            <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
-
+    <>
             {/* tap a dot to cycle its accent: accent → mid → plain → muted (#57) */}
             <View style={s.dots}>
               {accents.map((level, i) => (
@@ -229,10 +246,7 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
             </View>
 
             <Text style={s.hint}>{t('metronome.backgroundHint', { step: LOCK_SCREEN_STEP })}</Text>
-          </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </>
   );
 }
 

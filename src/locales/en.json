@@ -713,5 +713,23 @@
     "unsupported": "That file is not a PDF or an image.",
     "noPdfRenderer": "PDFs need the full app build. Photos work everywhere.",
     "importFailed": "Could not add that file."
+  },
+  "tools": {
+    "title": "Tools",
+    "metronome": "Metronome",
+    "metronomeBlurb": "Click, ramp, subdivide",
+    "tuner": "Tuner",
+    "tunerBlurb": "Chromatic, cents readout",
+    "drone": "Drone",
+    "droneBlurb": "A steady pitch to play against"
+  },
+  "drone": {
+    "title": "Drone",
+    "back": "‹ Tools",
+    "play": "Play",
+    "stop": "Stop",
+    "octave": "Octave",
+    "reference": "A4 reference",
+    "hint": "Loops until you stop it. Tune to it, play scales against it, or hold it while you work on intonation."
   }
 }
