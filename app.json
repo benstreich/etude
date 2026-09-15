@@ -31,7 +31,7 @@
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.benstreich.etude",
-      "versionCode": 6
+      "versionCode": 7
     },
     "web": {
       "output": "static",

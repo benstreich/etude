@@ -27,6 +27,14 @@ The first version. Everything below is new.
 - Per-instrument tracking, if you play more than one.
 
 **Progress**
+- Lives on Home now, and it is yours: every section is a switch, drag them
+  into your order, or reset to the default four. Settings sits behind the gear.
+- "Moving": which pieces are actually getting better — stage reached, tempo
+  climbing toward the target, stars rising — and which have stalled or are due.
+- Your session stars count as a grade per piece: a rolling average, a trend,
+  a target rating on a deadline, and a note when stars and tempo disagree.
+- Hear the difference (first vs latest recording), the repertoire pipeline,
+  what is performable today, and what changed since last month.
 - Weekly and all-time totals, a day-by-day calendar you can tap, and a
   time-by-focus breakdown.
 - Insights: which time of day you practise best, how your streaks usually end,
@@ -35,6 +43,8 @@ The first version. Everything below is new.
 - Goals per week, month and year.
 
 **Tools**
+- A Tools tab: full-screen metronome with tap tempo, the tuner, and a drone —
+  a steady pitch to play against, any note, A4 adjustable.
 - Metronome: 20–300 BPM, time signatures, tempo ramps, subdivisions, editable
   accent patterns, five click sounds, its own volume — and it keeps clicking
   with the screen locked, with controls on the lock screen.

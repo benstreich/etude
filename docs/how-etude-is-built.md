@@ -33,6 +33,7 @@ it up before you switch phones — Settings does that, recordings included.
 ```
 src/app/          screens; the file tree is the navigation (Expo Router)
 src/components/   shared UI — sheets, the metronome sheet, recordings, cards
+src/components/progress/  one file per progress section, picked by src/lib/progress-sections.ts
 src/lib/          the brain: one store, many pure modules
 modules/          local native modules (widgets, metronome controls)
 scripts/          the checks, and the audio generators
@@ -78,7 +79,8 @@ read top to bottom, and they run in about a second.
 
 All of it runs on the device, over your own rows, and every function returns
 `null` below a data floor rather than guessing from three sessions
-(`src/lib/stats-math.ts`, surfaced as one-sentence cards under Progress):
+(`src/lib/stats-math.ts`, `rating-math.ts`, `movement-math.ts`; surfaced as
+sections the user switches on under Progress, which lives on Home):
 
 - **`tempoForecast`** — a straight-line fit through your logged tempos for a
   piece to its target BPM, plus a plateau flag when the line has gone flat.
