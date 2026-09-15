@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EditSessionSheet } from '@/components/edit-session';
-import { FlameIcon, LogoMark, PlayIcon } from '@/components/icons';
+import { FlameIcon, GearIcon, LogoMark, PlayIcon, ShareIcon } from '@/components/icons';
+import { ProgressBody } from '@/components/progress';
+import { RecapModal } from '@/components/recap-card';
 import { Text } from '@/components/text';
 import { Bar, Card } from '@/components/ui';
-import { dayLabel, Session, useStore } from '@/lib/store';
+import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 // taking `now` from the store keeps these reactive — a bare new Date() here gets
@@ -24,7 +25,7 @@ export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [focusOpen, setFocusOpen] = useState(false);
-  const [editSess, setEditSess] = useState<Session | null>(null);
+  const [recapOpen, setRecapOpen] = useState(false);
 
   const quickLog = (min: number) => {
     if (!min) return;
@@ -52,6 +53,10 @@ export default function Home() {
             <Text style={s.streakText}>{store.t('home.streak', { count: store.displayStreak })}</Text>
           </View>
         )}
+        {/* settings lost its tab (four tabs); the gear sits in the same corner on every visit */}
+        <Pressable style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('tabs.settings')} onPress={() => router.push('/profile')}>
+          <GearIcon size={20} />
+        </Pressable>
       </View>
 
       <Text style={s.greeting}>{greeting(store.now, store.t)}</Text>
@@ -87,7 +92,7 @@ export default function Home() {
         </View>
       </Card>
 
-      {store.sessions.length === 0 ? (
+      {store.sessions.length === 0 && (
         // first-run guide, shown until the first session exists
         <View style={s.guideCard}>
           <Text style={s.guideTitle}>{store.t('home.firstSession')}</Text>
@@ -108,25 +113,21 @@ export default function Home() {
             </View>
           ))}
         </View>
-      ) : (
-        <Card style={{ padding: 16 }}>
-          {store.sessions.slice(0, 3).map((sess, i) => (
-            <Pressable
-              key={sess.id}
-              style={[s.sessRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-              onPress={() => setEditSess(sess)}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.sessTitle}>{sess.title}</Text>
-                <Text style={s.sessMeta}>
-                  {sess.meta.includes('·') ? sess.meta : `${dayLabel(sess.date, store.today, store.t, store.lang)} · ${sess.meta}`}
-                </Text>
-                {!!sess.note && <Text style={s.sessNote}>{sess.note}</Text>}
-              </View>
-              <Text style={s.sessMin}>{store.t('home.min', { min: sess.min })}</Text>
-            </Pressable>
-          ))}
-        </Card>
       )}
+
+      {/* the progress definitions live here now (four tabs); /progress stays as a deep-link route */}
+      <ProgressBody
+        header={
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>{store.t('tabs.progress')}</Text>
+            {store.sessions.length > 0 && (
+              <Pressable style={s.iconBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('tabs.progress')} onPress={() => setRecapOpen(true)}>
+                <ShareIcon size={18} />
+              </Pressable>
+            )}
+          </View>
+        }
+      />
 
       <Modal visible={focusOpen} transparent animationType="fade" onRequestClose={() => setFocusOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setFocusOpen(false)}>
@@ -160,7 +161,7 @@ export default function Home() {
         </Pressable>
       </Modal>
 
-      <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
+      <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
     </ScrollView>
     </View>
   );
@@ -189,11 +190,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   guideRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   guideNum: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.accent, width: 14, lineHeight: fs(20) },
   guideText: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },
-  sessRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-  sessTitle: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
-  sessMeta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },
-  sessNote: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, fontStyle: 'italic', marginTop: 3 },
-  sessMin: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  iconBtn: { width: 36, height: 36, borderRadius: r(18), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },

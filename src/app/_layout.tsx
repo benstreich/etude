@@ -14,7 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BarsIcon, ClockIcon, GearIcon, HomeIcon, NoteIcon } from '@/components/icons';
+import { ClockIcon, HomeIcon, MetronomeIcon, NoteIcon } from '@/components/icons';
 import { Onboarding } from '@/components/onboarding';
 import { Text } from '@/components/text';
 import { Toast } from '@/components/toast';
@@ -151,9 +151,14 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             }}>
             <Tabs.Screen name="index" options={{ title: t('tabs.home'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><HomeIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="practice" options={{ title: t('tabs.practice'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><ClockIcon color={color} /></TabIcon> }} />
-            <Tabs.Screen name="progress" options={{ title: t('tabs.progress'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><BarsIcon color={color} /></TabIcon> }} />
             <Tabs.Screen name="repertoire" options={{ title: t('tabs.repertoire'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><NoteIcon color={color} /></TabIcon> }} />
-            <Tabs.Screen name="profile" options={{ title: t('tabs.settings'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><GearIcon color={color} /></TabIcon> }} />
+            <Tabs.Screen name="tools" options={{ title: t('tabs.tools'), tabBarIcon: ({ color, focused }) => <TabIcon focused={focused}><MetronomeIcon color={color} size={22} /></TabIcon> }} />
+            {/* four tabs: progress lives on Home, settings behind the gear in Home's header;
+                both stay as routes so deep links and the layout sheet's Settings entry work */}
+            <Tabs.Screen name="progress" options={{ href: null }} />
+            <Tabs.Screen name="profile" options={{ href: null }} />
+            <Tabs.Screen name="metronome" options={{ href: null }} />
+            <Tabs.Screen name="drone" options={{ href: null }} />
             <Tabs.Screen name="appearance" options={{ href: null }} />
             <Tabs.Screen name="piece/[id]" options={{ href: null }} />
             <Tabs.Screen name="plan/[id]" options={{ href: null }} />
