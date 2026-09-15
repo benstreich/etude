@@ -14,8 +14,9 @@ import { RecordingsList } from '@/components/recordings';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
-import { Card, Overline, Sheet } from '@/components/ui';
+import { Card, Overline, Sheet, Stars } from '@/components/ui';
 import { deadlineStatus } from '@/lib/goal-math';
+import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
@@ -37,6 +38,7 @@ export default function PieceDetail() {
   const [tempoOpen, setTempoOpen] = useState(false);
   const [cur, setCur] = useState('');
   const [target, setTarget] = useState('');
+  const [targetStars, setTargetStars] = useState<number | undefined>();
   const [editSess, setEditSess] = useState<Session | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
 
@@ -55,8 +57,24 @@ export default function PieceDetail() {
     : null;
 
   // "mastered by" deadline (#56): days left plus whether the stage kept pace
+  const ratings = pieceRatings(piece, sessions);
+  const ratingAvg = rollingAvg(ratings);
   const deadline = piece.targetDate
-    ? deadlineStatus({ targetDate: piece.targetDate, todayKey: store.today, addedAt: piece.addedAt, stage, stages: n })
+    ? deadlineStatus({
+        targetDate: piece.targetDate,
+        todayKey: store.today,
+        addedAt: piece.addedAt,
+        stage,
+        stages: n,
+        targetBpm: piece.targetBpm,
+        tempoReachDate: piece.targetBpm ? (forecast?.reachDate ?? null) : undefined,
+        targetRating: piece.targetRating,
+        ratingAvg,
+        ratingReachDate: piece.targetRating ? (ratingForecast(ratings, piece.targetRating, store.today)?.reachDate ?? null) : undefined,
+      })
+    : null;
+  const laggingNote = deadline && deadline.lagging.length
+    ? store.t('piece.lagging', { list: deadline.lagging.map((k) => store.t(`piece.${k}Word`)).join(' · ') })
     : null;
   const deadlineNote = deadline
     ? deadline.done
@@ -69,6 +87,7 @@ export default function PieceDetail() {
   const openTempo = () => {
     setCur(piece.currentBpm ? String(piece.currentBpm) : '');
     setTarget(piece.targetBpm ? String(piece.targetBpm) : '');
+    setTargetStars(piece.targetRating);
     setTempoOpen(true);
   };
   const saveTempo = () => {
@@ -76,7 +95,7 @@ export default function PieceDetail() {
       const v = Math.round(Number(t));
       return Number.isFinite(v) && v > 0 && v <= MAX_BPM ? v : undefined;
     };
-    store.updatePiece(piece.id, { currentBpm: parse(cur), targetBpm: parse(target) });
+    store.updatePiece(piece.id, { currentBpm: parse(cur), targetBpm: parse(target), targetRating: targetStars });
     setTempoOpen(false);
   };
 
@@ -189,6 +208,7 @@ export default function PieceDetail() {
               {new Date(piece.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { weekday: 'long', month: 'long', day: 'numeric' })}
             </Text>
             <Text style={s.tempoTarget}>{deadlineNote}</Text>
+            {!!laggingNote && <Text style={[s.tempoTarget, { color: C.accent }]}>{laggingNote}</Text>}
           </Card>
         </Pressable>
       ) : (
@@ -297,6 +317,10 @@ export default function PieceDetail() {
                     placeholderTextColor={C.tertiary}
                   />
                 ))}
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={s.tempoTarget}>{store.t('piece.targetRating')}</Text>
+                <Stars value={targetStars} onChange={setTargetStars} size={22} />
               </View>
               <Pressable style={s.saveBtn} onPress={saveTempo}>
                 <Text style={s.saveText}>{store.t('piece.save')}</Text>

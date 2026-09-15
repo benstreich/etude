@@ -96,7 +96,16 @@ export type DeadlineOpts = {
   addedAt?: number;
   stage: number;
   stages: number;
+  /** tempo target, with the forecast date the tempo reaches it (null = no forecast) */
+  targetBpm?: number;
+  tempoReachDate?: string | null;
+  /** rolling-average rating target (spec 2026-09-15) and its forecast date */
+  targetRating?: number;
+  ratingAvg?: number | null;
+  ratingReachDate?: string | null;
 };
+
+export type LaggingSignal = 'stage' | 'tempo' | 'rating';
 
 /**
  * A piece's "mastered by" deadline: days left, and whether its stage has kept
@@ -111,11 +120,17 @@ export function deadlineStatus(o: DeadlineOpts) {
   // progress expected by today vs. the stage actually reached
   const expected = gone / span;
   const actual = (Math.min(o.stage, o.stages - 1) + 1) / o.stages;
+  // every signal with a target has to be on pace; a forecast after the deadline (or none) lags
+  const lagging: LaggingSignal[] = [];
+  if (!done && actual < expected) lagging.push('stage');
+  if (o.targetBpm && o.tempoReachDate !== undefined && (o.tempoReachDate === null || o.tempoReachDate > o.targetDate)) lagging.push('tempo');
+  if (o.targetRating && (o.ratingAvg ?? 0) < o.targetRating && (!o.ratingReachDate || o.ratingReachDate > o.targetDate)) lagging.push('rating');
   return {
     days,
     done,
     overdue: !done && days < 0,
-    // a piece finished on time (or early) is never "behind"
-    onTrack: done || actual >= expected,
+    // a piece finished on time (or early) is never "behind" on its stage
+    onTrack: lagging.length === 0,
+    lagging,
   };
 }

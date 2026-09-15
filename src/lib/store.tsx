@@ -57,6 +57,7 @@ export type Piece = {
   targetBpm?: number;
   instrument?: string; // #58; unset = shows under every instrument
   targetDate?: string; // dateKey the piece should reach the last stage by (#56)
+  targetRating?: number; // 1-5 rolling-average star target for the deadline (spec 2026-09-15)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
 };
@@ -229,7 +230,7 @@ type Store = State & {
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
-  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'instrument'>>) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */

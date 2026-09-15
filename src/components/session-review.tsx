@@ -11,6 +11,7 @@ import { Text } from '@/components/text';
 import { Stars } from '@/components/ui';
 import { achievements } from '@/lib/growth-math';
 import { cueVoice, primaryOf } from '@/lib/cue-voice';
+import { pieceRatings } from '@/lib/rating-math';
 import { maybeRequestReview } from '@/lib/review';
 import { playSessionComplete } from '@/lib/sounds';
 import { useStore } from '@/lib/store';
@@ -40,6 +41,8 @@ export function SessionReview({
   const [rise] = useState(() => new Animated.Value(reduceMotion ? 1 : 0));
   const soundsOn = store.sounds;
   const voice = cueVoice(primaryOf(store.instruments, store.primaryInstrument));
+  // last rating for this focus, so the grade is relative to last time (spec 2026-09-15)
+  const lastRating = session ? pieceRatings({ name: session.focusName }, store.sessions.filter((x) => x.id !== session.id)).at(-1)?.rating : undefined;
 
   // reset the draft whenever a new session opens the review
   const [prevId, setPrevId] = useState<string | null>(null);
@@ -147,6 +150,7 @@ export function SessionReview({
           <View style={{ alignItems: 'center', gap: 8, marginTop: 'auto' }}>
             <Text style={s.meta}>{store.t('sessionReview.rateSession')}</Text>
             <Stars value={rating} onChange={setRating} />
+            {lastRating !== undefined && <Text style={s.meta}>{store.t('sessionReview.lastTime', { n: lastRating })}</Text>}
           </View>
 
           <View style={[s.noteCard, { marginTop: 0 }]}>
