@@ -435,6 +435,7 @@
     "minPerBpm": "%{n} min per BPM gained",
     "added": "added %{date}",
     "stage": "Stage",
+    "noStage": "No stage",
     "total": "Total",
     "sessionsStat": "Sessions",
     "last": "Last",

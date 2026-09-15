@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Pressable, View, type StyleProp, type TextStyle } from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
+import { Pressable, View } from 'react-native';
 
+import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
-import { chartSeries, heatLevel, mix, monthGrid, type ChartPoint } from '@/lib/heatmap-math';
+import { chartSeries, heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
 
+import { MinutesChart } from './minutes-chart';
 import { fmtTime, useS } from './styles';
 import type { SectionProps } from './types';
 
@@ -75,20 +76,14 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
             : fmtTime(seriesTotal, store.t)}
         </Text>
       </View>
-      <View style={s.viewRow}>
-        {(['calendar', 'line', 'bars'] as const).map((v) => (
-          <Pressable
-            key={v}
-            hitSlop={4}
-            style={[s.viewPill, view === v && { backgroundColor: C.accentTint }]}
-            onPress={() => setView(v)}>
-            <Text style={[s.viewPillText, { color: view === v ? C.accent : C.sub }]}>
-              {store.t(`progress.chart${v[0].toUpperCase()}${v.slice(1)}`)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      {view !== 'calendar' && <MinutesChart points={series} kind={view} accent={C.accent} track={C.track} empty={store.t('progress.chartEmpty')} emptyStyle={s.detailEmpty} />}
+      <Segmented
+        grow
+        style={s.viewRow}
+        value={view}
+        onChange={setView}
+        options={(['calendar', 'line', 'bars'] as const).map((v) => ({ key: v, label: store.t(`progress.chart${v[0].toUpperCase()}${v.slice(1)}`) }))}
+      />
+      {view !== 'calendar' && <MinutesChart points={series} kind={view} lang={store.lang} empty={store.t('progress.chartEmpty')} emptyStyle={s.detailEmpty} />}
       {view === 'calendar' && (
       <View style={s.dowRow}>
         {dow.map((d, i) => (
@@ -159,48 +154,5 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
         </View>
       )}
     </Card>
-  );
-}
-
-/** Minutes over the selected period. Bars are plain views; the line is one polyline. */
-function MinutesChart({
-  points,
-  kind,
-  accent,
-  track,
-  empty,
-  emptyStyle,
-}: {
-  points: ChartPoint[];
-  kind: 'line' | 'bars';
-  accent: string;
-  track: string;
-  empty: string;
-  emptyStyle: StyleProp<TextStyle>;
-}) {
-  const s = useS();
-  const [w, setW] = useState(0);
-  const H = 108;
-  if (points.length === 0) return <Text style={emptyStyle}>{empty}</Text>;
-  const max = Math.max(1, ...points.map((p) => p.min));
-  const x = (i: number) => (points.length === 1 ? w / 2 : 2 + (i * (w - 4)) / (points.length - 1));
-  const y = (min: number) => H - 6 - (min / max) * (H - 18);
-
-  return (
-    <View style={s.chartBox} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-      {kind === 'bars' ? (
-        <View style={s.barRow}>
-          {points.map((p) => (
-            <View key={p.label} style={[s.bar, { height: `${Math.max(2, (p.min / max) * 100)}%`, backgroundColor: p.min > 0 ? accent : track }]} />
-          ))}
-        </View>
-      ) : (
-        w > 0 && (
-          <Svg width={w} height={H}>
-            <Polyline points={points.map((p, i) => `${x(i)},${y(p.min)}`).join(' ')} fill="none" stroke={accent} strokeWidth={2} strokeLinejoin="round" />
-          </Svg>
-        )
-      )}
-    </View>
   );
 }

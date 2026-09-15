@@ -25,7 +25,7 @@ import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
 const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
-const stageColor = (C: Palette, i: number, n: number) => (i >= n - 1 ? C.success : C.accent);
+const stageColor = (C: Palette, i: number, n: number) => (i < 0 ? C.sub : i >= n - 1 ? C.success : C.accent);
 
 export default function PieceDetail() {
   const s = useS();
@@ -120,7 +120,7 @@ export default function PieceDetail() {
       <Card style={{ padding: 16, gap: 12 }}>
         <View style={s.rowBetween}>
           <Text style={s.cardLabel}>{store.t('piece.stage')}</Text>
-          <Text style={[s.stageName, { color: stageColor(C, stage, n) }]}>{store.stages[stage]}</Text>
+          <Text style={[s.stageName, { color: stageColor(C, stage, n) }]}>{store.stages[stage] ?? store.t('piece.noStage')}</Text>
         </View>
         <View style={s.segRow}>
           {store.stages.map((_, i) => (
@@ -139,6 +139,13 @@ export default function PieceDetail() {
             </Text>
           ))}
         </View>
+        {/* a technique need not sit anywhere on the learning → mastered ladder;
+            stage -1 means "none" and every consumer already reads it as not-finished */}
+        {piece.kind === 'Technique' && stage >= 0 && (
+          <Pressable hitSlop={8} style={{ alignSelf: 'flex-end' }} onPress={() => store.updatePiece(piece.id, { stage: -1 })}>
+            <Text style={[s.stageLabel, { flex: 0, textAlign: 'right', color: C.subStrong, fontFamily: F.bodyMed }]}>{store.t('piece.noStage')}</Text>
+          </Pressable>
+        )}
       </Card>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
