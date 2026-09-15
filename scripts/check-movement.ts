@@ -14,4 +14,14 @@ assert.deepEqual(backfillStageLog({ stage: 2, addedAt: Date.parse('2026-05-04T10
 assert.deepEqual(backfillStageLog({ stage: 0 }, '2026-09-14'), [{ date: '2026-09-14', stage: 0 }]);
 assert.deepEqual(backfillStageLog({ stage: 1, stageLog: [{ date: '2026-01-01', stage: 1 }] }, '2026-09-14'), [{ date: '2026-01-01', stage: 1 }], 'existing log untouched');
 
+
+// --- layout registry ------------------------------------------------------
+import { PROGRESS_SECTIONS, resolveLayout } from '../src/lib/progress-sections.ts';
+assert.deepEqual(resolveLayout([]), PROGRESS_SECTIONS.map((s) => ({ key: s.key, on: s.defaultOn })), 'empty = defaults');
+const saved = [{ key: 'heatmap', on: true }, { key: 'zombie', on: true }, { key: 'movement', on: false }];
+const res = resolveLayout(saved);
+assert.deepEqual(res.slice(0, 2).map((x) => x.key), ['heatmap', 'movement'], 'saved order kept, unknown dropped');
+assert.equal(res.length, PROGRESS_SECTIONS.length, 'missing keys appended');
+assert.equal(res.find((x) => x.key === 'goals')!.on, true, 'appended with default');
+assert.equal(res.find((x) => x.key === 'movement')!.on, false, 'saved switch kept');
 console.log('check-movement ok');
