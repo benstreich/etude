@@ -1,10 +1,12 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, Switch, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { EditSessionSheet } from '@/components/edit-session';
+import { SlidersIcon } from '@/components/icons';
+import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { Text } from '@/components/text';
-import { Card, InstrumentFilter, Overline, Sheet, useInstrumentFilter } from '@/components/ui';
+import { Card, InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
 import { resolveLayout } from '@/lib/progress-sections';
 import { dateKey, FocusPeriod, Session, useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -61,7 +63,7 @@ export function ProgressBody({ header }: { header?: React.ReactNode }) {
         </View>
       )}
       {!empty && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <InstrumentFilter />
           <View style={s.segTrack}>
             {PERIODS.map((p) => {
@@ -73,6 +75,9 @@ export function ProgressBody({ header }: { header?: React.ReactNode }) {
               );
             })}
           </View>
+          <Pressable style={s.slidersBtn} hitSlop={8} accessibilityLabel={store.t('settings.progressSections')} onPress={() => setLayoutOpen(true)}>
+            <SlidersIcon size={16} />
+          </Pressable>
         </View>
       )}
 
@@ -109,24 +114,7 @@ export function ProgressBody({ header }: { header?: React.ReactNode }) {
         <Text style={s.customiseText}>{store.t('progress.customise')}</Text>
       </Pressable>
 
-      {/* interim layout sheet — Task 6 replaces it with drag-to-reorder */}
-      <Sheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} grabber>
-        <Text style={s.sheetTitle}>{store.t('settings.progressSections')}</Text>
-        {layout.map((l) => (
-          <View key={l.key} style={s.layoutRow}>
-            <Text style={s.layoutLabel}>{store.t(`progress.section.${l.key}`)}</Text>
-            <Switch
-              value={l.on}
-              onValueChange={(on) => store.updateSettings({ progressLayout: layout.map((x) => (x.key === l.key ? { key: x.key, on } : x)) })}
-              trackColor={{ true: C.accent, false: C.track }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        ))}
-        <Pressable style={s.customise} hitSlop={8} onPress={() => store.updateSettings({ progressLayout: [] })}>
-          <Text style={s.customiseText}>{store.t('settings.resetDefault')}</Text>
-        </Pressable>
-      </Sheet>
+      <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
 
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </>
