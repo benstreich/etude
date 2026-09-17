@@ -32,7 +32,9 @@ export function Onboarding() {
   const [instruments, setInstruments] = useState<string[]>([]);
   const [other, setOther] = useState<string | null>(null); // null = "Other…" chip untapped
   const [name, setName] = useState('');
-  const [goal, setGoal] = useState(20);
+  // seeded default, not a second number: Skip calls finish() with whatever is
+  // here, so a literal would quietly overwrite the goal seed() just set
+  const [goal, setGoal] = useState(store.dailyGoal);
   const [time, setTime] = useState('6:00 PM');
   const [reminder, setReminder] = useState('Off'); // the reminder step's answer, saved when the tour ends
 

@@ -156,7 +156,8 @@ function seed(): State {
     recordings: [],
     attachments: [],
     plans: [],
-    dailyGoal: 45,
+    // onboarding's goal step starts from this; its copy says start easy
+    dailyGoal: 20,
     weeklyGoal: 0,
     monthlyGoal: 0,
     yearlyGoal: 0,
