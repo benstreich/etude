@@ -1,13 +1,18 @@
 // Drone: a sustained reference pitch (Tools tab). Pure math here; the screen
-// plays one of twelve looped samples (A3..G#4, scripts/make-drone.py) and gets
-// every other octave and a shifted A4 from the playback rate with pitch
-// correction off — a rate of 2 is exactly one octave up.
+// plays one of twelve looped samples (all of scientific octave 4,
+// scripts/make-drone.py) and gets every other octave and a shifted A4 from the
+// playback rate with pitch correction off — a rate of 2 is exactly one octave up.
+//
+// The samples are rendered in the TOP octave the picker offers, so every rate
+// is a pitch down (0.245..1.014) and none of them approaches expo-audio's
+// ceiling of 2.0. Rendering A..B an octave lower used to push A4/A#4/B4 above
+// concert pitch past that ceiling.
 
 export const DRONE_NOTES = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'] as const;
 export type DroneNote = (typeof DRONE_NOTES)[number];
 
-/** The octave the shipped samples were rendered in (A3 = 220 Hz up to G#4). */
-export const SAMPLE_OCTAVE = 3;
+/** The scientific octave every shipped sample is rendered in (C4 .. B4, A4 = 440). */
+export const SAMPLE_OCTAVE = 4;
 /** Octaves the picker offers. */
 export const DRONE_OCTAVES = [2, 3, 4] as const;
 
@@ -15,12 +20,15 @@ export const DRONE_OCTAVES = [2, 3, 4] as const;
 export const A4_MIN = 432;
 export const A4_MAX = 446;
 
-/** expo-audio only honours a playback rate in this window. */
-export const MIN_RATE = 0.5;
+/**
+ * Playback rates expo-audio honours: 0.1..2 on Android, 0.0..2 on iOS
+ * (SDK 57 docs). The Android floor is the binding one.
+ */
+export const MIN_RATE = 0.1;
 export const MAX_RATE = 2;
 
-// semitones above A within the sampled octave — A..G# is one contiguous run,
-// so C4 is 3 semitones above A3, not 3 below A4
+// semitones above A within the A..G# listing order; notes from C upward belong
+// to the next scientific octave, which is what aOctave below corrects for
 const semisAboveA = (note: DroneNote) => DRONE_NOTES.indexOf(note);
 
 /** Frequency in Hz; `octave` is the scientific octave of the note (C4 = middle C). */
@@ -32,11 +40,8 @@ export function droneFreq(note: DroneNote, octave: number, a4 = 440): number {
 
 /** Playback rate that turns the shipped sample of `note` into `note` at `octave` with this A4. */
 export function droneRate(note: DroneNote, octave: number, a4 = 440): number {
-  return droneFreq(note, octave, a4) / droneFreq(note, sampleOctaveOf(note), 440);
+  return droneFreq(note, octave, a4) / droneFreq(note, SAMPLE_OCTAVE, 440);
 }
-
-/** The scientific octave in which the shipped sample of `note` sits (A3..G#4). */
-export const sampleOctaveOf = (note: DroneNote) => (semisAboveA(note) >= 3 ? SAMPLE_OCTAVE + 1 : SAMPLE_OCTAVE);
 
 /** Raw resource / file stem for a note: '#' → 's' (Android raw names are [a-z0-9_]). */
 export const droneFile = (note: DroneNote) => `drone_${note.toLowerCase().replace('#', 's')}`;

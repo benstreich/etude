@@ -1,8 +1,13 @@
 """Generate the drone samples in assets/audio/ (Tools tab).
 
-Twelve notes, A3 (220 Hz) up to G#4, one seamless 2-second loop each. The
-screen gets every other octave and a shifted A4 from the playback rate with
-pitch correction off, so only one octave is rendered.
+Twelve notes, all in scientific octave 4 (C4 261.63 Hz .. B4 493.88 Hz, with
+A4 at 440), one seamless 2-second loop each. The screen gets the other octaves
+and a shifted A4 from the playback rate with pitch correction off.
+
+Rendering the whole set in ONE scientific octave matters: it is the top octave
+the picker offers, so every rate the app ever asks for is <= ~1.014 and it only
+ever pitches down. Rendering A..B an octave lower (the old A3..G#4 run) pushed
+A4/A#4/B4 above A4=440 past expo-audio's rate ceiling of 2.0.
 
 Voice: a soft organ — sine fundamental with a quiet 2nd and 3rd partial —
 because a bare sine disappears under a real instrument and anything richer
@@ -28,9 +33,14 @@ PEAK = 0.6  # leaves headroom under the metronome click and a real instrument
 TARGET_SEC = 2.0
 
 
-def freq(i: int) -> float:
-    """A3 = 220 Hz, then equal-tempered semitones upward."""
-    return 220.0 * 2 ** (i / 12)
+# semitones from A4 within octave 4 — C4..G#4 sit BELOW A4, A4..B4 above it
+SEMIS_FROM_A4 = {"a": 0, "as": 1, "b": 2, "c": -9, "cs": -8, "d": -7, "ds": -6,
+                 "e": -5, "f": -4, "fs": -3, "g": -2, "gs": -1}
+
+
+def freq(name: str) -> float:
+    """Equal-tempered frequency of `name` in octave 4, A4 = 440 Hz."""
+    return 440.0 * 2 ** (SEMIS_FROM_A4[name] / 12)
 
 
 def render(f: float) -> list:
@@ -56,9 +66,9 @@ def write(path: Path, buf: list) -> None:
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     total = 0
-    for i, name in enumerate(NOTES):
+    for name in NOTES:
         p = OUT / f"drone_{name}.wav"
-        write(p, render(freq(i)))
+        write(p, render(freq(name)))
         total += p.stat().st_size
-        print(f"{p.name:14s} {freq(i):8.2f} Hz  {p.stat().st_size // 1024} KB")
+        print(f"{p.name:14s} {freq(name):8.2f} Hz  {p.stat().st_size // 1024} KB")
     print(f"total {total // 1024} KB")
