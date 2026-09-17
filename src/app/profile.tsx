@@ -461,11 +461,6 @@ export default function Profile() {
                       placeholderTextColor={C.tertiary}
                     />
                   ))}
-                  {list.length < 5 && (
-                    <Pressable style={s.addPresetBtn} onPress={() => setList((l) => [...l, ''])}>
-                      <Text style={s.addPresetText}>+</Text>
-                    </Pressable>
-                  )}
                 </View>
                 <Text style={s.editorHint}>{store.t('settings.clearPresetHint')}</Text>
               </>
@@ -682,8 +677,6 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wheelSave: { height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   wheelSaveText: { color: C.bg, fontFamily: F.bodyMed, fontSize: fs(15) },
-  addPresetBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  addPresetText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
   inputLabel: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub, marginBottom: 8 },
   editorHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, marginTop: -6 },
   stageRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
