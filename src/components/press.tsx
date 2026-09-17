@@ -21,7 +21,7 @@ export function Pressable({ style, onPressIn, onPressOut, ...p }: PressableProps
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   // a function style still gets React Native's { pressed }; the animated style rides on top
-  const resolved = (typeof style === 'function' ? style({ pressed, hovered: false }) : style) as StyleProp<ViewStyle>;
+  const resolved = (typeof style === 'function' ? style({ pressed }) : style) as StyleProp<ViewStyle>;
   const pressIn: PressableProps['onPressIn'] = (e) => {
     setPressed(true);
     springTo(scale, 0.96);
