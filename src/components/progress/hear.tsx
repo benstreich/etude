@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';

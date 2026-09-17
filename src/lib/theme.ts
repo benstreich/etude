@@ -88,6 +88,8 @@ export const F = {
   body: 'SpaceGrotesk_400Regular',
   bodyMed: 'SpaceGrotesk_500Medium',
   bodySemi: 'SpaceGrotesk_600SemiBold',
+  // notation glyphs only (quarter note U+1D15F, rest U+1D13D, sharp U+266F) — stems up only, no stem-down glyph exists
+  notation: 'NotoMusic_400Regular',
 };
 
 export type T = {

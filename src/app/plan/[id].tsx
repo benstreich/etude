@@ -2,7 +2,9 @@
 // rest of the app; "Save plan" is just the way out.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFocus } from '@/components/add-focus';
@@ -70,7 +72,7 @@ export default function PlanBuilder() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
+      <KeyboardAwareScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]} keyboardShouldPersistTaps="handled" bottomOffset={16}>
         <View style={s.navRow}>
           <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8}>
             <Text style={s.navGlyph}>‹</Text>
@@ -107,7 +109,7 @@ export default function PlanBuilder() {
               </View>
             </Pressable>
           ))}
-          <Pressable style={s.addRow} onPress={() => openEdit(-1)}>
+          <Pressable testID="plan-add-segment" style={s.addRow} onPress={() => openEdit(-1)}>
             <Text style={s.addPlus}>+</Text>
             <Text style={s.addText}>{store.t('plan.addSegment')}</Text>
           </Pressable>
@@ -122,10 +124,11 @@ export default function PlanBuilder() {
           }}>
           <Text style={s.deleteLink}>{store.t('plan.deletePlan')}</Text>
         </Pressable>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16 }}>
         <Pressable
+          testID="plan-start"
           style={[s.startBtn, plan.segments.length === 0 && { opacity: 0.4 }]}
           disabled={plan.segments.length === 0}
           onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
@@ -204,7 +207,7 @@ export default function PlanBuilder() {
                   </Pressable>
                 </View>
               )}
-              <Pressable style={[s.saveBtn, !draft?.focus && { opacity: 0.4 }]} disabled={!draft?.focus} onPress={saveEdit}>
+              <Pressable testID="segment-save" style={[s.saveBtn, !draft?.focus && { opacity: 0.4 }]} disabled={!draft?.focus} onPress={saveEdit}>
                 <Text style={s.saveText}>{editIdx === -1 ? store.t('plan.addSegment') : store.t('plan.saveSegment')}</Text>
               </Pressable>
       </Sheet>
@@ -257,20 +260,20 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
-  input: { height: 48, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.body, fontSize: fs(14.5), color: C.ink },
+  input: { height: 48, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.body, fontSize: fs(14.5), color: C.ink },
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepBtn: { width: 38, height: 38, borderRadius: r(19), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 38, height: 38, borderRadius: r(19), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.ink },
   stepValue: { fontFamily: F.head, fontSize: fs(18), color: C.ink, minWidth: 34, textAlign: 'center', fontVariant: ['tabular-nums'] },
   emptyHint: { fontFamily: F.body, fontSize: fs(13.5), color: C.subStrong, paddingTop: 8 },
-  bpmInput: { width: 90, height: 44, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 12, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
+  bpmInput: { width: 90, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
   rowBtns: { flexDirection: 'row', gap: 10 },
-  smallBtn: { flex: 1, height: 42, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  smallBtn: { flex: 1, height: 42, borderRadius: r(12), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   smallBtnText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },

@@ -1,32 +1,25 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { EditSessionSheet } from '@/components/edit-session';
-import { SlidersIcon } from '@/components/icons';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { Text } from '@/components/text';
 import { Card, InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
-import { Segmented } from '@/components/segmented';
 import { resolveLayout } from '@/lib/progress-sections';
-import { dateKey, FocusPeriod, Session, useStore } from '@/lib/store';
+import { Session, useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
 
 import { SECTIONS } from './sections';
 import { useS } from './styles';
 import type { SectionProps } from './types';
 
-const PERIODS: { key: FocusPeriod; labelKey: string; days: number | null }[] = [
-  { key: '7d', labelKey: 'progress.period7d', days: 7 },
-  { key: '30d', labelKey: 'progress.period30d', days: 30 },
-  { key: 'all', labelKey: 'progress.periodAll', days: null },
-];
-
 /**
  * The progress section list: filters once, resolves the user's layout, renders
  * every section that is switched on. Lives on Home (and the hidden /progress route).
  */
-export function ProgressBody({ header }: { header?: React.ReactNode }) {
+export function ProgressBody({ header, showEmpty = true }: { header?: React.ReactNode; showEmpty?: boolean }) {
   const s = useS();
   const C = useC();
   const store = useStore();
@@ -42,14 +35,8 @@ export function ProgressBody({ header }: { header?: React.ReactNode }) {
   const empty = store.totalMin === 0 && sessions.length === 0;
   const monday = store.weekStart === 'Monday';
 
-  // the period picker filters every session-based section; the heatmap and volume stay calendar-based
-  const period = PERIODS.find((p) => p.key === store.focusPeriod) ?? PERIODS[1];
-  const cutoffDate = new Date(store.now); // setDate, not fixed 24h ms, so the cutoff survives DST
-  cutoffDate.setDate(cutoffDate.getDate() - ((period.days ?? 1) - 1));
-  const cutoff = period.days ? dateKey(cutoffDate) : '';
-  const inPeriod = sessions.filter((sess) => sess.date >= cutoff);
-
-  const props: SectionProps = { sessions, inPeriod, pieces, mbd, inst, monday, period: period.key, onEditSession: setEditSess };
+  // sections that cut by time carry their own 7d/30d/All picker (period.tsx); the heatmap and volume stay calendar-based
+  const props: SectionProps = { sessions, pieces, mbd, inst, monday, onEditSession: setEditSess };
   const layout = resolveLayout(store.progressLayout);
 
   return (
@@ -63,21 +50,11 @@ export function ProgressBody({ header }: { header?: React.ReactNode }) {
           </Pressable>
         </View>
       )}
-      {!empty && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <InstrumentFilter />
-          <Segmented
-            value={period.key}
-            onChange={(key) => store.updateSettings({ focusPeriod: key })}
-            options={PERIODS.map((p) => ({ key: p.key, label: store.t(p.labelKey) }))}
-          />
-          <Pressable style={s.slidersBtn} hitSlop={8} accessibilityLabel={store.t('settings.progressSections')} onPress={() => setLayoutOpen(true)}>
-            <SlidersIcon size={16} />
-          </Pressable>
-        </View>
-      )}
+      {/* the layout button lives in Home's header now; the Customise link below still opens the sheet here */}
+      {!empty && <InstrumentFilter />}
 
-      {empty ? (
+      {/* Home draws its own week staff and Start row, so it opts out of this placeholder */}
+      {empty && !showEmpty ? null : empty ? (
         <Card>
           <Overline style={{ marginBottom: 16 }}>{store.t('progress.last7Days')}</Overline>
           <View style={s.chart}>

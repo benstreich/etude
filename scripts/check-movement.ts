@@ -18,9 +18,9 @@ assert.deepEqual(backfillStageLog({ stage: 1, stageLog: [{ date: '2026-01-01', s
 // --- layout registry ------------------------------------------------------
 import { PROGRESS_SECTIONS, resolveLayout } from '../src/lib/progress-sections.ts';
 assert.deepEqual(resolveLayout([]), PROGRESS_SECTIONS.map((s) => ({ key: s.key, on: s.defaultOn })), 'empty = defaults');
-const saved = [{ key: 'heatmap', on: true }, { key: 'zombie', on: true }, { key: 'movement', on: false }];
+const saved = [{ key: 'calendar', on: true }, { key: 'zombie', on: true }, { key: 'movement', on: false }];
 const res = resolveLayout(saved);
-assert.deepEqual(res.slice(0, 2).map((x) => x.key), ['heatmap', 'movement'], 'saved order kept, unknown dropped');
+assert.deepEqual(res.slice(0, 2).map((x) => x.key), ['calendar', 'movement'], 'saved order kept, unknown dropped');
 assert.equal(res.length, PROGRESS_SECTIONS.length, 'missing keys appended');
 assert.equal(res.find((x) => x.key === 'goals')!.on, true, 'appended with default');
 assert.equal(res.find((x) => x.key === 'movement')!.on, false, 'saved switch kept');
@@ -69,6 +69,15 @@ const R = (id: string, date: string, starred?: boolean) => ({ id, piece: 'A', da
 assert.equal(recordingPair([R('1', '2026-01-01')]), null);
 assert.deepEqual(recordingPair([R('2', '2026-02-01'), R('1', '2026-01-01'), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '3']);
 assert.deepEqual(recordingPair([R('1', '2026-01-01'), R('2', '2026-02-01', true), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '2'], 'a starred newer one wins the "latest" slot');
+// --- lastPlayed -----------------------------------------------------------
+// the newest session whose title is the piece's name; null when never played
+import { lastPlayed } from '../src/lib/movement-math.ts';
+assert.equal(lastPlayed({ name: 'A' }, []), null, 'never played');
+assert.equal(lastPlayed({ name: 'A' }, [S('B', '2026-09-10')]), null, 'another piece does not count');
+assert.equal(lastPlayed({ name: 'A' }, [S('A', '2026-09-01'), S('A', '2026-09-10'), S('A', '2026-09-05')]), '2026-09-10', 'newest wins regardless of order');
+assert.equal(lastPlayed({ name: 'A' }, [S('A', '2026-09-09'), S('A', '2026-10-01')]), '2026-10-01', 'ISO dates compare correctly across months');
+assert.equal(lastPlayed({ name: 'a' }, [S('A', '2026-09-10')]), null, 'title match is exact');
+
 console.log('check-movement ok');
 
 // --- section availability (why a row in the layout sheet is locked) --------

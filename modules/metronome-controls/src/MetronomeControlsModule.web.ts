@@ -9,6 +9,7 @@ class MetronomeControlsModule extends NativeModule<MetronomeControlsEvents> {
   hide() {}
   startTicking(_tick: MetronomeTick) {}
   stopTicking() {}
+  updateTicking(_tick: MetronomeTick) {}
 }
 
 export default registerWebModule(MetronomeControlsModule, 'MetronomeControlsModule');

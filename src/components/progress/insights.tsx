@@ -3,17 +3,19 @@ import { View } from 'react-native';
 
 import { MiniBars, MiniTrend } from '@/components/mini-charts';
 import { Text } from '@/components/text';
-import { Card, Overline } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { concentration, goalCalibration, interleaving, MIN_INSIGHT_DAYS, MIN_RATED, projection, qualityDrivers, rated, rollingMean, staleness, streakSurvival, TIME_OF_DAY, weeklyTotals, byTimeOfDay } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 
+import { PeriodHead, usePeriod } from './period';
 import { useS } from './styles';
 import type { SectionProps } from './types';
 
 /** #61 insights — one sentence each, with a small chart where one helps (#71). Every helper returns null when the data is too thin. */
-export function InsightsSection({ sessions, inPeriod, pieces, mbd, monday, inst }: SectionProps) {
+export function InsightsSection({ sessions, pieces, mbd, monday, inst }: SectionProps) {
   const s = useS();
   const store = useStore();
+  const { inPeriod, picker } = usePeriod(sessions);
 
   // a first week of data produces confident nonsense (#77) — say nothing until there is history
   const enoughHistory = Object.keys(mbd).filter((k) => mbd[k] > 0 && k <= store.today).length >= MIN_INSIGHT_DAYS;
@@ -68,7 +70,7 @@ export function InsightsSection({ sessions, inPeriod, pieces, mbd, monday, inst 
 
   return (
     <Card>
-      <Overline style={{ marginBottom: 6 }}>{store.t('progress.insights')}</Overline>
+      <PeriodHead title={store.t('progress.insights')} picker={picker} style={{ marginBottom: 6 }} />
       {insights.map((item, i) => (
         <View key={i} style={s.insightRow}>
           <Text style={s.insight}>{item.text}</Text>

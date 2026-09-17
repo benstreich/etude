@@ -1,14 +1,21 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FlameIcon, GearIcon, LogoMark, PlayIcon, ShareIcon } from '@/components/icons';
+import { EditSessionSheet } from '@/components/edit-session';
 import { ProgressBody } from '@/components/progress';
-import { RecapModal } from '@/components/recap-card';
+import { FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
+import { LogPastModal } from '@/components/log-past';
+import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
+import { FermataMark, MelodyStaff } from '@/components/motifs';
+import { success, tap } from '@/lib/haptics';
+import { barsFor } from '@/lib/melody';
+import { useMelodyPlayer } from '@/lib/melody-play';
 import { Text } from '@/components/text';
-import { Bar, Card } from '@/components/ui';
-import { useStore } from '@/lib/store';
+import { fmtTime } from '@/components/progress/styles';
+import { dateKey, dayLabel, useStore, type Session } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 // taking `now` from the store keeps these reactive — a bare new Date() here gets
@@ -25,179 +32,293 @@ export default function Home() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [focusOpen, setFocusOpen] = useState(false);
-  const [recapOpen, setRecapOpen] = useState(false);
-
-  const quickLog = (min: number) => {
-    if (!min) return;
-    const f = store.quickLogFocus;
-    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged');
-    store.showToast(f ? store.t('home.addedMinFocus', { min, name: f.name }) : store.t('home.addedMinutes', { min }));
-  };
+  const [pastOpen, setPastOpen] = useState(false);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const melody = useMelodyPlayer();
+  const [resumeAt, setResumeAt] = useState<string | null>(null); // the bar a pause stopped on
+  const [editSess, setEditSess] = useState<Session | null>(null);
+  // which day the log below the staff is reading; a tap on a note moves it
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
+  const day = pickedDay ?? store.today;
 
   const focusOptions: { name: string; kind: 'Piece' | 'Technique' }[] = [
     ...store.pieces.filter((p) => !p.archived).map((p) => ({ name: p.name, kind: 'Piece' as const })),
     ...store.techniques.map((t) => ({ name: t, kind: 'Technique' as const })),
   ];
 
+  // logs to whichever day the staff below has selected, so a missed day can be
+  // filled in without leaving Home; today is the default
+  const quickLog = (min: number) => {
+    if (!min) return;
+    success();
+    const f = store.quickLogFocus;
+    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged', day);
+    const name = f?.name;
+    if (day !== store.today) {
+      const when = dayLabel(day, store.today, store.t, store.lang);
+      store.showToast(name ? store.t('home.addedMinDay', { min, name, day: when }) : store.t('home.addedMinutesDay', { min, day: when }));
+      return;
+    }
+    store.showToast(name ? store.t('home.addedMinFocus', { min, name }) : store.t('home.addedMinutes', { min }));
+  };
+
+  // the gauge follows the day picked on the staff, so tapping a note replays that day's arc
+  const dayMin = store.minutesByDate[day] ?? 0;
+
+  // twelve weeks of days for the staff, oldest first — it scrolls, and opens on today
+  const dow = store.t('logPast.dowLetters');
+  const staffDates = Array.from({ length: 84 }, (_, i) => {
+    const d = new Date(store.now);
+    d.setDate(d.getDate() - (83 - i));
+    return d;
+  });
+  const bars = barsFor(staffDates.map(dateKey), store.minutesByDate).map((b, i) => ({ ...b, day: dow[staffDates[i].getDay()], isToday: b.date === store.today }));
+  const goalMet = dayMin >= store.dailyGoal;
+  const playFrom = (date: string) => {
+    const from = bars.findIndex((b) => b.date === date);
+    melody.play(bars.slice(Math.max(0, from)), store.dailyGoal, store.melodyKey);
+  };
+  const dayLog = store.sessions.filter((x) => x.date === day).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
+  const weekTotal = store.week.reduce((a, d) => a + d.min, 0);
+
   return (
     // top inset lives outside the scroll content so scrolled-off content clips
     // at the status bar instead of drawing under it (#23)
     <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.page}>
-      <View style={s.logoRow}>
-        <LogoMark size={26} />
-        <Text style={[s.wordmark, { flex: 1 }]}>Étude</Text>
-        {store.streakMode !== 'off' && store.displayStreak > 0 && (
-          <View style={s.streakPill}>
-            <FlameIcon />
-            <Text style={s.streakText}>{store.t('home.streak', { count: store.displayStreak })}</Text>
-          </View>
-        )}
-        {/* settings lost its tab (four tabs); the gear sits in the same corner on every visit */}
-        <Pressable style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('tabs.settings')} onPress={() => router.push('/profile')}>
-          <GearIcon size={20} />
-        </Pressable>
-      </View>
-
-      <Text style={s.greeting}>{greeting(store.now, store.t)}</Text>
-
-      <Card style={{ padding: 16 }}>
-        <View style={s.todayRow}>
-          <Text style={s.todayLabel}>{store.t('common.today')}</Text>
-          <Text style={s.todayMeta}>
-            {store.t('home.todayMeta', { done: store.todayMin, goal: store.dailyGoal })}
-          </Text>
-        </View>
-        <Bar pct={(store.todayMin / store.dailyGoal) * 100} color={C.accent} height={6} />
-      </Card>
-
-      <Pressable style={({ pressed }) => [s.primaryBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={() => router.push('/practice')}>
-        <PlayIcon />
-        <Text style={s.primaryBtnText}>{store.t('home.startPracticing')}</Text>
-      </Pressable>
-
-      <Card style={{ padding: 16 }}>
-        <View style={s.quickHeader}>
-          <Text style={s.quickTitle}>{store.t('home.quickLog')}</Text>
-          <Pressable hitSlop={8} onPress={() => setFocusOpen(true)}>
-            <Text style={s.helperFocus}>{store.quickLogFocus ? store.quickLogFocus.name : store.t('home.chooseFocus')}</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.page}>
+        <View style={s.logoRow}>
+          <LogoMark size={26} />
+          <Text style={[s.wordmark, { flex: 1 }]}>Étude</Text>
+          {/* which progress sections show below, and in what order — the body used to carry this button itself */}
+          <Pressable style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('settings.progressSections')} onPress={() => setLayoutOpen(true)}>
+            <SlidersIcon size={18} />
+          </Pressable>
+          <Pressable testID="open-settings" style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('tabs.settings')} onPress={() => router.push('/profile')}>
+            <GearIcon size={20} />
           </Pressable>
         </View>
-        <View style={s.quickRow}>
-          {store.quickLog.map((m, i) => (
-            <Pressable key={i} style={s.chip} onPress={() => quickLog(m)}>
-              <Text style={s.chipText}>{store.t('home.chipMin', { min: m })}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </Card>
 
-      {store.sessions.length === 0 && (
-        // first-run guide, shown until the first session exists
-        <View style={s.guideCard}>
-          <Text style={s.guideTitle}>{store.t('home.firstSession')}</Text>
-          {(
-            [
-              [store.t('home.guide1Pre'), store.t('tabs.repertoire'), ''],
-              [store.t('home.guide2Pre'), store.t('home.startPracticing'), store.t('home.guide2Post')],
-              [store.t('home.guide3Pre'), store.t('home.quickLog'), store.t('home.guide3Post')],
-            ] as const
-          ).map(([pre, bold, post], i) => (
-            <View key={i} style={s.guideRow}>
-              <Text style={s.guideNum}>{i + 1}</Text>
-              <Text style={s.guideText}>
-                {pre}
-                <Text style={{ fontFamily: F.bodySemi }}>{bold}</Text>
-                {post}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* the progress definitions live here now (four tabs); /progress stays as a deep-link route */}
-      <ProgressBody
-        header={
-          <View style={s.sectionHead}>
-            <Text style={s.sectionTitle}>{store.t('tabs.progress')}</Text>
-            {store.sessions.length > 0 && (
-              <Pressable style={s.iconBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('tabs.progress')} onPress={() => setRecapOpen(true)}>
-                <ShareIcon size={18} />
-              </Pressable>
-            )}
+        <Text style={s.dateOverline}>
+          {new Date(store.now).toLocaleDateString(store.lang, { weekday: 'long', day: 'numeric', month: 'long' })}
+        </Text>
+        <Text style={s.greeting}>{greeting(store.now, store.t)}</Text>
+        {store.streakMode !== 'off' && store.displayStreak > 0 && (
+          <View style={s.streakRow}>
+            <FlameIcon size={13} />
+            <Text style={s.streakText}>{store.t('home.streakLine', { count: store.displayStreak })}</Text>
           </View>
-        }
-      />
+        )}
 
-      <Modal visible={focusOpen} transparent animationType="fade" onRequestClose={() => setFocusOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setFocusOpen(false)}>
-          <Pressable style={s.sheet} onPress={() => {}}>
-            <Text style={s.sheetTitle}>{store.t('home.quickLogFocus')}</Text>
-            <View style={s.dayWrap}>
+        <View style={{ marginTop: 40 }}>
+          <View style={s.overlineRow}>
+            <Text style={s.overline}>{dayLabel(day, store.today, store.t, store.lang)}</Text>
+            <Text style={s.overlineMeta}>{goalMet ? store.t('progress.goalMet') : store.t('home.minToGo', { min: store.dailyGoal - dayMin })}</Text>
+          </View>
+          <View style={{ marginTop: 8, alignItems: 'center' }}>
+            <FermataMark pct={(dayMin / Math.max(1, store.dailyGoal)) * 100} goalMet={goalMet} />
+          </View>
+          <View style={s.todayCountRow}>
+            <Text testID="today-minutes" style={s.todayCount}>{dayMin}</Text>
+            <Text style={s.todayCountUnit}>{store.t('home.minOf', { goal: store.dailyGoal })}</Text>
+          </View>
+        </View>
+
+        <View style={{ marginTop: 32 }}>
+          <View style={s.overlineRow}>
+            <Text style={s.overline}>{store.t('progress.last7Days')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {/* the key lives in Settings; shown here so the accidentals on the staff have a reason */}
+              <Pressable hitSlop={8} onPress={() => router.push('/profile')}>
+                <Text style={[s.overlineMeta, { color: C.tertiary }]}>{store.t('settings.majorKey', { key: store.melodyKey })}</Text>
+              </Pressable>
+              <Text style={s.overlineMeta}>{fmtTime(weekTotal, store.t)}</Text>
+              {/* plays from the selected bar to today; pause remembers the bar it stopped on, a tap on a bar restarts there */}
               <Pressable
-                style={[s.dayChip, !store.quickLogFocus && s.dayChipSel]}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={store.t(melody.playing ? 'metronome.stop' : 'home.playMelody')}
+                onPress={() => {
+                  tap();
+                  if (melody.playing) {
+                    setResumeAt(melody.playing);
+                    return melody.stop();
+                  }
+                  playFrom(resumeAt ?? day);
+                }}>
+                <Text style={s.playGlyph}>{melody.playing ? '❚❚' : '▶'}</Text>
+              </Pressable>
+            </View>
+          </View>
+          <View style={{ marginTop: 16 }}>
+            <MelodyStaff
+              bars={bars}
+              goal={store.dailyGoal}
+              melodyKey={store.melodyKey}
+              selected={day}
+              sounding={melody.playing ?? undefined}
+              onSelect={(d) => {
+                tap();
+                setPickedDay(d);
+                setResumeAt(null);
+                if (melody.playing) playFrom(d);
+              }}
+            />
+          </View>
+          <Text style={[s.tapHint, { marginTop: 10, textAlign: 'center' }]}>{store.t('home.staffHint')}</Text>
+        </View>
+
+        <View style={{ marginTop: 32 }}>
+          <View style={s.overlineRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={s.overline}>{store.t('home.offTheClock')}</Text>
+              {/* the staff below picks the day these minutes land on; tap the pill to come back to today */}
+              {day !== store.today && (
+                <Pressable hitSlop={8} style={s.dayPill} onPress={() => setPickedDay(null)}>
+                  <Text style={s.dayPillText}>{dayLabel(day, store.today, store.t, store.lang)}</Text>
+                  <Text style={s.dayPillX}>×</Text>
+                </Pressable>
+              )}
+            </View>
+            <Pressable hitSlop={8} onPress={() => setFocusOpen((v) => !v)} style={[s.focusToggle, { flexShrink: 1 }]}>
+              <Text style={s.focusToggleText} numberOfLines={1}>
+                {store.quickLogFocus ? store.quickLogFocus.name : store.t('home.chooseFocus')}
+              </Text>
+              <Text style={s.focusChevron}>⌄</Text>
+            </Pressable>
+          </View>
+          {focusOpen && (
+            <View style={s.chipWrap}>
+              <Pressable
+                style={[s.chip, !store.quickLogFocus && s.chipSel]}
                 onPress={() => {
                   store.updateSettings({ quickLogFocus: null });
                   setFocusOpen(false);
                 }}>
-                <Text style={[s.dayChipText, !store.quickLogFocus && { color: C.accent }]}>{store.t('home.nothingSpecific')}</Text>
+                <Text style={[s.chipText, !store.quickLogFocus && { color: C.accent }]}>{store.t('home.nothingSpecific')}</Text>
               </Pressable>
               {focusOptions.map((f) => {
                 const sel = store.quickLogFocus?.name === f.name && store.quickLogFocus.kind === f.kind;
                 return (
                   <Pressable
                     key={`${f.kind}:${f.name}`}
-                    style={[s.dayChip, sel && s.dayChipSel]}
+                    style={[s.chip, sel && s.chipSel]}
                     onPress={() => {
                       store.updateSettings({ quickLogFocus: f });
                       setFocusOpen(false);
                     }}>
-                    <Text style={[s.dayChipText, sel && { color: C.accent }]}>{f.name}</Text>
+                    <Text style={[s.chipText, sel && { color: C.accent }]}>{f.name}</Text>
                   </Pressable>
                 );
               })}
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          )}
+          <View style={s.addRow}>
+            {store.quickLog.slice(0, 3).map((m) => (
+              <Pressable testID={`quick-log-${m}`} key={m} style={s.addBtn} onPress={() => quickLog(m)}>
+                <Text style={s.addBtnText}>{store.t('home.chipMin', { min: m })}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
-      <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
-    </ScrollView>
+        <View style={{ marginTop: 32 }}>
+          <View style={s.overlineRow}>
+            <Text style={s.overline}>{dayLabel(day, store.today, store.t, store.lang)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+              <Text style={s.tapHint}>{store.t('home.tapToAdjust')}</Text>
+              <Pressable hitSlop={8} onPress={() => setPastOpen(true)}>
+                <Text style={s.manualLink}>{store.t('practice.logPast')}</Text>
+              </Pressable>
+            </View>
+          </View>
+          <View style={{ marginTop: 4 }}>
+            {dayLog.map((l) => {
+              return (
+                <View key={l.id} style={s.logRowWrap}>
+                  {/* the full session editor — focus, minutes, rating, note — same as on the piece page */}
+                  <Pressable style={s.logRow} onPress={() => setEditSess(l)}>
+                    {/* backdated logs carry no time of day (store.logMinutes), so the column collapses rather than gaping */}
+                    {!!l.at && <Text style={s.logTime}>{new Date(l.at).toLocaleTimeString(store.lang, { hour: '2-digit', minute: '2-digit', hour12: false })}</Text>}
+                    <Text style={s.logTitle} numberOfLines={1}>
+                      {l.title}
+                    </Text>
+                    <Text style={s.logMin}>
+                      {l.min}
+                      <Text style={s.logMinUnit}> {store.t('home.minWord')}</Text>
+                    </Text>
+                    <Pressable hitSlop={8} style={s.logDelete} onPress={() => store.deleteSession(l.id)}>
+                      <Text style={s.logDeleteText}>×</Text>
+                    </Pressable>
+                  </Pressable>
+                </View>
+              );
+            })}
+            {dayLog.length === 0 && (
+              <Text style={s.logEmpty}>{day === store.today ? store.t('home.nothingLoggedToday') : store.t('home.nothingLoggedDay')}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* everything below is the progress registry — Moving, goals, calendar, charts —
+            so the Customise sheet actually governs what shows here (#progress layout) */}
+        <View style={{ marginTop: 40, gap: 26 }}>
+          <ProgressBody showEmpty={false} />
+        </View>
+      </ScrollView>
+      <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
+      <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
+      <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </View>
   );
 }
 
-const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  page: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40, gap: 26 },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  wordmark: { fontFamily: F.head, fontSize: fs(16), color: C.ink, letterSpacing: -0.16 },
-  greeting: { fontFamily: F.head, fontSize: fs(26), color: C.ink, marginTop: -10 },
-  streakPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 12 },
-  streakText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
-  todayRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  todayLabel: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
-  todayMeta: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
-  primaryBtn: { height: 56, borderRadius: r(14), backgroundColor: C.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  primaryBtnText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
-  quickHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  quickTitle: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
-  helperFocus: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
-  quickRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  chip: { flex: 1, height: 44, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+const useS = themed(({ C, fs }: T) => StyleSheet.create({
+  page: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 40 },
+  logoRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
+  wordmark: { fontFamily: F.head, fontSize: fs(16), color: C.ink, letterSpacing: -0.16, marginLeft: 8 },
+  dateOverline: { marginTop: 32, fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
+  greeting: { marginTop: 8, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
+  streakRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  streakText: { fontFamily: F.body, fontSize: fs(17), lineHeight: fs(24), color: C.subStrong },
+  iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  overlineRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  overline: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
+  overlineMeta: { fontFamily: F.body, fontSize: fs(15), color: C.subStrong },
+  playGlyph: { fontSize: fs(14), lineHeight: fs(18), color: C.accent },
+  todayCountRow: { marginTop: 4, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6 },
+  todayCount: { fontFamily: F.head, fontSize: fs(34), lineHeight: fs(36), letterSpacing: -0.8, color: C.ink, fontVariant: ['tabular-nums'] },
+  todayCountUnit: { fontFamily: F.body, fontSize: fs(18), color: C.subStrong },
+  focusToggle: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dayPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: C.accentTint },
+  dayPillText: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.accent },
+  dayPillX: { fontFamily: F.body, fontSize: fs(13), color: C.accent, lineHeight: fs(15) },
+  manualLink: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
+  focusToggleText: { fontFamily: F.accent, fontSize: fs(17), color: C.accent },
+  focusChevron: { fontSize: fs(13), color: C.accent, transform: [{ scaleY: 0.7 }] },
+  chipWrap: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { height: 32, paddingHorizontal: 12, borderRadius: 8, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
+  chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
-  guideCard: { backgroundColor: C.accentTint, borderRadius: r(16), padding: 18, gap: 12 },
-  guideTitle: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.accentDark },
-  guideRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  guideNum: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.accent, width: 14, lineHeight: fs(20) },
-  guideText: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },
-  iconBtn: { width: 36, height: 36, borderRadius: r(18), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 16 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-  dayWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dayChip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  dayChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  dayChipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+  addRow: { marginTop: 10, flexDirection: 'row', gap: 8 },
+  addBtn: { flex: 1, height: 36, borderRadius: 8, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  tapHint: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary },
+  logRowWrap: { borderBottomWidth: 1, borderBottomColor: C.hairline },
+  logRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 52 },
+  logTime: { width: 40, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, fontVariant: ['tabular-nums'] },
+  logTitle: { flex: 1, minWidth: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  logMin: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, fontVariant: ['tabular-nums'] },
+  logMinUnit: { fontFamily: F.body, fontWeight: '400', color: C.sub },
+  logDelete: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  logDeleteText: { fontSize: fs(16), lineHeight: fs(16), color: C.tertiary },
+  logEmpty: { height: 52, textAlignVertical: 'center', fontFamily: F.body, fontSize: fs(15), color: C.tertiary },
+  movingAll: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
+  moveRow: { flexDirection: 'row', alignItems: 'center', gap: 14, height: 64, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  moveBar: { width: 1.5, height: 32, backgroundColor: C.barline },
+  moveName: { fontFamily: F.bodyMed, fontSize: fs(16), lineHeight: fs(22), color: C.ink },
+  moveText: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(20) },
+  moveDot: { width: 7, height: 7, borderRadius: 3.5 },
+  weekGoalValue: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  weekGoalNote: { marginTop: 12, fontFamily: F.body, fontSize: fs(15), lineHeight: fs(20) },
+  customise: { textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
 }));

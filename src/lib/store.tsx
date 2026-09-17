@@ -11,6 +11,7 @@ import { primaryOf } from './cue-voice';
 import { resolveRecordingUri, toStoredUri } from './doc-path';
 import { i18n, resolveLang, tr, type Lang, type LanguageSetting } from './i18n';
 import type { RampUnit } from './metronome-math';
+import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
 import { applySessionUpdate } from './session-math';
@@ -63,6 +64,7 @@ export type Piece = {
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
   stageLog?: StageEntry[]; // every stage change, ascending, one per day; backfilled by migrate (spec 2026-09-15)
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
+  artwork?: string; // album cover URL from the iTunes search that added the piece
 };
 
 export type FocusPeriod = '7d' | '30d' | 'all';
@@ -117,6 +119,7 @@ type Settings = {
   metroVolume: number; // 0-100, the click's own gain under the system volume
   // Tuner. Flat like the metronome keys, same reason.
   tunerInstrument: string; // an id from tuner-math INSTRUMENTS
+  melodyKey: MelodyKey; // the key Home's melody staff is read and played in
   tunerRefA: number; // reference pitch in Hz, 415–445
 };
 
@@ -199,6 +202,7 @@ function seed(): State {
     metroSound: 'wood',
     metroVolume: 100,
     tunerInstrument: 'chromatic',
+    melodyKey: 'C',
     tunerRefA: 440,
   };
 }
@@ -239,12 +243,12 @@ type Store = State & {
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
-  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument'>>) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'artwork'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
   backupState: () => State;
-  addPiece: (name: string, by?: string, instrument?: string) => void;
+  addPiece: (name: string, by?: string, instrument?: string, artwork?: string) => void;
   addTechnique: (name: string) => void;
   removeTechnique: (name: string) => void;
   /** Every piece including techniques; `pieces` alone is the repertoire proper (#83). */
@@ -252,9 +256,12 @@ type Store = State & {
   /** Active technique names, derived from the pieces of kind 'Technique'. */
   techniques: string[];
   cyclePiece: (id: string) => void;
+  /** Renames a piece or technique and everything that joins on its name; false if the name is empty or taken. */
+  renamePiece: (id: string, name: string) => boolean;
   removePiece: (id: string) => void;
   setArchived: (id: string, archived: boolean) => void;
-  addRecording: (piece: string, uri: string, sec: number, wave?: number[]) => void;
+  /** `name` is set for imported takes, which arrive with a filename worth keeping. */
+  addRecording: (piece: string, uri: string, sec: number, wave?: number[], name?: string) => void;
   toggleStar: (id: string) => void;
   deleteRecording: (id: string) => void;
   renameRecording: (id: string, name: string) => void;
@@ -494,7 +501,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // name, so a case- or space-different twin would silently split its stats and
   // recordings — the duplicate check spans both kinds. Techniques stay untagged by
   // instrument unless the user tags them, so they show under every instrument.
-  const insertPiece = (kind: 'Piece' | 'Technique', name: string, by = '', instrument?: string) => {
+  const insertPiece = (kind: 'Piece' | 'Technique', name: string, by = '', instrument?: string, artwork?: string) => {
     const clean = name.trim();
     const dup = state.pieces.some((p) => p.name.trim().toLowerCase() === clean.toLowerCase());
     if (!dup)
@@ -511,6 +518,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   pct: 10,
                   addedAt: Date.now(),
                   kind,
+                  ...(artwork ? { artwork } : {}),
                   instrument: instrument ?? (kind === 'Piece' ? primaryOf(s.instruments, s.primaryInstrument) || undefined : undefined),
                 },
                 ...s.pieces,
@@ -521,8 +529,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return dup;
   };
 
-  const addPiece: Store['addPiece'] = (name, by = '', instrument) => {
-    const dup = insertPiece('Piece', name, by, instrument);
+  const addPiece: Store['addPiece'] = (name, by = '', instrument, artwork) => {
+    const dup = insertPiece('Piece', name, by, instrument, artwork);
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.addedToRepertoire'));
   };
 
@@ -556,6 +564,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const todayMin = state.minutesByDate[today] ?? 0;
 
   const displayStreak = computeStreak(state.minutesByDate, state.breakDays, graceFor(state.streakMode), todayDate);
+
+  // sessions, recordings, plans and the quick-log focus all join on the name, so a
+  // rename rewrites every one of them in the same update. False when the name is taken.
+  const renamePiece: Store['renamePiece'] = (id, name) => {
+    const clean = name.trim();
+    if (!clean) return false;
+    const me = state.pieces.find((p) => p.id === id);
+    if (!me || me.name === clean) return true;
+    if (state.pieces.some((p) => p.id !== id && p.name.trim().toLowerCase() === clean.toLowerCase())) {
+      showToast(t('toast.alreadyInRepertoire'));
+      return false;
+    }
+    const old = me.name;
+    const kind = me.kind ?? 'Piece';
+    setState((s) =>
+      s
+        ? {
+            ...s,
+            pieces: s.pieces.map((p) => (p.id === id ? { ...p, name: clean } : p)),
+            sessions: s.sessions.map((x) => (x.title === old ? { ...x, title: clean } : x)),
+            recordings: s.recordings.map((r) => (r.piece === old ? { ...r, piece: clean } : r)),
+            attachments: s.attachments.map((a) => (a.piece === old ? { ...a, piece: clean } : a)),
+            plans: s.plans.map((pl) => ({ ...pl, segments: pl.segments.map((seg) => (seg.focus.name === old && seg.focus.kind === kind ? { ...seg, focus: { ...seg.focus, name: clean } } : seg)) })),
+            quickLogFocus: s.quickLogFocus?.name === old && s.quickLogFocus.kind === kind ? { ...s.quickLogFocus, name: clean } : s.quickLogFocus,
+          }
+        : s
+    );
+    return true;
+  };
 
   const removePiece = (id: string) => {
     setState((s) => {
@@ -593,10 +630,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t(archived ? 'toast.archived' : 'toast.restored'));
   };
 
-  const addRecording = (piece: string, uri: string, sec: number, wave?: number[]) => {
+  const addRecording: Store['addRecording'] = (piece, uri, sec, wave, name) => {
     setState((s) =>
       s
-        ? { ...s, recordings: [{ id: uid(), piece, uri, sec, wave, date: dateKey(), at: Date.now() }, ...s.recordings] }
+        ? { ...s, recordings: [{ id: uid(), piece, uri, sec, wave, date: dateKey(), at: Date.now(), ...(name ? { name } : {}) }, ...s.recordings] }
         : s
     );
     showToast(t('toast.recordingSaved'));
@@ -700,6 +737,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addTechnique,
     removeTechnique,
     cyclePiece,
+    renamePiece,
     removePiece,
     setArchived,
     addRecording,

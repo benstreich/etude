@@ -2,7 +2,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
 import { applyAudioMode } from '@/lib/audio-mode';

@@ -7,7 +7,8 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import Animated, {
   interpolateColor,
   useAnimatedProps,
@@ -20,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Text } from '@/components/text';
-import { Card } from '@/components/ui';
+import { BackLink, Card } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { inputSampleRate, readSamples, startInput, stopInput, type TunerStatus } from '@/lib/tuner-input';
 import {
@@ -90,6 +91,7 @@ export default function Tuner() {
   // Only the note identity lives in React state — cents drive shared values.
   const [note, setNote] = useState<{ name: string; octave: number; midi: number } | null>(null);
   const [pinned, setPinned] = useState<number | null>(null);
+  const [instOpen, setInstOpen] = useState(false); // the instrument picker row under the title
   const [target, setTarget] = useState<number | null>(null);
 
   const instrument = INSTRUMENTS.find((i) => i.id === store.tunerInstrument) ?? INSTRUMENTS[0];
@@ -260,7 +262,8 @@ export default function Tuner() {
 
     return (
       <View style={[s.scroll, s.screen, { paddingTop: insets.top + 12 }]}>
-        <Header onClose={() => router.back()} title={store.t('tuner.tuner')} />
+        <BackLink label={store.t('tabs.tools')} onPress={() => router.back()} />
+        <Text style={s.title}>{store.t('tuner.tuner')}</Text>
         {card && (
           <Card style={s.statusCard}>
             <Text style={s.statusTitle}>{card.title}</Text>
@@ -286,24 +289,24 @@ export default function Tuner() {
     // Scrolls rather than clips: at the largest Dynamic Type setting the note
     // glyph alone is over 110pt, and the tab bar already owns the bottom inset.
     <ScrollView style={s.scroll} contentContainerStyle={[s.screen, { paddingTop: insets.top + 12 }]}>
-      <Header onClose={() => router.back()} title={store.t('tuner.tuner')} />
+      <BackLink label={store.t('tabs.tools')} onPress={() => router.back()} />
 
-      <View style={s.controls}>
-        <Pressable
-          style={s.control}
-          accessibilityRole="button"
-          accessibilityLabel={`${store.t('tuner.instrument')}: ${store.t(`tuner.${instrument.id}`)}`}
-          onPress={() => {
-            const next = INSTRUMENTS[(INSTRUMENTS.indexOf(instrument) + 1) % INSTRUMENTS.length];
-            store.updateSettings({ tunerInstrument: next.id });
-            setPinned(null);
-          }}>
-          <Text style={s.controlLabel}>{store.t('tuner.instrument')}</Text>
-          <Text style={s.controlValue}>{store.t(`tuner.${instrument.id}`)}</Text>
-        </Pressable>
-
-        <View style={s.control}>
-          <Text style={s.controlLabel}>{store.t('tuner.reference')}</Text>
+      <View style={s.titleRow}>
+        <Text style={s.title}>{store.t('tuner.tuner')}</Text>
+        <View style={s.controls}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: instOpen }}
+            accessibilityLabel={`${store.t('tuner.instrument')}: ${store.t(`tuner.${instrument.id}`)}`}
+            onPress={() => setInstOpen((v) => !v)}>
+            <Text style={s.controlValue}>
+              {store.t(`tuner.${instrument.id}`)} <Text style={s.controlChevron}>▾</Text>
+            </Text>
+          </Pressable>
+          <Text style={s.controlSep}>|</Text>
+          <Text style={s.controlLabel}>
+            {store.t('tuner.reference')} <Text style={s.controlValue}>{refA}</Text>
+          </Text>
           <View style={s.stepper}>
             <Pressable
               hitSlop={12}
@@ -313,7 +316,6 @@ export default function Tuner() {
               onPress={() => store.updateSettings({ tunerRefA: Math.max(MIN_REF_A, refA - 1) })}>
               <Text style={[s.stepBtn, refA <= MIN_REF_A && s.stepOff]}>−</Text>
             </Pressable>
-            <Text style={s.controlValue}>{refA}</Text>
             <Pressable
               hitSlop={12}
               accessibilityRole="button"
@@ -325,6 +327,28 @@ export default function Tuner() {
           </View>
         </View>
       </View>
+      {/* a real picker, not a cycle-on-tap: every instrument visible, one tap to choose */}
+      {instOpen && (
+        <View style={s.instRow}>
+          {INSTRUMENTS.map((i) => {
+            const sel = i.id === instrument.id;
+            return (
+              <Pressable
+                key={i.id}
+                style={[s.instChip, sel && s.instChipSel]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: sel }}
+                onPress={() => {
+                  store.updateSettings({ tunerInstrument: i.id });
+                  setPinned(null);
+                  setInstOpen(false);
+                }}>
+                <Text style={[s.instChipText, sel && { color: C.accent }]}>{store.t(`tuner.${i.id}`)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       <View style={s.gaugeWrap}>
         <Svg width={GAUGE_W} height={GAUGE_H}>
@@ -372,26 +396,33 @@ export default function Tuner() {
       </View>
 
       {instrument.strings.length > 0 && (
-        <View style={s.strings}>
-          {instrument.strings.map((midi, i) => {
-            const on = target === i;
-            const isPinned = pinned === i;
-            const n = toNote(midiToHz(midi, refA), refA);
-            return (
-              <Pressable
-                key={`${midi}-${i}`}
-                style={s.stringCell}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isPinned }}
-                accessibilityLabel={`${n.name.replace('#', '♯')}${n.octave}`}
-                onPress={() => setPinned(isPinned ? null : i)}>
-                <View style={[s.stringDot, on && s.stringDotOn, isPinned && s.stringDotPinned]} />
-                <Text style={[s.stringLabel, (on || isPinned) && s.stringLabelOn]}>
-                  {n.name.replace('#', '♯')}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={s.stringsWrap}>
+          <View style={s.stringsRule} />
+          <View style={s.stringsEndBars}>
+            <View style={{ width: 1.5, height: 15, backgroundColor: C.barline }} />
+            <View style={{ width: 3, height: 15, backgroundColor: C.sub, marginLeft: 4 }} />
+          </View>
+          <View style={s.strings}>
+            {instrument.strings.map((midi, i) => {
+              const on = target === i;
+              const isPinned = pinned === i;
+              const n = toNote(midiToHz(midi, refA), refA);
+              return (
+                <Pressable
+                  key={`${midi}-${i}`}
+                  style={s.stringCell}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isPinned }}
+                  accessibilityLabel={`${n.name.replace('#', '♯')}${n.octave}`}
+                  onPress={() => setPinned(isPinned ? null : i)}>
+                  <View style={[s.stringDot, (on || isPinned) && s.stringDotOn]} />
+                  <Text style={[s.stringLabel, (on || isPinned) && s.stringLabelOn]}>
+                    {n.name.replace('#', '♯')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       )}
 
@@ -445,43 +476,25 @@ function CentsLabel({
   );
 }
 
-function Header({ title, onClose }: { title: string; onClose: () => void }) {
-  const s = useS();
-  return (
-    <View style={s.header}>
-      <Text style={s.title}>{title}</Text>
-      <Pressable hitSlop={16} accessibilityRole="button" accessibilityLabel={title} onPress={onClose}>
-        <Text style={s.close}>✕</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const useS = themed(({ C, fs, r }: T) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
     screen: { paddingHorizontal: 20, paddingBottom: 24 },
 
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 },
-    title: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-    close: { fontFamily: F.body, fontSize: fs(20), color: C.sub, paddingHorizontal: 4 },
+    title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
 
-    controls: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    control: {
-      flex: 1,
-      minHeight: 56,
-      justifyContent: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: r(12),
-      borderWidth: 1,
-      borderColor: C.cardBorder,
-      backgroundColor: C.card,
-    },
-    controlLabel: { fontFamily: F.body, fontSize: fs(11), color: C.subStrong, letterSpacing: 0.4, textTransform: 'uppercase' },
-    controlValue: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.ink, marginTop: 2 },
-    stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-    stepBtn: { fontFamily: F.bodyMed, fontSize: fs(20), color: C.accent, width: 28, textAlign: 'center' },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+    controls: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6 },
+    instRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+    instChip: { height: 34, paddingHorizontal: 14, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
+    instChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
+    instChipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+    controlLabel: { fontFamily: F.body, fontSize: fs(14), color: C.subStrong },
+    controlValue: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+    controlChevron: { color: C.tertiary },
+    controlSep: { color: C.staffLine, fontSize: fs(14) },
+    stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    stepBtn: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent, textAlign: 'center' },
     stepOff: { color: C.faint },
 
     gaugeWrap: { alignItems: 'center', marginTop: 24 },
@@ -506,21 +519,23 @@ const useS = themed(({ C, fs, r }: T) =>
       backgroundColor: C.successTint,
     },
     noteRow: { flexDirection: 'row', alignItems: 'flex-start' },
-    noteName: { fontFamily: F.accent, fontSize: fs(92), lineHeight: fs(104), color: C.ink },
+    noteName: { fontFamily: F.body, fontSize: fs(92), lineHeight: fs(104), color: C.ink },
     noteOctave: { fontFamily: F.body, fontSize: fs(22), lineHeight: fs(40), color: C.subStrong, marginLeft: 2 },
     cents: { fontFamily: F.bodyMed, fontSize: fs(17), color: C.subStrong, marginTop: 4 },
     // with no note to show, this line is the whole readout — give it the
     // musical voice rather than leaving a bare data label floating
-    centsIdle: { fontFamily: F.accent, fontSize: fs(19), color: C.sub },
+    centsIdle: { fontFamily: F.body, fontSize: fs(19), color: C.sub },
     centsLocked: { color: C.success, fontFamily: F.bodySemi },
 
-    strings: { flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 8 },
-    stringCell: { minWidth: 44, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 6 },
-    stringDot: { width: 12, height: 12, borderRadius: r(6), backgroundColor: C.track },
-    stringDotOn: { backgroundColor: C.accent },
-    stringDotPinned: { backgroundColor: C.ink, width: 14, height: 14, borderRadius: r(7) },
-    stringLabel: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary },
-    stringLabelOn: { color: C.ink, fontFamily: F.bodySemi },
+    stringsWrap: { position: 'relative', marginTop: 8, paddingTop: 16 },
+    stringsRule: { position: 'absolute', left: 0, right: 0, top: 28, height: 1, backgroundColor: C.staffLine },
+    stringsEndBars: { position: 'absolute', right: 0, top: 21, flexDirection: 'row', alignItems: 'flex-end' },
+    strings: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 8 },
+    stringCell: { minWidth: 44, minHeight: 48, alignItems: 'center', gap: 8 },
+    stringDot: { width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.5, borderColor: C.barline, backgroundColor: 'transparent' },
+    stringDotOn: { width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent, borderColor: C.accent },
+    stringLabel: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.tertiary },
+    stringLabelOn: { color: C.ink },
 
 
     statusCard: { marginTop: 24, padding: 20, gap: 8 },

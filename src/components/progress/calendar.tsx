@@ -1,26 +1,21 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Pressable } from '@/components/press';
 
-import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
-import { chartSeries, heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
+import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
-import { useC } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
-import { MinutesChart } from './minutes-chart';
 import { fmtTime, useS } from './styles';
 import type { SectionProps } from './types';
 
-const PERIOD_KEY: Record<string, string> = { '7d': 'progress.period7d', '30d': 'progress.period30d', all: 'progress.periodAll' };
-
-/**
- * The same minutes, three ways: a month heatmap with paging and a per-day session
- * detail, or a line or bar chart over the selected period. The choice persists.
- */
-export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }: SectionProps) {
+/** A month of practice days, paged, with a per-day session detail. */
+export function CalendarSection({ mbd, sessions, onEditSession }: SectionProps) {
   const s = useS();
-  const C = useC();
+  const { C, reduceMotion } = useTheme();
   const store = useStore();
   const [selDate, setSelDate] = useState<string | null>(null);
   // month offset 0 = the current month; paging keeps the grid but a selected day belongs to one month only
@@ -30,6 +25,7 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
     setSelDate(null);
   };
 
+  const monday = store.weekStart === 'Monday';
   const base = new Date(store.now);
   const mDate = new Date(base.getFullYear(), base.getMonth() - monthOff, 1);
   const mY = mDate.getFullYear();
@@ -46,45 +42,20 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
   const heat1 = mix(C.accent, C.bg, 0.65); // 1–24 min
   const heat2 = mix(C.accent, C.bg, 0.35); // 25–39 min
 
-  const view = store.progressChart;
-  const series = view === 'calendar' ? [] : chartSeries(mbd, store.today, period);
-  const seriesTotal = series.reduce((a, pt) => a + pt.min, 0);
-  const setView = (v: 'calendar' | 'line' | 'bars') => {
-    store.updateSettings({ progressChart: v });
-    setSelDate(null);
-  };
-
   return (
     <Card>
       <View style={s.monthHead}>
-        {view === 'calendar' ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable hitSlop={10} onPress={() => pageMonth(1)}>
-              <Text style={[s.monthChev, { color: C.sub }]}>‹</Text>
-            </Pressable>
-            <Text style={s.monthTitle}>{monthTitle}</Text>
-            <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => pageMonth(-1)}>
-              <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Text style={s.monthTitle}>{store.t(PERIOD_KEY[period])}</Text>
-        )}
-        <Text style={s.monthCount}>
-          {view === 'calendar'
-            ? store.t('progress.daysPracticed', { practiced, days: elapsedDays })
-            : fmtTime(seriesTotal, store.t)}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Pressable hitSlop={10} onPress={() => pageMonth(1)}>
+            <Text style={[s.monthChev, { color: C.sub }]}>‹</Text>
+          </Pressable>
+          <Text style={s.monthTitle}>{monthTitle}</Text>
+          <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => pageMonth(-1)}>
+            <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
+          </Pressable>
+        </View>
+        <Text style={s.monthCount}>{store.t('progress.daysPracticed', { practiced, days: elapsedDays })}</Text>
       </View>
-      <Segmented
-        grow
-        style={s.viewRow}
-        value={view}
-        onChange={setView}
-        options={(['calendar', 'line', 'bars'] as const).map((v) => ({ key: v, label: store.t(`progress.chart${v[0].toUpperCase()}${v.slice(1)}`) }))}
-      />
-      {view !== 'calendar' && <MinutesChart points={series} kind={view} lang={store.lang} empty={store.t('progress.chartEmpty')} emptyStyle={s.detailEmpty} />}
-      {view === 'calendar' && (
       <View style={s.dowRow}>
         {dow.map((d, i) => (
           <Text key={i} style={s.dowText}>
@@ -92,9 +63,9 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
           </Text>
         ))}
       </View>
-      )}
-      {view === 'calendar' && weeks.map((row, wi) => (
-        <View key={wi} style={s.weekRow}>
+      {weeks.map((row, wi) => (
+        // keyed by month so paging re-mounts the grid and the rows lay themselves out top-down
+        <Animated.View key={`${mY}-${mM}-${wi}`} entering={reduceMotion ? undefined : FadeInDown.duration(240).delay(wi * 30)} style={s.weekRow}>
           {row.map((day, di) => {
             if (day === null) return <View key={di} style={s.cell} />;
             const key = dateKey(new Date(mY, mM, day));
@@ -119,9 +90,8 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
               </Pressable>
             );
           })}
-        </View>
+        </Animated.View>
       ))}
-      {view === 'calendar' && (
       <View style={s.legendRow}>
         <Text style={s.legendText}>{store.t('progress.less')}</Text>
         {[C.track, heat1, heat2, C.accent].map((c, i) => (
@@ -129,7 +99,6 @@ export function HeatmapSection({ mbd, monday, sessions, period, onEditSession }:
         ))}
         <Text style={s.legendText}>{store.t('progress.more')}</Text>
       </View>
-      )}
       {selDate && (
         <View style={s.dayDetail}>
           <View style={s.skillRow}>

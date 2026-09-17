@@ -2,9 +2,11 @@
 // (forwards). ponytail: one component, one `direction` prop — a full date
 // picker dependency buys nothing this doesn't already do.
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
+import { tap } from '@/lib/haptics';
 import { dateKey, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -77,7 +79,14 @@ export function Calendar({
           const sel = value === k;
           const isToday = k === todayKey; // outlined, so it still reads when selected (#42)
           return (
-            <Pressable key={k} style={s.calCell} disabled={disabled} onPress={() => onPick(k)}>
+            <Pressable
+              key={k}
+              style={s.calCell}
+              disabled={disabled}
+              onPress={() => {
+                tap();
+                onPick(k);
+              }}>
               <View style={[s.calDay, isToday && s.calToday, sel && { backgroundColor: C.accent, borderColor: C.accent }]}>
                 <Text
                   style={[
@@ -105,9 +114,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calDow: { width: '14.28%', textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(11), color: C.tertiary, marginBottom: 6 },
   calCell: { width: '14.28%', alignItems: 'center', paddingVertical: 2 },
-  // ponytail: r(999) not r(17) — days stay circles whatever the corner setting, so the
-  // selected fill matches today's outline (#52)
-  calDay: { width: 34, height: 34, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
+  // a literal 17, not r(): days stay circles whatever the corner setting (#52), and
+  // Android draws a 999 radius on a filled, borderless view as a square
+  calDay: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   calToday: { borderWidth: 1.5, borderColor: C.accent },
   calDayText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
 }));

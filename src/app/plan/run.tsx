@@ -3,7 +3,8 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MetronomeSheet } from '@/components/metronome';
@@ -164,7 +165,7 @@ function Runner({ id }: { id: string }) {
         <Text style={s.planName} numberOfLines={1}>
           {plan.name}
         </Text>
-        <Pressable hitSlop={10} onPress={end}>
+        <Pressable testID="run-end" hitSlop={10} onPress={end}>
           <Text style={s.endLink}>{store.t('planRun.end')}</Text>
         </Pressable>
       </View>
@@ -202,7 +203,7 @@ function Runner({ id }: { id: string }) {
           }}>
           <Text style={s.pauseText}>{paused ? '▶' : '❚❚'}</Text>
         </Pressable>
-        <Pressable style={s.nextBtn} onPress={() => advance(Math.max(60, seconds))}>
+        <Pressable testID="run-next" style={s.nextBtn} onPress={() => advance(Math.max(60, seconds))}>
           <Text style={s.nextText}>{idx + 1 < plan.segments.length ? store.t('planRun.next') : store.t('planRun.finish')}</Text>
         </Pressable>
         <View style={{ width: 56 }} />
@@ -213,7 +214,10 @@ function Runner({ id }: { id: string }) {
       <SessionReview
         session={review}
         onClose={() => {
-          setReview(null);
+          // ponytail: just leave — clearing `review` here would re-run the
+          // effect above with a live plan and resurrect the run we just
+          // finished, leaving a stale "in progress" pill behind. The screen
+          // unmounts, so the review state goes with it.
           router.back();
         }}
       />
@@ -224,16 +228,16 @@ function Runner({ id }: { id: string }) {
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 24 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  planName: { flex: 1, fontFamily: F.accentMed, fontSize: fs(14.5), color: C.subStrong },
+  planName: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.subStrong },
   endLink: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.subStrong },
   segTitle: { fontFamily: F.head, fontSize: fs(29), color: C.ink, textAlign: 'center' },
   timer: { fontFamily: F.head, fontSize: fs(66), letterSpacing: -1, color: C.ink, fontVariant: ['tabular-nums'] },
-  of: { fontFamily: F.accent, fontSize: fs(15), color: C.subStrong },
+  of: { fontFamily: F.body, fontSize: fs(15), color: C.subStrong },
   metroChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 9, paddingHorizontal: 15, marginTop: 10 },
   metroDot: { width: 7, height: 7, borderRadius: r(4), backgroundColor: C.accent },
   metroText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 },
-  pauseBtn: { width: 56, height: 56, borderRadius: r(28), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  pauseBtn: { width: 56, height: 56, borderRadius: r(28), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   pauseText: { fontSize: fs(16), color: C.ink },
   nextBtn: { width: 74, height: 74, borderRadius: r(37), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   nextText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.bg },

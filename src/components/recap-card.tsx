@@ -4,7 +4,8 @@
 // the LogoMark; hence the literal hex here and nowhere else.
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 
@@ -238,7 +239,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   statRowCream: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 9, borderTopWidth: 1, borderTopColor: 'rgba(250,247,242,0.25)' },
   statLabelCream: { fontFamily: F.body, fontSize: 13, color: 'rgba(250,247,242,0.7)' },
   statValueCream: { fontFamily: F.bodySemi, fontSize: 13.5, color: CREAM, maxWidth: 180 },
-  closeBtn: { flex: 1, height: 48, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { flex: 1, height: 48, borderRadius: r(14), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   closeText: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
   shareBtn: { flex: 1.4, height: 48, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   shareText: { fontFamily: F.bodySemi, fontSize: fs(15), color: '#FFFFFF' },

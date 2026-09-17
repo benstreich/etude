@@ -77,6 +77,10 @@
     "instruments": "Instrumente",
     "primaryInstrument": "Hauptinstrument",
     "primaryInstrumentHint": "Der Abschluss-Klang einer Einheit klingt nach diesem Instrument.",
+    "melodyKey": "Tonart der Melodie",
+    "majorKey": "%{key}-Dur",
+    "melodyKeyHint": "Die Notenzeile auf Home wird in dieser Tonart gelesen und gespielt. Gleiche Noten, transponiert.",
+    "credits": "Klavier: Salamander Grand Piano von Alexander Holm, CC BY 3.0",
     "dailyGoal": "Tagesziel",
     "quickLog": "Schnell-Log-Vorgaben",
     "quickLogFocus": "Schnell-Log-Fokus",
@@ -141,6 +145,9 @@
     "backupUnreadable": "Dieses Backup kann nicht gelesen werden",
     "addYourName": "Füge deinen Namen hinzu",
     "setInstruments": "Lege unten deine Instrumente fest",
+    "practice": "Üben",
+    "totalPractice": "Übezeit gesamt",
+    "hoursUnit": "Stunden",
     "bestStreak": "Beste Serie",
     "daysUnit": "Tage",
     "yourData": "Deine Daten",
@@ -185,14 +192,29 @@
       "one": "1-Tag-Serie",
       "other": "%{count}-Tage-Serie"
     },
+    "streakLine": {
+      "one": "1 Tag in Folge",
+      "other": "%{count} Tage in Folge"
+    },
     "todayMeta": "%{done} Min. / %{goal} Min. Ziel",
-    "startPracticing": "Üben starten",
+    "minToGo": "noch %{min} Min.",
+    "minOf": "Min. von %{goal}",
+    "minWord": "Min.",
+    "offTheClock": "Schnell eintragen",
+    "staffHint": "Tag antippen zeigt sein Protokoll — Schnelleinträge landen dort",
+    "playMelody": "Diese Woche abspielen",
+    "todaysLog": "Heutiges Protokoll",
+    "tapToAdjust": "zum Anpassen tippen",
+    "nothingLoggedToday": "Noch nichts heute eingetragen",
+    "nothingLoggedDay": "An dem Tag nichts eingetragen",
     "quickLog": "Schnelleintrag",
     "chooseFocus": "Fokus wählen",
     "chipMin": "+%{min} Min.",
     "min": "%{min} Min.",
     "addedMinFocus": "%{min} Min. hinzugefügt · %{name}",
     "addedMinutes": "%{min} Minuten hinzugefügt",
+    "addedMinDay": "%{min} Min. hinzugefügt · %{name} · %{day}",
+    "addedMinutesDay": "%{min} Min. hinzugefügt · %{day}",
     "firstSession": "Deine erste Einheit",
     "guide1Pre": "Füge ein Stück hinzu oder wähle eine Technik unter ",
     "guide2Pre": "Tippe auf ",
@@ -203,6 +225,7 @@
     "nothingSpecific": "Nichts Bestimmtes"
   },
   "practice": {
+    "session": "Session",
     "breakDue": "%{min} Min — kurz Pause machen?",
     "startBreak": "Pause starten",
     "skip": "Überspringen",
@@ -237,8 +260,14 @@
     },
     "newPlan": "+ Neue Routine",
     "startSession": "Einheit starten",
-    "logPast": "Tag nachtragen",
-    "defaultPlanName": "Neue Routine"
+    "logPast": "Manuell eintragen",
+    "defaultPlanName": "Neue Routine",
+    "startedAt": "begonnen um %{time}",
+    "loggedToday": "%{min} Min. heute erfasst",
+    "toDoubleBar": "noch %{min} Min. bis zum Doppelstrich",
+    "goalMetToday": "Ziel erreicht",
+    "breakDueIn": "Pause in %{min} Min. fällig",
+    "minSoFar": "%{min} Min. bisher"
   },
   "progress": {
     "insights": "Einsichten",
@@ -311,7 +340,9 @@
     "section": {
       "movement": "In Bewegung",
       "goals": "Ziele & Termine",
-      "heatmap": "Übungskalender",
+      "calendar": "Übungskalender",
+      "lineChart": "Liniendiagramm",
+      "barChart": "Balkendiagramm",
       "volume": "Umfang",
       "hear": "Hör den Unterschied",
       "pipeline": "Repertoire-Pipeline",
@@ -323,8 +354,7 @@
       "consistency": "Regelmässigkeit",
       "rating": "Bewertung über die Zeit",
       "timeOfDay": "Beste Tageszeit",
-      "sessionLength": "Session-Länge",
-      "last7": "Letzte 7 Tage"
+      "sessionLength": "Session-Länge"
     },
     "moving": "In Bewegung",
     "allPieces": "Alle Stücke",
@@ -356,7 +386,9 @@
     "sectionDesc": {
       "movement": "Welche Stücke sich bewegen, stocken oder fällig sind",
       "goals": "Zeitraumziele und Fristen für Stücke",
-      "heatmap": "Ein Monat Übetage, antippen für Details",
+      "calendar": "Ein Monat Übetage, antippen für Details",
+      "lineChart": "Minuten im gewählten Zeitraum, als Linie",
+      "barChart": "Minuten im gewählten Zeitraum, als Balken",
       "volume": "Diese Woche, Schnitt, gesamt, beste Serie",
       "hear": "Erste vs. neueste Aufnahme eines Stücks",
       "pipeline": "Stücke pro Stufe und der Zufluss zur letzten",
@@ -368,8 +400,7 @@
       "consistency": "Übetage pro Woche",
       "rating": "Sterne pro Stück im Verlauf",
       "timeOfDay": "Morgens, nachmittags oder abends",
-      "sessionLength": "Welche Sessionlängen am besten bewertet sind",
-      "last7": "Minuten pro Tag, letzte sieben Tage"
+      "sessionLength": "Welche Sessionlängen am besten bewertet sind"
     },
     "chartCalendar": "Kalender",
     "chartLine": "Linie",
@@ -386,6 +417,14 @@
     }
   },
   "repertoire": {
+    "piecesCount": {
+      "one": "%{count} Stück",
+      "other": "%{count} Stücke"
+    },
+    "techniquesCount": {
+      "one": "%{count} Technik",
+      "other": "%{count} Techniken"
+    },
     "dueForReview": "Seit %{days} Tagen nicht gespielt — Auffrischung fällig",
     "emptyTitle": "Woran arbeitest du gerade?",
     "emptyText": "Füge das Stück hinzu, das du lernst — die Suche ergänzt den Künstler für dich.",
@@ -436,6 +475,7 @@
     "added": "hinzugefügt am %{date}",
     "stage": "Phase",
     "noStage": "Keine Phase",
+    "noStageOn": "Keine Phase · antippen für Phasen",
     "total": "Gesamt",
     "sessionsStat": "Einheiten",
     "last": "Zuletzt",
@@ -449,6 +489,7 @@
     "onTrack": "Im Plan",
     "behind": "Hinter Plan",
     "deadlineDone": "Letzte Phase erreicht — stark.",
+    "rename": "Umbenennen",
     "deadlineToday": "Das ist heute.",
     "deadlineIn": {
       "one": "Noch 1 Tag.",
@@ -461,6 +502,10 @@
     "addTargetTempo": "Zieltempo hinzufügen",
     "recordingsCount": "Aufnahmen · %{count}",
     "compare": "Vergleichen",
+    "recordings": "Aufnahmen",
+    "importTake": "Aufnahme importieren",
+    "noTakesHint": "Nimm in einer Session auf oder importiere eine Aufnahme von woanders.",
+    "importFailed": "Diese Datei ließ sich nicht importieren",
     "history": "Verlauf",
     "restore": "Ins Repertoire zurückholen",
     "archive": "Archivieren",
@@ -515,7 +560,7 @@
   },
   "onboarding": {
     "skip": "Überspringen",
-    "tagline": "Übe bewusst. Behalte Stücke, Technik und Zeit im Blick.",
+    "tagline": "Übe bewusst.",
     "getStarted": "Los geht’s",
     "privacyNote": "Alles bleibt auf deinem Gerät — kein Konto nötig",
     "instrumentsTitle": "Was spielst du?",
@@ -544,7 +589,14 @@
     "time9pm": "21:00",
     "turnOnReminders": "Erinnerungen aktivieren",
     "notNow": "Jetzt nicht",
-    "continue": "Weiter"
+    "continue": "Weiter",
+    "tourTitle": "Vier Orte, die du kennen solltest",
+    "tourSubline": "Das ist die ganze App. Alles andere steckt dahinter.",
+    "tour_home": "Die Minuten von heute, ein Schnelleintrag für Üben ohne Timer und dein Fortschritt.",
+    "tour_practice": "Eine Session mit Timer starten – mit Metronom, Aufnahmen und deinen Noten.",
+    "tour_repertoire": "Deine Stücke und Techniken, jeweils mit Stufen und Tempo-Leiter.",
+    "tour_tools": "Metronom, Stimmgerät und Drone einzeln, wann immer du eins brauchst.",
+    "letsGo": "Los geht’s"
   },
   "metronome": {
     "metronome": "Metronom",
@@ -617,6 +669,8 @@
     "addedToast": "%{min} Min hinzugefügt · %{day}"
   },
   "sessionReview": {
+    "title": "Einheit gespeichert",
+    "note": "Notiz",
     "rateSession": "Wie hat es sich angefühlt?",
     "ofGoalMin": "von %{goal} Min",
     "done": "Fertig",
@@ -732,6 +786,7 @@
     "title": "Werkzeuge",
     "metronome": "Metronom",
     "metronomeBlurb": "Klick, Rampe, Unterteilung",
+    "metronomeRunning": "läuft · %{bpm} %{term} · %{sig}",
     "tuner": "Stimmgerät",
     "tunerBlurb": "Chromatisch, mit Cent-Anzeige",
     "drone": "Bordun",

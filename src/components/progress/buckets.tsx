@@ -2,11 +2,12 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { Card, Overline } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { byLength, byTimeOfDay, MIN_RATED, rated, TIME_OF_DAY, type Bucket } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
 
+import { PeriodHead, usePeriod } from './period';
 import { fmtTime, stars, useS } from './styles';
 import type { SectionProps } from './types';
 
@@ -26,13 +27,14 @@ function BucketRow({ label, b, value }: { label: string; b: Bucket; value: strin
 // both cards hide below MIN_RATED rated sessions in the period rather than showing noise (#54)
 
 /** Minutes and average stars by morning / afternoon / evening. */
-export function TimeOfDaySection({ inPeriod }: SectionProps) {
+export function TimeOfDaySection({ sessions }: SectionProps) {
   const store = useStore();
+  const { inPeriod, picker } = usePeriod(sessions);
   if (rated(inPeriod).length < MIN_RATED) return null;
   const buckets = byTimeOfDay(inPeriod);
   return (
     <Card>
-      <Overline style={{ marginBottom: 12 }}>{store.t('progress.bestTimeOfDay')}</Overline>
+      <PeriodHead title={store.t('progress.bestTimeOfDay')} picker={picker} style={{ marginBottom: 12 }} />
       {buckets.map((b, i) => (
         <BucketRow key={b.label} label={store.t(`progress.${TIME_OF_DAY[i]}`)} b={b} value={fmtTime(b.min, store.t)} />
       ))}
@@ -41,12 +43,13 @@ export function TimeOfDaySection({ inPeriod }: SectionProps) {
 }
 
 /** Session count and average stars by session length. */
-export function SessionLengthSection({ inPeriod }: SectionProps) {
+export function SessionLengthSection({ sessions }: SectionProps) {
   const store = useStore();
+  const { inPeriod, picker } = usePeriod(sessions);
   if (rated(inPeriod).length < MIN_RATED) return null;
   return (
     <Card>
-      <Overline style={{ marginBottom: 12 }}>{store.t('progress.sessionLength')}</Overline>
+      <PeriodHead title={store.t('progress.sessionLength')} picker={picker} style={{ marginBottom: 12 }} />
       {byLength(inPeriod).map((b) => (
         <BucketRow key={b.label} label={b.label} b={b} value={String(b.n)} />
       ))}

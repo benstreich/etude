@@ -3,20 +3,22 @@ import { useRouter } from 'expo-router';
 import * as StoreReview from 'expo-store-review';
 import * as Updates from 'expo-updates';
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFocus } from '@/components/add-focus';
-import { ChevronIcon, LockIcon } from '@/components/icons';
+import { ChevronIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { TimeWheel } from '@/components/time-wheel';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
-import { Card, Overline, ScreenTitle, Sheet } from '@/components/ui';
+import { BackLink, Overline, RuledStats, Sheet } from '@/components/ui';
 import { filesOf } from '@/lib/attachment-math';
 import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
+import { KEYS } from '@/lib/melody';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { resolveLayout } from '@/lib/progress-sections';
@@ -56,7 +58,7 @@ const DAY_KEYS: Record<string, string> = {
   Sunday: 'settings.daySunday',
 };
 
-type EditKey = 'name' | 'periodGoals' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'autoBackup';
+type EditKey = 'name' | 'periodGoals' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'melodyKey' | 'autoBackup';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
@@ -94,8 +96,6 @@ export default function Profile() {
   // persisted value → localized label (stored values stay English)
   const instLabel = (v: string) => (INSTRUMENT_KEYS[v] ? store.t(INSTRUMENT_KEYS[v]) : v);
   const dayName = (v: string) => (DAY_KEYS[v] ? store.t(DAY_KEYS[v]) : v);
-
-  const initials = store.name.split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase() || '♪';
 
   const open = (key: EditKey) => {
     if (key === 'name') setText(store.name);
@@ -262,6 +262,7 @@ export default function Profile() {
     { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : store.reminder },
     { key: 'weekStart', label: store.t('settings.weekStart'), value: dayName(store.weekStart) },
     { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
+    { key: 'melodyKey', label: store.t('settings.melodyKey'), value: store.t('settings.majorKey', { key: store.melodyKey }) },
     { key: 'progressSections', label: store.t('settings.progressSections'), value: store.t('settings.nOfM', { n: layoutOn, m: layoutTotal }) },
   ];
 
@@ -279,48 +280,63 @@ export default function Profile() {
     reminder: store.t('settings.reminders'),
     weekStart: store.t('settings.weekStart'),
     stages: store.t('settings.stages'),
+    melodyKey: store.t('settings.melodyKey'),
     autoBackup: store.t('settings.autoBackups'),
   };
 
+  const totalHours = Math.floor(store.totalMin / 60);
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>{store.t('settings.title')}</ScreenTitle>
+      <BackLink label={store.t('tabs.home')} onPress={() => router.back()} />
 
-      <View style={s.head}>
-        <Pressable style={s.avatar} onPress={() => open('name')}>
-          <Text style={s.avatarText}>{initials}</Text>
-        </Pressable>
-        <Pressable onPress={() => open('name')}>
-          <Text style={s.name}>{store.name || store.t('settings.addYourName')}</Text>
-        </Pressable>
-        <Text style={s.sub}>{store.instruments.length ? store.instruments.map(instLabel).join(' & ') : store.t('settings.setInstruments')}</Text>
+      <Pressable onPress={() => open('name')}>
+        <Text style={s.name}>{store.name || store.t('settings.addYourName')}</Text>
+      </Pressable>
+      <Text style={s.sub}>{store.instruments.length ? store.instruments.map(instLabel).join(' & ') : store.t('settings.setInstruments')}</Text>
+
+      <RuledStats
+        items={[
+          { label: store.t('settings.totalPractice'), value: <Text>{totalHours} <Text style={s.statUnit}>{store.t('settings.hoursUnit')}</Text></Text> },
+          { label: store.t('settings.bestStreak'), value: <Text>{store.bestStreak} <Text style={s.statUnit}>{store.t('settings.daysUnit')}</Text></Text> },
+        ]}
+      />
+
+      <View>
+        <Overline>{store.t('settings.practice')}</Overline>
+        <View style={{ marginTop: 6 }}>
+          {rows.map((row) => (
+            <Pressable
+              key={row.key}
+              testID={`setting-${row.key}`}
+              style={s.row}
+              onPress={() => (row.key === 'progressSections' ? setLayoutOpen(true) : open(row.key))}>
+              <Text style={s.rowLabel}>{row.label}</Text>
+              <Text style={s.rowValue} numberOfLines={1}>
+                {row.value}
+              </Text>
+              <ChevronIcon />
+            </Pressable>
+          ))}
+        </View>
       </View>
 
-      <Card style={{ paddingVertical: 4, paddingHorizontal: 20 }}>
-        <Pressable style={s.row} onPress={() => router.push('/appearance')}>
-          <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
-          <Text style={s.rowValue} numberOfLines={1}>
-            {store.t(store.theme === 'system' ? 'appearance.system' : store.theme === 'dark' ? 'appearance.dark' : 'appearance.light')}
-          </Text>
-          <ChevronIcon />
-        </Pressable>
-        {rows.map((row) => (
-          <Pressable
-            key={row.key}
-            style={[s.row, { borderTopWidth: 1, borderTopColor: C.hairline }]}
-            onPress={() => (row.key === 'progressSections' ? setLayoutOpen(true) : open(row.key))}>
-            <Text style={s.rowLabel}>{row.label}</Text>
+      <View>
+        <Overline>{store.t('appearance.title')}</Overline>
+        <View style={{ marginTop: 6 }}>
+          <Pressable style={s.row} onPress={() => router.push('/appearance')}>
+            <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
             <Text style={s.rowValue} numberOfLines={1}>
-              {row.value}
+              {store.t(store.theme === 'system' ? 'appearance.system' : store.theme === 'dark' ? 'appearance.dark' : 'appearance.light')}
             </Text>
             <ChevronIcon />
           </Pressable>
-        ))}
-      </Card>
+        </View>
+      </View>
 
-      <View style={{ gap: 12 }}>
+      <View>
         <Overline>{store.t('settings.yourData')}</Overline>
-        <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
+        <View style={{ marginTop: 6 }}>
           {(
             [
               [store.t('settings.backupEverything'), store.t('settings.backupEverythingSub'), backup],
@@ -334,8 +350,8 @@ export default function Profile() {
               [store.t('settings.exportCsv'), store.t('settings.exportCsvSub'), csv],
               [store.t('settings.restoreFromBackup'), store.t('settings.restoreSub'), restore],
             ] as const
-          ).map(([label, sub, onPress], i) => (
-            <Pressable key={label} style={[s.dataRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={onPress}>
+          ).map(([label, sub, onPress]) => (
+            <Pressable key={label} style={s.dataRow} onPress={onPress}>
               <View style={{ flex: 1 }}>
                 <Text style={s.dataLabel}>{label}</Text>
                 <Text style={s.dataSub}>{sub}</Text>
@@ -343,48 +359,41 @@ export default function Profile() {
               <ChevronIcon />
             </Pressable>
           ))}
-        </Card>
-        <View style={s.dataFootRow}>
-          <LockIcon size={13} />
-          <Text style={s.dataFoot}>{store.t('settings.privacyFooter')}</Text>
+          {canRate && (
+            <Pressable style={s.dataRow} onPress={() => StoreReview.requestReview().catch(() => {})}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.dataLabel}>{store.t('settings.rate')}</Text>
+                <Text style={s.dataSub}>{store.t('settings.rateSub')}</Text>
+              </View>
+              <ChevronIcon />
+            </Pressable>
+          )}
         </View>
+        <Text style={s.dataFoot}>{store.t('settings.privacyFooter')}</Text>
       </View>
-
-      {canRate && (
-        <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
-          <Pressable style={s.dataRow} onPress={() => StoreReview.requestReview().catch(() => {})}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.dataLabel}>{store.t('settings.rate')}</Text>
-              <Text style={s.dataSub}>{store.t('settings.rateSub')}</Text>
-            </View>
-            <ChevronIcon />
-          </Pressable>
-        </Card>
-      )}
 
       {/* About (#64): the openness is part of the product, so it is in the app,
           not only in the README. */}
-      <Overline>{store.t('settings.about')}</Overline>
-      <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
-        {(
-          [
-            [store.t('settings.howBuilt'), store.t('settings.howBuiltSub'), `${REPO}/blob/main/docs/how-etude-is-built.md`],
-            [store.t('settings.sourceCode'), store.t('settings.sourceCodeSub'), REPO],
-            [store.t('settings.privacyPolicy'), store.t('settings.privacyPolicySub'), PRIVACY_URL],
-          ] as const
-        ).map(([label, sub, url], i) => (
-          <Pressable
-            key={label}
-            style={[s.dataRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-            onPress={() => Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')))}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.dataLabel}>{label}</Text>
-              <Text style={s.dataSub}>{sub}</Text>
-            </View>
-            <ChevronIcon />
-          </Pressable>
-        ))}
-      </Card>
+      <View>
+        <Overline>{store.t('settings.about')}</Overline>
+        <View style={{ marginTop: 6 }}>
+          {(
+            [
+              [store.t('settings.howBuilt'), `${REPO}/blob/main/docs/how-etude-is-built.md`],
+              [store.t('settings.sourceCode'), REPO],
+              [store.t('settings.privacyPolicy'), PRIVACY_URL],
+            ] as const
+          ).map(([label, url], i, arr) => (
+            <Pressable
+              key={label}
+              style={[s.row, i === arr.length - 1 && s.rowClose]}
+              onPress={() => Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')))}>
+              <Text style={[s.rowLabel, { flex: 1 }]}>{label}</Text>
+              <ChevronIcon />
+            </Pressable>
+          ))}
+        </View>
+      </View>
 
       {/* Which bundle is actually running. The app version stays 1.0.0 across
           every OTA update, so the update id is the only part that moves. */}
@@ -393,6 +402,8 @@ export default function Profile() {
           Updates.isEmbeddedLaunch ? 'bundled' : (Updates.updateId?.slice(0, 8) ?? 'dev')
         }`}
       </Text>
+      {/* CC BY 3.0 asks for the credit somewhere in the product; the piano samples in assets/audio/piano */}
+      <Text style={s.version}>{store.t('settings.credits')}</Text>
 
       <Sheet visible={editing !== null} onClose={() => setEditing(null)} style={s.sheet} contentStyle={{ gap: 16 }}>
             {editing && <Text style={s.sheetTitle}>{titles[editing]}</Text>}
@@ -488,6 +499,16 @@ export default function Profile() {
                     </ScrollView>
                   </>
                 )}
+              </>
+            )}
+            {editing === 'melodyKey' && (
+              <>
+                <View style={s.chipWrap}>
+                  {KEYS.map((k) => (
+                    <Chip key={k} label={store.t('settings.majorKey', { key: k })} selected={store.melodyKey === k} onPress={() => pick({ melodyKey: k })} />
+                  ))}
+                </View>
+                <Text style={s.editorHint}>{store.t('settings.melodyKeyHint')}</Text>
               </>
             )}
             {editing === 'primaryInstrument' && (
@@ -647,18 +668,17 @@ export default function Profile() {
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  page: { paddingHorizontal: 24, paddingBottom: 40, gap: 26 },
-  head: { alignItems: 'center', gap: 4 },
-  avatar: { width: 64, height: 64, borderRadius: r(32), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  avatarText: { fontFamily: F.head, fontSize: fs(24), color: C.bg },
-  name: { fontFamily: F.head, fontSize: fs(26), color: C.ink },
-  sub: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
-  row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10 },
-  rowLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
-  rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: fs(14), color: C.sub },
+  page: { paddingHorizontal: 24, paddingBottom: 40, gap: 36 },
+  name: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
+  sub: { marginTop: 4, fontFamily: F.body, fontSize: fs(17), color: C.subStrong },
+  statUnit: { fontFamily: F.body, fontWeight: '400', fontSize: fs(17), color: C.subStrong },
+  row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  rowClose: { borderBottomWidth: 3, borderBottomColor: C.barline },
+  rowLabel: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
+  rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-  input: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  input: { height: 48, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wheelSave: { height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   wheelSaveText: { color: C.bg, fontFamily: F.bodyMed, fontSize: fs(15) },
@@ -669,17 +689,16 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stageRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   moveBtn: { width: 34, height: 44, alignItems: 'center', justifyContent: 'center' },
   moveGlyph: { fontFamily: F.body, fontSize: fs(17), color: C.subStrong },
-  addStageBtn: { height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  addStageBtn: { height: 44, borderRadius: r(12), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   addStageText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
-  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, paddingVertical: 8 },
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 60, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.hairline },
   dataLabel: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
-  dataSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+  dataSub: { fontFamily: F.body, fontSize: fs(14.5), color: C.subStrong, marginTop: 1 },
   version: { fontFamily: F.body, fontSize: fs(12), color: C.sub, textAlign: 'center', marginTop: 4 },
-  dataFootRow: { flexDirection: 'row', gap: 7, paddingHorizontal: 4, alignItems: 'flex-start' },
-  dataFoot: { flex: 1, fontFamily: F.body, fontSize: fs(12.5), lineHeight: fs(19), color: C.sub },
+  dataFoot: { marginTop: 12, fontFamily: F.body, fontSize: fs(14.5), lineHeight: fs(20), color: C.sub },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
 }));

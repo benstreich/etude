@@ -7,7 +7,8 @@
 import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -299,11 +300,12 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   addPlus: { fontFamily: F.bodyMed, fontSize: fs(24), color: C.sub, lineHeight: fs(28) },
   addLabel: { fontFamily: F.bodyMed, fontSize: fs(11.5), color: C.sub },
   hint: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.tertiary, marginTop: 10 },
-  pill: { height: 36, paddingHorizontal: 14, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  pill: { height: 36, paddingHorizontal: 14, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   pillText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  // menu sits in the top third, not centred: it holds an autofocused field and a centred one lands under the keyboard on iOS
+  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', alignItems: 'center', justifyContent: 'flex-start', padding: 32, paddingTop: '18%' },
   menu: { width: '100%', backgroundColor: C.card, borderRadius: r(16), padding: 12, gap: 4 },
-  nameInput: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  nameInput: { height: 48, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   menuRow: { height: 46, justifyContent: 'center', paddingHorizontal: 14 },
   menuText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   // the viewer is its own dark room: white paper reads best against it, and it

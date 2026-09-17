@@ -2,25 +2,27 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { Text } from '@/components/text';
-import { Bar, Card, Overline } from '@/components/ui';
+import { Bar, Card } from '@/components/ui';
 import { ratingByFocus } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
 
+import { PeriodHead, usePeriod } from './period';
 import { fmtTime, stars, useS } from './styles';
 import type { SectionProps } from './types';
 
 /** Minutes (and average stars) per piece or technique inside the selected period. */
-export function TimeByFocusSection({ sessions, inPeriod }: SectionProps) {
+export function TimeByFocusSection({ sessions }: SectionProps) {
   const s = useS();
   const C = useC();
   const store = useStore();
+  const { inPeriod, picker } = usePeriod(sessions);
   if (sessions.length === 0) return null;
   const focusRows = ratingByFocus(inPeriod);
   const focusMax = focusRows[0]?.min ?? 1;
   return (
     <Card>
-      <Overline style={{ marginBottom: 4 }}>{store.t('progress.timeByFocus')}</Overline>
+      <PeriodHead title={store.t('progress.timeByFocus')} picker={picker} style={{ marginBottom: 4 }} />
       {focusRows.length === 0 && <Text style={s.detailEmpty}>{store.t('progress.nothingInPeriod')}</Text>}
       {focusRows.map((f) => (
         <View key={f.title} style={{ marginTop: 16 }}>

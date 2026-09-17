@@ -3,7 +3,8 @@
 // of any language or width work; `grow` stretches it to the row.
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable } from '@/components/press';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { Text } from '@/components/text';

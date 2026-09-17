@@ -3,9 +3,9 @@
 // the bottom. Bars grow up from the baseline and the line draws itself in; both
 // are one shared progress value, so a period change replays the reveal.
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, type StyleProp, type TextStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type TextStyle } from 'react-native';
 import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
-import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, FadeInUp, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
 import { Text } from '@/components/text';
 import type { ChartPoint } from '@/lib/heatmap-math';
@@ -35,18 +35,22 @@ export function MinutesChart({
   points,
   kind,
   lang,
+  fmt,
   empty,
   emptyStyle,
 }: {
   points: ChartPoint[];
   kind: 'line' | 'bars';
   lang: string;
+  /** Minutes → "45 min" / "1h 05m" for the tap-to-read label. */
+  fmt: (min: number) => string;
   empty: string;
   emptyStyle: StyleProp<TextStyle>;
 }) {
   const s = useS();
   const { C, reduceMotion } = useTheme();
   const [w, setW] = useState(0);
+  const [tapped, setTapped] = useState<{ key: string; i: number } | null>(null); // tapped column, tied to its data set
   const n = points.length;
   const top = niceMax(Math.max(...points.map((p) => p.min), 0));
 
@@ -61,6 +65,7 @@ export function MinutesChart({
     p.value = 0;
     p.value = withTiming(1, { duration: 650, easing: Easing.bezier(0.33, 1, 0.68, 1) });
   }, [dataKey, reduceMotion, p]);
+  const sel = tapped?.key === dataKey ? tapped.i : null;
 
   if (n === 0) return <Text style={emptyStyle}>{empty}</Text>;
 
@@ -92,6 +97,25 @@ export function MinutesChart({
             </View>
           )}
           {w > 0 && kind === 'line' && <Line points={points} x={x} y={y} p={p} accent={C.accent} tint={C.accentTint} width={w} />}
+          {/* one tap column per point, over both chart kinds; tapping the open one closes it */}
+          {w > 0 && (
+            <View style={s.bars}>
+              {points.map((pt, i) => (
+                <Pressable key={pt.label} style={{ flex: 1, height: H }} onPress={() => setTapped(sel === i ? null : { key: dataKey, i })} accessibilityLabel={`${fmtDate(pt.label)}: ${fmt(pt.min)}`} />
+              ))}
+            </View>
+          )}
+          {w > 0 && sel !== null && points[sel] && (
+            <Animated.View
+              pointerEvents="none"
+              entering={reduceMotion ? undefined : FadeInUp.duration(160)}
+              style={[s.tip, { left: Math.min(Math.max(0, x(sel) - 44), w - 88), top: Math.max(0, y(points[sel].min) - 46) }]}>
+              <Text style={s.tipValue}>{fmt(points[sel].min)}</Text>
+              <Text style={s.tipDate} numberOfLines={1}>
+                {fmtDate(points[sel].label)}
+              </Text>
+            </Animated.View>
+          )}
         </View>
       </View>
       <View style={[s.xRow, { marginLeft: GUTTER }]}>
@@ -171,6 +195,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   bars: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end' },
   barSlot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: H, paddingHorizontal: 1 },
   bar: { width: '100%', maxWidth: 22, borderTopLeftRadius: r(3), borderTopRightRadius: r(3) },
+  tip: { position: 'absolute', width: 88, alignItems: 'center', paddingVertical: 4, paddingHorizontal: 6, borderRadius: r(8), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  tipValue: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.ink },
+  tipDate: { fontFamily: F.body, fontSize: fs(10.5), color: C.sub },
   xRow: { height: fs(16), marginTop: 6 },
   xLabel: { position: 'absolute', fontFamily: F.bodyMed, fontSize: fs(10.5), color: C.tertiary },
 }));

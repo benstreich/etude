@@ -2,7 +2,7 @@
 // and calibration verdicts have to hold on tiny, gappy logs.
 import assert from 'node:assert';
 
-import { calibration, pieceRatings, ratingForecast, ratingTrend, rollingAvg } from '../src/lib/rating-math.ts';
+import { addDays, calibration, pieceRatings, ratingForecast, ratingTrend, rollingAvg } from '../src/lib/rating-math.ts';
 
 const piece = { name: 'Asturias' };
 const sessions = [
@@ -46,4 +46,23 @@ const hardDays = [2, 2, 3, 2, 3].map((rating, i) => ({ date: `2026-09-0${i + 1}`
 const climbing = { tempoLog: [{ date: '2026-08-15', bpm: 90 }, { date: '2026-09-12', bpm: 110 }], targetBpm: 140 };
 assert.equal(calibration(climbing, hardDays, '2026-09-14'), 'hard-days-count');
 assert.equal(calibration({}, [], '2026-09-14'), null);
+
+// --- addDays --------------------------------------------------------------
+// Every window in this file walks dates with addDays. It parses at noon so a
+// DST jump cannot roll the answer onto the neighbouring day.
+assert.equal(addDays('2026-09-14', 0), '2026-09-14');
+assert.equal(addDays('2026-09-14', 1), '2026-09-15');
+assert.equal(addDays('2026-09-14', -1), '2026-09-13');
+assert.equal(addDays('2026-09-30', 1), '2026-10-01', 'month boundary');
+assert.equal(addDays('2026-12-31', 1), '2027-01-01', 'year boundary');
+assert.equal(addDays('2026-01-01', -1), '2025-12-31');
+assert.equal(addDays('2024-02-28', 1), '2024-02-29', 'leap year');
+assert.equal(addDays('2026-02-28', 1), '2026-03-01', 'common year');
+assert.equal(addDays('2026-03-29', 1), '2026-03-30', 'EU DST spring forward');
+assert.equal(addDays('2026-10-25', 1), '2026-10-26', 'EU DST fall back');
+assert.equal(addDays('2026-11-01', 1), '2026-11-02', 'US DST fall back');
+assert.equal(addDays('2026-09-14', 30), '2026-10-14');
+// walking n days forward then n back returns to the start, for a whole year
+for (let n = 1; n <= 365; n++) assert.equal(addDays(addDays('2026-01-01', n), -n), '2026-01-01', `round-trip ${n}`);
+
 console.log('check-rating ok');

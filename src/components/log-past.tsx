@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { Calendar } from '@/components/calendar';
 import { Text } from '@/components/text';
@@ -49,7 +50,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} fill align="bottom" grabber style={s.sheet} contentStyle={{ gap: 16 }}>
+    <Sheet visible={visible} onClose={onClose} grabber style={s.sheet} contentStyle={{ gap: 16 }}>
             <Text style={s.sheetTitle}>{store.t('logPast.title')}</Text>
 
             <Calendar value={pastDate} onPick={setPastDate} direction="past" />
@@ -117,10 +118,10 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   focusScroll: { flexDirection: 'row', gap: 8, paddingHorizontal: 24 },
   focusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   showAll: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginTop: 10 },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(12), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
-  input: { height: 48, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  input: { height: 48, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkbox: { width: 22, height: 22, borderRadius: r(6), borderWidth: 1.5, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
   checkmark: { color: C.bg, fontSize: fs(13), lineHeight: fs(15), fontFamily: F.bodySemi },

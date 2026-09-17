@@ -24,6 +24,18 @@
         "buildType": "apk"
       },
       "channel": "development"
+    },
+    "e2e-test": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "withoutCredentials": true,
+      "android": {
+        "buildType": "apk",
+        "withoutCredentials": true
+      },
+      "ios": {
+        "simulator": true
+      }
     }
   },
   "submit": {

@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Pressable } from '@/components/press';
 
+import { MeasureBar } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { Bar, Card, Overline } from '@/components/ui';
+import { Card, Overline } from '@/components/ui';
 import { deadlineStatus, goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { tempoForecast } from '@/lib/stats-math';
@@ -12,6 +14,9 @@ import { useC } from '@/lib/theme';
 
 import { fmtTime, useS } from './styles';
 import type { SectionProps } from './types';
+
+// one bar per natural unit of the period: days in a week, weeks in a month, months in a year
+const measureSegments = (period: GoalPeriod) => Array.from({ length: period === 'week' ? 7 : period === 'month' ? 4 : 12 }, () => 1);
 
 /** Period goals (#56) and piece deadlines in one card. Null when neither has anything to show. */
 export function GoalsSection({ pieces, sessions }: SectionProps) {
@@ -63,18 +68,20 @@ export function GoalsSection({ pieces, sessions }: SectionProps) {
     <Card style={{ gap: 14 }}>
       {goalRows.length > 0 && (
         <>
-          <Overline>{store.t('progress.goals')}</Overline>
           {goalRows.map((g) => (
-            <View key={g.period} style={{ gap: 6 }}>
+            <View key={g.period}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Text style={s.goalLabel}>{store.t(`progress.goal_${g.period}`)}</Text>
+                <Overline>{store.t(`progress.goal_${g.period}`)}</Overline>
                 <Text style={s.goalValue}>
                   {fmtTime(g.done, store.t)}
                   <Text style={s.goalTarget}> / {fmtTime(g.target, store.t)}</Text>
                 </Text>
               </View>
-              <Bar pct={g.pct} color={g.onTrack ? C.success : C.accent} height={6} />
-              <Text style={[s.goalNote, !g.onTrack && { color: C.accent }]}>
+              {/* the period drawn as a measure: one bar per day of the week, per month, etc. */}
+              <View style={{ marginTop: 16 }}>
+                <MeasureBar segments={measureSegments(g.period)} done={g.pct / 100} color={g.onTrack ? C.success : C.accent} />
+              </View>
+              <Text style={[s.goalNote, { marginTop: 12, color: g.left === 0 || g.onTrack ? C.success : C.accent }]}>
                 {g.left === 0 ? store.t('progress.goalMet') : g.onTrack ? store.t('progress.goalAhead', { min: g.left }) : store.t('progress.goalBehind', { min: g.pace - g.done })}
               </Text>
             </View>

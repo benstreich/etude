@@ -1,8 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import Animated from 'react-native-reanimated';
+import { Pressable } from '@/components/press';
 
+import { PlayIcon } from '@/components/icons';
 import { RollingNumber } from '@/components/motifs';
 import { Text } from '@/components/text';
+import { Bump } from '@/components/motion';
+import { EntryRow, UnderlineTabs, useKeyboardLift } from '@/components/ui';
 import { LOCK_SCREEN_STEP, preloadClicks, previewClick, useBeat, useMetronome } from '@/lib/metronome';
 import { describeRamp, MAX_BPM, SOUND_SETS, SUBDIVS, tapTempo, type RampUnit, type SoundSet } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
@@ -48,15 +54,19 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
 export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useS();
   const { t } = useStore();
+  const lift = useKeyboardLift();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={() => {}}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18 }}>
-            <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
-            <MetronomeControls active={visible} />
-          </ScrollView>
-        </Pressable>
+        {/* the ramp's number fields sit low in the sheet; the lift rides the sheet above the keyboard (see ui.tsx) */}
+        <Animated.View style={[{ maxHeight: '85%', justifyContent: 'flex-end' }, lift]}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <KeyboardAwareScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={{ gap: 18 }}>
+              <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
+              <MetronomeControls active={visible} />
+            </KeyboardAwareScrollView>
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -108,6 +118,7 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
             <View style={s.dots}>
               {accents.map((level, i) => (
                 <Pressable key={i} hitSlop={6} onPress={() => cycleAccent(i)}>
+                  <Bump trigger={running && beat === i} peak={level === 3 ? 1.5 : 1.3}>
                   <View
                     style={[
                       s.dot,
@@ -117,17 +128,18 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
                       running && beat === i && (level === 3 ? s.dotDownLit : level === 0 ? s.dotMutedLit : s.dotLit),
                     ]}
                   />
+                  </Bump>
                 </Pressable>
               ))}
             </View>
-            <Text style={[s.hint, { textAlign: 'center', marginTop: -12 }]}>{t('metronome.accentsHint')}</Text>
+            <Text style={[s.hint, { textAlign: 'center', marginTop: 10 }]}>{t('metronome.accentsHint')}</Text>
 
             <View style={s.bpmRow}>
               <Step label="−5" onPress={() => nudge(-5)} />
               <Step label="−1" onPress={() => nudge(-1)} />
               <View style={s.bpmBox}>
                 <View testID="metro-bpm">
-                  <RollingNumber value={bpm} style={s.bpm} height={fs(60)} />
+                  <RollingNumber value={bpm} style={s.bpm} height={fs(72)} />
                 </View>
                 <Text style={s.bpmUnit}>BPM</Text>
                 <Text style={s.bpmTerm}>{tempoTerm(bpm)}</Text>
@@ -136,62 +148,54 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
               <Step label="+5" onPress={() => nudge(5)} />
             </View>
 
-            <View style={s.actions}>
-              <Pressable style={s.tapBtn} onPress={tap}>
-                <Text style={s.tapBtnText}>{t('metronome.tapTempo')}</Text>
-              </Pressable>
-              <Pressable style={[s.playBtn, running && s.playBtnOn]} onPress={toggle}>
-                <Text style={[s.playBtnText, running && { color: C.bg }]}>{running ? t('metronome.stop') : t('metronome.start')}</Text>
-              </Pressable>
-            </View>
+            <EntryRow
+              keySize={52}
+              keyStyle={running ? { backgroundColor: C.accent } : { borderWidth: 1.5, borderColor: C.ink }}
+              keyContent={running ? <View style={{ width: 14, height: 14, borderRadius: 2, backgroundColor: C.bg }} /> : <PlayIcon color={C.ink} />}
+              title={running ? t('metronome.stop') : t('metronome.start')}
+              right={
+                <Pressable hitSlop={8} onPress={tap}>
+                  <Text style={s.tapLink}>{t('metronome.tapTempo')}</Text>
+                </Pressable>
+              }
+              close
+              onPress={toggle}
+            />
 
-            <View style={{ gap: 10 }}>
+            <View>
               <Text style={s.label}>{t('metronome.timeSignature')}</Text>
-              <View style={s.chipRow}>
-                {TIME_SIGS.map((ts) => (
-                  <Pressable
-                    key={ts}
-                    style={[s.chip, timeSig === ts && s.chipSel]}
-                    onPress={() => setTimeSig(ts)}>
-                    <Text style={[s.chipText, timeSig === ts && { color: C.accent }]}>{ts}</Text>
-                  </Pressable>
-                ))}
+              <View style={{ marginTop: 8 }}>
+                <UnderlineTabs options={TIME_SIGS.map((ts) => ({ key: ts, label: ts }))} value={timeSig} onChange={setTimeSig} gap={12} />
               </View>
-              <Text style={s.hint}>{t('metronome.compoundHint')}</Text>
+              <Text style={[s.hint, { marginTop: 8 }]}>{t('metronome.compoundHint')}</Text>
             </View>
 
-            <View style={{ gap: 10 }}>
+            <View>
               <Text style={s.label}>{t('metronome.subdivision')}</Text>
-              <View style={s.seg}>
-                {SUBDIVS.map((n, i) => (
-                  <Pressable
-                    key={n}
-                    style={[s.segBtn, s.segBtnWide, i > 0 && s.segBtnDivider, subdiv === n && s.segBtnSel]}
-                    onPress={() => setSubdiv(n)}>
-                    <Text style={[s.segText, subdiv === n && s.segTextSel]}>
-                      {n === 1 ? t('metronome.subdivOff') : n}
-                    </Text>
-                  </Pressable>
-                ))}
+              <View style={{ marginTop: 8 }}>
+                <UnderlineTabs
+                  options={SUBDIVS.map((n) => ({ key: String(n), label: n === 1 ? t('metronome.subdivOff') : String(n) }))}
+                  value={String(subdiv)}
+                  onChange={(v) => setSubdiv(Number(v))}
+                  gap={24}
+                />
               </View>
-              <Text style={s.hint}>{t('metronome.subdivHint')}</Text>
+              <Text style={[s.hint, { marginTop: 8 }]}>{t('metronome.subdivHint')}</Text>
             </View>
 
-            <View style={{ gap: 10 }}>
+            <View>
               <Text style={s.label}>{t('metronome.sound')}</Text>
-              <View style={s.chipRow}>
-                {SOUND_SETS.map((id) => (
-                  <Pressable
-                    key={id}
-                    style={[s.chip, sound === id && s.chipSel]}
-                    onPress={() => {
-                      setSound(id);
-                      // a picker you can't hear is a guessing game — preview on every tap
-                      if (!running) previewClick(id, volume);
-                    }}>
-                    <Text style={[s.chipText, sound === id && { color: C.accent }]}>{t(SOUND_KEY[id])}</Text>
-                  </Pressable>
-                ))}
+              <View style={{ marginTop: 8 }}>
+                <UnderlineTabs
+                  options={SOUND_SETS.map((id) => ({ key: id, label: t(SOUND_KEY[id]) }))}
+                  value={sound}
+                  onChange={(id) => {
+                    setSound(id);
+                    // a picker you can't hear is a guessing game — preview on every tap
+                    if (!running) previewClick(id, volume);
+                  }}
+                  gap={24}
+                />
               </View>
             </View>
 
@@ -311,20 +315,20 @@ function NumberField({ value, onCommit }: { value: number; onCommit: (value: num
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  pill: { height: 44, paddingHorizontal: 18, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  pill: { height: 44, paddingHorizontal: 18, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   pillCompact: { height: 36, paddingHorizontal: 14 },
   pillOn: { backgroundColor: C.accent, borderColor: C.accent },
   pillText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, maxHeight: '85%' },
+  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, flexShrink: 1 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
 
-  dots: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
-  dot: { width: 10, height: 10, borderRadius: r(5), backgroundColor: C.track },
-  dotDown: { width: 14, height: 14, borderRadius: r(7) },
-  dotMid: { width: 12, height: 12, borderRadius: r(6) },
-  dotMuted: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: C.track },
+  dots: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
+  dot: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.chartInactive },
+  dotDown: { backgroundColor: C.accent },
+  dotMid: { backgroundColor: C.faint },
+  dotMuted: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: C.chartInactive },
   dotLit: { backgroundColor: C.faint },
   dotDownLit: { backgroundColor: C.accent },
   dotMutedLit: { borderColor: C.faint },
@@ -333,32 +337,22 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   volFill: { height: 12, borderRadius: r(999), backgroundColor: C.accent },
 
   bpmRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  bpmBox: { alignItems: 'center', minWidth: 96 },
-  bpm: { fontFamily: F.head, fontSize: fs(54), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(60) },
-  bpmUnit: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.4, color: C.tertiary },
-  bpmTerm: { fontFamily: F.accentMed, fontSize: fs(15), color: C.accent, marginTop: 2 },
-  step: { width: 42, height: 42, borderRadius: r(21), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+  bpmBox: { alignItems: 'center', minWidth: 132 },
+  bpm: { fontFamily: F.head, fontSize: fs(72), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(72), letterSpacing: -2 },
+  bpmUnit: { marginTop: 4, fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
+  bpmTerm: { fontFamily: F.accent, fontSize: fs(19), color: C.accent, marginTop: 2 },
+  step: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
 
-  actions: { flexDirection: 'row', gap: 12 },
-  tapBtn: { flex: 1, height: 52, borderRadius: r(14), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  tapBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.ink },
-  playBtn: { flex: 1, height: 52, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  playBtnOn: { backgroundColor: C.accent },
-  playBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
+  tapLink: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
 
-  label: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
-  hint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, lineHeight: fs(17) },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minWidth: 44, height: 40, paddingHorizontal: 12, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
+  label: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
+  hint: { fontFamily: F.body, fontSize: fs(14.5), color: C.subStrong, lineHeight: fs(19) },
 
   // joined segmented control: one bordered container, selected half tinted -
-  // deliberately unlike the loose chips above, which mean a many-way pick
-  seg: { flexDirection: 'row', height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, overflow: 'hidden' },
+  // still used for the ramp unit toggle (bars/seconds)
+  seg: { flexDirection: 'row', height: 44, borderRadius: r(12), backgroundColor: C.track, overflow: 'hidden' },
   segBtn: { paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  segBtnWide: { flex: 1 }, // four equal cells, so nothing runs off a phone screen
   segBtnDivider: { borderLeftWidth: 1, borderLeftColor: C.inputBorder },
   segBtnSel: { backgroundColor: C.accentTint },
   segText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
@@ -372,5 +366,5 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink, width: 84 },
   fieldSuffix: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
-  numberField: { width: 72, height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 12, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
+  numberField: { width: 72, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
 }));

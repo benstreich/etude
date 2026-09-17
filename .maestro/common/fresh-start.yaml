@@ -1,0 +1,16 @@
+# A just-installed app on the home screen, past onboarding.
+#
+# Step 0 is a welcome screen with no Skip — the header that carries it only
+# renders from step 1 on, so the first tap is "Get started". Skip then finishes
+# onboarding with reminders off and a 20 min daily goal — note that is
+# onboarding's own default, not seed()'s 45, which Skip overwrites.
+# Notifications are granted up front so the OS prompt never steals a tap mid-flow.
+appId: com.benstreich.etude
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- tapOn: "Get started"
+- tapOn: "Skip"
+- assertVisible: "Étude"

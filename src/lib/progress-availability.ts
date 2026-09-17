@@ -43,8 +43,10 @@ export function sectionUnavailable(key: string, i: AvailabilityInput): Unavailab
   const noPieces = i.pieces.length === 0;
 
   switch (key) {
-    // Always renderable: the calendar draws an empty month, the totals draw zeros.
-    case 'heatmap':
+    // Always renderable: the calendar draws an empty month, charts and totals draw zeros.
+    case 'calendar':
+    case 'lineChart':
+    case 'barChart':
     case 'volume':
       return null;
 
@@ -54,7 +56,6 @@ export function sectionUnavailable(key: string, i: AvailabilityInput): Unavailab
 
     case 'timeByFocus':
     case 'consistency':
-    case 'last7':
       return noSessions ? plain('sessions') : null;
 
     case 'changed':

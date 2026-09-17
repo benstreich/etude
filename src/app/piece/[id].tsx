@@ -1,30 +1,47 @@
 // Piece detail — stage, stats, target tempo, recordings, and session history.
 // ponytail: sessions/recordings join on the piece *name*, like everywhere else
 // in the app (pieces can't be renamed); move to id-joins if rename ever lands.
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Calendar } from '@/components/calendar';
 import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
-import { MetronomeButton } from '@/components/metronome';
+import { MeasureBar, NoteTempo } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
-import { Card, Overline, Sheet, Stars } from '@/components/ui';
+import { BackLink, Card, Overline, RuledStats, Sheet, Stars } from '@/components/ui';
 import { deadlineStatus } from '@/lib/goal-math';
+import { tap } from '@/lib/haptics';
+import { pickRecordings } from '@/lib/import-recording';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
-import { F, themed, useC, type Palette, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type Palette, type T } from '@/lib/theme';
 
 const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
+/** One rung of the stage ladder: fades between track and stage colour, staggered so a jump reads as a climb. */
+function Seg({ filled, delay, color, track, style }: { filled: boolean; delay: number; color: string; track: string; style: object }) {
+  const { reduceMotion } = useTheme();
+  const v = useSharedValue(filled ? 1 : 0);
+  useEffect(() => {
+    v.value = reduceMotion ? (filled ? 1 : 0) : withDelay(delay, withTiming(filled ? 1 : 0, { duration: 260 }));
+  }, [filled, delay, reduceMotion, v]);
+  const anim = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(v.value, [0, 1], [track, color]) }));
+  return <Animated.View style={[style, anim]} />;
+}
+
 const stageColor = (C: Palette, i: number, n: number) => (i < 0 ? C.sub : i >= n - 1 ? C.success : C.accent);
 
 export default function PieceDetail() {
@@ -35,6 +52,8 @@ export default function PieceDetail() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newName, setNewName] = useState('');
   const [tempoOpen, setTempoOpen] = useState(false);
   const [cur, setCur] = useState('');
   const [target, setTarget] = useState('');
@@ -90,6 +109,14 @@ export default function PieceDetail() {
     setTargetStars(piece.targetRating);
     setTempoOpen(true);
   };
+  // takes recorded outside the app: pick, copy in, list them like any other recording
+  const importTakes = async () => {
+    try {
+      for (const t of await pickRecordings()) store.addRecording(piece.name, t.uri, t.sec, undefined, t.name);
+    } catch {
+      store.showToast(store.t('piece.importFailed'));
+    }
+  };
   const saveTempo = () => {
     const parse = (t: string) => {
       const v = Math.round(Number(t));
@@ -99,145 +126,135 @@ export default function PieceDetail() {
     setTempoOpen(false);
   };
 
+  // recording rename fields can sit anywhere down the page; this keeps the focused one above the keyboard
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
+    <KeyboardAwareScrollView style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
-        <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8}>
-          <Text style={s.navGlyph}>‹</Text>
-        </Pressable>
-        <Pressable style={s.navBtn} onPress={() => setMenuOpen(true)} hitSlop={8}>
+        <BackLink label={store.t('tabs.repertoire')} onPress={() => router.back()} />
+        <Pressable hitSlop={8} onPress={() => setMenuOpen(true)}>
           <Text style={s.navGlyph}>⋯</Text>
         </Pressable>
       </View>
 
       <View>
-        <Text style={s.title}>{piece.name}</Text>
+        {/* cover above the title, not beside it — a long title wraps and the pair fought for width */}
+        {!!piece.artwork && <Image source={{ uri: piece.artwork }} style={{ width: 96, height: 96, borderRadius: 14, marginTop: 28, backgroundColor: C.track }} contentFit="cover" transition={150} />}
+        <Text style={[s.title, !!piece.artwork && { marginTop: 16 }]}>{piece.name}</Text>
         <Text style={s.meta}>
           {[piece.kind === 'Technique' ? store.t('addFocus.technique') : piece.by, added && store.t('piece.added', { date: added })].filter(Boolean).join(' · ') || ' '}
         </Text>
       </View>
 
-      <Card style={{ padding: 16, gap: 12 }}>
+      <View style={{ marginTop: 12 }}>
         <View style={s.rowBetween}>
-          <Text style={s.cardLabel}>{store.t('piece.stage')}</Text>
+          <Overline>{store.t('piece.stage')}</Overline>
           <Text style={[s.stageName, { color: stageColor(C, stage, n) }]}>{store.stages[stage] ?? store.t('piece.noStage')}</Text>
         </View>
-        <View style={s.segRow}>
+        {/* a technique need not sit on the ladder at all: tapping its current stage again clears it */}
+        <View style={[s.segRow, { marginTop: 14 }]}>
           {store.stages.map((_, i) => (
             <Pressable
               key={i}
-              style={[s.seg, { backgroundColor: i <= stage ? stageColor(C, stage, n) : C.track }]}
+              style={{ flex: 1 }}
               hitSlop={{ top: 10, bottom: 10 }}
-              onPress={() => store.updatePiece(piece.id, { stage: i })}
-            />
+              onPress={() => {
+                tap();
+                store.updatePiece(piece.id, { stage: piece.kind === 'Technique' && i === stage ? -1 : i });
+              }}>
+              <Seg filled={i <= stage} delay={i <= stage ? i * 70 : 0} color={stageColor(C, stage, n)} track={C.staffLine} style={s.seg} />
+            </Pressable>
           ))}
         </View>
-        <View style={s.segRow}>
+        <View style={[s.segRow, { marginTop: 8 }]}>
           {store.stages.map((label, i) => (
             <Text key={i} style={[s.stageLabel, i === stage && { color: C.accent, fontFamily: F.bodySemi }]} numberOfLines={1}>
               {label}
             </Text>
           ))}
         </View>
-        {/* a technique need not sit anywhere on the learning → mastered ladder;
-            stage -1 means "none" and every consumer already reads it as not-finished */}
-        {piece.kind === 'Technique' && stage >= 0 && (
-          <Pressable hitSlop={8} style={{ alignSelf: 'flex-end' }} onPress={() => store.updatePiece(piece.id, { stage: -1 })}>
-            <Text style={[s.stageLabel, { flex: 0, textAlign: 'right', color: C.subStrong, fontFamily: F.bodyMed }]}>{store.t('piece.noStage')}</Text>
+        {/* stage -1 means "none" and every consumer already reads it as not-finished */}
+        {piece.kind === 'Technique' && (
+          <Pressable hitSlop={8} style={[s.noStageBtn, stage < 0 && { backgroundColor: C.accentTint }]} onPress={() => store.updatePiece(piece.id, { stage: stage < 0 ? 0 : -1 })}>
+            <Text style={[s.noStageText, stage < 0 && { color: C.accent }]}>{stage < 0 ? store.t('piece.noStageOn') : store.t('piece.noStage')}</Text>
           </Pressable>
         )}
-      </Card>
-
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        {(
-          [
-            [store.t('piece.total'), fmtTime(totalMin, store.t)],
-            [store.t('piece.sessionsStat'), String(sessions.length)],
-            [store.t('piece.last'), last ? dayLabel(last, store.today, store.t, store.lang) : '—'],
-          ] as const
-        ).map(([label, value]) => (
-          <Card key={label} style={s.stat}>
-            <Overline style={{ marginBottom: 8 }} numberOfLines={1}>
-              {label}
-            </Overline>
-            {/* a third of the width cannot hold "Yesterday" at full size, so the
-                value steps down with its length rather than being cut off (#86) */}
-            <Text style={[s.statNum, value.length > 9 ? s.statNumXs : value.length > 6 ? s.statNumSm : null]} numberOfLines={1}>
-              {value}
-            </Text>
-          </Card>
-        ))}
       </View>
 
+      <RuledStats
+        items={[
+          { label: store.t('piece.total'), value: fmtTime(totalMin, store.t) },
+          { label: store.t('piece.sessionsStat'), value: String(sessions.length) },
+          { label: store.t('piece.last'), value: last ? dayLabel(last, store.today, store.t, store.lang) : '—' },
+        ]}
+      />
+
       {piece.currentBpm || piece.targetBpm ? (
-        <Card style={{ padding: 16 }}>
-          <View style={s.tempoRow}>
-            <MetronomeIcon />
-            <Pressable style={{ flex: 1 }} onPress={openTempo}>
-              <Text style={s.cardLabel}>{store.t('piece.targetTempo')}</Text>
-              <Text style={s.tempoValue}>
-                {!!(piece.currentBpm ?? piece.targetBpm) && (
-                  <Text style={s.tempoTerm}>{tempoTerm((piece.currentBpm ?? piece.targetBpm)!)} · </Text>
-                )}
-                {piece.currentBpm ?? '—'}
-                <Text style={s.tempoTarget}> / {piece.targetBpm ?? '—'} BPM</Text>
-              </Text>
-              {/* #54: practice cost of tempo gained, from the tempo log and this piece's sessions */}
-              {minPerBpm(piece.tempoLog ?? [], sessions) !== null && (
-                <Text style={s.tempoTarget}>{store.t('piece.minPerBpm', { n: minPerBpm(piece.tempoLog ?? [], sessions) })}</Text>
-              )}
-              {/* #61 §1: straight-line forecast to the target, and a plateau nudge */}
-              {forecast?.reachDate && (
-                <Text style={s.tempoTarget}>
-                  {store.t('piece.forecast', { target: piece.targetBpm, date: new Date(forecast.reachDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })}
-                </Text>
-              )}
-              {forecast?.plateau && <Text style={[s.tempoTarget, { color: C.accent }]}>{store.t('piece.plateau')}</Text>}
-            </Pressable>
-            <MetronomeButton compact presetBpm={piece.currentBpm ?? piece.targetBpm} />
+        <View>
+          <View style={s.rowBetween}>
+            <Overline>{store.t('piece.targetTempo')}</Overline>
+            {minPerBpm(piece.tempoLog ?? [], sessions) !== null && (
+              <Text style={s.tempoTarget}>{store.t('piece.minPerBpm', { n: minPerBpm(piece.tempoLog ?? [], sessions) })}</Text>
+            )}
           </View>
-        </Card>
+          <Pressable style={{ marginTop: 12, flexDirection: 'row', alignItems: 'baseline', gap: 8 }} onPress={openTempo}>
+            {piece.currentBpm ? <NoteTempo bpm={piece.currentBpm} size={22} /> : <Text style={s.tempoValue}>—</Text>}
+            {!!piece.targetBpm && (
+              <>
+                <Text style={s.tempoArrow}>→</Text>
+                <Text style={s.tempoTargetNum}>{piece.targetBpm}</Text>
+                <Text style={s.tempoTerm}>{tempoTerm(piece.targetBpm)}</Text>
+              </>
+            )}
+          </Pressable>
+          {!!piece.currentBpm && !!piece.targetBpm && (
+            <View style={{ marginTop: 14 }}>
+              <MeasureBar segments={[1, 1, 1, 1]} done={Math.max(0, Math.min(1, (piece.currentBpm - 30) / (piece.targetBpm - 30)))} />
+            </View>
+          )}
+          {/* #61 §1: straight-line forecast to the target, and a plateau nudge */}
+          {forecast?.reachDate && (
+            <Text style={[s.tempoTarget, { marginTop: 8, color: C.success, fontFamily: F.body }]}>
+              {store.t('piece.forecast', { target: piece.targetBpm, date: new Date(forecast.reachDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })}
+            </Text>
+          )}
+          {forecast?.plateau && <Text style={[s.tempoTarget, { marginTop: 8, color: C.accent }]}>{store.t('piece.plateau')}</Text>}
+        </View>
       ) : (
-        <Pressable onPress={openTempo}>
-          <Card style={[s.tempoRow, { padding: 16 }]}>
-            <MetronomeIcon color={C.sub} />
-            <Text style={s.ghostRowText}>{store.t('piece.addTargetTempo')}</Text>
-          </Card>
+        <Pressable style={s.ghostRow} onPress={openTempo}>
+          <MetronomeIcon color={C.sub} />
+          <Text style={s.ghostRowText}>{store.t('piece.addTargetTempo')}</Text>
         </Pressable>
       )}
 
       {piece.targetDate && deadline ? (
-        <Pressable onPress={() => setDateOpen(true)}>
-          <Card style={{ padding: 16, gap: 4 }}>
-            <View style={s.rowBetween}>
-              <Text style={s.cardLabel}>{store.t('piece.masterBy')}</Text>
-              <Text style={[s.stageName, { color: deadline.done ? C.success : deadline.onTrack ? C.sub : C.accent }]}>
-                {deadline.done ? store.t('piece.mastered') : deadline.onTrack ? store.t('piece.onTrack') : store.t('piece.behind')}
-              </Text>
-            </View>
-            <Text style={s.tempoValue}>
-              {new Date(piece.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { weekday: 'long', month: 'long', day: 'numeric' })}
+        <Pressable style={s.masterByRow} onPress={() => setDateOpen(true)}>
+          <View>
+            <Overline>{store.t('piece.masterBy')}</Overline>
+            <Text style={s.masterByDate}>
+              {new Date(piece.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })}
+              <Text style={s.tempoTarget}> · {deadlineNote}</Text>
             </Text>
-            <Text style={s.tempoTarget}>{deadlineNote}</Text>
-            {!!laggingNote && <Text style={[s.tempoTarget, { color: C.accent }]}>{laggingNote}</Text>}
-          </Card>
+          </View>
+          <Text style={[s.stageName, { color: deadline.done ? C.success : deadline.onTrack ? C.success : C.accent }]}>
+            {deadline.done ? store.t('piece.mastered') : deadline.onTrack ? store.t('piece.onTrack') : store.t('piece.behind')}
+          </Text>
         </Pressable>
       ) : (
-        <Pressable onPress={() => setDateOpen(true)}>
-          <Card style={[s.tempoRow, { padding: 16 }]}>
-            <Text style={s.ghostRowText}>{store.t('piece.addTargetDate')}</Text>
-          </Card>
+        <Pressable style={s.ghostRow} onPress={() => setDateOpen(true)}>
+          <Text style={s.ghostRowText}>{store.t('piece.addTargetDate')}</Text>
         </Pressable>
       )}
+      {piece.targetDate && !!laggingNote && <Text style={[s.tempoTarget, { color: C.accent }]}>{laggingNote}</Text>}
 
       <TempoLadder piece={piece} />
 
       <ScoreCard piece={piece.name} />
 
-      {recordings.length > 0 && (
-        <View style={{ gap: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Overline>{store.t('piece.recordingsCount', { count: recordings.length })}</Overline>
+      {/* the header always shows so a take recorded elsewhere can be imported before the first in-app one */}
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Overline>{recordings.length ? store.t('piece.recordingsCount', { count: recordings.length }) : store.t('piece.recordings')}</Overline>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             {recordings.length >= 2 && (
               <Pressable
                 hitSlop={8}
@@ -250,34 +267,35 @@ export default function PieceDetail() {
                 <Text style={s.compareLink}>{store.t('piece.compare')}</Text>
               </Pressable>
             )}
+            <Pressable hitSlop={8} onPress={importTakes}>
+              <Text style={s.compareLink}>{store.t('piece.importTake')}</Text>
+            </Pressable>
           </View>
+        </View>
+        {recordings.length > 0 ? (
           <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
             <RecordingsList recordings={recordings} />
           </Card>
-        </View>
-      )}
+        ) : (
+          <Text style={s.emptyHint}>{store.t('piece.noTakesHint')}</Text>
+        )}
+      </View>
 
       {sessions.length > 0 && (
-        <View style={{ gap: 12 }}>
+        <View>
           <Overline>{store.t('piece.history')}</Overline>
-          <Card style={{ paddingVertical: 0, paddingHorizontal: 16 }}>
-            {sessions.map((sess, i) => (
-              <Pressable
-                key={sess.id}
-                style={[s.histRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-                onPress={() => setEditSess(sess)}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.histDay}>{dayLabel(sess.date, store.today, store.t, store.lang)}</Text>
-                  {!!sess.note && (
-                    <Text style={s.histNote} numberOfLines={1}>
-                      {sess.note}
-                    </Text>
-                  )}
-                </View>
+          <View style={{ marginTop: 6 }}>
+            {sessions.map((sess) => (
+              <Pressable key={sess.id} style={s.histRow} onPress={() => setEditSess(sess)}>
+                <Text style={s.histDay}>{dayLabel(sess.date, store.today, store.t, store.lang)}</Text>
+                <Text style={s.histNote} numberOfLines={1}>
+                  {sess.note ?? ''}
+                </Text>
+                {!!sess.rating && <Text style={s.histRating}>★ {sess.rating}</Text>}
                 <Text style={s.histMin}>{store.t('piece.min', { count: sess.min })}</Text>
               </Pressable>
             ))}
-          </Card>
+          </View>
         </View>
       )}
 
@@ -287,6 +305,15 @@ export default function PieceDetail() {
         <Pressable style={s.backdrop} onPress={() => setMenuOpen(false)}>
           <Pressable style={s.sheet} onPress={() => {}}>
             <Text style={s.sheetTitle}>{piece.name}</Text>
+            <Pressable
+              style={s.sheetRow}
+              onPress={() => {
+                setMenuOpen(false);
+                setNewName(piece.name);
+                setRenameOpen(true);
+              }}>
+              <Text style={s.sheetRowText}>{store.t('piece.rename')}</Text>
+            </Pressable>
             <Pressable
               style={s.sheetRow}
               onPress={() => {
@@ -308,6 +335,24 @@ export default function PieceDetail() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Sheet visible={renameOpen} onClose={() => setRenameOpen(false)} style={s.sheet} contentStyle={{ gap: 14 }}>
+        <Text style={s.sheetTitle}>{store.t('piece.rename')}</Text>
+        <TextInput
+          style={s.input}
+          value={newName}
+          onChangeText={setNewName}
+          placeholder={piece.name}
+          placeholderTextColor={C.tertiary}
+          autoFocus
+          selectTextOnFocus
+          returnKeyType="done"
+          onSubmitEditing={() => store.renamePiece(piece.id, newName) && setRenameOpen(false)}
+        />
+        <Pressable style={[s.saveBtn, !newName.trim() && { opacity: 0.4 }]} disabled={!newName.trim()} onPress={() => store.renamePiece(piece.id, newName) && setRenameOpen(false)}>
+          <Text style={s.saveText}>{store.t('piece.save')}</Text>
+        </Pressable>
+      </Sheet>
 
       <Sheet visible={tempoOpen} onClose={() => setTempoOpen(false)} style={s.sheet} contentStyle={{ gap: 14 }}>
               <Text style={s.sheetTitle}>{store.t('piece.targetTempo')}</Text>
@@ -362,43 +407,46 @@ export default function PieceDetail() {
           </Pressable>
         </Pressable>
       </Modal>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  page: { paddingHorizontal: 24, paddingBottom: 40, gap: 20 },
-  navRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  navBtn: { width: 36, height: 36, borderRadius: r(18), backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
-  navGlyph: { fontSize: fs(18), color: C.ink, lineHeight: fs(20) },
-  title: { fontFamily: F.head, fontSize: fs(28), letterSpacing: -0.4, color: C.ink },
-  meta: { fontFamily: F.body, fontSize: fs(14.5), color: C.sub, marginTop: 4 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  page: { paddingHorizontal: 24, paddingBottom: 40, gap: 36 },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 36 },
+  navGlyph: { fontSize: fs(20), color: C.sub, letterSpacing: 2 },
+  title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
+  meta: { fontFamily: F.body, fontSize: fs(17), color: C.subStrong, marginTop: 4 },
+  rowBetween: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   cardLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
-  stageName: { fontFamily: F.bodySemi, fontSize: fs(13) },
+  stageName: { fontFamily: F.body, fontSize: fs(16) },
   segRow: { flexDirection: 'row', gap: 5 },
-  seg: { flex: 1, height: 6, borderRadius: r(999) },
-  stageLabel: { flex: 1, fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
-  stat: { flex: 1, padding: 14 },
-  statNum: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-  statNumSm: { fontSize: fs(16) },
-  statNumXs: { fontSize: fs(13) },
-  tempoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  seg: { height: 3, borderRadius: 2 },
+  stageLabel: { flex: 1, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
+  noStageBtn: { alignSelf: 'flex-start', marginTop: 14, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: C.track, justifyContent: 'center' },
+  noStageText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
   tempoValue: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink, marginTop: 2 },
+  tempoArrow: { fontSize: fs(18), color: C.barline },
+  tempoTargetNum: { fontFamily: F.bodyMed, fontSize: fs(22), color: C.subStrong, fontVariant: ['tabular-nums'] },
   tempoTarget: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
-  tempoTerm: { fontFamily: F.accentMed, fontSize: fs(15), color: C.accent },
+  tempoTerm: { fontFamily: F.body, fontSize: fs(18), color: C.subStrong },
+  ghostRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, borderTopWidth: 1, borderTopColor: C.staffLine },
   ghostRowText: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.sub },
+  masterByRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.staffLine },
+  masterByDate: { marginTop: 6, fontFamily: F.bodyMed, fontSize: fs(17), color: C.ink },
   compareLink: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
-  histRow: { flexDirection: 'row', alignItems: 'center', minHeight: 52, gap: 12, paddingVertical: 8 },
-  histDay: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
-  histNote: { fontFamily: F.body, fontSize: fs(12), color: C.subStrong, marginTop: 1 },
-  histMin: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.sub },
+  emptyHint: { fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.sub },
+  histRow: { flexDirection: 'row', alignItems: 'center', height: 44, gap: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  histDay: { width: 88, fontFamily: F.body, fontSize: fs(14), color: C.subStrong },
+  histNote: { flex: 1, fontFamily: F.body, fontSize: fs(14.5), color: C.subStrong },
+  histRating: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
+  histMin: { fontFamily: F.body, fontSize: fs(14), color: C.ink, fontVariant: ['tabular-nums'] },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 14 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink, marginBottom: 4 },
   sheetRow: { height: 52, justifyContent: 'center' },
   sheetRowText: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
-  input: { flex: 1, height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  input: { flex: 1, height: 52, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },
 }));

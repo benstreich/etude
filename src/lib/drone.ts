@@ -8,8 +8,16 @@ export type DroneNote = (typeof DRONE_NOTES)[number];
 
 /** The octave the shipped samples were rendered in (A3 = 220 Hz up to G#4). */
 export const SAMPLE_OCTAVE = 3;
-/** Octaves the picker offers; rate stays inside expo-audio's 0.5..2 window. */
+/** Octaves the picker offers. */
 export const DRONE_OCTAVES = [2, 3, 4] as const;
+
+/** A4 range the reference stepper offers, for orchestras that tune high. */
+export const A4_MIN = 432;
+export const A4_MAX = 446;
+
+/** expo-audio only honours a playback rate in this window. */
+export const MIN_RATE = 0.5;
+export const MAX_RATE = 2;
 
 // semitones above A within the sampled octave — A..G# is one contiguous run,
 // so C4 is 3 semitones above A3, not 3 below A4

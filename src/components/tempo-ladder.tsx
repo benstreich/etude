@@ -1,7 +1,8 @@
 // Tempo ladder (#17) — per-piece BPM log with a small line chart, a delta
 // chip for the month, and a stepper sheet to log today's tempo.
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { MetronomeButton } from '@/components/metronome';
@@ -217,7 +218,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 18 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  stepBtn: { width: 46, height: 46, borderRadius: r(23), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 46, height: 46, borderRadius: r(23), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
   sheetBpm: { fontFamily: F.head, fontSize: fs(46), color: C.ink, fontVariant: ['tabular-nums'], lineHeight: fs(50) },
   sheetUnit: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.4, color: C.tertiary },

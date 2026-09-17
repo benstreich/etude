@@ -1,0 +1,55 @@
+# Quick-logging practice done off the clock, and finding it still there after
+# a restart — the only test that exercises the store's AsyncStorage round-trip.
+#
+# The quick-log chips sit below the fold on a phone, so every tap on them has
+# to be scrolled to first; the minutes counter is near the top, so asserting on
+# it means scrolling back up.
+appId: com.benstreich.etude
+name: Log a session
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+# a fresh install has nothing logged today
+- assertVisible:
+    id: "today-minutes"
+    text: "^0$"
+
+- scrollUntilVisible:
+    element:
+      id: "quick-log-15"
+    direction: DOWN
+- tapOn:
+    id: "quick-log-15"
+
+# logging replaces the "nothing logged yet" line with a session row, which
+# shifts the chips — so scroll to the second one too rather than assuming
+# it stayed where the first one was
+- scrollUntilVisible:
+    element:
+      id: "quick-log-30"
+    direction: DOWN
+- tapOn:
+    id: "quick-log-30"
+
+# scroll back to the top of the card. "Goal met" sits in the header ABOVE the
+# counter, so scrolling to the counter alone stops one row short of it.
+- scrollUntilVisible:
+    element:
+      text: "Goal met"
+    direction: UP
+
+# 15 + 30: a second log adds to the first rather than replacing it
+- assertVisible:
+    id: "today-minutes"
+    text: "^45$"
+
+# and that clears the daily goal, so the countdown line flips
+- assertVisible: "Goal met"
+
+# relaunch WITHOUT clearState: the minutes have to survive the process dying
+- launchApp
+- assertVisible:
+    id: "today-minutes"
+    text: "^45$"

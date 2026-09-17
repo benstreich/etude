@@ -1,14 +1,16 @@
-// First-run flow: welcome + 3 steps (instruments/name, daily goal, reminders).
+// First-run flow: welcome + 4 steps (instruments/name, daily goal, reminders, a tour of the tabs).
 // Rendered by Shell instead of the tab navigator until store.onboarded is set.
 import React, { useEffect, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { BackHandler, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
+import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LockIcon, LogoMark } from '@/components/icons';
+import { ClockIcon, LockIcon, LogoMark, MetronomeIcon, NoteIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { useStore } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useTheme, type T } from '@/lib/theme';
 
 // Chip VALUES are persisted in settings — translate displayed labels only.
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Voice', 'Drums', 'Bass', 'Cello'];
@@ -18,21 +20,27 @@ const TIME_KEYS: Record<string, string> = { '6:00 PM': 'time6pm', '7:00 PM': 'ti
 
 export function Onboarding() {
   const s = useS();
-  const C = useC();
+  const { C, reduceMotion } = useTheme();
   const store = useStore();
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(0); // 0 welcome, 1 you, 2 goal, 3 reminders
+  const [step, setStep] = useState(0); // 0 welcome, 1 you, 2 goal, 3 reminders, 4 tour
+  const [forward, setForward] = useState(true); // which way the last step change went; the new step slides in from that side
+  const go = (n: number) => {
+    setForward(n >= step);
+    setStep(n);
+  };
   const [instruments, setInstruments] = useState<string[]>([]);
   const [other, setOther] = useState<string | null>(null); // null = "Other…" chip untapped
   const [name, setName] = useState('');
   const [goal, setGoal] = useState(20);
   const [time, setTime] = useState('6:00 PM');
+  const [reminder, setReminder] = useState('Off'); // the reminder step's answer, saved when the tour ends
 
   // OS back gesture steps back instead of leaving the app
   useEffect(() => {
     if (step === 0) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setStep((x) => x - 1);
+      go(step - 1);
       return true;
     });
     return () => sub.remove();
@@ -52,7 +60,7 @@ export function Onboarding() {
   const header = (
     <View style={s.topRow}>
       <View style={s.dotsRow}>
-        {[1, 2, 3].map((i) => (
+        {[1, 2, 3, 4].map((i) => (
           <View key={i} style={[s.dot, i === step && s.dotActive]} />
         ))}
       </View>
@@ -78,7 +86,7 @@ export function Onboarding() {
           <Text style={s.tagline}>{store.t('onboarding.tagline')}</Text>
         </View>
         <View style={{ flex: 1.4 }} />
-        {primary(store.t('onboarding.getStarted'), () => setStep(1))}
+        {primary(store.t('onboarding.getStarted'), () => go(1))}
         <View style={s.lockRow}>
           <LockIcon size={13} color={C.sub} />
           <Text style={s.lockText}>{store.t('onboarding.privacyNote')}</Text>
@@ -90,8 +98,8 @@ export function Onboarding() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={[s.page, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
         {header}
-        {/* ponytail: instant step swap — the 'shift' slide isn't worth an animation rig here */}
         <KeyboardAwareScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={16}>
+          <Animated.View key={step} entering={reduceMotion ? undefined : (forward ? FadeInRight : FadeInLeft).duration(280)}>
           {step === 1 && (
             <>
               <View style={s.headerBlock}>
@@ -188,16 +196,48 @@ export function Onboarding() {
               </View>
             </>
           )}
+          {step === 4 && (
+            <>
+              <View style={s.headerBlock}>
+                <Text style={s.title}>{store.t('onboarding.tourTitle')}</Text>
+                <Text style={s.subline}>{store.t('onboarding.tourSubline')}</Text>
+              </View>
+              <View style={[s.listCard, { gap: 18 }]}>
+                {(['home', 'practice', 'repertoire', 'tools'] as const).map((k) => (
+                  <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    <View style={s.tourIcon}>
+                      {k === 'home' ? <LogoMark size={24} /> : k === 'practice' ? <ClockIcon size={24} color={C.accent} /> : k === 'repertoire' ? <NoteIcon size={24} color={C.accent} /> : <MetronomeIcon size={24} color={C.accent} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.listLabel}>{store.t(`tabs.${k}`)}</Text>
+                      <Text style={s.tourLine}>{store.t(`onboarding.tour_${k}`)}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+          </Animated.View>
         </KeyboardAwareScrollView>
         {step === 3 ? (
           <View style={{ gap: 6 }}>
-            {primary(store.t('onboarding.turnOnReminders'), () => finish(time))}
-            <Pressable style={s.ghostBtn} onPress={() => finish('Off')}>
+            {primary(store.t('onboarding.turnOnReminders'), () => {
+              setReminder(time);
+              go(4);
+            })}
+            <Pressable
+              style={s.ghostBtn}
+              onPress={() => {
+                setReminder('Off');
+                go(4);
+              }}>
               <Text style={s.ghostText}>{store.t('onboarding.notNow')}</Text>
             </Pressable>
           </View>
+        ) : step === 4 ? (
+          primary(store.t('onboarding.letsGo'), () => finish(reminder))
         ) : (
-          primary(store.t('onboarding.continue'), () => setStep(step + 1))
+          primary(store.t('onboarding.continue'), () => go(step + 1))
         )}
       </View>
     </View>
@@ -219,11 +259,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   title: { fontFamily: F.head, fontSize: fs(30), letterSpacing: -0.4, color: C.ink },
   subline: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(22.5), color: C.sub },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: { height: 44, paddingHorizontal: 16, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: 44, paddingHorizontal: 16, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   chipSel: { backgroundColor: C.accent, borderColor: C.accent },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
   chipTextSel: { color: '#FFFFFF' },
-  input: { height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 16, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  input: { height: 52, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   inputLabel: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub, marginBottom: 8 },
   optional: { fontFamily: F.body, color: C.tertiary },
   bigNumBlock: { alignItems: 'center', paddingTop: 20, paddingBottom: 32 },
@@ -231,6 +271,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   bigNumCaption: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.sub },
   listCard: { backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: r(16), padding: 16 },
   listLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  tourIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center' },
+  tourLine: { fontFamily: F.body, fontSize: fs(13.5), lineHeight: fs(19), color: C.sub, marginTop: 2 },
   primaryBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },
   ghostBtn: { height: 48, alignItems: 'center', justifyContent: 'center' },

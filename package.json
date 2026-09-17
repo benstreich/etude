@@ -5,6 +5,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@expo-google-fonts/newsreader": "^0.4.1",
+    "@expo-google-fonts/noto-music": "^0.4.1",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/ui": "~57.0.11",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -72,7 +73,7 @@
     "check:session": "node --experimental-strip-types --no-warnings scripts/check-session.ts",
     "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
     "check:tempo": "node --experimental-strip-types --no-warnings scripts/check-tempo.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment && npm run check:review && npm run check:rating && npm run check:movement && npm run check:drone && npm run check:evidence",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:tempo && npm run check:trim && npm run check:tuner && npm run check:stage && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment && npm run check:review && npm run check:rating && npm run check:movement && npm run check:drone && npm run check:evidence && npm run check:melody && npm run check:reminders && npm run check:icon && npm run check:coverage",
     "check:trim": "node --experimental-strip-types --no-warnings scripts/check-trim.ts",
     "check:tuner": "node --experimental-strip-types --no-warnings scripts/check-tuner.ts",
     "check:stage": "node --experimental-strip-types --no-warnings scripts/check-stage.ts",
@@ -85,7 +86,12 @@
     "check:evidence": "node --experimental-strip-types --no-warnings scripts/check-evidence.ts",
     "check:drone": "node --experimental-strip-types --no-warnings scripts/check-drone.ts",
     "check:rating": "node --experimental-strip-types --no-warnings scripts/check-rating.ts",
-    "check:movement": "node --experimental-strip-types --no-warnings scripts/check-movement.ts"
+    "check:movement": "node --experimental-strip-types --no-warnings scripts/check-movement.ts",
+    "check:melody": "node --experimental-strip-types --no-warnings scripts/check-melody.ts",
+    "check:reminders": "node --experimental-strip-types --no-warnings scripts/check-reminders.ts",
+    "check:icon": "node --experimental-strip-types --no-warnings scripts/check-icon.ts",
+    "check:coverage": "node --experimental-strip-types --no-warnings scripts/check-coverage.ts",
+    "e2e": "maestro test .maestro"
   },
   "private": true
 }

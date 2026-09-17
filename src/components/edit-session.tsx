@@ -1,10 +1,12 @@
 // Shared edit-session bottom sheet — opened from Home recents, Progress day
 // detail, and a piece's history. Edits focus / minutes / note, or deletes.
 import React, { useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
 import { Sheet, Stars } from '@/components/ui';
+import { success } from '@/lib/haptics';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -14,7 +16,7 @@ export function EditSessionSheet({ session, onClose }: { session: Session | null
   const store = useStore();
   // ponytail: keyed remount resets drafts whenever a different session opens
   return (
-    <Sheet visible={session !== null} onClose={onClose} fill align="bottom" grabber style={s.sheet} contentStyle={{ gap: 16 }}>
+    <Sheet visible={session !== null} onClose={onClose} grabber style={s.sheet} contentStyle={{ gap: 16 }}>
       {session && <Editor key={session.id} session={session} onClose={onClose} store={store} s={s} C={C} />}
     </Sheet>
   );
@@ -52,6 +54,7 @@ function Editor({
   const holdEnd = () => clearInterval(repeat.current);
 
   const save = () => {
+    success();
     store.updateSession(session.id, { title: focus.title, meta: focus.meta, min, note, rating });
     store.showToast(store.t('toast.saved'));
     onClose();
@@ -155,19 +158,20 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   title: { fontFamily: F.head, fontSize: fs(19), color: C.ink },
   stamp: { fontFamily: F.body, fontSize: fs(13), color: C.sub },
   label: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub, marginBottom: 8 },
-  select: { height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  selectText: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  // no boxed fields: values sit on a hairline, the way the rest of the app's text does
+  select: { height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectText: { flex: 1, fontFamily: F.head, fontSize: fs(18), color: C.ink },
   chev: { fontSize: fs(13), color: C.sub, marginLeft: 8 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  chip: { height: 40, paddingHorizontal: 14, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  chip: { height: 36, paddingHorizontal: 12, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
-  stepper: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  stepBtn: { width: 52, height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  stepGlyph: { fontSize: fs(24), color: C.ink, fontFamily: F.body },
-  stepValue: { flex: 1, height: 52, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
-  stepValueText: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
-  noteInput: { minHeight: 72, borderRadius: r(14), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 16, paddingVertical: 14, fontFamily: F.body, fontSize: fs(15), lineHeight: fs(21), color: C.ink, textAlignVertical: 'top' },
+  stepper: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.staffLine, height: 52 },
+  stepBtn: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  stepGlyph: { fontSize: fs(26), color: C.accent, fontFamily: F.body },
+  stepValue: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  stepValueText: { fontFamily: F.head, fontSize: fs(30), color: C.ink, fontVariant: ['tabular-nums'] },
+  noteInput: { minHeight: 56, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, paddingVertical: 12, fontFamily: F.body, fontSize: fs(15), lineHeight: fs(21), color: C.ink, textAlignVertical: 'top' },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },
   deleteBtn: { height: 44, alignItems: 'center', justifyContent: 'center' },

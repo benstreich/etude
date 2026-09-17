@@ -3,7 +3,8 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
@@ -182,7 +183,7 @@ function TakeCard({
       </View>
       <View style={s.playRow}>
         <Pressable
-          style={[s.playBtn, isActive ? { backgroundColor: C.accent, borderColor: C.accent } : { borderColor: C.inputBorder }]}
+          style={[s.playBtn, isActive ? { backgroundColor: C.accent } : { backgroundColor: C.track }]}
           onPress={onToggle}>
           <Text style={[s.playGlyph, isActive && { color: '#FFFFFF' }]}>{isActive && playing ? '❚❚' : '▶'}</Text>
         </Pressable>
@@ -219,7 +220,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   takeDate: { flex: 1, fontFamily: F.bodySemi, fontSize: fs(14.5), color: C.ink },
   takeMeta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
   playRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  playBtn: { width: 40, height: 40, borderRadius: r(20), borderWidth: 1, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  playBtn: { width: 40, height: 40, borderRadius: r(20), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   playGlyph: { fontSize: fs(13), color: C.ink },
   wave: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 30 },
   elapsed: { fontFamily: F.bodyMed, fontSize: fs(12), color: C.sub, fontVariant: ['tabular-nums'], minWidth: 34, textAlign: 'right' },

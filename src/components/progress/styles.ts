@@ -69,7 +69,6 @@ export const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   hintBtn: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   customise: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 },
   customiseText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
-  slidersBtn: { marginLeft: 'auto', width: 30, height: 30, borderRadius: r(15), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   layoutRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.hairline },
   layoutLabel: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   moveRow: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.hairline, gap: 4 },

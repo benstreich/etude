@@ -2,7 +2,8 @@
 // place you could add one, which meant leaving whatever you were building.
 // Collapsed it is a chip; expanded, a name field and a Piece/Technique choice.
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
 import { useStore } from '@/lib/store';
@@ -77,11 +78,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   newChipText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
   form: { gap: 10, width: '100%' },
   kindRow: { flexDirection: 'row', gap: 8 },
-  kindChip: { borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 13 },
+  kindChip: { backgroundColor: C.track, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 13 },
   kindChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   kindText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.subStrong },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  input: { flex: 1, height: 44, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, paddingHorizontal: 12, fontFamily: F.body, fontSize: fs(15), color: C.ink },
+  input: { flex: 1, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.body, fontSize: fs(15), color: C.ink },
   addBtn: { height: 44, paddingHorizontal: 16, borderRadius: r(12), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   addBtnText: { fontFamily: F.bodySemi, fontSize: fs(14.5), color: '#FFFFFF' },
   cancel: { fontFamily: F.body, fontSize: fs(22), color: C.tertiary, paddingHorizontal: 2 },

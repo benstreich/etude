@@ -77,6 +77,10 @@
     "instruments": "Instruments",
     "primaryInstrument": "Primary instrument",
     "primaryInstrumentHint": "The session-complete sound takes this instrument's voice.",
+    "melodyKey": "Melody key",
+    "majorKey": "%{key} major",
+    "melodyKeyHint": "The staff on Home is read and played in this key. Same notes, transposed.",
+    "credits": "Piano: Salamander Grand Piano by Alexander Holm, CC BY 3.0",
     "dailyGoal": "Daily goal",
     "quickLog": "Quick log presets",
     "quickLogFocus": "Quick log focus",
@@ -141,6 +145,9 @@
     "backupUnreadable": "That backup can’t be read",
     "addYourName": "Add your name",
     "setInstruments": "Set your instruments below",
+    "practice": "Practice",
+    "totalPractice": "Total practice",
+    "hoursUnit": "hours",
     "bestStreak": "Best streak",
     "daysUnit": "days",
     "yourData": "Your data",
@@ -185,14 +192,29 @@
       "one": "1-day streak",
       "other": "%{count}-day streak"
     },
+    "streakLine": {
+      "one": "1 day in a row",
+      "other": "%{count} days in a row"
+    },
     "todayMeta": "%{done} min / %{goal} min goal",
-    "startPracticing": "Start practicing",
+    "minToGo": "%{min} min to go",
+    "minOf": "min of %{goal}",
+    "minWord": "min",
+    "offTheClock": "Quick log",
+    "staffHint": "Tap a day to see its log — quick log lands there too",
+    "playMelody": "Play this week",
+    "todaysLog": "Today's log",
+    "tapToAdjust": "tap to adjust",
+    "nothingLoggedToday": "Nothing logged yet today",
+    "nothingLoggedDay": "Nothing logged that day",
     "quickLog": "Quick log",
     "chooseFocus": "Choose focus",
     "chipMin": "+%{min} min",
     "min": "%{min} min",
     "addedMinFocus": "Added %{min} min · %{name}",
     "addedMinutes": "Added %{min} minutes",
+    "addedMinDay": "Added %{min} min · %{name} · %{day}",
+    "addedMinutesDay": "Added %{min} min · %{day}",
     "firstSession": "Your first session",
     "guide1Pre": "Add a piece or pick a technique in ",
     "guide2Pre": "Hit ",
@@ -203,6 +225,7 @@
     "nothingSpecific": "Nothing specific"
   },
   "practice": {
+    "session": "Session",
     "breakDue": "%{min} min — take a break?",
     "startBreak": "Start break",
     "skip": "Skip",
@@ -237,8 +260,14 @@
     },
     "newPlan": "+ New routine",
     "startSession": "Start session",
-    "logPast": "Log a past day",
-    "defaultPlanName": "New routine"
+    "logPast": "Manual entry",
+    "defaultPlanName": "New routine",
+    "startedAt": "started %{time}",
+    "loggedToday": "%{min} min logged today",
+    "toDoubleBar": "%{min} min to the double bar",
+    "goalMetToday": "goal met",
+    "breakDueIn": "break due in %{min} min",
+    "minSoFar": "%{min} min so far"
   },
   "progress": {
     "insights": "Insights",
@@ -311,7 +340,9 @@
     "section": {
       "movement": "Moving",
       "goals": "Goals & deadlines",
-      "heatmap": "Practice calendar",
+      "calendar": "Practice calendar",
+      "lineChart": "Line chart",
+      "barChart": "Bar chart",
       "volume": "Volume",
       "hear": "Hear the difference",
       "pipeline": "Repertoire pipeline",
@@ -323,8 +354,7 @@
       "consistency": "Consistency",
       "rating": "Rating over time",
       "timeOfDay": "Best time of day",
-      "sessionLength": "Session length",
-      "last7": "Last 7 days"
+      "sessionLength": "Session length"
     },
     "moving": "Moving",
     "allPieces": "All pieces",
@@ -356,7 +386,9 @@
     "sectionDesc": {
       "movement": "Which pieces are moving, stalled or due",
       "goals": "Period goals and piece deadlines",
-      "heatmap": "A month of practice days, tap for details",
+      "calendar": "A month of practice days, tap for details",
+      "lineChart": "Minutes over the selected period, as a line",
+      "barChart": "Minutes over the selected period, as bars",
       "volume": "This week, average, all time, best streak",
       "hear": "First vs. latest recording of a piece",
       "pipeline": "Pieces per stage and the flow into the last",
@@ -368,8 +400,7 @@
       "consistency": "Practice days per week",
       "rating": "Stars per piece over time",
       "timeOfDay": "Morning, afternoon or evening",
-      "sessionLength": "Which session lengths rate best",
-      "last7": "Minutes per day, last seven days"
+      "sessionLength": "Which session lengths rate best"
     },
     "chartCalendar": "Calendar",
     "chartLine": "Line",
@@ -386,6 +417,14 @@
     }
   },
   "repertoire": {
+    "piecesCount": {
+      "one": "%{count} piece",
+      "other": "%{count} pieces"
+    },
+    "techniquesCount": {
+      "one": "%{count} technique",
+      "other": "%{count} techniques"
+    },
     "dueForReview": "Not played in %{days} days — due for review",
     "emptyTitle": "What are you working on?",
     "emptyText": "Add the piece you’re learning — search fills in the artist for you.",
@@ -436,6 +475,7 @@
     "added": "added %{date}",
     "stage": "Stage",
     "noStage": "No stage",
+    "noStageOn": "No stage · tap to use stages",
     "total": "Total",
     "sessionsStat": "Sessions",
     "last": "Last",
@@ -449,6 +489,7 @@
     "onTrack": "On track",
     "behind": "Behind",
     "deadlineDone": "Reached the last stage — nicely done.",
+    "rename": "Rename",
     "deadlineToday": "That's today.",
     "deadlineIn": {
       "one": "1 day left.",
@@ -461,6 +502,10 @@
     "addTargetTempo": "Add target tempo",
     "recordingsCount": "Recordings · %{count}",
     "compare": "Compare",
+    "recordings": "Recordings",
+    "importTake": "Import a take",
+    "noTakesHint": "Record in a session, or import a take you made elsewhere.",
+    "importFailed": "Couldn’t import that file",
     "history": "History",
     "restore": "Restore to repertoire",
     "archive": "Archive",
@@ -515,7 +560,7 @@
   },
   "onboarding": {
     "skip": "Skip",
-    "tagline": "Practice deliberately. Track your pieces, technique, and time.",
+    "tagline": "Practice deliberately.",
     "getStarted": "Get started",
     "privacyNote": "Everything stays on your device — no account needed",
     "instrumentsTitle": "What do you play?",
@@ -544,7 +589,14 @@
     "time9pm": "9:00 PM",
     "turnOnReminders": "Turn on reminders",
     "notNow": "Not now",
-    "continue": "Continue"
+    "continue": "Continue",
+    "tourTitle": "Four places to know",
+    "tourSubline": "That’s the whole app. Everything else lives behind these.",
+    "tour_home": "Today’s minutes, a quick log for practice you did off the clock, and your progress.",
+    "tour_practice": "Start a timed session with a metronome, recordings and your sheet music.",
+    "tour_repertoire": "The pieces and techniques you’re working on, each with stages and a tempo ladder.",
+    "tour_tools": "Metronome, tuner and drone on their own, whenever you need one.",
+    "letsGo": "Let’s go"
   },
   "metronome": {
     "metronome": "Metronome",
@@ -617,6 +669,8 @@
     "addedToast": "Added %{min} min · %{day}"
   },
   "sessionReview": {
+    "title": "Session saved",
+    "note": "Note",
     "rateSession": "How did it feel?",
     "ofGoalMin": "of %{goal} min",
     "done": "Done",
@@ -732,6 +786,7 @@
     "title": "Tools",
     "metronome": "Metronome",
     "metronomeBlurb": "Click, ramp, subdivide",
+    "metronomeRunning": "running · %{bpm} %{term} · %{sig}",
     "tuner": "Tuner",
     "tunerBlurb": "Chromatic, cents readout",
     "drone": "Drone",

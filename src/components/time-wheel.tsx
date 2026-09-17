@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -76,6 +77,6 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   cellTextOn: { color: C.ink },
   colon: { fontFamily: F.bodyMed, fontSize: fs(20), color: C.ink },
   ampm: { marginLeft: 8, gap: 6 },
-  ampmBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: r(10), borderWidth: 1, borderColor: C.inputBorder },
+  ampmBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: r(10), backgroundColor: C.track },
   ampmText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
 }));

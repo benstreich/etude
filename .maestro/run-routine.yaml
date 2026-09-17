@@ -1,0 +1,80 @@
+# Building a two-segment routine and running it to the end. This is the flow
+# with the most wiring behind it: the plan editor writes to the store, the
+# runner holds state in plan-run-state.ts across screens, each segment logs a
+# session, and the review sheet commits the last one.
+appId: com.benstreich.etude
+name: Run a routine
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Practice"
+- scrollUntilVisible:
+    element:
+      id: "new-routine"
+    direction: DOWN
+- tapOn:
+    id: "new-routine"
+
+# the editor opens on a new, empty routine — no segments yet, so it cannot start
+- assertVisible:
+    id: "plan-start"
+    enabled: false
+
+# segment 1: a seeded technique, so this does not depend on the user having pieces
+- tapOn:
+    id: "plan-add-segment"
+- tapOn: "Scales & arpeggios"
+- tapOn:
+    id: "segment-save"
+
+# segment 2
+- tapOn:
+    id: "plan-add-segment"
+- tapOn: "Sight reading"
+- tapOn:
+    id: "segment-save"
+
+- tapOn:
+    id: "plan-start"
+
+# --- the run -------------------------------------------------------------
+- assertVisible: "Segment 1 of 2"
+- assertVisible: "Scales & arpeggios"
+- tapOn:
+    id: "run-next"
+
+- assertVisible: "Segment 2 of 2"
+- assertVisible: "Sight reading"
+# the last segment's button says Finish, not Next
+- assertVisible: "Finish"
+- tapOn:
+    id: "run-next"
+
+# --- the review ----------------------------------------------------------
+- assertVisible: "Session saved"
+- tapOn:
+    id: "review-save"
+
+# saving the review pops back to the plan editor, not the tabs
+- assertVisible:
+    id: "plan-start"
+
+# the run is over, so the shell must not still be offering a way back into it.
+# Regression test: clearing the review state used to re-run the effect that
+# mirrors the run into plan-run-state.ts, resurrecting a finished run.
+- assertNotVisible: "in progress"
+
+- back
+- tapOn: "Home"
+
+# each segment was advanced early, and an early advance still logs a whole
+# minute, so two segments make two minutes
+- scrollUntilVisible:
+    element:
+      id: "today-minutes"
+    direction: UP
+- assertVisible:
+    id: "today-minutes"
+    text: "^2$"

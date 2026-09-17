@@ -62,3 +62,6 @@ tabbar-check.png
 # local screenshots / scratch
 var/
 modules/*/android/build/
+
+# session screenshots dropped in the root
+/*.png

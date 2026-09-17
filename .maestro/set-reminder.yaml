@@ -1,0 +1,57 @@
+# Turning the daily reminder on. The value has to survive leaving the settings
+# screen — this is the setting that schedules a real OS notification, so a
+# silent failure here is invisible until the reminder never arrives.
+#
+# The settings row carries the testID; its label and value are child Texts, so
+# the value is asserted with childOf rather than on the row node itself.
+appId: com.benstreich.etude
+name: Set a reminder
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "setting-reminder"
+    direction: DOWN
+
+# onboarding was skipped, so reminders start off
+- assertVisible:
+    text: "Off"
+    childOf:
+      id: "setting-reminder"
+
+- tapOn:
+    id: "setting-reminder"
+- tapOn: "7:00 PM"
+
+# picking closes the sheet and the row reflects the new time straight away
+- assertVisible:
+    text: "7:00 PM"
+    childOf:
+      id: "setting-reminder"
+
+# and still does after a relaunch, i.e. it was persisted, not just rendered
+- launchApp
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "setting-reminder"
+    direction: DOWN
+- assertVisible:
+    text: "7:00 PM"
+    childOf:
+      id: "setting-reminder"
+
+# turning it back off is a real state change, not a no-op on a stale value
+- tapOn:
+    id: "setting-reminder"
+- tapOn: "Off"
+- assertVisible:
+    text: "Off"
+    childOf:
+      id: "setting-reminder"

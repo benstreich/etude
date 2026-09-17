@@ -9,7 +9,11 @@ import {
   clampSubdiv,
   clampVolume,
   cycleLevel,
+  ACCENT,
   defaultAccents,
+  isCompound,
+  MID,
+  PLAIN,
   describeRamp,
   fitAccents,
   parseSig,
@@ -129,5 +133,25 @@ assert.equal(clampVolume(140), 100);
 assert.equal(clampVolume(-3), 0);
 assert.equal(clampVolume(Number.NaN), 100); // never silence the metronome by accident
 assert.equal(volumeGain(50), 0.5);
+
+// --- compound meters ------------------------------------------------------
+// isCompound decides where defaultAccents puts the group clicks, so a wrong
+// answer is an audibly wrong bar rather than a cosmetic slip.
+for (const sig of [{ beats: 6, denom: 8 }, { beats: 9, denom: 8 }, { beats: 12, denom: 8 }])
+  assert.equal(isCompound(sig), true, `${sig.beats}/${sig.denom}`);
+for (const sig of [
+  { beats: 3, denom: 8 }, // three eighths pulse singly, not as one group
+  { beats: 4, denom: 4 },
+  { beats: 6, denom: 4 }, // groups of three only when the beat is an eighth
+  { beats: 3, denom: 4 },
+  { beats: 7, denom: 8 },
+  { beats: 12, denom: 16 },
+  { beats: 1, denom: 8 },
+])
+  assert.equal(isCompound(sig), false, `${sig.beats}/${sig.denom}`);
+
+// and the accents it drives: 6/8 is ACCENT . . MID . .
+assert.deepEqual(defaultAccents({ beats: 6, denom: 8 }), [ACCENT, PLAIN, PLAIN, MID, PLAIN, PLAIN]);
+assert.deepEqual(defaultAccents({ beats: 3, denom: 8 }), [ACCENT, PLAIN, PLAIN], 'simple meter gets no group click');
 
 console.log('metronome math ok');

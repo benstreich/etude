@@ -2,14 +2,14 @@
 // as pills on the Practice screen.
 import { useRouter, type Href } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronIcon, MetronomeIcon } from '@/components/icons';
 import { Text } from '@/components/text';
-import { Card, ScreenTitle } from '@/components/ui';
+import { EntryRow, Overline } from '@/components/ui';
 import { useMetronome } from '@/lib/metronome';
 import { useStore } from '@/lib/store';
+import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function Tools() {
@@ -18,41 +18,60 @@ export default function Tools() {
   const store = useStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { running, bpm } = useMetronome();
+  const { running, bpm, timeSig } = useMetronome();
 
-  const tools: { href: Href; title: string; blurb: string; glyph: React.ReactNode }[] = [
-    { href: '/metronome', title: store.t('tools.metronome'), blurb: running ? `♩ ${bpm}` : store.t('tools.metronomeBlurb'), glyph: <MetronomeIcon size={26} /> },
-    { href: '/tuner', title: store.t('tools.tuner'), blurb: store.t('tools.tunerBlurb'), glyph: <Text style={s.glyph}>♯</Text> },
+  const tools: { href: Href; title: string; blurb: string; accent?: boolean; glyph: React.ReactNode }[] = [
+    {
+      href: '/metronome',
+      title: store.t('tools.metronome'),
+      blurb: running ? store.t('tools.metronomeRunning', { bpm, term: tempoTerm(bpm), sig: timeSig }) : store.t('tools.metronomeBlurb'),
+      accent: running,
+      glyph: <Text style={[s.glyph, { fontFamily: F.notation }]}>{'\u{1D15F}'}</Text>,
+    },
+    // the text font's sharp, not the notation font's: Noto Music hangs its accidentals off the baseline and the tile read off-centre
+    { href: '/tuner', title: store.t('tools.tuner'), blurb: store.t('tools.tunerBlurb'), glyph: <Text style={s.glyph}>{'♯'}</Text> },
     { href: '/drone', title: store.t('tools.drone'), blurb: store.t('tools.droneBlurb'), glyph: <Text style={s.glyph}>~</Text> },
     { href: '/learn', title: store.t('tools.learn'), blurb: store.t('tools.learnBlurb'), glyph: <Text style={s.glyph}>§</Text> },
   ];
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <ScreenTitle>{store.t('tools.title')}</ScreenTitle>
-      {tools.map((tool) => (
-        <Pressable key={String(tool.href)} onPress={() => router.push(tool.href)}>
-          {({ pressed }) => (
-            <Card style={[s.tile, pressed && { transform: [{ scale: 0.985 }] }]}>
-              <View style={s.glyphBox}>{tool.glyph}</View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.tileTitle}>{tool.title}</Text>
-                <Text style={[s.tileBlurb, running && tool.href === '/metronome' && { color: C.accent }]}>{tool.blurb}</Text>
-              </View>
-              <ChevronIcon />
-            </Card>
-          )}
-        </Pressable>
-      ))}
+      <View style={s.headRow}>
+        <Overline>{store.t('tabs.tools')}</Overline>
+        {running && (
+          <View style={s.headTempo}>
+            <View style={s.dot} />
+            <Text style={s.headTempoText}>{bpm}</Text>
+            <Text style={[s.headTempoText, { fontFamily: F.accent }]}>{tempoTerm(bpm)}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={s.title}>{store.t('tools.title')}</Text>
+      <View style={{ marginTop: 24 }}>
+        {tools.map((tool, i) => (
+          <EntryRow
+            key={String(tool.href)}
+            keySize={52}
+            keyStyle={{ borderWidth: 1.5, borderColor: C.ink }}
+            keyContent={tool.glyph}
+            title={tool.title}
+            subline={<Text style={[s.tileBlurb, tool.accent && { color: C.accent }]}>{tool.blurb}</Text>}
+            close={i === tools.length - 1}
+            onPress={() => router.push(tool.href)}
+          />
+        ))}
+      </View>
     </ScrollView>
   );
 }
 
-const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  page: { paddingHorizontal: 24, paddingBottom: 40, gap: 14 },
-  tile: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18 },
-  glyphBox: { width: 52, height: 52, borderRadius: r(16), backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center' },
-  glyph: { fontFamily: F.head, fontSize: fs(26), color: C.accent, lineHeight: fs(30) },
-  tileTitle: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.ink },
-  tileBlurb: { fontFamily: F.body, fontSize: fs(13), color: C.sub, marginTop: 2 },
+const useS = themed(({ C, fs }: T) => StyleSheet.create({
+  page: { paddingHorizontal: 24, paddingBottom: 40 },
+  headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
+  headTempo: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
+  headTempoText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
+  title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
+  glyph: { fontFamily: F.body, fontSize: fs(26), color: C.ink, lineHeight: fs(30), includeFontPadding: false, textAlignVertical: 'center' },
+  tileBlurb: { fontFamily: F.body, fontSize: fs(16), lineHeight: fs(22), color: C.subStrong },
 }));

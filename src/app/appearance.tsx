@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlameIcon } from '@/components/icons';
@@ -173,13 +174,13 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   previewBtn: { height: 44, borderRadius: r(14), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   previewBtnText: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.bg },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: r(999), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card },
+  chip: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: r(999), backgroundColor: C.track },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
   dotRow: { flexDirection: 'row', gap: 12 },
   accentHint: { fontFamily: F.body, fontSize: fs(12.5), lineHeight: fs(17), color: C.sub, marginTop: 10 },
   dotRing: { width: 40, height: 40, borderRadius: r(999), borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  dot: { width: 28, height: 28, borderRadius: r(999) },
+  dot: { width: 28, height: 28, borderRadius: 14 }, // literal half-size: Android squares off a 999 radius on a filled, borderless view
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   switchHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },

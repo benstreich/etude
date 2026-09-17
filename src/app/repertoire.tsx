@@ -1,12 +1,16 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable } from '@/components/press';
+import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { NoteIcon, SearchIcon } from '@/components/icons';
+import { ChevronIcon, NoteIcon, SearchIcon } from '@/components/icons';
+import { MeasureBar } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
-import { Bar, Card, InstrumentFilter, Overline, ScreenTitle, Sheet, useInstrumentFilter } from '@/components/ui';
+import { Card, Overline, Sheet, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
@@ -14,7 +18,22 @@ import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 // last stage green, next-to-last accent, the rest muted
 const stageColor = (C: Palette, i: number, n: number) => (i >= n - 1 ? C.success : i === n - 2 ? C.accent : C.sub);
 
-type Suggestion = { track: string; artist: string };
+type Suggestion = { track: string; artist: string; artwork?: string };
+
+// iTunes hands back a 100px cover; the same CDN serves any square size by renaming the file
+const coverUrl = (u: unknown) => (typeof u === 'string' ? u.replace(/\/\d+x\d+bb\./, '/300x300bb.') : undefined);
+
+/** Album cover for a row, or the note tile when the piece has none. */
+function Cover({ uri, size = 44 }: { uri?: string; size?: number }) {
+  const C = useC();
+  return uri ? (
+    <Image source={{ uri }} style={{ width: size, height: size, borderRadius: 8, backgroundColor: C.track }} contentFit="cover" transition={150} />
+  ) : (
+    <View style={{ width: size, height: size, borderRadius: 8, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' }}>
+      <NoteIcon size={size * 0.45} color={C.tertiary} />
+    </View>
+  );
+}
 
 const PRESET_TECHNIQUES = [
   'Scales & arpeggios',
@@ -96,7 +115,7 @@ export default function Repertoire() {
           const key = `${r.trackName}`.toLowerCase() + '|' + `${r.artistName}`.toLowerCase();
           if (r.trackName && !seen.has(key)) {
             seen.add(key);
-            list.push({ track: r.trackName, artist: r.artistName ?? '' });
+            list.push({ track: r.trackName, artist: r.artistName ?? '', artwork: coverUrl(r.artworkUrl100) });
           }
           if (list.length >= 5) break;
         }
@@ -112,13 +131,38 @@ export default function Repertoire() {
     };
   }, [name]);
 
+  // backfill covers for pieces added before artwork existed: `undefined` = never looked,
+  // '' = looked and found nothing, so every piece is queried once per install (offline
+  // failures leave it undefined and try again next visit)
+  useEffect(() => {
+    const todo = store.pieces.filter((p) => p.kind !== 'Technique' && p.artwork === undefined);
+    if (todo.length === 0) return;
+    let stop = false;
+    (async () => {
+      for (const p of todo) {
+        if (stop) return;
+        try {
+          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(`${p.name} ${p.by}`.trim())}&entity=song&limit=1`);
+          const data = await res.json();
+          if (!stop) store.updatePiece(p.id, { artwork: coverUrl(data.results?.[0]?.artworkUrl100) ?? '' });
+        } catch {
+          // offline — leave undefined, retried next time
+        }
+      }
+    })();
+    return () => {
+      stop = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per mount; the list it reads is a snapshot on purpose
+  }, []);
+
   // derived instead of cleared in the effect — stale entries just stop rendering
   const shown = suggestions.q === name.trim() ? suggestions.list : [];
   const searching = name.trim().length >= 3 && suggestions.q !== name.trim();
 
-  const add = (n: string, by: string) => {
+  const add = (n: string, by: string, artwork?: string) => {
     if (!n) return;
-    store.addPiece(n, by, addInst ?? (inst || undefined));
+    store.addPiece(n, by, addInst ?? (inst || undefined), artwork);
     setAddInst(null);
     setName('');
     setArtist('');
@@ -130,52 +174,72 @@ export default function Repertoire() {
   // one row for pieces and techniques alike; recordings and scores live on the page (#84)
   const renderRow = (p: Piece, i: number) => {
     const st = stats(p);
+    const n = store.stages.length;
+    const lastStage = p.stage >= n - 1;
+    const dueNote = p.stage >= n - 1 && stale(p)?.due ? store.t('repertoire.dueForReview', { days: stale(p)!.daysSince }) : '';
     return (
-      <Pressable
-        key={p.id}
-        style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-        onPress={() => router.push(`/piece/${p.id}`)}>
-        <View style={s.rowTop}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.pieceName}>{p.name}</Text>
-            {!!p.by && <Text style={s.composer}>{p.by}</Text>}
-            {st.min > 0 && st.last && (
-              <Text style={s.invested}>
-                {store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })}
+      <Animated.View key={p.id} layout={LinearTransition.duration(260)} exiting={FadeOut.duration(180)}>
+        <Pressable style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={() => router.push(`/piece/${p.id}`)}>
+          <View style={s.rowTop}>
+            <Cover uri={p.artwork} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.pieceName} numberOfLines={1}>
+                {p.name}
               </Text>
-            )}
-            {/* #61 §2: a finished piece left past twice its usual gap is due for a maintenance pass */}
-            {p.stage >= store.stages.length - 1 && stale(p)?.due && (
-              <Text style={[s.invested, { color: C.accent }]}>{store.t('repertoire.dueForReview', { days: stale(p)!.daysSince })}</Text>
+              {!!p.by && <Text style={s.composer}>{p.by}</Text>}
+            </View>
+            {p.stage >= 0 && (
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[s.tag, { color: stageColor(C, p.stage, n) }]}>{store.stages[Math.min(p.stage, n - 1)]}</Text>
+                <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+                  {store.stages.map((_, k) => (
+                    <View key={k} style={[s.dot, { backgroundColor: k <= p.stage ? (lastStage ? C.success : C.accent) : C.track }]} />
+                  ))}
+                </View>
+              </View>
             )}
           </View>
           {p.stage >= 0 && (
-            <Text style={[s.tag, { color: stageColor(C, p.stage, store.stages.length) }]}>
-              {store.stages[Math.min(p.stage, store.stages.length - 1)]}
-            </Text>
+            <View style={{ marginTop: 12 }}>
+              <MeasureBar segments={store.stages.map(() => 1)} done={p.pct / 100} />
+            </View>
           )}
-          <Pressable style={s.moreBtn} hitSlop={8} onPress={() => setMenuPiece(p)}>
-            <Text style={s.moreText}>⋯</Text>
-          </Pressable>
-        </View>
-        {p.stage >= 0 && <Bar pct={p.pct} color={p.stage >= store.stages.length - 1 ? C.success : C.ink} />}
-      </Pressable>
+          <View style={s.rowMeta}>
+            <Text style={s.metaText}>
+              {st.min > 0 && st.last ? store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) }) : ''}
+            </Text>
+            {!!dueNote && <Text style={[s.metaNote, { color: C.accent }]}>{dueNote}</Text>}
+          </View>
+        </Pressable>
+      </Animated.View>
     );
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <ScreenTitle>{store.t('tabs.repertoire')}</ScreenTitle>
+      <View style={s.headRow}>
+        <Overline>{store.t('tabs.repertoire')}</Overline>
+        <Text style={s.headMeta}>
+          {store.t('repertoire.piecesCount', { count: active.length })} · {store.t('repertoire.techniquesCount', { count: techniques.length })}
+        </Text>
+      </View>
+      <View style={s.titleRow}>
+        <Text style={s.title}>{store.t('tabs.repertoire')}</Text>
         <Pressable style={s.fabBtn} onPress={() => setAddOpen(true)}>
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
-      <InstrumentFilter style={{ marginTop: -10 }} />
+      {store.instruments.length > 1 && (
+        <UnderlineTabs
+          options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
+          value={inst}
+          onChange={(v) => store.updateSettings({ instrumentFilter: v })}
+        />
+      )}
 
       {active.length === 0 ? (
         <>
-          <Card style={{ alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20, gap: 8 }}>
+          <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
             <View style={s.emptyTile}>
               <NoteIcon size={26} color={C.accent} />
             </View>
@@ -184,7 +248,7 @@ export default function Repertoire() {
             <Pressable style={s.emptyBtn} onPress={() => setAddOpen(true)}>
               <Text style={s.emptyBtnText}>{store.t('repertoire.addAPiece')}</Text>
             </Pressable>
-          </Card>
+          </View>
           <View style={{ gap: 12 }}>
             <Overline>{store.t('repertoire.orStartTechnique')}</Overline>
             <View style={s.chipWrap}>
@@ -200,9 +264,7 @@ export default function Repertoire() {
           </View>
         </>
       ) : (
-      <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
-        {active.map(renderRow)}
-      </Card>
+        <View>{active.map(renderRow)}</View>
       )}
 
       {active.length > 0 && <Text style={s.hint}>{store.t('repertoire.tapHint')}</Text>}
@@ -210,13 +272,28 @@ export default function Repertoire() {
       {/* Techniques are pieces of kind 'Technique' (#83): same rows, same detail page with
           stages, tempo ladder, recordings and scores. Collapsible, and the choice sticks (#45). */}
       {techniques.length > 0 && (
-        <View style={{ gap: 12 }}>
-          <Pressable hitSlop={8} onPress={() => store.updateSettings({ showTechniques: !store.showTechniques })}>
-            <Overline>
-              {store.showTechniques ? '▾' : '▸'} {store.t('repertoire.techniques')}
-            </Overline>
+        <View style={{ gap: 6 }}>
+          <Pressable hitSlop={8} style={s.techHead} onPress={() => store.updateSettings({ showTechniques: !store.showTechniques })}>
+            <View style={{ transform: [{ rotate: store.showTechniques ? '90deg' : '0deg' }] }}>
+              <ChevronIcon color={C.tertiary} size={10} />
+            </View>
+            <Overline>{store.t('repertoire.techniques')}</Overline>
           </Pressable>
-          {store.showTechniques && <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>{techniques.map(renderRow)}</Card>}
+          {store.showTechniques && (
+            <View>
+              {techniques.map((p, i) => (
+                <Pressable key={p.id} style={[s.techRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={() => router.push(`/piece/${p.id}`)}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.pieceName} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                    <Text style={s.techMeta}>{store.t('repertoire.invested', { min: stats(p).min, day: stats(p).last ? dayLabel(stats(p).last!, store.today, store.t, store.lang) : '' })}</Text>
+                  </View>
+                  {p.stage >= 0 && <Text style={[s.stageWord, { color: stageColor(C, p.stage, store.stages.length) }]}>{store.stages[Math.min(p.stage, store.stages.length - 1)]}</Text>}
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -237,7 +314,7 @@ export default function Repertoire() {
       {archived.length > 0 && (
         <View style={{ gap: 12 }}>
           <Overline>{store.t('repertoire.archived')}</Overline>
-          <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
+          <View>
             {archived.map((p, i) => (
               <Pressable
                 key={p.id}
@@ -252,7 +329,7 @@ export default function Repertoire() {
                 </View>
               </Pressable>
             ))}
-          </Card>
+          </View>
         </View>
       )}
 
@@ -288,14 +365,17 @@ export default function Repertoire() {
                     {shown.map((sug, i) => (
                       <Pressable
                         key={`${sug.track}|${sug.artist}`}
-                        style={[s.sugRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
-                        onPress={() => add(sug.track, sug.artist)}>
-                        <Text style={s.pieceName} numberOfLines={1}>
-                          {sug.track}
-                        </Text>
-                        <Text style={s.composer} numberOfLines={1}>
-                          {sug.artist}
-                        </Text>
+                        style={[s.sugRow, { flexDirection: 'row', alignItems: 'center', gap: 12 }, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+                        onPress={() => add(sug.track, sug.artist, sug.artwork)}>
+                        <Cover uri={sug.artwork} size={40} />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={s.pieceName} numberOfLines={1}>
+                            {sug.track}
+                          </Text>
+                          <Text style={s.composer} numberOfLines={1}>
+                            {sug.artist}
+                          </Text>
+                        </View>
                       </Pressable>
                     ))}
                     <Pressable
@@ -432,50 +512,48 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sugRow: { paddingVertical: 10 },
   createText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
   creatingLabel: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub, marginBottom: 8 },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    height: 50,
-    borderRadius: r(999),
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.inputBorder,
-    paddingHorizontal: 18,
-    shadowColor: '#1c1a17',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  searchInput: { flex: 1, minWidth: 0, height: '100%', fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  // a ruled field, like Practice's search: a line under the text, no box
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine },
+  searchInput: { flex: 1, minWidth: 0, height: '100%', fontFamily: F.body, fontSize: fs(16), color: C.ink },
   clearText: { fontSize: fs(20), color: C.faint, lineHeight: fs(22) },
-  input: { flex: 1, minWidth: 0, height: 48, borderRadius: r(12), backgroundColor: C.card, borderWidth: 1, borderColor: C.inputBorder, paddingHorizontal: 14, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
-  plusBtn: { width: 48, height: 48, borderRadius: r(12), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  plusText: { color: C.bg, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.bodyMed },
-  row: { paddingVertical: 14 },
-  rowTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  pieceName: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
-  composer: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 2 },
-  tag: { fontFamily: F.bodySemi, fontSize: fs(11.5), letterSpacing: 0.8, textTransform: 'uppercase' },
-  hint: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, textAlign: 'center' },
-  invested: { fontFamily: F.body, fontSize: fs(12), color: C.subStrong, marginTop: 3 },
+  input: { flex: 1, minWidth: 0, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.body, fontSize: fs(15), color: C.ink },
+  plusBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  plusText: { color: C.ink, fontSize: fs(22), lineHeight: fs(24), fontFamily: F.body },
+  headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
+  headMeta: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
+  titleRow: { marginTop: 28, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  title: { fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
+  row: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  pieceName: { fontFamily: F.bodyMed, fontSize: fs(17), lineHeight: fs(22), color: C.ink },
+  techRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 60 },
+  techMeta: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
+  stageWord: { fontFamily: F.body, fontSize: fs(15) },
+  composer: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(20), color: C.subStrong, marginTop: 1 },
+  tag: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(22) },
+  dot: { width: 7, height: 7, borderRadius: 3.5 },
+  rowMeta: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
+  metaText: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
+  metaNote: { fontFamily: F.accent, fontSize: fs(13) },
+  hint: { fontFamily: F.body, fontSize: fs(14.5), color: C.tertiary, textAlign: 'center' },
+  techHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   moreBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center', marginLeft: 6 },
   moreText: { fontSize: fs(18), color: C.faint, lineHeight: fs(28), textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink, marginBottom: 8 },
-  sheetRow: { height: 52, justifyContent: 'center' },
-  fabBtn: { width: 50, height: 50, borderRadius: r(25), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  fabText: { color: C.bg, fontSize: fs(26), lineHeight: fs(28), fontFamily: F.bodyMed },
+  sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40 },
+  sheetTitle: { fontFamily: F.head, fontSize: fs(26), letterSpacing: -0.3, color: C.ink, marginBottom: 12 },
+  sheetRow: { height: 52, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: C.hairline },
+  fabBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  fabText: { color: C.ink, fontSize: fs(24), lineHeight: fs(26), fontFamily: F.body },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   emptyTile: { width: 52, height: 52, borderRadius: r(16), backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: { fontFamily: F.head, fontSize: fs(16), color: C.ink },
   emptyText: { fontFamily: F.body, fontSize: fs(13.5), lineHeight: fs(20), color: C.sub, maxWidth: 260, textAlign: 'center' },
   emptyBtn: { height: 44, paddingHorizontal: 20, borderRadius: r(12), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   emptyBtnText: { fontFamily: F.bodySemi, fontSize: fs(14.5), color: '#FFFFFF' },
-  chip: { height: 38, paddingHorizontal: 13, borderRadius: r(12), borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  // the quick-log chip: 32px, radius 8, hairline border, accent tint when picked
+  chip: { height: 34, paddingHorizontal: 12, borderRadius: 8, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   chipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
+  chipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
   sheetRowText: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
 }));
