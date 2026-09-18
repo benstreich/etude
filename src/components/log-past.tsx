@@ -4,7 +4,7 @@ import { Pressable } from '@/components/press';
 
 import { Calendar } from '@/components/calendar';
 import { Text } from '@/components/text';
-import { Sheet } from '@/components/ui';
+import { Sheet, useInstrumentFilter } from '@/components/ui';
 import { dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -12,6 +12,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   const s = useS();
   const C = useC();
   const store = useStore();
+  const inst = useInstrumentFilter();
   const [pastDate, setPastDate] = useState<string | null>(null);
   const [pastMin, setPastMin] = useState('');
   const [pastFoci, setPastFoci] = useState<{ name: string; kind: 'Piece' | 'Technique' }[]>([]);
@@ -31,13 +32,13 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
     const min = Number(pastMin);
     if (!min || !pastDate) return;
     if (pastFoci.length === 0) {
-      store.logMinutes(min, 'Quick log', 'Logged', pastDate);
+      store.logMinutes(min, 'Quick log', 'Logged', pastDate, undefined, inst || undefined);
     } else {
       // split the minutes evenly across selections; first one takes the remainder
       const per = Math.floor(min / pastFoci.length);
       pastFoci.forEach((f, i) => {
         const m = i === 0 ? min - per * (pastFoci.length - 1) : per;
-        if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate);
+        if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate, undefined, inst || undefined);
       });
     }
     store.showToast(store.t('logPast.addedToast', { min, day: dayLabel(pastDate, store.today, store.t, store.lang) }));

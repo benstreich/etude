@@ -29,6 +29,7 @@ const EXEMPT: Record<string, string> = {
   'sounds.ts': 'expo-audio playback',
   'store.tsx': 'React context over AsyncStorage; the logic lives in the -math modules',
   'theme.ts': 'React hooks over useColorScheme',
+  'use-take-recorder.ts': 'React hook over the expo-audio recorder and the foreground service; the logic is in wave-math.ts',
   'tuner-input.ts': 'mic permissions and lifecycle; the logic is in tuner-math.ts',
 };
 

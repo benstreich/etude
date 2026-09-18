@@ -182,3 +182,110 @@ export const SlidersIcon = ({ color: colorProp, size = 20 }: P) => {
     </Svg>
   );
 };
+
+// Recording-row actions. Same 24×24 box, 1.8 stroke and round caps as the set
+// above — these replace the ✂/★/↻/⟲/⤴ text glyphs the list used to draw.
+export const PauseIcon = ({ color: colorProp, size = 16 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.ink;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 5v14M15 5v14" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+    </Svg>
+  );
+};
+
+export const ScissorsIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M8 8.5 19 19M19 5 8 15.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Circle cx={6} cy={6} r={2.5} stroke={color} strokeWidth={1.8} />
+      <Circle cx={6} cy={18} r={2.5} stroke={color} strokeWidth={1.8} />
+    </Svg>
+  );
+};
+
+/** Outline by default, solid once the take is starred. */
+export const StarIcon = ({ color: colorProp, size = 18, filled = false }: P & { filled?: boolean }) => {
+  const C = useC();
+  const color = colorProp ?? C.faint;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="m12 3.6 2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 16.9l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85L12 3.6Z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        fill={filled ? color : 'none'}
+      />
+    </Svg>
+  );
+};
+
+export const LoopIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 9.5A3.5 3.5 0 0 1 7.5 6h9A3.5 3.5 0 0 1 20 9.5v1M20 14.5a3.5 3.5 0 0 1-3.5 3.5h-9A3.5 3.5 0 0 1 4 14.5v-1" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="m17.5 13 2.5 2.5L22.5 13M6.5 11 4 8.5 1.5 11" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};
+
+/** Clear the trim — an arrow curling back to the start. */
+export const UndoIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 10h9a4.5 4.5 0 1 1 0 9h-6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7.5 6 4 10l3.5 4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};
+
+export const TrashIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4.5 7h15M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M6.5 7.5 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-11.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};
+
+export const CheckIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.accent;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m5 12.5 4.5 4.5L19 7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};
+
+export const CloseIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 6l12 12M18 6 6 18" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+};
+
+/** Move an orphaned take onto a piece. */
+export const MoveIcon = ({ color: colorProp, size = 18 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.sub;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6.5h6l1.5 2h8.5V18a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 18V8a1.5 1.5 0 0 1 1.5-1.5Z" stroke={color} strokeWidth={1.8} strokeLinejoin="round" />
+      <Path d="M12 16v-5M9.5 13.5 12 11l2.5 2.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};

@@ -1,10 +1,7 @@
-import { RecordingPresets, requestNotificationPermissionsAsync, requestRecordingPermissionsAsync, useAudioRecorder } from 'expo-audio';
 import { Image } from 'expo-image';
-import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { File } from 'expo-file-system';
 import { useNavigation, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -17,11 +14,13 @@ import { LiveWaveform, NoteTempo, RollingNumber, StaffProgress } from '@/compone
 import { ScorePill } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { EntryRow, Overline, useInstrumentFilter } from '@/components/ui';
-import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
+import { EntryRow, Overline, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
-import { Piece, toStoredUri, useStore } from '@/lib/store';
+import { Piece, useStore } from '@/lib/store';
+import { pickRecordings } from '@/lib/import-recording';
+import { useTakeRecorder } from '@/lib/use-take-recorder';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
@@ -97,130 +96,23 @@ export default function Practice() {
     setBreakEnd(null);
     setStartedAt(Date.now());
   };
-  const jsStop = useRef(false); // a JS-initiated stop; mutes the status listener below
-  const finishRef = useRef<() => void>(() => {});
-  // directory: 'document' so recordings survive cache cleanup; 48kHz/256kbps AAC (~2MB/min)
-  // The status listener catches stops we didn't ask for — the foreground-service
-  // notification's Stop button, an interruption, a recorder error — and finalizes
-  // instead of letting the UI keep "recording" a recorder that's already dead.
-  const recorder = useAudioRecorder(
-    {
-      ...RecordingPresets.HIGH_QUALITY,
-      sampleRate: 48000,
-      bitRate: 256000,
-      isMeteringEnabled: true,
-      directory: 'document',
-    },
-    (st) => {
-      if (st.isFinished && !jsStop.current) finishRef.current();
-    }
-  );
-  const [recording, setRecording] = useState(false);
-  const [recPaused, setRecPaused] = useState(false);
-  const recStart = useRef(0); // start of the current un-paused segment
-  const recAccumMs = useRef(0); // recorded ms banked across pauses
-  const waveRef = useRef<number[]>([]);
+  // the take recorder, shared with the piece page (lib/use-take-recorder.ts).
+  // `focus` is read at stop time, so changing focus mid-take files it correctly.
+  const {
+    recording,
+    paused: recPaused,
+    micLevel,
+    onSample,
+    toggle: toggleRec,
+    pauseResume: pauseResumeRec,
+    discard: discardTake,
+  } = useTakeRecorder(() => focus?.name ?? null);
 
-  // the same dBFS → 0..1 mapping the saved waveform uses, read live by LiveWaveform
-  const micLevel = useCallback(
-    () => Math.min(1, Math.max(0.05, ((recorder.getStatus().metering ?? -50) + 50) / 50)),
-    [recorder],
-  );
-
-  // sample mic level 5×/s for the waveform; dBFS -50..0 → 0..1
-  useEffect(() => {
-    if (!recording || recPaused) return;
-    const t = setInterval(() => {
-      const db = recorder.getStatus().metering ?? -50;
-      waveRef.current.push(Math.min(1, Math.max(0.06, (db + 50) / 50)));
-    }, 200);
-    return () => clearInterval(t);
-  }, [recording, recPaused, recorder]);
-
-  const pauseResumeRec = () => {
-    if (recPaused) {
-      recorder.record();
-      recStart.current = Date.now();
-    } else {
-      recorder.pause();
-      recAccumMs.current += Date.now() - recStart.current;
-    }
-    setRecPaused((p) => !p);
-  };
-
-  // shared finalize; stopNative=false when the recorder already stopped on its own
-  // and there is nothing left to stop — just bank what was recorded so far
-  const endRec = async (stopNative: boolean) => {
-    const totalMs = recAccumMs.current + (recPaused ? 0 : Date.now() - recStart.current);
-    setRecording(false);
-    setRecPaused(false);
-    setRecordingFlags({});
-    if (stopNative) {
-      jsStop.current = true;
-      try {
-        await recorder.stop();
-      } catch {}
-      jsStop.current = false;
-    }
-    // leave record mode — Android otherwise stays in communication routing, which
-    // mutes Bluetooth A2DP and plays the metronome at call volume
-    applyAudioMode({ playsInSilentMode: true });
-    // downsample the level samples to ≤60 bars
-    const raw = waveRef.current;
-    waveRef.current = [];
-    const N = 60;
-    const wave =
-      raw.length <= N
-        ? raw
-        : Array.from({ length: N }, (_, i) => {
-            const a = Math.floor((i * raw.length) / N);
-            const b = Math.max(a + 1, Math.floor(((i + 1) * raw.length) / N));
-            return raw.slice(a, b).reduce((x, y) => x + y, 0) / (b - a);
-          });
-    if (recorder.uri && focus)
-      store.addRecording(
-        focus.name,
-        toStoredUri(recorder.uri),
-        Math.round(totalMs / 1000),
-        wave.map((v) => Math.round(v * 100) / 100)
-      );
-  };
-
-  useEffect(() => {
-    finishRef.current = () => {
-      if (recording) endRec(false);
-    };
-  });
-
-  const toggleRec = async () => {
-    if (recording) return endRec(true);
-    const { granted } = await requestRecordingPermissionsAsync();
-    if (!granted) return store.showToast(store.t('practice.micPermissionNeeded'));
-    try {
-      // Android 13+: background recording runs a foreground service, which needs
-      // notification permission or prepare throws. Denied → record foreground-only.
-      // Expo Go's manifest lacks the service entirely (start silently fails and the
-      // recorder dies), so background recording needs a dev build.
-      const isExpoGo = Constants.appOwnership === 'expo';
-      const canBackground =
-        Platform.OS !== 'android' || (!isExpoGo && (await requestNotificationPermissionsAsync()).granted);
-      // allowsBackgroundRecording keeps the mic running when the app is backgrounded;
-      // the flags are registered so metronome/playback audio-mode calls can't clobber them
-      setRecordingFlags({ allowsRecording: true, allowsBackgroundRecording: canBackground });
-      await applyAudioMode({
-        playsInSilentMode: true,
-        shouldPlayInBackground: true, // don't cut off a metronome already running in the background
-      });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-    } catch {
-      setRecordingFlags({});
-      applyAudioMode({ playsInSilentMode: true }); // undo record-mode routing (see endRec)
-      return store.showToast(store.t('practice.recordStartFailed'));
-    }
-    recStart.current = Date.now();
-    recAccumMs.current = 0;
-    setRecording(true);
+  // a take recorded elsewhere — phone voice memo, interface, another app — filed
+  // under the same focus the session is about
+  const importTakes = async () => {
+    if (!focus) return;
+    for (const t of await pickRecordings()) store.addRecording(focus.name, t.uri, t.sec, undefined, t.name);
   };
 
   useEffect(() => {
@@ -237,16 +129,27 @@ export default function Practice() {
   // Finished ones sort last so "what are you working on" still reads right.
   const finished = (p: Piece) => p.stage >= store.stages.length - 1;
   const pieces = store.pieces
-    .filter((p) => !p.archived && p.name.toLowerCase().includes(q) && (!inst || !p.instrument || p.instrument === inst))
+    .filter((p) => !p.archived && p.name.toLowerCase().includes(q) && onInstrument(p, inst))
     .sort((a, b) => Number(finished(a)) - Number(finished(b)));
-  const techniques = store.techniques.filter((t) => t.toLowerCase().includes(q));
+  // store.techniques is a name-only list, so it can't answer "which instrument" —
+  // read the piece records instead and apply the same rule Repertoire uses, or
+  // picking Cello would offer techniques that belong to the guitar (#58)
+  const techniques = store.allPieces.filter(
+    (p) =>
+      p.kind === 'Technique' &&
+      !p.archived &&
+      p.name.toLowerCase().includes(q) &&
+      onInstrument(p, inst)
+  );
   const plans = store.plans.filter((p) => p.name.toLowerCase().includes(q));
 
   const endSave = async () => {
     if (!focus) return;
     if (recording) await toggleRec();
     const min = Math.max(1, Math.round(seconds / 60));
-    const id = store.logMinutes(min, focus.name, focus.kind);
+    // #58 follow-up: the same piece can be practised on two instruments, so the
+    // session records the one selected here rather than the piece's own tag
+    const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, inst || undefined);
     setRunning(false);
     setStartedAt(null);
     setAccum(0);
@@ -258,7 +161,7 @@ export default function Practice() {
   };
 
   const closeReview = async () => {
-    if (recording) await endRec(true); // an attached take still running gets banked
+    if (recording) await toggleRec(); // an attached take still running gets banked
     setReview(null);
     setFocus(null);
     router.push('/');
@@ -340,7 +243,7 @@ export default function Practice() {
           {/* what the mic is hearing, while it is hearing it */}
           {recording && (
             <View style={{ marginTop: 28 }}>
-              <LiveWaveform active={!recPaused} getLevel={micLevel} />
+              <LiveWaveform active={!recPaused} getLevel={micLevel} onSample={onSample} bars={40} height={30} />
             </View>
           )}
           <View style={s.runToolsRow}>
@@ -352,7 +255,7 @@ export default function Practice() {
             </Pressable>
             {recording && (
               <Pressable onPress={pauseResumeRec}>
-                <Text style={s.toolLink}>{recPaused ? store.t('practice.resume') : store.t('practice.pause')}</Text>
+                <Text style={s.toolLink}>{recPaused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}</Text>
               </Pressable>
             )}
             <Text style={s.toolSep}>|</Text>
@@ -406,26 +309,7 @@ export default function Practice() {
           hitSlop={8}
           onPress={() => {
             const discard = () => {
-              if (recording) {
-                setRecording(false);
-                setRecPaused(false);
-                setRecordingFlags({});
-                applyAudioMode({ playsInSilentMode: true }); // undo record-mode routing (see endRec)
-                jsStop.current = true;
-                // delete the take — document-dir files the store never references leak forever
-                recorder
-                  .stop()
-                  .then(() => {
-                    try {
-                      if (recorder.uri) new File(recorder.uri).delete();
-                    } catch {}
-                  })
-                  .catch(() => {})
-                  .finally(() => {
-                    jsStop.current = false;
-                  });
-                waveRef.current = [];
-              }
+              discardTake();
               setRunning(false);
               setStartedAt(null);
               setAccum(0);
@@ -481,18 +365,18 @@ export default function Practice() {
           <Text style={s.headDate}>{new Date(store.now).toLocaleDateString(store.lang, { weekday: 'short', day: 'numeric', month: 'long' })}</Text>
         </View>
         <Text style={s.title}>{store.t('practice.title')}</Text>
-        <View style={s.searchRow}>
-          <SearchIcon size={18} color={C.tertiary} />
-          <TextInput
-            style={s.search}
-            value={query}
-            onChangeText={setQuery}
-            placeholder={store.t('practice.searchPlaceholder')}
-            placeholderTextColor={C.tertiary}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
-        </View>
+        {/* Instrument first, then the tools, then the search directly above the list
+            it filters. Always on screen: picking an instrument with nothing under it
+            used to hide the only way back. */}
+        {store.instruments.length > 1 && (
+          <View style={s.filterRow}>
+            <UnderlineTabs
+              options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
+              value={inst}
+              onChange={(v) => store.updateSettings({ instrumentFilter: v })}
+            />
+          </View>
+        )}
         <View style={s.toolsRow}>
           <Pressable onPress={() => setPastOpen(true)}>
             <Text style={s.toolLinkInk}>{store.t('practice.logPast')}</Text>
@@ -506,29 +390,33 @@ export default function Practice() {
             <Text style={s.toolLinkInk}>{store.t('tuner.tuner')}</Text>
           </Pressable>
         </View>
+        <View style={s.searchRow}>
+          <SearchIcon size={18} color={C.tertiary} />
+          <TextInput
+            style={s.search}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={store.t('practice.searchPlaceholder')}
+            placeholderTextColor={C.tertiary}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+        </View>
         {pieces.length > 0 && (
           <>
-            <View style={[s.overlineRow, { marginTop: 32 }]}>
-              <Overline>{store.t('practice.pieces')}</Overline>
-              {store.instruments.length > 1 && (
-                <Text style={s.instFilter}>
-                  {['', ...store.instruments].map((option, i) => {
-                    const sel = option === inst;
-                    return (
-                      <Text key={option || 'all'}>
-                        {i > 0 && ' · '}
-                        <Text onPress={() => store.updateSettings({ instrumentFilter: option })} style={sel ? { color: C.subStrong } : undefined}>
-                          {option || store.t('common.all')}
-                        </Text>
-                      </Text>
-                    );
-                  })}
-                </Text>
-              )}
-            </View>
+            <Overline style={{ marginTop: 32 }}>{store.t('practice.pieces')}</Overline>
             <View style={{ marginTop: 6 }}>
               {pieces.map((p) => (
-                renderOption({ key: p.id, name: p.name, kind: 'Piece', artwork: p.artwork, meta: [p.by, store.stages[p.stage]].filter(Boolean).join(' · ') })
+                renderOption({
+                  key: p.id,
+                  name: p.name,
+                  kind: 'Piece',
+                  artwork: p.artwork,
+                  // on "All" the instrument is the only thing telling two rows of the
+                  // same piece apart, so it joins the subline; inside one instrument
+                  // it would just repeat the filter and is left off
+                  meta: [p.by, !inst && store.instruments.length > 1 ? instrumentLabel(p) : '', store.stages[p.stage]].filter(Boolean).join(' · '),
+                })
               ))}
             </View>
           </>
@@ -538,7 +426,15 @@ export default function Practice() {
             <Overline style={{ marginTop: 32 }}>{store.t('practice.techniques')}</Overline>
             <View style={{ marginTop: 6 }}>
               {techniques.map((t) => (
-                renderOption({ key: t, name: t, kind: 'Technique', height: 52 })
+                renderOption({
+                  key: t.id,
+                  name: t.name,
+                  kind: 'Technique',
+                  height: 52,
+                  // same as the piece rows: on "All" the instrument is the only
+                  // thing distinguishing two techniques of the same name
+                  meta: !inst && store.instruments.length > 1 ? instrumentLabel(t) : undefined,
+                })
               ))}
             </View>
           </>
@@ -602,7 +498,7 @@ export default function Practice() {
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
       <MetronomeSheet visible={metroOpen} onClose={() => setMetroOpen(false)} />
-      <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} recording={recording} />
+      <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} onImportTake={importTakes} recording={recording} />
     </View>
   );
 }
@@ -612,13 +508,12 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
   headDate: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
   title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
-  searchRow: { marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, marginTop: 18, marginBottom: 4 },
+  filterRow: { marginTop: 14, marginBottom: 6 },
   search: { flex: 1, fontFamily: F.body, fontSize: fs(17), color: C.ink },
   toolsRow: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 14 },
   toolLinkInk: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
   toolSep: { fontSize: fs(14), color: C.staffLine },
-  overlineRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  instFilter: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 1, borderBottomColor: C.hairline },
   optionBar: { width: 1.5, height: 32, backgroundColor: C.barline, borderRadius: 1 },

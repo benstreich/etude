@@ -13,8 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar } from '@/components/calendar';
 import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
-import { MeasureBar, NoteTempo } from '@/components/motifs';
+import { LiveWaveform, MeasureBar, NoteTempo } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
+import { pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
+import { recordingPair } from '@/lib/movement-math';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
@@ -22,6 +24,7 @@ import { BackLink, Card, Overline, RuledStats, Sheet, Stars } from '@/components
 import { deadlineStatus } from '@/lib/goal-math';
 import { tap } from '@/lib/haptics';
 import { pickRecordings } from '@/lib/import-recording';
+import { useTakeRecorder } from '@/lib/use-take-recorder';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
@@ -62,10 +65,19 @@ export default function PieceDetail() {
   const [dateOpen, setDateOpen] = useState(false);
 
   const piece = store.allPieces.find((p) => p.id === id); // techniques live here too (#83)
+  // recording without a session running: the same recorder the practice screen
+  // uses, filed under this piece — "let me just capture this passage". Above the
+  // early return below, or the hook order changes when the piece goes away.
+  const take = useTakeRecorder(() => piece?.name ?? null);
+
   if (!piece) return null; // removed while open — the back nav below already left
 
   const sessions = store.sessions.filter((x) => x.title === piece.name);
   const recordings = store.recordings.filter((r) => r.piece === piece.name);
+  // starring a take is what steers this: recordingPair prefers starred takes,
+  // so "compare" opens on the two the player marked rather than the two newest
+  const pair = recordingPair(recordings);
+  const comparePair = pair ? { a: pair[0].id, b: pair[1].id } : { a: recordings[0]?.id, b: recordings[1]?.id };
   const totalMin = sessions.reduce((a, x) => a + x.min, 0);
   const last = sessions[0]?.date; // sessions are kept sorted newest-first
   const forecast = tempoForecast(piece.tempoLog ?? [], piece.targetBpm, store.today, sessions);
@@ -180,6 +192,33 @@ export default function PieceDetail() {
         )}
       </View>
 
+      {/* Which instruments this is played on. One piece, several instruments —
+          each session records the one you actually picked on Practice. */}
+      {store.instruments.length > 1 && (
+        <View style={{ marginTop: 20, gap: 10 }}>
+          <Overline>{store.t('piece.instruments')}</Overline>
+          <View style={s.instRow}>
+            {store.instruments.map((i) => {
+              const on = pieceInstruments(piece).includes(i);
+              return (
+                <Pressable
+                  key={i}
+                  style={[s.instChip, on && { borderColor: C.accent, backgroundColor: C.accentTint }]}
+                  onPress={() => {
+                    tap();
+                    store.updatePiece(piece.id, toggleInstrument(piece, i));
+                  }}>
+                  <Text style={[s.instChipText, on && { color: C.accent }]}>{i}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={s.instHint}>
+            {pieceInstruments(piece).length === 0 ? store.t('piece.instrumentsAll') : store.t('piece.instrumentsHint')}
+          </Text>
+        </View>
+      )}
+
       <RuledStats
         items={[
           { label: store.t('piece.total'), value: fmtTime(totalMin, store.t) },
@@ -252,26 +291,44 @@ export default function PieceDetail() {
 
       {/* the header always shows so a take recorded elsewhere can be imported before the first in-app one */}
       <View style={{ gap: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Overline>{recordings.length ? store.t('piece.recordingsCount', { count: recordings.length }) : store.t('piece.recordings')}</Overline>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            {recordings.length >= 2 && (
-              <Pressable
-                hitSlop={8}
-                onPress={() =>
-                  router.push({
-                    pathname: '/compare',
-                    params: { piece: piece.name, a: recordings[0].id, b: recordings[1].id },
-                  })
-                }>
-                <Text style={s.compareLink}>{store.t('piece.compare')}</Text>
-              </Pressable>
-            )}
-            <Pressable hitSlop={8} onPress={importTakes}>
+        {/* Three actions never fit beside the heading on a phone: the row overflowed
+            its parent, which on Android also swallows the taps that land outside it.
+            Heading on its own line, actions wrapping underneath. */}
+        <Overline>{recordings.length ? store.t('piece.recordingsCount', { count: recordings.length }) : store.t('piece.recordings')}</Overline>
+        <View style={s.takeActions}>
+          <Pressable style={s.takeAction} hitSlop={8} onPress={take.toggle}>
+            <Text style={[s.compareLink, take.recording && { color: C.accent }]}>
+              {take.recording ? store.t('piece.stopTake') : store.t('piece.recordTake')}
+            </Text>
+          </Pressable>
+          {!take.recording && (
+            <Pressable style={s.takeAction} hitSlop={8} onPress={importTakes}>
               <Text style={s.compareLink}>{store.t('piece.importTake')}</Text>
             </Pressable>
-          </View>
+          )}
+          {recordings.length >= 2 && !take.recording && (
+            <Pressable
+              style={s.takeAction}
+              hitSlop={8}
+              onPress={() =>
+                router.push({
+                  pathname: '/compare',
+                  // the same before/after Progress uses: starred takes win, else oldest vs newest
+                  params: { piece: piece.name, ...comparePair },
+                })
+              }>
+              <Text style={s.compareLink}>{store.t('piece.compare')}</Text>
+            </Pressable>
+          )}
         </View>
+        {take.recording && (
+          <View style={{ marginTop: 4, marginBottom: 10, gap: 8 }}>
+            <LiveWaveform active={!take.paused} getLevel={take.micLevel} onSample={take.onSample} />
+            <Pressable hitSlop={8} onPress={take.pauseResume} style={{ alignSelf: 'flex-start' }}>
+              <Text style={s.compareLink}>{take.paused ? store.t('practice.resume') : store.t('practice.pause')}</Text>
+            </Pressable>
+          </View>
+        )}
         {recordings.length > 0 ? (
           <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
             <RecordingsList recordings={recordings} />
@@ -435,6 +492,12 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   masterByRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.staffLine },
   masterByDate: { marginTop: 6, fontFamily: F.bodyMed, fontSize: fs(17), color: C.ink },
   compareLink: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
+  takeActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: -4 },
+  instRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  instChip: { paddingHorizontal: 14, height: 34, borderRadius: r(17), borderWidth: 1, borderColor: C.hairline, alignItems: 'center', justifyContent: 'center' },
+  instChipText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
+  instHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
+  takeAction: { paddingVertical: 6, paddingRight: 4, minHeight: 32, justifyContent: 'center' },
   emptyHint: { fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.sub },
   histRow: { flexDirection: 'row', alignItems: 'center', height: 44, gap: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
   histDay: { width: 88, fontFamily: F.body, fontSize: fs(14), color: C.subStrong },

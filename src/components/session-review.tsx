@@ -26,12 +26,14 @@ export function SessionReview({
   session,
   onClose,
   onToggleTake,
+  onImportTake,
   recording = false,
 }: {
   session: ReviewSession | null;
   onClose: () => void;
   /** Toggles the caller's recorder; omit to hide the "Attach take" button. */
   onToggleTake?: () => void;
+  onImportTake?: () => void;
   recording?: boolean;
 }) {
   const s = useS();
@@ -187,12 +189,20 @@ export function SessionReview({
             title={store.t('sessionReview.saveSession')}
             right={
               onToggleTake ? (
-                <Pressable style={s.takeBtn} onPress={onToggleTake} hitSlop={8}>
-                  {recording ? <View style={s.recDot} /> : <WaveformIcon />}
-                  <Text style={[s.takeText, recording && { color: C.accent }]}>
-                    {recording ? store.t('sessionReview.stopTake') : store.t('sessionReview.attachTake')}
-                  </Text>
-                </Pressable>
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <Pressable style={s.takeBtn} onPress={onToggleTake} hitSlop={8}>
+                    {recording ? <View style={s.recDot} /> : <WaveformIcon />}
+                    <Text style={[s.takeText, recording && { color: C.accent }]}>
+                      {recording ? store.t('sessionReview.stopTake') : store.t('sessionReview.attachTake')}
+                    </Text>
+                  </Pressable>
+                  {/* a take doesn't have to come from this phone's mic */}
+                  {onImportTake && !recording && (
+                    <Pressable onPress={onImportTake} hitSlop={8}>
+                      <Text style={s.importText}>{store.t('sessionReview.importTake')}</Text>
+                    </Pressable>
+                  )}
+                </View>
               ) : null
             }
             onPress={close}
@@ -217,4 +227,5 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   takeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
   takeText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  importText: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.sub },
 }));

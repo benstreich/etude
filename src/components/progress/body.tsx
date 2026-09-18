@@ -7,6 +7,7 @@ import { EditSessionSheet } from '@/components/edit-session';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { Text } from '@/components/text';
 import { Card, InstrumentFilter, Overline, useInstrumentFilter } from '@/components/ui';
+import { onInstrument } from '@/lib/instrument-math';
 import { resolveLayout } from '@/lib/progress-sections';
 import { Session, useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -31,7 +32,7 @@ export function ProgressBody({ header, showEmpty = true }: { header?: React.Reac
   const inst = useInstrumentFilter();
   const sessions = inst ? store.sessions.filter((x) => x.instrument === inst) : store.sessions;
   const mbd = inst ? sessions.reduce<Record<string, number>>((a, x) => ((a[x.date] = (a[x.date] ?? 0) + x.min), a), {}) : store.minutesByDate;
-  const pieces = store.pieces.filter((p) => !p.archived && (!inst || !p.instrument || p.instrument === inst));
+  const pieces = store.pieces.filter((p) => !p.archived && onInstrument(p, inst));
   const empty = store.totalMin === 0 && sessions.length === 0;
   const monday = store.weekStart === 'Monday';
 

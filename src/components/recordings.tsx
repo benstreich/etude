@@ -1,28 +1,67 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useFocusEffect } from 'expo-router';
 import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { Pressable } from '@/components/press';
 
+import {
+  CheckIcon,
+  CloseIcon,
+  LoopIcon,
+  MoveIcon,
+  PauseIcon,
+  PlayIcon,
+  ScissorsIcon,
+  ShareIcon,
+  StarIcon,
+  TrashIcon,
+  UndoIcon,
+} from '@/components/icons';
+import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
 import { applyAudioMode } from '@/lib/audio-mode';
 import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
-import { dragTrim } from '@/lib/trim-math';
+import {
+  clearTrim,
+  dragHandle,
+  inPoint,
+  isTrimmed,
+  nearestHandle,
+  nudgeTrim,
+  outPoint,
+  setFromPlayhead,
+  timeAt,
+  type Handle as TrimHandle,
+} from '@/lib/trim-math';
 
 const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+// tenths, for the trim bounds — a 0.1s nudge has to be legible or the buttons look dead
+const fmtFine = (sec: number) => `${fmt(sec)}.${Math.floor((sec % 1) * 10)}`;
+
+const RATES = [1, 0.75, 0.5];
+const nextRate = (rate: number) => RATES[(RATES.indexOf(rate) + 1) % RATES.length] ?? 0.75;
+const rateLabel = (rate: number) => `${rate === 1 ? '1' : String(rate).replace(/^0/, '')}×`;
 
 // "Today, 2:35 PM" — older recordings without a timestamp just show the day
 const when = (r: Recording, store: ReturnType<typeof useStore>) =>
   dayLabel(r.date, store.today, store.t, store.lang) +
   (r.at ? `, ${new Date(r.at).toLocaleTimeString(store.lang, { hour: 'numeric', minute: '2-digit' })}` : '');
 
-const clipStart = (r: Recording) => r.start ?? 0;
-const clipEnd = (r: Recording) => r.end ?? r.sec;
-
-// one player per list — starting a row stops whichever row was playing
-export function RecordingsList({ recordings, showPiece = false }: { recordings: Recording[]; showPiece?: boolean }) {
+/**
+ * One player per list — starting a row stops whichever row was playing.
+ * `onMove` turns on the "move to another piece" action; the orphan list uses it.
+ */
+export function RecordingsList({
+  recordings,
+  showPiece = false,
+  onMove,
+}: {
+  recordings: Recording[];
+  showPiece?: boolean;
+  onMove?: (r: Recording) => void;
+}) {
   const s = useS();
   const C = useC();
   const store = useStore();
@@ -32,13 +71,26 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [trimId, setTrimId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  // the trim being edited, held out of the store until Save — dragging a handle
+  // used to rewrite the take on every frame, with no way back to where you started
+  const [trim, setTrim] = useState<{ start: number; end: number } | null>(null);
   const [waveW, setWaveW] = useState(1);
+  const grabbed = useRef<TrimHandle>('start'); // handle claimed on touch-down, held for the whole drag
 
-  // adjust-state-during-render pattern (react.dev "you might not need an effect")
+  // adjust-state-during-render pattern (react.dev "you might not need an effect").
+  // A looping take restarts instead of clearing: running to the end of the file is
+  // the only way an *untrimmed* take ever finishes, so this is where its loop lives
+  // (the out-point effect below only ever fires for a trimmed one).
   const [prevFinish, setPrevFinish] = useState(status.didJustFinish);
   if (prevFinish !== status.didJustFinish) {
     setPrevFinish(status.didJustFinish);
-    if (status.didJustFinish) setCurrentId(null);
+    if (status.didJustFinish) {
+      const done = recordings.find((r) => r.id === currentId);
+      if (done?.loop) {
+        player.seekTo(inPoint(done));
+        player.play();
+      } else setCurrentId(null);
+    }
   }
 
   // the trim is non-destructive: the file keeps its tail, playback stops at the
@@ -46,10 +98,21 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
   const current = recordings.find((r) => r.id === currentId);
   useEffect(() => {
     if (!current || !status.playing) return;
-    if (status.currentTime < clipEnd(current)) return;
-    player.seekTo(clipStart(current));
+    if (status.currentTime < outPoint(current)) return;
+    player.seekTo(inPoint(current));
     if (!current.loop) player.pause(); // parked at the in point, so the next tap replays the clip
   }, [current, status.currentTime, status.playing, player]);
+
+  // a tab keeps its screen mounted, so leaving it used to carry the audio with you
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        player.pause();
+        setCurrentId(null);
+      },
+      [player]
+    )
+  );
 
   const toggle = (r: Recording) => {
     if (currentId === r.id) {
@@ -59,9 +122,24 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
     }
     applyAudioMode({ playsInSilentMode: true, allowsRecording: false });
     player.replace(resolveRecordingUri(r.uri));
-    player.seekTo(clipStart(r));
+    // expo-audio exposes this as a native setter, not hook state — same exemption
+    // as drone.tsx. Pitch correction keeps a half-speed take in tune.
+    // eslint-disable-next-line react-hooks/immutability
+    player.shouldCorrectPitch = true;
+    player.setPlaybackRate(r.rate ?? 1);
+    player.seekTo(inPoint(r));
     player.play();
     setCurrentId(r.id);
+  };
+
+  const cycleRate = (r: Recording) => {
+    const rate = nextRate(r.rate ?? 1);
+    store.updateRecording(r.id, { rate });
+    if (currentId === r.id) {
+      // eslint-disable-next-line react-hooks/immutability
+      player.shouldCorrectPitch = true;
+      player.setPlaybackRate(rate);
+    }
   };
 
   const remove = (r: Recording) => {
@@ -80,11 +158,47 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
     Sharing.shareAsync(resolveRecordingUri(r.uri), { mimeType: 'audio/mp4', dialogTitle: r.name || r.piece }).catch(() => {});
   };
 
-  const drag = (r: Recording, x: number) => store.updateRecording(r.id, dragTrim(r, x, waveW));
+  const commitName = (r: Recording) => {
+    store.renameRecording(r.id, draft);
+    setEditingId(null);
+  };
+
+  // dragging the wave trims the handle claimed on touch-down; otherwise it scrubs.
+  // Claiming once is what keeps a drag from jumping to the other handle mid-gesture.
+  // while trimming, `clip` is the draft; everywhere else the take's own bounds
+  const clipOf = (r: Recording) => (trimId === r.id && trim ? { ...r, ...trim } : r);
+  const openTrim = (r: Recording) => {
+    setTrimId(r.id);
+    setTrim({ start: inPoint(r), end: outPoint(r) });
+  };
+  const closeTrim = () => {
+    setTrimId(null);
+    setTrim(null);
+  };
+  const saveTrim = (r: Recording) => {
+    // a draft spanning the whole file is "no trim", not a trim that happens to fit
+    if (trim) store.updateRecording(r.id, trim.start <= 0 && trim.end >= r.sec ? clearTrim() : trim);
+    closeTrim();
+  };
+
+  const onWaveGrant = (r: Recording, x: number) => {
+    if (trimId === r.id) {
+      const c = clipOf(r);
+      grabbed.current = nearestHandle(c, x, waveW);
+      setTrim(dragHandle(c, grabbed.current, x, waveW));
+    } else if (currentId === r.id) {
+      player.seekTo(timeAt(r, x, waveW));
+    }
+  };
+  const onWaveMove = (r: Recording, x: number) => {
+    if (trimId === r.id) setTrim(dragHandle(clipOf(r), grabbed.current, x, waveW));
+    else if (currentId === r.id) player.seekTo(timeAt(r, x, waveW));
+  };
 
   if (recordings.length === 0) return null;
 
-  // starred ("really important") recordings float to the top
+  // starred ("my reference take") float to the top — the same takes Compare and
+  // the Progress "hear the difference" section reach for, so the order matches
   const list = [...recordings].sort((a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0));
 
   return (
@@ -92,71 +206,90 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
       {list.map((r, i) => {
         const playing = currentId === r.id && status.playing;
         const trimming = trimId === r.id;
-        const showWave = !!r.wave?.length && (currentId === r.id || trimming);
-        const progress = currentId === r.id && r.sec ? status.currentTime / r.sec : 0;
-        const trimmed = r.start !== undefined || r.end !== undefined;
+        const c = clipOf(r); // draft bounds while trimming, the saved ones otherwise
+        const open = currentId === r.id || trimming;
+        const showWave = !!r.wave?.length && open;
+        const at = currentId === r.id ? status.currentTime : inPoint(c);
+        const rate = r.rate ?? 1;
         return (
           <View key={r.id} style={[i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
             <View style={s.row}>
-            <Pressable style={[s.playBtn, playing && { backgroundColor: C.accent }]} hitSlop={8} onPress={() => toggle(r)}>
-              <Text style={s.playText}>{playing ? '❚❚' : '▶'}</Text>
-            </Pressable>
-            <View style={{ flex: 1 }}>
+              <Pressable style={[s.playBtn, playing && { backgroundColor: C.accent }]} hitSlop={8} onPress={() => toggle(r)}>
+                {playing ? <PauseIcon color={C.bg} size={14} /> : <PlayIcon color={C.bg} size={14} />}
+              </Pressable>
+              <View style={{ flex: 1 }}>
+                {editingId === r.id ? (
+                  <TextInput
+                    style={s.nameInput}
+                    value={draft}
+                    onChangeText={setDraft}
+                    placeholder={store.t('recordings.namePlaceholder')}
+                    placeholderTextColor={C.tertiary}
+                    autoFocus
+                    onSubmitEditing={() => commitName(r)}
+                    returnKeyType="done"
+                  />
+                ) : (
+                  <Pressable
+                    onPress={() => {
+                      setDraft(r.name ?? '');
+                      setEditingId(r.id);
+                    }}>
+                    <Text style={s.piece} numberOfLines={1}>
+                      {r.name || (showPiece ? r.piece : store.t('recordings.untitled'))}
+                    </Text>
+                    <Text style={s.meta}>
+                      {when(r, store)} {'·'} {fmt(outPoint(r) - inPoint(r))}
+                      {isTrimmed(r) ? ` · ${store.t('recordings.trimmed')}` : ''}
+                      {rate !== 1 ? ` · ${rateLabel(rate)}` : ''}
+                      {r.starred ? ` · ${store.t('recordings.reference')}` : ''}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
               {editingId === r.id ? (
-                <TextInput
-                  style={s.nameInput}
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={store.t('recordings.namePlaceholder')}
-                  placeholderTextColor={C.tertiary}
-                  autoFocus
-                  onSubmitEditing={() => {
-                    store.renameRecording(r.id, draft);
-                    setEditingId(null);
-                  }}
-                  onBlur={() => {
-                    store.renameRecording(r.id, draft);
-                    setEditingId(null);
-                  }}
-                  returnKeyType="done"
-                />
+                <>
+                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.cancel')} onPress={() => setEditingId(null)}>
+                    <CloseIcon />
+                  </Pressable>
+                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.save')} onPress={() => commitName(r)}>
+                    <CheckIcon />
+                  </Pressable>
+                </>
               ) : (
-                <Pressable
-                  onPress={() => {
-                    setDraft(r.name ?? '');
-                    setEditingId(r.id);
-                  }}>
-                  <Text style={s.piece} numberOfLines={1}>
-                    {r.name || (showPiece ? r.piece : store.t('recordings.untitled'))}
-                  </Text>
-                  <Text style={s.meta}>
-                    {when(r, store)} · {fmt(clipEnd(r) - clipStart(r))}
-                    {trimmed ? ' ✂' : ''}
-                  </Text>
-                </Pressable>
+                <>
+                  <Pressable
+                    style={s.iconBtn}
+                    hitSlop={8}
+                    accessibilityLabel={store.t(r.starred ? 'recordings.unstar' : 'recordings.star')}
+                    onPress={() => store.toggleStar(r.id)}>
+                    <StarIcon filled={!!r.starred} color={r.starred ? C.accent : C.faint} />
+                  </Pressable>
+                  <Pressable
+                    style={s.iconBtn}
+                    hitSlop={8}
+                    accessibilityLabel={store.t('recordings.trim')}
+                    onPress={() => (trimming ? closeTrim() : openTrim(r))}>
+                    <ScissorsIcon color={trimming ? C.accent : C.sub} />
+                  </Pressable>
+                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.delete')} onPress={() => remove(r)}>
+                    <TrashIcon />
+                  </Pressable>
+                </>
               )}
             </View>
-            <Pressable hitSlop={8} onPress={() => setTrimId(trimming ? null : r.id)}>
-              <Text style={[s.icon, trimming && { color: C.accent }]}>✂</Text>
-            </Pressable>
-            <Pressable hitSlop={8} onPress={() => store.toggleStar(r.id)}>
-              <Text style={[s.star, r.starred && { color: C.accent }]}>{r.starred ? '★' : '☆'}</Text>
-            </Pressable>
-            <Pressable hitSlop={8} onPress={() => remove(r)}>
-              <Text style={s.delete}>{store.t('recordings.delete')}</Text>
-            </Pressable>
-            </View>
+
             {showWave && (
               <View
                 style={s.wave}
                 onLayout={(e) => setWaveW(e.nativeEvent.layout.width)}
-                onStartShouldSetResponder={() => trimming}
-                onMoveShouldSetResponder={() => trimming}
-                onResponderGrant={(e) => drag(r, e.nativeEvent.locationX)}
-                onResponderMove={(e) => drag(r, e.nativeEvent.locationX)}>
+                onStartShouldSetResponder={() => trimming || currentId === r.id}
+                onMoveShouldSetResponder={() => trimming || currentId === r.id}
+                onResponderGrant={(e) => onWaveGrant(r, e.nativeEvent.locationX)}
+                onResponderMove={(e) => onWaveMove(r, e.nativeEvent.locationX)}>
                 {r.wave!.map((v, j) => {
-                  const at = ((j + 0.5) / r.wave!.length) * r.sec;
-                  const outside = at < clipStart(r) || at > clipEnd(r);
+                  const barAt = ((j + 0.5) / r.wave!.length) * r.sec;
+                  const outside = barAt < inPoint(c) || barAt > outPoint(c);
                   return (
                     <View
                       key={j}
@@ -164,29 +297,93 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
                         flex: 1,
                         height: 4 + v * 24,
                         borderRadius: 2,
-                        opacity: outside ? 0.3 : 1,
-                        backgroundColor: !outside && (j + 1) / r.wave!.length <= progress ? C.accent : C.chartInactive,
+                        opacity: outside ? 0.25 : 1,
+                        backgroundColor: !outside && barAt <= at ? C.accent : C.chartInactive,
                       }}
                     />
                   );
                 })}
+                {trimming && (
+                  <>
+                    <TrimGrip x={(inPoint(c) / r.sec) * waveW} />
+                    <TrimGrip x={(outPoint(c) / r.sec) * waveW} />
+                  </>
+                )}
               </View>
             )}
-            {trimming && (
-              <View style={s.trimBar}>
+
+            {open && !trimming && (
+              <View style={s.toolBar}>
                 <Text style={s.meta}>
-                  {fmt(clipStart(r))} – {fmt(clipEnd(r))}
+                  {fmt(at)} / {fmt(outPoint(r))}
                 </Text>
                 <View style={{ flex: 1 }} />
-                <Pressable hitSlop={8} onPress={() => store.updateRecording(r.id, { loop: !r.loop })}>
-                  <Text style={[s.icon, r.loop && { color: C.accent }]}>↻</Text>
+                <Pressable style={[s.ratePill, rate !== 1 && { borderColor: C.accent }]} hitSlop={8} onPress={() => cycleRate(r)}>
+                  <Text style={[s.rateText, rate !== 1 && { color: C.accent }]}>{rateLabel(rate)}</Text>
                 </Pressable>
-                <Pressable hitSlop={8} onPress={() => store.updateRecording(r.id, { start: undefined, end: undefined })}>
-                  <Text style={s.icon}>⟲</Text>
+                <Pressable
+                  style={s.iconBtn}
+                  hitSlop={8}
+                  accessibilityLabel={store.t('recordings.loop')}
+                  onPress={() => store.updateRecording(r.id, { loop: !r.loop })}>
+                  <LoopIcon color={r.loop ? C.accent : C.sub} />
                 </Pressable>
-                <Pressable hitSlop={8} onPress={() => share(r)}>
-                  <Text style={s.icon}>⤴</Text>
+                <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.share')} onPress={() => share(r)}>
+                  <ShareIcon color={C.sub} size={18} />
                 </Pressable>
+                {onMove && (
+                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.move')} onPress={() => onMove(r)}>
+                    <MoveIcon />
+                  </Pressable>
+                )}
+              </View>
+            )}
+
+            {trimming && (
+              <View style={{ gap: 8, paddingBottom: 10 }}>
+                <Bound
+                  label={store.t('recordings.in')}
+                  value={fmtFine(inPoint(c))}
+                  onNudge={(steps) => setTrim(nudgeTrim(c, 'start', steps))}
+                  onHere={currentId === r.id ? () => setTrim(setFromPlayhead(c, 'start', status.currentTime)) : undefined}
+                  hereLabel={store.t('recordings.here')}
+                />
+                <Bound
+                  label={store.t('recordings.out')}
+                  value={fmtFine(outPoint(c))}
+                  onNudge={(steps) => setTrim(nudgeTrim(c, 'end', steps))}
+                  onHere={currentId === r.id ? () => setTrim(setFromPlayhead(c, 'end', status.currentTime)) : undefined}
+                  hereLabel={store.t('recordings.here')}
+                />
+                <View style={s.toolBar}>
+                  <Text style={s.meta}>{store.t('recordings.clipLength', { len: fmtFine(outPoint(c) - inPoint(c)) })}</Text>
+                  <View style={{ flex: 1 }} />
+                  <Pressable
+                    style={s.iconBtn}
+                    hitSlop={8}
+                    accessibilityLabel={store.t('recordings.loop')}
+                    onPress={() => store.updateRecording(r.id, { loop: !r.loop })}>
+                    <LoopIcon color={r.loop ? C.accent : C.sub} />
+                  </Pressable>
+                  <Pressable
+                    style={s.iconBtn}
+                    hitSlop={8}
+                    accessibilityLabel={store.t('recordings.clearTrim')}
+                    onPress={() => setTrim({ start: 0, end: r.sec })}>
+                    <UndoIcon />
+                  </Pressable>
+                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.share')} onPress={() => share(r)}>
+                    <ShareIcon color={C.sub} size={18} />
+                  </Pressable>
+                </View>
+                <View style={s.trimActions}>
+                  <Pressable style={s.trimCancel} hitSlop={8} onPress={closeTrim}>
+                    <Text style={s.trimCancelText}>{store.t('recordings.cancelTrim')}</Text>
+                  </Pressable>
+                  <Pressable style={s.trimSave} hitSlop={8} onPress={() => saveTrim(r)}>
+                    <Text style={s.trimSaveText}>{store.t('recordings.saveTrim')}</Text>
+                  </Pressable>
+                </View>
               </View>
             )}
           </View>
@@ -196,16 +393,91 @@ export function RecordingsList({ recordings, showPiece = false }: { recordings: 
   );
 }
 
-const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  playBtn: { width: 34, height: 34, borderRadius: r(17), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  playText: { color: C.bg, fontSize: fs(12) },
-  piece: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
-  meta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
-  nameInput: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink, padding: 0, borderBottomWidth: 1, borderBottomColor: C.accent },
-  delete: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.accent },
-  star: { fontSize: fs(18), color: C.faint, lineHeight: fs(22) },
-  icon: { fontSize: fs(16), color: C.sub, lineHeight: fs(22) },
-  wave: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 32, marginBottom: 10 },
-  trimBar: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingBottom: 10 },
-}));
+/** A trim bound drawn over the waveform, so the grab point is visible before it is grabbed. */
+function TrimGrip({ x }: { x: number }) {
+  const C = useC();
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', left: Math.max(0, x - 1.5), top: -3, bottom: -3, width: 3, borderRadius: 1.5, backgroundColor: C.accent }}
+    />
+  );
+}
+
+/** One trim bound: its time, a ±0.1s nudge either side, and "put it where I'm listening". */
+function Bound({
+  label,
+  value,
+  onNudge,
+  onHere,
+  hereLabel,
+}: {
+  label: string;
+  value: string;
+  onNudge: (steps: number) => void;
+  onHere?: () => void;
+  hereLabel: string;
+}) {
+  const s = useS();
+  return (
+    <View style={s.boundRow}>
+      <Text style={s.boundLabel}>{label}</Text>
+      <Text style={s.boundValue}>{value}</Text>
+      <View style={{ flex: 1 }} />
+      <Pressable style={s.nudge} hitSlop={6} onPress={() => onNudge(-1)}>
+        <Text style={s.nudgeText}>{'−'}</Text>
+      </Pressable>
+      <Pressable style={s.nudge} hitSlop={6} onPress={() => onNudge(1)}>
+        <Text style={s.nudgeText}>+</Text>
+      </Pressable>
+      {onHere && (
+        <Pressable style={s.here} hitSlop={6} onPress={onHere}>
+          <Text style={s.hereText}>{hereLabel}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const useS = themed(({ C, fs, r }: T) =>
+  StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10 },
+    playBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: r(17),
+      backgroundColor: C.ink,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 6,
+    },
+    piece: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
+    meta: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+    nameInput: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink, padding: 0, borderBottomWidth: 1, borderBottomColor: C.accent },
+    iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    wave: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 32, marginBottom: 10 },
+    toolBar: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 10 },
+    ratePill: {
+      minWidth: 40,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: r(11),
+      borderWidth: 1,
+      borderColor: C.hairline,
+      alignItems: 'center',
+    },
+    rateText: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.sub },
+    boundRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    boundLabel: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 0.5, color: C.tertiary, width: 26 },
+    boundValue: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
+    nudge: { width: 30, height: 28, borderRadius: r(8), borderWidth: 1, borderColor: C.hairline, alignItems: 'center', justifyContent: 'center' },
+    nudgeText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, lineHeight: fs(18) },
+    here: { paddingHorizontal: 10, height: 28, borderRadius: r(8), borderWidth: 1, borderColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+    hereText: { fontFamily: F.bodyMed, fontSize: fs(12), color: C.accent },
+    trimActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, paddingBottom: 4 },
+    trimCancel: { paddingHorizontal: 14, height: 34, borderRadius: r(10), alignItems: 'center', justifyContent: 'center' },
+    trimCancelText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
+    trimSave: { paddingHorizontal: 16, height: 34, borderRadius: r(10), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+    trimSaveText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.bg },
+  })
+);

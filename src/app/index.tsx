@@ -15,6 +15,7 @@ import { barsFor } from '@/lib/melody';
 import { useMelodyPlayer } from '@/lib/melody-play';
 import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
+import { useInstrumentFilter } from '@/components/ui';
 import { dateKey, dayLabel, useStore, type Session } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -29,6 +30,7 @@ export default function Home() {
   const s = useS();
   const C = useC();
   const store = useStore();
+  const inst = useInstrumentFilter();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [focusOpen, setFocusOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function Home() {
     if (!min) return;
     success();
     const f = store.quickLogFocus;
-    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged', day);
+    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged', day, undefined, inst || undefined);
     const name = f?.name;
     if (day !== store.today) {
       const when = dayLabel(day, store.today, store.t, store.lang);

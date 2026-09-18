@@ -11,8 +11,9 @@ import { MeasureBar } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
 import { Card, Overline, Sheet, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { staleness } from '@/lib/stats-math';
-import { dayLabel, Piece, useStore } from '@/lib/store';
+import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
 import { F, themed, useC, type Palette, type T } from '@/lib/theme';
 
 // last stage green, next-to-last accent, the rest muted
@@ -59,6 +60,8 @@ export default function Repertoire() {
   // shows nor counts as this query's answer (#38)
   const [suggestions, setSuggestions] = useState<{ q: string; list: Suggestion[] }>({ q: '', list: [] });
   const [menuPiece, setMenuPiece] = useState<Piece | null>(null);
+  const [moveTake, setMoveTake] = useState<Recording | null>(null); // orphaned take being re-homed
+  const [listQuery, setListQuery] = useState(''); // searches the repertoire itself, not the add sheet
   const [addOpen, setAddOpen] = useState(false);
   const [customTech, setCustomTech] = useState('');
 
@@ -79,9 +82,11 @@ export default function Repertoire() {
   const inst = useInstrumentFilter();
   const [addInst, setAddInst] = useState<string | null>(null); // instrument for the piece being added; null = primary
   // untagged pieces show under every instrument (#58)
-  const active = store.pieces.filter((p) => !p.archived && (!inst || !p.instrument || p.instrument === inst));
+  const listQ = listQuery.trim().toLowerCase();
+  const matches = (p: Piece) => p.name.toLowerCase().includes(listQ) || (p.by ?? '').toLowerCase().includes(listQ);
+  const active = store.pieces.filter((p) => !p.archived && onInstrument(p, inst) && matches(p));
   // #83: techniques are pieces of kind 'Technique' — same rows, same detail page
-  const techniques = store.allPieces.filter((p) => p.kind === 'Technique' && !p.archived && (!inst || !p.instrument || p.instrument === inst));
+  const techniques = store.allPieces.filter((p) => p.kind === 'Technique' && !p.archived && onInstrument(p, inst) && matches(p));
   const archived = store.allPieces.filter((p) => p.archived);
 
   // invested time from the session log, matched by title — pieces and
@@ -229,13 +234,28 @@ export default function Repertoire() {
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
+      {/* instrument first, search directly above the list — same order as Practice */}
       {store.instruments.length > 1 && (
-        <UnderlineTabs
-          options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
-          value={inst}
-          onChange={(v) => store.updateSettings({ instrumentFilter: v })}
-        />
+        <View style={s.filterRow}>
+          <UnderlineTabs
+            options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
+            value={inst}
+            onChange={(v) => store.updateSettings({ instrumentFilter: v })}
+          />
+        </View>
       )}
+      <View style={s.listSearchRow}>
+        <SearchIcon size={18} color={C.tertiary} />
+        <TextInput
+          style={s.listSearch}
+          value={listQuery}
+          onChangeText={setListQuery}
+          placeholder={store.t('repertoire.searchList')}
+          placeholderTextColor={C.tertiary}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+      </View>
 
       {active.length === 0 ? (
         <>
@@ -297,7 +317,8 @@ export default function Repertoire() {
         </View>
       )}
 
-      {/* recordings whose focus has since been deleted have no page to live on — surface them here */}
+      {/* recordings whose focus has since been deleted have no page to live on —
+          surface them here, and let them be re-homed onto a piece that still exists */}
       {(() => {
         const names = new Set(store.allPieces.map((p) => p.name));
         const orphans = store.recordings.filter((r) => !names.has(r.piece));
@@ -305,7 +326,7 @@ export default function Repertoire() {
           <View style={{ gap: 12 }}>
             <Overline>{store.t('repertoire.techniqueRecordings')}</Overline>
             <Card style={{ paddingVertical: 6, paddingHorizontal: 20 }}>
-              <RecordingsList recordings={orphans} showPiece />
+              <RecordingsList recordings={orphans} showPiece onMove={setMoveTake} />
             </Card>
           </View>
         ) : null;
@@ -457,29 +478,71 @@ export default function Repertoire() {
             )}
       </Sheet>
 
+      {/* re-home an orphaned take: recordings join pieces by name, so this is a one-field write */}
+      <Modal visible={moveTake !== null} transparent animationType="fade" onRequestClose={() => setMoveTake(null)}>
+        <Pressable style={s.backdrop} onPress={() => setMoveTake(null)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <Text style={s.sheetTitle}>{store.t('recordings.moveTitle')}</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {store.allPieces.map((p) => (
+                <Pressable
+                  key={p.id}
+                  style={s.moveRow}
+                  onPress={() => {
+                    if (moveTake) store.moveRecording(moveTake.id, p.name);
+                    setMoveTake(null);
+                  }}>
+                  <Text style={s.moveName} numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                  {!!p.by && (
+                    <Text style={s.moveBy} numberOfLines={1}>
+                      {p.by}
+                    </Text>
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable style={s.moveCancel} onPress={() => setMoveTake(null)}>
+              <Text style={s.moveCancelText}>{store.t('recordings.moveCancel')}</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={() => setMenuPiece(null)}>
         <Pressable style={s.backdrop} onPress={() => setMenuPiece(null)}>
           <Pressable style={s.sheet} onPress={() => {}}>
             {menuPiece && (
               <>
                 <Text style={s.sheetTitle}>{menuPiece.name}</Text>
+                {/* a piece is often played on more than one instrument, so these are
+                    checkboxes, not a radio group. None ticked = every instrument. */}
                 {store.instruments.length > 1 && (
-                  <View style={[s.chipWrap, { paddingVertical: 10 }]}>
-                    {store.instruments.map((i) => {
-                      const sel = menuPiece.instrument === i;
-                      return (
-                        <Pressable
-                          key={i}
-                          style={[s.chip, sel && s.chipSel]}
-                          onPress={() => {
-                            store.updatePiece(menuPiece.id, { instrument: sel ? undefined : i });
-                            setMenuPiece({ ...menuPiece, instrument: sel ? undefined : i });
-                          }}>
-                          <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <>
+                    <View style={[s.chipWrap, { paddingVertical: 10 }]}>
+                      {store.instruments.map((i) => {
+                        const sel = pieceInstruments(menuPiece).includes(i);
+                        return (
+                          <Pressable
+                            key={i}
+                            style={[s.chip, sel && s.chipSel]}
+                            onPress={() => {
+                              const patch = toggleInstrument(menuPiece, i);
+                              store.updatePiece(menuPiece.id, patch);
+                              setMenuPiece({ ...menuPiece, ...patch });
+                            }}>
+                            <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <Text style={s.instHint}>
+                      {pieceInstruments(menuPiece).length === 0
+                        ? store.t('repertoire.instrumentsAll')
+                        : store.t('repertoire.instrumentsHint')}
+                    </Text>
+                  </>
                 )}
                 <Pressable
                   style={s.sheetRow}
@@ -541,6 +604,15 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   moreText: { fontSize: fs(18), color: C.faint, lineHeight: fs(28), textAlign: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40 },
+  instHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginBottom: 4 },
+  filterRow: { marginTop: 6, marginBottom: 4 },
+  listSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: C.hairline, paddingBottom: 10, marginTop: 14, marginBottom: 4 },
+  listSearch: { flex: 1, fontFamily: F.body, fontSize: fs(15), color: C.ink, padding: 0 },
+  moveRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  moveName: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
+  moveBy: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
+  moveCancel: { alignItems: 'center', paddingTop: 18 },
+  moveCancelText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   sheetTitle: { fontFamily: F.head, fontSize: fs(26), letterSpacing: -0.3, color: C.ink, marginBottom: 12 },
   sheetRow: { height: 52, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: C.hairline },
   fabBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: C.ink, alignItems: 'center', justifyContent: 'center' },

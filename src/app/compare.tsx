@@ -1,8 +1,8 @@
 // A/B recording compare (#17) — two takes seek-locked so flipping keeps the
 // playback position, for hearing progress on the same passage.
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,29 +57,59 @@ export default function Compare() {
     if (uriB) playerB.replace(resolveRecordingUri(uriB));
   }, [uriA, uriB, playerA, playerB]);
 
+  // leaving the screen stops both takes rather than playing on behind you
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        playerA.pause();
+        playerB.pause();
+      },
+      [playerA, playerB]
+    )
+  );
+
   if (!recA || !recB) return null;
 
   const cur = active === 'A' ? playerA : playerB;
   const curStatus = active === 'A' ? statusA : statusB;
   const playing = curStatus.playing;
 
-  // flip swaps the audio at the SAME position (clamped if the other take is shorter)
-  const flip = (to: 'A' | 'B') => {
+  // flip swaps the audio at the SAME position (clamped if the other take is shorter).
+  // `andPlay` is for the row's own play button: flipping from the A/B switch should
+  // inherit whether audio was running, but tapping ▶ on a take means "play this now".
+  // Two ways the carried position used to land somewhere useless:
+  //   - a take that ran to its end parks the playhead there, and nothing resets it
+  //   - the other take may be SHORTER than where we are (a 3s take and a 6s take
+  //     is the normal case), and clamping to its end meant playing its last 50ms
+  // Either way the honest answer is to start the other take from the beginning.
+  const ended = (st: { currentTime: number; duration: number }) => st.duration > 0 && st.currentTime >= st.duration - 0.25;
+
+  const flip = (to: 'A' | 'B', andPlay = false) => {
     if (to === active) return;
     const target = to === 'A' ? playerA : playerB;
     const targetDur = to === 'A' ? statusA.duration : statusB.duration;
-    const pos = Math.min(curStatus.currentTime, Math.max(0, (targetDur || Infinity) - 0.05));
+    const from = ended(curStatus) ? 0 : curStatus.currentTime;
+    const pos = targetDur > 0 && from >= targetDur - 0.25 ? 0 : from;
     const wasPlaying = playing;
     cur.pause();
     target.seekTo(pos);
-    if (wasPlaying) target.play();
+    if (wasPlaying || andPlay) target.play();
     setActive(to);
   };
 
+  /** Put `id` in slot `w`. Choosing the take already in the other slot swaps them. */
+  const assign = (w: 'A' | 'B', id: string) => {
+    const a = recA.id;
+    const b = recB.id;
+    if (w === 'A') router.setParams({ a: id, b: id === b ? a : b });
+    else router.setParams({ a: id === a ? b : a, b: id });
+  };
+
   const toggle = (which: 'A' | 'B') => {
-    if (which !== active) return flip(which);
-    if (playing) cur.pause();
-    else cur.play();
+    if (which !== active) return flip(which, true);
+    if (playing) return cur.pause();
+    if (ended(curStatus)) cur.seekTo(0); // replay rather than sit at the end doing nothing
+    cur.play();
   };
 
   return (
@@ -123,24 +153,31 @@ export default function Compare() {
               {takes.map((rec) => {
                 const slot = rec.id === recA.id ? 'A' : rec.id === recB.id ? 'B' : null;
                 return (
-                  <Pressable
-                    key={rec.id}
-                    style={s.pickRow}
-                    onPress={() => {
-                      // picked take becomes A; the current A slides to B
-                      if (rec.id === recA.id) return;
-                      router.setParams({ a: rec.id, b: rec.id === recB.id ? recA.id : recB.id });
-                    }}>
-                    <Text style={s.pickName} numberOfLines={1}>
-                      {rec.name || dayLabel(rec.date, store.today, store.t, store.lang)}
-                    </Text>
-                    <Text style={s.takeMeta}>{fmt(rec.sec)}</Text>
-                    {slot && (
-                      <View style={[s.badge, { backgroundColor: slot === 'A' ? C.accent : C.track }]}>
-                        <Text style={[s.badgeText, { color: slot === 'A' ? '#FFFFFF' : C.sub }]}>{slot}</Text>
-                      </View>
-                    )}
-                  </Pressable>
+                  <View key={rec.id} style={s.pickRow}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.pickName} numberOfLines={1}>
+                        {rec.name || dayLabel(rec.date, store.today, store.t, store.lang)}
+                      </Text>
+                      <Text style={s.takeMeta}>
+                        {dayLabel(rec.date, store.today, store.t, store.lang)} · {fmt(rec.sec)}
+                        {rec.starred ? ` · ${store.t('recordings.reference')}` : ''}
+                      </Text>
+                    </View>
+                    {/* pick the slot outright: tapping a row used to shuffle both
+                        slots, so there was no way to say "put this one in B" */}
+                    {(['A', 'B'] as const).map((w) => {
+                      const on = slot === w;
+                      return (
+                        <Pressable
+                          key={w}
+                          style={[s.slotBtn, on && { backgroundColor: C.accent, borderColor: C.accent }]}
+                          hitSlop={4}
+                          onPress={() => assign(w, rec.id)}>
+                          <Text style={[s.slotText, on && { color: '#FFFFFF' }]}>{w}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 );
               })}
             </ScrollView>
@@ -234,4 +271,15 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheetHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
   pickRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50, borderBottomWidth: 1, borderBottomColor: C.hairline },
   pickName: { flex: 1, fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
+  slotBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: r(17),
+    borderWidth: 1.5,
+    borderColor: C.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  slotText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub },
 }));

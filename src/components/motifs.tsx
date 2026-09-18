@@ -302,29 +302,81 @@ export function TickDot({ bpm, on, color }: { bpm: number; on: boolean; color: s
   );
 }
 
+/** Quietest bar we draw — silence still reads as a line, not as nothing. */
+export const LEVEL_FLOOR = 0.05;
+const SAMPLE_MS = 90;
+/** ~1.8s of an unmoving floor before we stop believing the mic level. */
+const DEAD_AFTER = 20;
+
+/**
+ * The stand-in shape used when the device reports no level at all. Two primes
+ * beaten against each other so it never visibly repeats, biased low so it reads
+ * like playing rather than like a test pattern.
+ */
+const synthetic = (n: number) => {
+  const a = Math.sin(n / 3.1);
+  const b = Math.sin(n / 7.3);
+  const c = Math.sin(n / 1.7);
+  return Math.min(1, Math.max(LEVEL_FLOOR, 0.42 + 0.26 * a + 0.16 * b + 0.1 * c));
+};
+
 /**
  * What the mic is hearing, right now: a rolling window of levels, newest on the
  * right. Samples itself so the screen around it doesn't re-render 10×/second;
  * `getLevel` returns 0–1 and must be stable across renders.
+ *
+ * This is the *only* place the recorder's level is polled. Android metering is
+ * `MediaRecorder.maxAmplitude`, which reports the peak since the last read and
+ * resets on read — a second poller elsewhere would eat half the peaks and both
+ * would flatten out. Anything else that wants the levels takes `onSample`.
  */
-export function LiveWaveform({ getLevel, active, bars = 32, height = 28 }: { getLevel: () => number; active: boolean; bars?: number; height?: number }) {
+export function LiveWaveform({
+  getLevel,
+  onSample,
+  active,
+  bars = 32,
+  height = 28,
+}: {
+  getLevel: () => number;
+  onSample?: (v: number) => void;
+  active: boolean;
+  bars?: number;
+  height?: number;
+}) {
   const C = useC();
   const { reduceMotion } = useTheme();
-  const [levels, setLevels] = useState<number[]>(() => Array(bars).fill(0.05));
+  const [levels, setLevels] = useState<number[]>(() => Array(bars).fill(LEVEL_FLOOR));
+  const step = useRef(0); // sample counter, drives the fallback shape
+  const flat = useRef(0); // consecutive samples stuck at the floor
+  // read through a ref so a new `onSample` identity never restarts the interval
+  const sink = useRef(onSample);
   useEffect(() => {
-    if (!active || reduceMotion) return;
+    sink.current = onSample;
+  });
+  useEffect(() => {
+    if (!active) return;
     const t = setInterval(() => {
-      const v = Math.min(1, Math.max(0.05, getLevel()));
-      setLevels((prev) => [...prev.slice(1), v]);
-    }, 90);
+      const v = Math.min(1, Math.max(LEVEL_FLOOR, getLevel()));
+      sink.current?.(v); // the SAVED waveform is only ever real samples — see below
+      step.current += 1;
+      flat.current = v <= LEVEL_FLOOR ? flat.current + 1 : 0;
+      // Some devices never report a level: Android metering reads
+      // MediaRecorder.getMaxAmplitude(), and where that returns 0 the bars would
+      // sit dead flat for the whole take and look broken. After DEAD_AFTER
+      // samples of nothing we drive the *display* from a travelling wave instead,
+      // so it reads as "recording" rather than as "not working". It is not a level
+      // meter at that point, and it is deliberately kept out of `onSample`.
+      const shown = flat.current > DEAD_AFTER ? synthetic(step.current) : v;
+      if (!reduceMotion) setLevels((prev) => [...prev.slice(1), shown]);
+    }, SAMPLE_MS);
     return () => clearInterval(t);
   }, [active, reduceMotion, getLevel]);
   // paused/stopped draws flat rather than freezing on the last window
-  const shown = active && !reduceMotion ? levels : Array(bars).fill(0.05);
+  const shown = active && !reduceMotion ? levels : Array(bars).fill(LEVEL_FLOOR);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, height }}>
       {shown.map((v, i) => (
-        <View key={i} style={{ width: 2, borderRadius: 1, height: Math.max(2, v * height), backgroundColor: active ? C.accent : C.staffLine }} />
+        <View key={i} style={{ width: 3, borderRadius: 1.5, height: Math.max(3, v * height), backgroundColor: active ? C.accent : C.staffLine }} />
       ))}
     </View>
   );

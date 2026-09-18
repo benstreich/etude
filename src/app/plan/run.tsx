@@ -11,7 +11,7 @@ import { MetronomeSheet } from '@/components/metronome';
 import { MeasureBar, Tempo, TickDot } from '@/components/motifs';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { Overline } from '@/components/ui';
+import { Overline, useInstrumentFilter } from '@/components/ui';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';
 import { useStore } from '@/lib/store';
@@ -28,6 +28,7 @@ function Runner({ id }: { id: string }) {
   const s = useS();
   const C = useC();
   const store = useStore();
+  const inst = useInstrumentFilter();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const metro = useMetronome();
@@ -73,7 +74,7 @@ function Runner({ id }: { id: string }) {
   const logSegment = (sec: number) => {
     if (!plan || !seg || seg.focus.kind === 'Break') return ''; // #59: rests are never logged
     const min = Math.max(1, Math.round(sec / 60));
-    return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id);
+    return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id, inst || undefined);
   };
 
   const startSegment = (i: number) => {

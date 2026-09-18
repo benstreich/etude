@@ -5,6 +5,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
 import { forPiece, type Attachment } from './attachment-math';
+import { pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
 import { runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
@@ -46,6 +47,7 @@ export type Recording = {
   start?: number;
   end?: number;
   loop?: boolean;
+  rate?: number; // playback speed, 1 = normal; pitch is corrected so it stays in tune
 };
 // stage is an index into settings.stages
 export type Piece = {
@@ -58,7 +60,8 @@ export type Piece = {
   addedAt?: number;
   currentBpm?: number;
   targetBpm?: number;
-  instrument?: string; // #58; unset = shows under every instrument
+  instrument?: string; // #58; first of `instruments`, kept for older data and the CSV
+  instruments?: string[]; // #58; every instrument this is played on. Empty/unset = all of them
   targetDate?: string; // dateKey the piece should reach the last stage by (#56)
   targetRating?: number; // 1-5 rolling-average star target for the deadline (spec 2026-09-15)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
@@ -234,7 +237,7 @@ type Store = State & {
   week: { day: string; min: number; isToday: boolean; date: string }[];
   toast: string | null;
   showToast: (msg: string) => void;
-  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string) => string;
+  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string) => string;
   addPlan: (name: string) => string;
   updatePlan: (id: string, patch: Partial<Pick<Plan, 'name' | 'segments'>>) => void;
   removePlan: (id: string) => void;
@@ -244,7 +247,7 @@ type Store = State & {
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
-  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'artwork'>>) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'instruments' | 'artwork'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
@@ -266,6 +269,7 @@ type Store = State & {
   toggleStar: (id: string) => void;
   deleteRecording: (id: string) => void;
   renameRecording: (id: string, name: string) => void;
+  moveRecording: (id: string, piece: string) => void;
   updateRecording: (id: string, patch: Partial<Recording>) => void;
   addAttachments: (list: Attachment[]) => void;
   renameAttachment: (id: string, name: string) => void;
@@ -375,14 +379,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const logMinutes = (min: number, title: string, meta: string, date = dateKey(), planId?: string) => {
+  const logMinutes = (min: number, title: string, meta: string, date = dateKey(), planId?: string, instrument?: string) => {
     const id = uid();
     // wall-clock start only for sessions logged on the day itself; backdated logs have no time of day
     const at = date === dateKey() ? Date.now() : undefined;
     setState((s) => {
       if (!s) return s;
-      // #58: the piece's instrument, else the primary one; undefined with no instruments set
-      const instrument = s.pieces.find((p) => p.name === title)?.instrument || primaryOf(s.instruments, s.primaryInstrument) || undefined;
+      // #58: which instrument this session was on. The caller knows best — the same
+      // piece or technique can be practised on two instruments, and only the player
+      // can say which one today was. Falling back to the piece's tag, then the
+      // primary, keeps every existing caller behaving as it did.
+      const piece = s.pieces.find((p) => p.name === title);
+      const on = instrument || (piece ? pieceInstruments(piece)[0] : undefined) || primaryOf(s.instruments, s.primaryInstrument) || undefined;
       const minutesByDate = { ...s.minutesByDate, [date]: (s.minutesByDate[date] ?? 0) + min };
       return {
         ...s,
@@ -391,7 +399,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // full-history scan so streaks assembled from backdated logs count too
         bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
         // 0 on equal dates keeps the sort stable, so today's newest stays first
-        sessions: [{ id, title, meta, min, date, planId, at, instrument }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
+        sessions: [{ id, title, meta, min, date, planId, at, instrument: on }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
       };
     });
     return id;
@@ -657,6 +665,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // recordings join pieces by name, so re-homing a take is a rename of that field
+  const moveRecording: Store['moveRecording'] = (id, piece) => {
+    setState((s) => (s ? { ...s, recordings: s.recordings.map((r) => (r.id === id ? { ...r, piece } : r)) } : s));
+    showToast(t('toast.recordingMoved', { piece }));
+  };
+
   const updateRecording: Store['updateRecording'] = (id, patch) => {
     setState((s) => (s ? { ...s, recordings: s.recordings.map((r) => (r.id === id ? { ...r, ...patch } : r)) } : s));
   };
@@ -744,6 +758,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addRecording,
     deleteRecording,
     renameRecording,
+    moveRecording,
     updateRecording,
     addAttachments,
     renameAttachment,
