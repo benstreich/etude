@@ -65,3 +65,7 @@ modules/*/android/build/
 
 # session screenshots dropped in the root
 /*.png
+
+# working notes — session logs, plans, specs, store paperwork.
+# They stay on disk; the public repo shows the product, not the notebook.
+docs/internal/

@@ -34,7 +34,7 @@ npm run check:i18n     # every t() key exists in both locales
 npm run check:secrets  # nothing sensitive is tracked
 ```
 
-Native builds go through [EAS](https://docs.expo.dev/build/introduction/): `eas build --profile preview` for an installable APK, `production` for store bundles. Release steps, and where the signing keys actually live, are in [docs/release.md](docs/release.md).
+Native builds go through [EAS](https://docs.expo.dev/build/introduction/): `eas build --profile preview` for an installable APK, `production` for store bundles.
 
 ## Docs
 
@@ -44,7 +44,6 @@ Native builds go through [EAS](https://docs.expo.dev/build/introduction/): `eas 
 | [Changelog](CHANGELOG.md) | What changed, per store release |
 | [Privacy policy](docs/privacy-policy.md) | Short, because there is not much to say |
 | [Metronome](docs/metronome.md) · [Widgets](docs/widgets.md) · [Audio identity](docs/audio-identity.md) | The parts with a story |
-| [Releasing](docs/release.md) | Build, ship, and the credential runbook |
 | [Third-party notices](THIRD-PARTY-NOTICES.md) | Fonts, libraries, services |
 
 ## Contributing

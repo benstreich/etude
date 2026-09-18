@@ -45,7 +45,7 @@ const INSTRUMENT_KEYS: Record<string, string> = {
 };
 
 const REPO = 'https://github.com/benstreich/etude';
-// hosted as a gist because the app has no website to put it on (see docs/release.md)
+// hosted as a gist because the app has no website to put it on
 const PRIVACY_URL = 'https://gist.github.com/benstreich/838abedca283b1381b521958ddd46007';
 const STORE_URL = 'https://play.google.com/store/apps/details?id=com.benstreich.etude';
 
