@@ -4,10 +4,8 @@ import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FlameIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
-import type { LanguageSetting } from '@/lib/i18n';
 import { useStore } from '@/lib/store';
 import {
   ACCENTS,
@@ -31,14 +29,6 @@ const RADII: { value: RadiusMode; key: string }[] = [
   { value: 'soft', key: 'appearance.soft' },
   { value: 'round', key: 'appearance.round' },
 ];
-// language names stay endonyms — a German speaker looking for their language
-// should find "Deutsch" even while the app shows English
-const LANGS: { value: LanguageSetting; label?: string; key?: string }[] = [
-  { value: 'system', key: 'appearance.system' },
-  { value: 'en', label: 'English' },
-  { value: 'de', label: 'Deutsch' },
-];
-
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
   const C = useC();
@@ -63,18 +53,13 @@ export default function Appearance() {
       </Pressable>
       <ScreenTitle>{store.t('appearance.title')}</ScreenTitle>
 
-      {/* live preview — real components, so every knob shows instantly */}
+      {/* A specimen of the knobs below — accent, corners, text size — rather than a
+          mock of Home. The old mock still showed a "start practising" button Home
+          hasn't had since Progress moved onto it, so it aged into a lie. */}
       <Card>
-        <View style={s.previewHead}>
-          <Text style={s.previewGreeting}>{store.t('appearance.previewGreeting')}</Text>
-          <View style={s.previewPill}>
-            <FlameIcon />
-            <Text style={s.previewPillText}>{store.t('appearance.previewStreak')}</Text>
-          </View>
-        </View>
-        <Bar pct={64} color={C.accent} height={6} />
-        <View style={s.previewBtn}>
-          <Text style={s.previewBtnText}>{store.t('appearance.previewStart')}</Text>
+        <Text style={s.previewGreeting}>{store.t('appearance.previewSample')}</Text>
+        <View style={{ marginTop: 12 }}>
+          <Bar pct={64} color={C.accent} height={6} />
         </View>
       </Card>
 
@@ -83,15 +68,6 @@ export default function Appearance() {
         <View style={s.chipWrap}>
           {THEMES.map((o) => (
             <Chip key={o.value} label={store.t(o.key)} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
-          ))}
-        </View>
-      </View>
-
-      <View>
-        <Overline style={s.sectionLabel}>{store.t('appearance.language')}</Overline>
-        <View style={s.chipWrap}>
-          {LANGS.map((o) => (
-            <Chip key={o.value} label={o.label ?? store.t(o.key!)} selected={store.language === o.value} onPress={() => store.updateSettings({ language: o.value })} />
           ))}
         </View>
       </View>

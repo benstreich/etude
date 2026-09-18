@@ -32,14 +32,12 @@
       "one": "Score added",
       "other": "%{count} scores added"
     },
-    "scoreDeleted": "Score deleted"
+    "scoreDeleted": "Score deleted",
+    "recordingMoved": "Moved to %{piece}"
   },
   "appearance": {
     "backToSettings": "‹ Settings",
     "title": "Appearance",
-    "previewGreeting": "Good evening",
-    "previewStreak": "12-day streak",
-    "previewStart": "Start practicing",
     "theme": "Theme",
     "system": "System",
     "light": "Light",
@@ -65,7 +63,8 @@
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
     "accentSlate": "Slate",
-    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes."
+    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes.",
+    "previewSample": "This is how Étude will read."
   },
   "settings": {
     "breakEvery": "Break reminder",
@@ -267,7 +266,10 @@
     "toDoubleBar": "%{min} min to the double bar",
     "goalMetToday": "goal met",
     "breakDueIn": "break due in %{min} min",
-    "minSoFar": "%{min} min so far"
+    "minSoFar": "%{min} min so far",
+    "importTake": "Import a take",
+    "pauseTake": "Pause take",
+    "resumeTake": "Resume take"
   },
   "progress": {
     "insights": "Insights",
@@ -450,7 +452,10 @@
     "ownTechniquePlaceholder": "Your own technique…",
     "restore": "Restore to repertoire",
     "archive": "Archive",
-    "remove": "Remove"
+    "remove": "Remove",
+    "instrumentsHint": "Tick every instrument you play this on.",
+    "instrumentsAll": "No instrument picked — shows under all of them.",
+    "searchList": "Search your repertoire"
   },
   "compare": {
     "title": "Compare takes",
@@ -517,7 +522,12 @@
     "lagging": "behind on %{list}",
     "ratingWord": "rating",
     "tempoWord": "tempo",
-    "stageWord": "stage"
+    "stageWord": "stage",
+    "recordTake": "Record a take",
+    "stopTake": "Stop",
+    "instruments": "Instruments",
+    "instrumentsHint": "Practised on these. Pick more than one if you play it on several.",
+    "instrumentsAll": "No instrument picked — it shows under all of them."
   },
   "plan": {
     "break": "Break",
@@ -687,12 +697,32 @@
     "firstSession": "First session",
     "bestWeek": "Best week yet",
     "goalStraight": "Goal hit 7 days straight",
-    "lastTime": "Last time: %{n} ★"
+    "lastTime": "Last time: %{n} ★",
+    "importTake": "Import instead"
   },
   "recordings": {
     "namePlaceholder": "Name this take",
     "untitled": "Take",
-    "delete": "Delete"
+    "delete": "Delete",
+    "trimmed": "Trimmed",
+    "reference": "Reference",
+    "star": "Mark as reference take",
+    "unstar": "Remove reference mark",
+    "trim": "Trim",
+    "save": "Save name",
+    "cancel": "Cancel editing",
+    "loop": "Loop the clip",
+    "share": "Share",
+    "move": "Move to a piece",
+    "clearTrim": "Clear the trim",
+    "in": "In",
+    "out": "Out",
+    "here": "Here",
+    "clipLength": "Clip %{len}",
+    "moveTitle": "Move take to",
+    "moveCancel": "Cancel",
+    "saveTrim": "Save trim",
+    "cancelTrim": "Cancel"
   },
   "recap": {
     "onPace": "On pace for",
@@ -780,7 +810,8 @@
     "done": "Done",
     "unsupported": "That file is not a PDF or an image.",
     "noPdfRenderer": "PDFs need the full app build. Photos work everywhere.",
-    "importFailed": "Could not add that file."
+    "importFailed": "Could not add that file.",
+    "more": "Rename or delete"
   },
   "tools": {
     "title": "Tools",

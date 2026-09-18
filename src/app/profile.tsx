@@ -7,7 +7,6 @@ import { Alert, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-n
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddFocus } from '@/components/add-focus';
 import { ChevronIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { TimeWheel } from '@/components/time-wheel';
@@ -22,6 +21,7 @@ import { KEYS } from '@/lib/melody';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { resolveLayout } from '@/lib/progress-sections';
+import { type LanguageSetting } from '@/lib/i18n';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -47,6 +47,20 @@ const INSTRUMENT_KEYS: Record<string, string> = {
 const REPO = 'https://github.com/benstreich/etude';
 // hosted as a gist because the app has no website to put it on (see docs/release.md)
 const PRIVACY_URL = 'https://gist.github.com/benstreich/838abedca283b1381b521958ddd46007';
+const STORE_URL = 'https://play.google.com/store/apps/details?id=com.benstreich.etude';
+
+// language names stay endonyms — a German speaker looking for their language
+// should find "Deutsch" even while the app shows English
+const LANGS: { value: LanguageSetting; label?: string; key?: string }[] = [
+  { value: 'system', key: 'appearance.system' },
+  { value: 'en', label: 'English' },
+  { value: 'de', label: 'Deutsch' },
+];
+const LANG_LABEL = (store: ReturnType<typeof useStore>): Record<LanguageSetting, string> => ({
+  system: store.t('appearance.system'),
+  en: 'English',
+  de: 'Deutsch',
+});
 
 const DAY_KEYS: Record<string, string> = {
   Monday: 'settings.dayMonday',
@@ -58,7 +72,7 @@ const DAY_KEYS: Record<string, string> = {
   Sunday: 'settings.daySunday',
 };
 
-type EditKey = 'name' | 'periodGoals' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'melodyKey' | 'autoBackup';
+type EditKey = 'language' | 'name' | 'periodGoals' | 'instruments' | 'primaryInstrument' | 'goal' | 'breakEvery' | 'quickLog' | 'quickLogFocus' | 'breakDays' | 'streaks' | 'reminder' | 'weekStart' | 'stages' | 'melodyKey' | 'autoBackup';
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const s = useS();
@@ -264,9 +278,12 @@ export default function Profile() {
     { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
     { key: 'melodyKey', label: store.t('settings.melodyKey'), value: store.t('settings.majorKey', { key: store.melodyKey }) },
     { key: 'progressSections', label: store.t('settings.progressSections'), value: store.t('settings.nOfM', { n: layoutOn, m: layoutTotal }) },
+    // language is not a look-and-feel knob; it was buried in Appearance and nobody found it
+    { key: 'language', label: store.t('appearance.language'), value: LANG_LABEL(store)[store.language] },
   ];
 
   const titles: Record<EditKey, string> = {
+    language: store.t('appearance.language'),
     name: store.t('settings.yourName'),
     instruments: store.t('settings.instruments'),
     primaryInstrument: store.t('settings.primaryInstrument'),
@@ -359,15 +376,6 @@ export default function Profile() {
               <ChevronIcon />
             </Pressable>
           ))}
-          {canRate && (
-            <Pressable style={s.dataRow} onPress={() => StoreReview.requestReview().catch(() => {})}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.dataLabel}>{store.t('settings.rate')}</Text>
-                <Text style={s.dataSub}>{store.t('settings.rateSub')}</Text>
-              </View>
-              <ChevronIcon />
-            </Pressable>
-          )}
         </View>
         <Text style={s.dataFoot}>{store.t('settings.privacyFooter')}</Text>
       </View>
@@ -382,12 +390,24 @@ export default function Profile() {
               [store.t('settings.howBuilt'), `${REPO}/blob/main/docs/how-etude-is-built.md`],
               [store.t('settings.sourceCode'), REPO],
               [store.t('settings.privacyPolicy'), PRIVACY_URL],
+              // in-app review only exists for a Play install, and Play rations it even
+              // then; the listing link is the fallback that always does something
+              [store.t('settings.rate'), STORE_URL],
             ] as const
           ).map(([label, url], i, arr) => (
             <Pressable
               key={label}
               style={[s.row, i === arr.length - 1 && s.rowClose]}
-              onPress={() => Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')))}>
+              onPress={async () => {
+                if (url === STORE_URL && canRate) {
+                  try {
+                    return await StoreReview.requestReview();
+                  } catch {
+                    // fall through to the listing
+                  }
+                }
+                Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')));
+              }}>
               <Text style={[s.rowLabel, { flex: 1 }]}>{label}</Text>
               <ChevronIcon />
             </Pressable>
@@ -549,7 +569,6 @@ export default function Profile() {
                     onPress={() => pick({ quickLogFocus: { name: t, kind: 'Technique' } })}
                   />
                 ))}
-                <AddFocus onAdded={(f) => pick({ quickLogFocus: f })} />
               </View>
             )}
             {editing === 'stages' && (
@@ -643,6 +662,19 @@ export default function Profile() {
                 <Text style={s.editorHint}>{store.t('settings.autoBackupHint')}</Text>
               </>
             )}
+            {editing === 'language' && (
+              <View style={s.chipWrap}>
+                {LANGS.map((o) => (
+                  <Chip
+                    key={o.value}
+                    label={o.label ?? store.t(o.key!)}
+                    selected={store.language === o.value}
+                    onPress={() => pick({ language: o.value })}
+                  />
+                ))}
+              </View>
+            )}
+
             {editing === 'weekStart' && (
               <View style={s.chipWrap}>
                 {(['Monday', 'Sunday'] as WeekStart[]).map((w) => (
@@ -651,7 +683,7 @@ export default function Profile() {
               </View>
             )}
 
-            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'quickLogFocus' && editing !== 'streaks' && editing !== 'autoBackup' && (
+            {editing !== 'reminder' && editing !== 'weekStart' && editing !== 'language' && editing !== 'quickLogFocus' && editing !== 'streaks' && editing !== 'autoBackup' && (
               <Pressable style={s.saveBtn} onPress={save}>
                 <Text style={s.saveBtnText}>{store.t('settings.save')}</Text>
               </Pressable>

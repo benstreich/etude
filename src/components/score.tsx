@@ -74,6 +74,17 @@ export function ScoreCard({ piece }: { piece: string }) {
                 setDraft(a.name);
               }}>
               <Image source={{ uri: resolveRecordingUri(a.files[0]) }} style={s.thumbImg} contentFit="cover" transition={120} />
+              {/* rename/delete used to be long-press only, which nobody found */}
+              <Pressable
+                style={s.thumbMore}
+                hitSlop={8}
+                accessibilityLabel={store.t('score.more')}
+                onPress={() => {
+                  setEditing(a);
+                  setDraft(a.name);
+                }}>
+                <Text style={s.thumbMoreGlyph}>{'\u22EF'}</Text>
+              </Pressable>
               <View style={s.thumbFoot}>
                 <Text style={s.thumbName} numberOfLines={1}>
                   {a.name}
@@ -294,6 +305,18 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   thumb: { width: 92, borderRadius: r(10), overflow: 'hidden', backgroundColor: C.track },
   thumbImg: { width: 92, height: 108, backgroundColor: '#fff' },
   thumbFoot: { paddingHorizontal: 6, paddingVertical: 5 },
+  thumbMore: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(28,26,23,0.55)', // same scrim the viewer backdrop uses
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbMoreGlyph: { fontFamily: F.bodySemi, fontSize: fs(13), color: '#FFFFFF', lineHeight: fs(15) },
   thumbName: { fontFamily: F.bodyMed, fontSize: fs(11.5), color: C.ink },
   thumbPages: { fontFamily: F.bodyMed, fontSize: fs(10.5), color: C.tertiary },
   addTile: { width: 92, height: 108, borderRadius: r(10), borderWidth: 1, borderStyle: 'dashed', borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center', gap: 2 },

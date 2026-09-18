@@ -32,14 +32,12 @@
       "one": "Noten hinzugefügt",
       "other": "%{count} Noten hinzugefügt"
     },
-    "scoreDeleted": "Noten gelöscht"
+    "scoreDeleted": "Noten gelöscht",
+    "recordingMoved": "Nach %{piece} verschoben"
   },
   "appearance": {
     "backToSettings": "‹ Einstellungen",
     "title": "Darstellung",
-    "previewGreeting": "Guten Abend",
-    "previewStreak": "12-Tage-Serie",
-    "previewStart": "Jetzt üben",
     "theme": "Design",
     "system": "System",
     "light": "Hell",
@@ -65,7 +63,8 @@
     "accentOcean": "Ozean",
     "accentPlum": "Pflaume",
     "accentSlate": "Schiefer",
-    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Auf manchen Android-Geräten schließt sich die App kurz, wenn sich das Symbol ändert."
+    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Auf manchen Android-Geräten schließt sich die App kurz, wenn sich das Symbol ändert.",
+    "previewSample": "So wird sich Étude lesen."
   },
   "settings": {
     "breakEvery": "Pausenerinnerung",
@@ -267,7 +266,10 @@
     "toDoubleBar": "noch %{min} Min. bis zum Doppelstrich",
     "goalMetToday": "Ziel erreicht",
     "breakDueIn": "Pause in %{min} Min. fällig",
-    "minSoFar": "%{min} Min. bisher"
+    "minSoFar": "%{min} Min. bisher",
+    "importTake": "Take importieren",
+    "pauseTake": "Aufnahme pausieren",
+    "resumeTake": "Aufnahme fortsetzen"
   },
   "progress": {
     "insights": "Einsichten",
@@ -450,7 +452,10 @@
     "ownTechniquePlaceholder": "Deine eigene Technik …",
     "restore": "Ins Repertoire zurückholen",
     "archive": "Archivieren",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "instrumentsHint": "Wähle jedes Instrument, auf dem du das spielst.",
+    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
+    "searchList": "Repertoire durchsuchen"
   },
   "compare": {
     "title": "Takes vergleichen",
@@ -517,7 +522,12 @@
     "lagging": "im Rückstand bei %{list}",
     "ratingWord": "Bewertung",
     "tempoWord": "Tempo",
-    "stageWord": "Stufe"
+    "stageWord": "Stufe",
+    "recordTake": "Take aufnehmen",
+    "stopTake": "Stopp",
+    "instruments": "Instrumente",
+    "instrumentsHint": "Wird darauf geübt. Wähle mehrere, wenn du es auf mehreren spielst.",
+    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen."
   },
   "plan": {
     "break": "Pause",
@@ -687,12 +697,32 @@
     "firstSession": "Erste Einheit",
     "bestWeek": "Beste Woche bisher",
     "goalStraight": "Ziel 7 Tage in Folge erreicht",
-    "lastTime": "Letztes Mal: %{n} ★"
+    "lastTime": "Letztes Mal: %{n} ★",
+    "importTake": "Stattdessen importieren"
   },
   "recordings": {
     "namePlaceholder": "Take benennen",
     "untitled": "Take",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "trimmed": "Gekürzt",
+    "reference": "Referenz",
+    "star": "Als Referenz-Take markieren",
+    "unstar": "Referenz-Markierung entfernen",
+    "trim": "Kürzen",
+    "save": "Namen speichern",
+    "cancel": "Bearbeiten abbrechen",
+    "loop": "Ausschnitt wiederholen",
+    "share": "Teilen",
+    "move": "Zu einem Stück verschieben",
+    "clearTrim": "Kürzung zurücksetzen",
+    "in": "Start",
+    "out": "Ende",
+    "here": "Hier",
+    "clipLength": "Ausschnitt %{len}",
+    "moveTitle": "Take verschieben nach",
+    "moveCancel": "Abbrechen",
+    "saveTrim": "Kürzung speichern",
+    "cancelTrim": "Abbrechen"
   },
   "recap": {
     "onPace": "Auf Kurs für",
@@ -780,7 +810,8 @@
     "done": "Fertig",
     "unsupported": "Diese Datei ist kein PDF und kein Bild.",
     "noPdfRenderer": "PDFs brauchen den vollen App-Build. Fotos funktionieren überall.",
-    "importFailed": "Datei konnte nicht hinzugefügt werden."
+    "importFailed": "Datei konnte nicht hinzugefügt werden.",
+    "more": "Umbenennen oder löschen"
   },
   "tools": {
     "title": "Werkzeuge",
