@@ -65,7 +65,7 @@ export function sectionUnavailable(key: string, i: AvailabilityInput): Unavailab
       return i.hasGoals ? null : plain('goals');
 
     case 'hear': {
-      const withPair = i.pieces.filter((p) => recordingPair(i.recordings.filter((r) => r.piece === p.id)) !== null).length;
+      const withPair = i.pieces.filter((p) => recordingPair(i.recordings.filter((r) => r.piece === p.name)) !== null).length;
       return withPair === 0 ? plain('recordings') : null;
     }
 

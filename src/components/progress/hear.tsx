@@ -22,7 +22,7 @@ export function HearSection({ pieces }: SectionProps) {
   const router = useRouter();
 
   const rows = pieces
-    .map((p) => ({ p, pair: recordingPair(store.recordings.filter((r) => r.piece === p.id)) }))
+    .map((p) => ({ p, pair: recordingPair(store.recordings.filter((r) => r.piece === p.name)) }))
     .filter((x): x is { p: (typeof pieces)[number]; pair: NonNullable<typeof x.pair> } => x.pair !== null)
     .sort((a, b) => (a.pair[1].date < b.pair[1].date ? 1 : -1))
     .slice(0, MAX_PIECES);

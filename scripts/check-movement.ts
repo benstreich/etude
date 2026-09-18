@@ -108,8 +108,8 @@ const withData = {
   pieces: [{ id: 'p1', name: 'Asturias', stage: 2 }, { id: 'p2', name: 'Study', stage: 0 }],
   sessions: [1, 2, 3, 4, 5].map((n) => ({ id: `s${n}`, title: 'Asturias', meta: '', min: 20, date: `2026-09-0${n}`, rating: 4 })),
   recordings: [
-    { id: 'r1', piece: 'p1', date: '2026-08-01', uri: '', sec: 10 },
-    { id: 'r2', piece: 'p1', date: '2026-09-01', uri: '', sec: 10 },
+    { id: 'r1', piece: 'Asturias', date: '2026-08-01', uri: '', sec: 10 },
+    { id: 'r2', piece: 'Asturias', date: '2026-09-01', uri: '', sec: 10 },
   ],
   mbd: Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((n) => [`2026-09-0${n}`, 20])),
   hasGoals: true,
@@ -120,7 +120,7 @@ for (const key of ['movement', 'pipeline', 'timeByFocus', 'consistency', 'goals'
 }
 
 // a piece with one recording is not a before-and-after
-const oneRec = { ...withData, recordings: [{ id: 'r1', piece: 'p1', date: '2026-08-01', uri: '', sec: 10 }] } as unknown as AvailabilityInput;
+const oneRec = { ...withData, recordings: [{ id: 'r1', piece: 'Asturias', date: '2026-08-01', uri: '', sec: 10 }] } as unknown as AvailabilityInput;
 assert.deepEqual(sectionUnavailable('hear', oneRec), { reason: 'recordings', have: 0, need: 0 });
 
 // four rated sessions is still under the floor the cards enforce
