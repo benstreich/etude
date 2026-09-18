@@ -1,8 +1,8 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { useFocusEffect } from 'expo-router';
+import { useIsFocused } from 'expo-router';
 import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, TextInput, View } from 'react-native';
 
 import {
@@ -108,16 +108,25 @@ export function RecordingsList({
     if (!current.loop) player.pause(); // parked at the in point, so the next tap replays the clip
   }, [current, status.currentTime, status.playing, player]);
 
-  // a tab keeps its screen mounted, so leaving it used to carry the audio with you
-  useFocusEffect(
-    useCallback(
-      () => () => {
-        player.pause();
-        setCurrentId(null);
-      },
-      [player]
-    )
-  );
+  // A tab keeps its screen mounted, so leaving it used to carry the audio with you.
+  // This watches the blur instead of cleaning up after itself on purpose (#96):
+  // useFocusEffect's cleanup ALSO runs on unmount, and by then expo-audio has
+  // released the player — pausing a released one throws and takes the app down.
+  // Every ordinary exit blurs the screen first, so the cleanup ran harmlessly while
+  // the player was still alive; deleting the last take was the one thing that
+  // unmounted this list with its screen still focused, which is why that alone
+  // crashed. An unmount needs no pause anyway — releasing the player stops the sound.
+  // Clearing the row is the same adjust-state-during-render pattern as the loop
+  // above; only the pause itself belongs in an effect.
+  const focused = useIsFocused();
+  const [prevFocused, setPrevFocused] = useState(focused);
+  if (prevFocused !== focused) {
+    setPrevFocused(focused);
+    if (!focused) setCurrentId(null);
+  }
+  useEffect(() => {
+    if (!focused) player.pause();
+  }, [focused, player]);
 
   const toggle = (r: Recording) => {
     if (currentId === r.id) {
