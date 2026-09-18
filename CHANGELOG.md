@@ -24,7 +24,9 @@ The first version. Everything below is new.
 - Pieces and techniques, each with stages from learning to ready, a current and
   a target tempo, and a tempo log that remembers where you got to.
 - Title and artist suggestions while you type.
-- Per-instrument tracking, if you play more than one.
+- Per-instrument tracking, if you play more than one — and a piece can belong
+  to several, so the same tune counts on guitar and on violin. When it does,
+  saving a session asks which one you practised.
 
 **Progress**
 - Lives on Home now, and it is yours: every section is a switch, drag them
@@ -59,7 +61,9 @@ The first version. Everything below is new.
   accent patterns, five click sounds, its own volume — and it keeps clicking
   with the screen locked, with controls on the lock screen.
 - Tuner.
-- Practice recordings you can trim, loop, compare side by side and share.
+- Practice recordings you can trim, loop, slow down without changing the
+  pitch, scrub through, compare side by side and share. Record from a piece
+  without starting a session, or import a take from anywhere else.
 - Home-screen widgets.
 
 **The rest**
