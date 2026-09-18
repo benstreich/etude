@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, TextProps, useWindowDimensions, View, ViewProps, type StyleProp, type ViewStyle, Pressable as RNPressable } from 'react-native';
+import { Modal, StyleSheet, TextInput, TextProps, useWindowDimensions, View, ViewProps, type StyleProp, type ViewStyle, Pressable as RNPressable } from 'react-native';
 import { Pressable } from '@/components/press';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { Easing, FadeInDown, runOnJS, SlideInDown, SlideOutDown, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { KeyboardAwareScrollView, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronIcon } from '@/components/icons';
+import { ChevronIcon, SearchIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { tap, thud } from '@/lib/haptics';
 import { useStore } from '@/lib/store';
@@ -210,6 +210,57 @@ export const InstrumentFilter = ({ style }: { style?: ViewProps['style'] }) => {
   );
 };
 
+/**
+ * The list search on Practice and Repertoire. One component because the two
+ * screens are the same screen with different verbs, and hand-matched copies had
+ * already drifted — different font size, border colour and row height.
+ */
+export function SearchField({
+  value,
+  onChangeText,
+  placeholder,
+  style,
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const s = useS();
+  const C = useC();
+  return (
+    <View style={[s.searchField, style]}>
+      <SearchIcon size={18} color={C.tertiary} />
+      <TextInput
+        style={s.searchInput}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={C.tertiary}
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+      />
+    </View>
+  );
+}
+
+/**
+ * A section heading that folds its contents away. The chevron turns; the open
+ * state belongs to the caller so it can be persisted (Techniques remembers it).
+ */
+export function SectionHead({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) {
+  const s = useS();
+  const C = useC();
+  return (
+    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle}>
+      <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
+        <ChevronIcon color={C.tertiary} size={10} />
+      </View>
+      <Overline>{label}</Overline>
+    </Pressable>
+  );
+}
+
 /** Current instrument filter, or '' when it is "All" or there is nothing to filter by. */
 export const useInstrumentFilter = () => {
   const store = useStore();
@@ -373,6 +424,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   dragZone: { alignSelf: 'stretch', alignItems: 'center', paddingTop: 2, paddingBottom: 12, marginTop: -6 },
   grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive },
   segTrack: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: C.track, borderRadius: r(999), padding: 2.5 },
+  searchField: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine },
+  searchInput: { flex: 1, fontFamily: F.body, fontSize: fs(17), color: C.ink, padding: 0 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   segBtn: { height: 26, paddingHorizontal: 12, borderRadius: r(999), alignItems: 'center', justifyContent: 'center', maxWidth: 120 },
   segBtnSel: { backgroundColor: C.card, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   segText: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.sub },

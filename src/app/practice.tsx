@@ -2,12 +2,12 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronIcon, PlayIcon, SearchIcon } from '@/components/icons';
+import { ChevronIcon, PlayIcon } from '@/components/icons';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeSheet } from '@/components/metronome';
 import { LiveWaveform, NoteTempo, RollingNumber, StaffProgress } from '@/components/motifs';
@@ -15,7 +15,7 @@ import { InstrumentAsk } from '@/components/instrument-ask';
 import { ScorePill } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { EntryRow, Overline, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { EntryRow, Overline, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
@@ -403,18 +403,12 @@ export default function Practice() {
             />
           </View>
         )}
-        <View style={s.searchRow}>
-          <SearchIcon size={18} color={C.tertiary} />
-          <TextInput
-            style={s.search}
-            value={query}
-            onChangeText={setQuery}
-            placeholder={store.t('practice.searchPlaceholder')}
-            placeholderTextColor={C.tertiary}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
-        </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder={store.t('practice.searchPlaceholder')}
+          style={{ marginTop: 18, marginBottom: 4 }}
+        />
         {pieces.length > 0 && (
           <>
             <Overline style={{ marginTop: 32 }}>{store.t('practice.pieces')}</Overline>
@@ -436,9 +430,17 @@ export default function Practice() {
         )}
         {techniques.length > 0 && (
           <>
-            <Overline style={{ marginTop: 32 }}>{store.t('practice.techniques')}</Overline>
+            {/* folds away like Repertoire's, and shares the same stored choice */}
+            <View style={{ marginTop: 32 }}>
+              <SectionHead
+                label={store.t('practice.techniques')}
+                open={store.showTechniques}
+                onToggle={() => store.updateSettings({ showTechniques: !store.showTechniques })}
+              />
+            </View>
             <View style={{ marginTop: 6 }}>
-              {techniques.map((t) => (
+              {store.showTechniques &&
+                techniques.map((t) => (
                 renderOption({
                   key: t.id,
                   name: t.name,
@@ -446,9 +448,9 @@ export default function Practice() {
                   height: 52,
                   // same as the piece rows: on "All" the instrument is the only
                   // thing distinguishing two techniques of the same name
-                  meta: !inst && store.instruments.length > 1 ? instrumentLabel(t) : undefined,
-                })
-              ))}
+                    meta: !inst && store.instruments.length > 1 ? instrumentLabel(t) : undefined,
+                  })
+                ))}
             </View>
           </>
         )}
@@ -526,10 +528,8 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
   title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, marginTop: 18, marginBottom: 4 },
   manualLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
   filterRow: { marginTop: 14, marginBottom: 6 },
-  search: { flex: 1, fontFamily: F.body, fontSize: fs(17), color: C.ink },
   toolSep: { fontSize: fs(14), color: C.staffLine },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 1, borderBottomColor: C.hairline },

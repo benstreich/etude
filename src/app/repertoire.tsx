@@ -6,11 +6,11 @@ import { Pressable } from '@/components/press';
 import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronIcon, NoteIcon, SearchIcon } from '@/components/icons';
+import { NoteIcon, SearchIcon } from '@/components/icons';
 import { MeasureBar } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
-import { Card, Overline, Sheet, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { Card, Overline, SearchField, SectionHead, Sheet, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
@@ -252,18 +252,12 @@ export default function Repertoire() {
           />
         </View>
       )}
-      <View style={s.listSearchRow}>
-        <SearchIcon size={18} color={C.tertiary} />
-        <TextInput
-          style={s.listSearch}
-          value={listQuery}
-          onChangeText={setListQuery}
-          placeholder={store.t('repertoire.searchList')}
-          placeholderTextColor={C.tertiary}
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
-      </View>
+      <SearchField
+        value={listQuery}
+        onChangeText={setListQuery}
+        placeholder={store.t('repertoire.searchList')}
+        style={{ marginTop: 14, marginBottom: 4 }}
+      />
 
       {active.length === 0 && filtering ? (
         // nothing matched the search or the instrument tab. Techniques are filtered
@@ -313,12 +307,11 @@ export default function Repertoire() {
           stages, tempo ladder, recordings and scores. Collapsible, and the choice sticks (#45). */}
       {techniques.length > 0 && (
         <View style={{ gap: 6 }}>
-          <Pressable hitSlop={8} style={s.techHead} onPress={() => store.updateSettings({ showTechniques: !store.showTechniques })}>
-            <View style={{ transform: [{ rotate: store.showTechniques ? '90deg' : '0deg' }] }}>
-              <ChevronIcon color={C.tertiary} size={10} />
-            </View>
-            <Overline>{store.t('repertoire.techniques')}</Overline>
-          </Pressable>
+          <SectionHead
+            label={store.t('repertoire.techniques')}
+            open={store.showTechniques}
+            onToggle={() => store.updateSettings({ showTechniques: !store.showTechniques })}
+          />
           {store.showTechniques && (
             <View>
               {techniques.map((p, i) => (
@@ -632,8 +625,6 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40 },
   instHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginBottom: 4 },
   filterRow: { marginTop: 6, marginBottom: 4 },
-  listSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: C.hairline, paddingBottom: 10, marginTop: 14, marginBottom: 4 },
-  listSearch: { flex: 1, fontFamily: F.body, fontSize: fs(15), color: C.ink, padding: 0 },
   moveRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
   moveName: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   moveBy: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
