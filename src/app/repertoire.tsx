@@ -88,6 +88,14 @@ export default function Repertoire() {
   // #83: techniques are pieces of kind 'Technique' — same rows, same detail page
   const techniques = store.allPieces.filter((p) => p.kind === 'Technique' && !p.archived && onInstrument(p, inst) && matches(p));
   const archived = store.allPieces.filter((p) => p.archived);
+  // "add your first piece" is about an empty repertoire, not an empty result: a
+  // search or an instrument tab that matches nothing is a filter to clear, and
+  // telling someone with forty pieces that they have none is a lie either way.
+  const filtering = listQ.length > 0 || !!inst;
+  const clearFilters = () => {
+    setListQuery('');
+    if (inst) store.updateSettings({ instrumentFilter: '' });
+  };
 
   // invested time from the session log, matched by title — pieces and
   // techniques are both logged under their display name
@@ -257,7 +265,19 @@ export default function Repertoire() {
         />
       </View>
 
-      {active.length === 0 ? (
+      {active.length === 0 && filtering ? (
+        // nothing matched the search or the instrument tab. Techniques are filtered
+        // by the same rule, so this only speaks up when they came back empty too.
+        techniques.length === 0 && (
+          <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
+            <Text style={s.emptyTitle}>{store.t('repertoire.noMatchesTitle')}</Text>
+            <Text style={s.emptyText}>{store.t('repertoire.noMatchesText')}</Text>
+            <Pressable style={s.emptyBtn} onPress={clearFilters}>
+              <Text style={s.emptyBtnText}>{store.t('repertoire.clearFilters')}</Text>
+            </Pressable>
+          </View>
+        )
+      ) : active.length === 0 ? (
         <>
           <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
             <View style={s.emptyTile}>
@@ -307,7 +327,13 @@ export default function Repertoire() {
                     <Text style={s.pieceName} numberOfLines={1}>
                       {p.name}
                     </Text>
-                    <Text style={s.techMeta}>{store.t('repertoire.invested', { min: stats(p).min, day: stats(p).last ? dayLabel(stats(p).last!, store.today, store.t, store.lang) : '' })}</Text>
+                    {/* never practised has no "last" day to name — the piece rows
+                        above take the same branch, so keep the two reading alike */}
+                    <Text style={s.techMeta}>
+                      {stats(p).min > 0 && stats(p).last
+                        ? store.t('repertoire.invested', { min: stats(p).min, day: dayLabel(stats(p).last!, store.today, store.t, store.lang) })
+                        : store.t('repertoire.notPractisedYet')}
+                    </Text>
                   </View>
                   {p.stage >= 0 && <Text style={[s.stageWord, { color: stageColor(C, p.stage, store.stages.length) }]}>{store.stages[Math.min(p.stage, store.stages.length - 1)]}</Text>}
                 </Pressable>

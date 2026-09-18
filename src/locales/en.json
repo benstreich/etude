@@ -269,7 +269,8 @@
     "minSoFar": "%{min} min so far",
     "importTake": "Import a take",
     "pauseTake": "Pause take",
-    "resumeTake": "Resume take"
+    "resumeTake": "Resume take",
+    "discardTake": "Discard take"
   },
   "progress": {
     "insights": "Insights",
@@ -455,7 +456,10 @@
     "remove": "Remove",
     "instrumentsHint": "Tick every instrument you play this on.",
     "instrumentsAll": "No instrument picked — shows under all of them.",
-    "searchList": "Search your repertoire"
+    "searchList": "Search your repertoire",
+    "noMatchesTitle": "Nothing matches",
+    "noMatchesText": "No piece or technique here fits that search and instrument.",
+    "clearFilters": "Clear filters"
   },
   "compare": {
     "title": "Compare takes",
@@ -471,7 +475,9 @@
     },
     "playing": "Playing %{which}",
     "flipHint": "Tap to flip — playback keeps its position",
-    "pickHint": "Tap a take to make it A, then B keeps the other slot."
+    "pickHint": "Tap a take to make it A, then B keeps the other slot.",
+    "goneTitle": "That take is gone",
+    "goneText": "One of the two recordings was deleted, so there is nothing left to compare."
   },
   "piece": {
     "forecast": "At this rate: %{target} BPM around %{date}",
@@ -703,6 +709,10 @@
   "recordings": {
     "namePlaceholder": "Name this take",
     "untitled": "Take",
+    "unfiled": "Unfiled take",
+    "deleteTitle": "Delete this take?",
+    "deleteBody": "“%{name}” and its audio file are removed for good. This cannot be undone.",
+    "shareWholeHint": "Sharing sends the whole take — a trim only steers playback here.",
     "delete": "Delete",
     "trimmed": "Trimmed",
     "reference": "Reference",

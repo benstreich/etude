@@ -2,8 +2,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useFocusEffect } from 'expo-router';
 import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, StyleSheet, TextInput, View } from 'react-native';
 
 import {
   CheckIcon,
@@ -39,6 +39,11 @@ import {
 const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 // tenths, for the trim bounds — a 0.1s nudge has to be legible or the buttons look dead
 const fmtFine = (sec: number) => `${fmt(sec)}.${Math.floor((sec % 1) * 10)}`;
+
+// The scrub/trim strip for a take with no level samples — an imported file. Values
+// are never drawn as heights (see `hasWave`); the array only sets how finely the
+// track is divided, so the playhead and the trim shading have somewhere to land.
+const FLAT_WAVE: number[] = Array(60).fill(0);
 
 const RATES = [1, 0.75, 0.5];
 const nextRate = (rate: number) => RATES[(RATES.indexOf(rate) + 1) % RATES.length] ?? 0.75;
@@ -153,6 +158,23 @@ export function RecordingsList({
     store.deleteRecording(r.id);
   };
 
+  // A take is the one thing here that can't be made again, and the bin sits a
+  // thumb's width from star and trim. Ask first — this deletes the file too.
+  const confirmRemove = (r: Recording) => {
+    const label = r.name || (showPiece ? r.piece : store.t('recordings.untitled'));
+    const title = store.t('recordings.deleteTitle');
+    const body = store.t('recordings.deleteBody', { name: label });
+    // ponytail: Alert.alert is a no-op on web; window.confirm covers it (see practice.tsx)
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title} ${body}`)) remove(r);
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: store.t('recordings.moveCancel'), style: 'cancel' },
+      { text: store.t('recordings.delete'), style: 'destructive', onPress: () => remove(r) },
+    ]);
+  };
+
   // ponytail: shares the whole file — trimming AAC needs a native encoder we don't have
   const share = (r: Recording) => {
     Sharing.shareAsync(resolveRecordingUri(r.uri), { mimeType: 'audio/mp4', dialogTitle: r.name || r.piece }).catch(() => {});
@@ -195,11 +217,17 @@ export function RecordingsList({
     else if (currentId === r.id) player.seekTo(timeAt(r, x, waveW));
   };
 
-  if (recordings.length === 0) return null;
-
   // starred ("my reference take") float to the top — the same takes Compare and
-  // the Progress "hear the difference" section reach for, so the order matches
-  const list = [...recordings].sort((a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0));
+  // the Progress "hear the difference" section reach for, so the order matches.
+  // Memoised because the player status ticks ~10×/s and re-renders this list; the
+  // takes themselves only change when the store does. Above the early return: a
+  // hook after it would change hook order the first time a take is added.
+  const list = useMemo(
+    () => [...recordings].sort((a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0)),
+    [recordings]
+  );
+
+  if (recordings.length === 0) return null;
 
   return (
     <View>
@@ -208,7 +236,12 @@ export function RecordingsList({
         const trimming = trimId === r.id;
         const c = clipOf(r); // draft bounds while trimming, the saved ones otherwise
         const open = currentId === r.id || trimming;
-        const showWave = !!r.wave?.length && open;
+        // An imported take carries no level samples, and gating the strip on them
+        // took the scrub surface and the trim grips away with the picture — trimming
+        // one was nudge-only, 0.1s a tap. Draw a flat track instead: no waveform to
+        // show, but the same thing to drag.
+        const wave = r.wave?.length ? r.wave : FLAT_WAVE;
+        const hasWave = !!r.wave?.length;
         const at = currentId === r.id ? status.currentTime : inPoint(c);
         const rate = r.rate ?? 1;
         return (
@@ -272,14 +305,14 @@ export function RecordingsList({
                     onPress={() => (trimming ? closeTrim() : openTrim(r))}>
                     <ScissorsIcon color={trimming ? C.accent : C.sub} />
                   </Pressable>
-                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.delete')} onPress={() => remove(r)}>
+                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.delete')} onPress={() => confirmRemove(r)}>
                     <TrashIcon />
                   </Pressable>
                 </>
               )}
             </View>
 
-            {showWave && (
+            {open && (
               <View
                 style={s.wave}
                 onLayout={(e) => setWaveW(e.nativeEvent.layout.width)}
@@ -287,15 +320,17 @@ export function RecordingsList({
                 onMoveShouldSetResponder={() => trimming || currentId === r.id}
                 onResponderGrant={(e) => onWaveGrant(r, e.nativeEvent.locationX)}
                 onResponderMove={(e) => onWaveMove(r, e.nativeEvent.locationX)}>
-                {r.wave!.map((v, j) => {
-                  const barAt = ((j + 0.5) / r.wave!.length) * r.sec;
+                {wave.map((v, j) => {
+                  const barAt = ((j + 0.5) / wave.length) * r.sec;
                   const outside = barAt < inPoint(c) || barAt > outPoint(c);
                   return (
                     <View
                       key={j}
                       style={{
+                        // a placeholder track is a thin line, never a fake waveform:
+                        // an invented shape would make trim and Compare lie about the audio
                         flex: 1,
-                        height: 4 + v * 24,
+                        height: hasWave ? 4 + v * 24 : 3,
                         borderRadius: 2,
                         opacity: outside ? 0.25 : 1,
                         backgroundColor: !outside && barAt <= at ? C.accent : C.chartInactive,
@@ -376,6 +411,9 @@ export function RecordingsList({
                     <ShareIcon color={C.sub} size={18} />
                   </Pressable>
                 </View>
+                {/* the share button sits inside the trim panel, which reads as
+                    "share the clip" — it can't be, so say so rather than surprise */}
+                <Text style={s.meta}>{store.t('recordings.shareWholeHint')}</Text>
                 <View style={s.trimActions}>
                   <Pressable style={s.trimCancel} hitSlop={8} onPress={closeTrim}>
                     <Text style={s.trimCancelText}>{store.t('recordings.cancelTrim')}</Text>

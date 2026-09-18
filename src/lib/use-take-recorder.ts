@@ -95,8 +95,18 @@ export function useTakeRecorder(pieceName: () => string | null) {
     const raw = waveRef.current;
     waveRef.current = [];
     const piece = nameRef.current();
-    if (recorder.uri && piece)
-      store.addRecording(piece, toStoredUri(recorder.uri), Math.round(totalMs / 1000), downsample(raw));
+    // No focus at stop time — the piece was deleted, or the screen was left with a
+    // take still running. Dropping it here lost the audio *and* leaked the file:
+    // nothing in the store referenced it, so nothing could ever delete it. File it
+    // under a name no piece carries instead; Repertoire lists takes whose piece is
+    // missing and can re-home them onto a real one.
+    if (recorder.uri)
+      store.addRecording(
+        piece ?? store.t('recordings.unfiled'),
+        toStoredUri(recorder.uri),
+        Math.round(totalMs / 1000),
+        downsample(raw)
+      );
   };
 
   useEffect(() => {

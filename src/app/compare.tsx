@@ -68,7 +68,21 @@ export default function Compare() {
     )
   );
 
-  if (!recA || !recB) return null;
+  // a take can go while this screen sits in the stack — deleted from the piece page,
+  // or reached by a stale link. Rendering null left a blank screen with no way back
+  // but the system gesture, so say what happened and offer the way out.
+  if (!recA || !recB)
+    return (
+      <View style={[s.page, { flex: 1, backgroundColor: C.bg, paddingTop: insets.top + 16 }]}>
+        <View style={s.navRow}>
+          <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8}>
+            <Text style={s.navGlyph}>‹</Text>
+          </Pressable>
+        </View>
+        <Text style={s.title}>{store.t('compare.goneTitle')}</Text>
+        <Text style={s.meta}>{store.t('compare.goneText')}</Text>
+      </View>
+    );
 
   const cur = active === 'A' ? playerA : playerB;
   const curStatus = active === 'A' ? statusA : statusB;
@@ -89,7 +103,11 @@ export default function Compare() {
     const target = to === 'A' ? playerA : playerB;
     const targetDur = to === 'A' ? statusA.duration : statusB.duration;
     const from = ended(curStatus) ? 0 : curStatus.currentTime;
-    const pos = targetDur > 0 && from >= targetDur - 0.25 ? 0 : from;
+    // a player that hasn't loaded yet reports duration 0, and carrying the position
+    // over unchecked used to seek past the end of a shorter take — the same "plays
+    // 50ms of nothing" this guard exists to stop. Unknown length, so start at 0.
+    const known = targetDur > 0 ? targetDur : (to === 'A' ? recA.sec : recB.sec);
+    const pos = known > 0 && from >= known - 0.25 ? 0 : from;
     const wasPlaying = playing;
     cur.pause();
     target.seekTo(pos);
@@ -101,6 +119,10 @@ export default function Compare() {
   const assign = (w: 'A' | 'B', id: string) => {
     const a = recA.id;
     const b = recB.id;
+    // both get `replace`d when the params land; swapping sources under a playing
+    // player left audio running against the take you no longer had selected
+    playerA.pause();
+    playerB.pause();
     if (w === 'A') router.setParams({ a: id, b: id === b ? a : b });
     else router.setParams({ a: id === a ? b : a, b: id });
   };

@@ -20,8 +20,16 @@ export function Pressable({ style, onPressIn, onPressOut, ...p }: PressableProps
   const [pressed, setPressed] = useState(false);
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  // a function style still gets React Native's { pressed }; the animated style rides on top
-  const resolved = (typeof style === 'function' ? style({ pressed }) : style) as StyleProp<ViewStyle>;
+  // A function style still gets React Native's state; the animated style rides on top.
+  // PressableStateCallbackType is { pressed } in React Native and { pressed, hovered }
+  // once expo/types augments it for web — and that augmentation only loads through
+  // expo-env.d.ts, which is gitignored and generated on first run. So tsc sees one
+  // shape on a clean clone and the other on a machine that has run the app, and an
+  // object literal fails one of them either way: too few keys here, an excess key there.
+  // Passing a variable instead sidesteps the excess property check, which only applies
+  // to fresh literals, while still carrying `hovered` for the augmented shape.
+  const state = { pressed, hovered: false };
+  const resolved = (typeof style === 'function' ? style(state) : style) as StyleProp<ViewStyle>;
   const pressIn: PressableProps['onPressIn'] = (e) => {
     setPressed(true);
     springTo(scale, 0.96);

@@ -269,7 +269,8 @@
     "minSoFar": "%{min} Min. bisher",
     "importTake": "Take importieren",
     "pauseTake": "Aufnahme pausieren",
-    "resumeTake": "Aufnahme fortsetzen"
+    "resumeTake": "Aufnahme fortsetzen",
+    "discardTake": "Aufnahme verwerfen"
   },
   "progress": {
     "insights": "Einsichten",
@@ -455,7 +456,10 @@
     "remove": "Entfernen",
     "instrumentsHint": "Wähle jedes Instrument, auf dem du das spielst.",
     "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
-    "searchList": "Repertoire durchsuchen"
+    "searchList": "Repertoire durchsuchen",
+    "noMatchesTitle": "Keine Treffer",
+    "noMatchesText": "Kein Stück und keine Technik passt zu Suche und Instrument.",
+    "clearFilters": "Filter zurücksetzen"
   },
   "compare": {
     "title": "Takes vergleichen",
@@ -471,7 +475,9 @@
     },
     "playing": "%{which} läuft",
     "flipHint": "Zum Wechseln tippen — die Position bleibt erhalten",
-    "pickHint": "Tippe auf einen Take, um ihn zu A zu machen; B übernimmt den anderen Platz."
+    "pickHint": "Tippe auf einen Take, um ihn zu A zu machen; B übernimmt den anderen Platz.",
+    "goneTitle": "Diese Aufnahme gibt es nicht mehr",
+    "goneText": "Eine der beiden Aufnahmen wurde gelöscht — es bleibt nichts zum Vergleichen."
   },
   "piece": {
     "forecast": "In diesem Tempo: %{target} BPM etwa am %{date}",
@@ -703,6 +709,10 @@
   "recordings": {
     "namePlaceholder": "Take benennen",
     "untitled": "Take",
+    "unfiled": "Nicht zugeordnet",
+    "deleteTitle": "Diese Aufnahme löschen?",
+    "deleteBody": "„%{name}“ und die Audiodatei werden endgültig entfernt. Das lässt sich nicht rückgängig machen.",
+    "shareWholeHint": "Geteilt wird die ganze Aufnahme — der Trim steuert nur die Wiedergabe hier.",
     "delete": "Löschen",
     "trimmed": "Gekürzt",
     "reference": "Referenz",

@@ -305,7 +305,13 @@ export function TickDot({ bpm, on, color }: { bpm: number; on: boolean; color: s
 /** Quietest bar we draw — silence still reads as a line, not as nothing. */
 export const LEVEL_FLOOR = 0.05;
 const SAMPLE_MS = 90;
-/** ~1.8s of an unmoving floor before we stop believing the mic level. */
+/**
+ * ~1.8s of floor from the very first sample before we stop believing the mic.
+ * Counted only until the mic proves itself once: a rest, a soft passage or a
+ * pause between phrases is silence we should draw as silence, not a reason to
+ * switch to the stand-in. A device that never reports anything trips this inside
+ * the first two seconds and stays there for the take.
+ */
 const DEAD_AFTER = 20;
 
 /**
@@ -347,7 +353,8 @@ export function LiveWaveform({
   const { reduceMotion } = useTheme();
   const [levels, setLevels] = useState<number[]>(() => Array(bars).fill(LEVEL_FLOOR));
   const step = useRef(0); // sample counter, drives the fallback shape
-  const flat = useRef(0); // consecutive samples stuck at the floor
+  const flat = useRef(0); // samples seen at the floor before the mic ever moved
+  const heard = useRef(false); // the mic reported a real level at least once this take
   // read through a ref so a new `onSample` identity never restarts the interval
   const sink = useRef(onSample);
   useEffect(() => {
@@ -355,18 +362,26 @@ export function LiveWaveform({
   });
   useEffect(() => {
     if (!active) return;
+    // a fresh run of the meter: the previous take's verdict must not carry over,
+    // or a take that ended in silence opens the next one on the stand-in shape
+    step.current = 0;
+    flat.current = 0;
+    heard.current = false;
     const t = setInterval(() => {
       const v = Math.min(1, Math.max(LEVEL_FLOOR, getLevel()));
       sink.current?.(v); // the SAVED waveform is only ever real samples — see below
       step.current += 1;
-      flat.current = v <= LEVEL_FLOOR ? flat.current + 1 : 0;
+      if (v > LEVEL_FLOOR) heard.current = true;
+      else if (!heard.current) flat.current += 1;
       // Some devices never report a level: Android metering reads
       // MediaRecorder.getMaxAmplitude(), and where that returns 0 the bars would
-      // sit dead flat for the whole take and look broken. After DEAD_AFTER
-      // samples of nothing we drive the *display* from a travelling wave instead,
-      // so it reads as "recording" rather than as "not working". It is not a level
-      // meter at that point, and it is deliberately kept out of `onSample`.
-      const shown = flat.current > DEAD_AFTER ? synthetic(step.current) : v;
+      // sit dead flat for the whole take and look broken. When the mic has said
+      // nothing at all for DEAD_AFTER samples we drive the *display* from a
+      // travelling wave instead, so it reads as "recording" rather than as "not
+      // working". Once a real level arrives we never come back here — silence
+      // after that is the room being quiet, and drawing it as playing would lie.
+      // It is not a level meter at that point, and is kept out of `onSample`.
+      const shown = !heard.current && flat.current > DEAD_AFTER ? synthetic(step.current) : v;
       if (!reduceMotion) setLevels((prev) => [...prev.slice(1), shown]);
     }, SAMPLE_MS);
     return () => clearInterval(t);

@@ -324,9 +324,16 @@ export default function PieceDetail() {
         {take.recording && (
           <View style={{ marginTop: 4, marginBottom: 10, gap: 8 }}>
             <LiveWaveform active={!take.paused} getLevel={take.micLevel} onSample={take.onSample} />
-            <Pressable hitSlop={8} onPress={take.pauseResume} style={{ alignSelf: 'flex-start' }}>
-              <Text style={s.compareLink}>{take.paused ? store.t('practice.resume') : store.t('practice.pause')}</Text>
-            </Pressable>
+            {/* pause and discard, the same pair Practice offers — without discard the
+                only way out of a take started by mistake was to save it and delete it */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+              <Pressable hitSlop={8} onPress={take.pauseResume}>
+                <Text style={s.compareLink}>{take.paused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}</Text>
+              </Pressable>
+              <Pressable hitSlop={8} onPress={take.discard}>
+                <Text style={[s.compareLink, { color: C.sub }]}>{store.t('practice.discardTake')}</Text>
+              </Pressable>
+            </View>
           </View>
         )}
         {recordings.length > 0 ? (
