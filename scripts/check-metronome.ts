@@ -19,6 +19,9 @@ import {
   parseSig,
   tapTempo,
   advanceTick,
+  handoffTick,
+  resumeTick,
+  tickInterval,
   volumeGain,
   type Ramp,
 } from '../src/lib/metronome-math.ts';
@@ -153,5 +156,56 @@ for (const sig of [
 // and the accents it drives: 6/8 is ACCENT . . MID . .
 assert.deepEqual(defaultAccents({ beats: 6, denom: 8 }), [ACCENT, PLAIN, PLAIN, MID, PLAIN, PLAIN]);
 assert.deepEqual(defaultAccents({ beats: 3, denom: 8 }), [ACCENT, PLAIN, PLAIN], 'simple meter gets no group click');
+
+// --- handing the loop over, and taking it back ------------------------
+// Backgrounding moves the click loop to the foreground service and coming
+// back takes it again. Restarting instead of continuing is what doubled the
+// click and reset the bar, so the phase is the thing to pin down.
+
+// the service is told which tick is next and what is left of its wait
+assert.deepEqual(handoffTick({ beats: 7, sub: 1, nextAt: 10_250 }, 10_000), { beat: 7, sub: 1, startIn: 250 });
+// a tick already due fires at once instead of being scheduled in the past
+assert.deepEqual(handoffTick({ beats: 7, sub: 1, nextAt: 10_250 }, 11_000), { beat: 7, sub: 1, startIn: 0 });
+// the beat counter is absolute, not a position in the bar: beat 12 of 4/4 is
+// still beat 12, or a bars-based ramp loses everything it had climbed
+assert.equal(handoffTick({ beats: 12, sub: 0, nextAt: 1 }, 0).beat, 12);
+
+// coming back, the service's position wins and the wait is what was left of it
+assert.deepEqual(resumeTick({ beats: 7, sub: 1 }, { beat: 30, sub: 2, nextIn: 120 }, 500), {
+  beats: 30,
+  sub: 2,
+  wait: 120,
+});
+// nothing ticked natively (iOS, Expo Go, a run that never left the foreground):
+// the run keeps its own count and waits a whole interval
+assert.deepEqual(resumeTick({ beats: 7, sub: 1 }, null, 500), { beats: 7, sub: 1, wait: 500 });
+assert.deepEqual(resumeTick({ beats: 7, sub: 1 }, undefined, 500), { beats: 7, sub: 1, wait: 500 });
+// a report that reached us late doesn't schedule the next tick in the past
+assert.equal(resumeTick({ beats: 0, sub: 0 }, { beat: 3, sub: 0, nextIn: -40 }, 500).wait, 0);
+// counters cross the bridge as doubles
+assert.deepEqual(resumeTick({ beats: 0, sub: 0 }, { beat: 12.0, sub: 0.0, nextIn: 33.4 }, 500), {
+  beats: 12,
+  sub: 0,
+  wait: 33.4,
+});
+
+// A round trip is the whole point: the tick that was next when the screen went
+// off is the tick that plays when it comes back, at the moment it was due —
+// not a fresh downbeat on top of the click JS had just played.
+const handed = handoffTick({ beats: 5, sub: 0, nextAt: 1_000 }, 900);
+const taken = resumeTick({ beats: 5, sub: 0 }, { ...handed, nextIn: handed.startIn }, 500);
+assert.deepEqual(taken, { beats: 5, sub: 0, wait: 100 });
+assert.equal(accentLevel(taken.beats, four), accentLevel(5, four), 'the bar plays the accent it was going to');
+
+// the service counts on: three bars of 4/4 later the ramp still measures whole
+// bars from the run's own zero
+const later = resumeTick({ beats: 5, sub: 0 }, { beat: 17, sub: 0, nextIn: 0 }, 500);
+assert.equal(Math.floor((later.beats - 5) / four.beats), 3);
+
+// interval: 120 BPM is half a second a beat, and subdivisions divide it
+assert.equal(tickInterval(120, 1), 500);
+assert.equal(tickInterval(120, 4), 125);
+assert.equal(tickInterval(120, 5), 500); // not a shipped subdivision - just the beat
+assert.equal(tickInterval(0, 1), 3000); // clamped to 20 BPM rather than dividing by zero
 
 console.log('metronome math ok');

@@ -5,7 +5,7 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { Platform } from 'react-native';
 
 import { applyAudioMode } from './audio-mode';
-import type { CueVoice } from './cue-voice';
+import { cueAllowed, type CueVoice } from './cue-voice';
 import { metronomeRunning } from './metronome';
 
 // same motif in four timbres; the voice follows the primary instrument (#53)
@@ -26,12 +26,10 @@ let lastPlay = 0;
  * iOS mutes it for us rather than us second-guessing the ring switch.
  */
 export function playSessionComplete(enabled: boolean, voice: CueVoice = 'mallet') {
-  if (!enabled || Platform.OS === 'web' || metronomeRunning()) return;
-  // ponytail: one cue per 3s. The review effect fired twice and doubled the
-  // sound (#53); a window costs one comparison and survives whatever remount
-  // caused it. Drop it if the caller ever needs two cues back to back.
-  if (Date.now() - lastPlay < 3000) return;
-  lastPlay = Date.now();
+  const now = Date.now();
+  if (Platform.OS === 'web') return;
+  if (!cueAllowed({ enabled, metronomeRunning: metronomeRunning(), lastPlay, now })) return;
+  lastPlay = now;
   try {
     applyAudioMode({ playsInSilentMode: false, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
     const p = (players[voice] ??= createAudioPlayer(SESSION_COMPLETE[voice]));

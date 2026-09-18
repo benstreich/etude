@@ -100,3 +100,22 @@ export function cueVoice(instrument: string | undefined): CueVoice {
 export function primaryOf(instruments: string[], primary: string): string {
   return instruments.includes(primary) ? primary : (instruments[0] ?? '');
 }
+
+// --- when the cue may sound -------------------------------------------
+// One cue, one saved session. The rule lives here rather than in sounds.ts so
+// it can be checked without expo-audio: getting it wrong is a cue playing over
+// the click, or the same cue twice.
+
+/** Two cues closer than this are the same moment arriving twice. */
+export const CUE_GAP_MS = 3000;
+
+/**
+ * Whether the session-complete cue may play. Silent when the Sounds setting is
+ * off and while the metronome is running — a cue must never talk over the
+ * click. The window survives whatever remount fired the caller twice; drop it
+ * only if some caller genuinely needs two cues back to back.
+ */
+export function cueAllowed(at: { enabled: boolean; metronomeRunning: boolean; lastPlay: number; now: number }): boolean {
+  if (!at.enabled || at.metronomeRunning) return false;
+  return at.now - at.lastPlay >= CUE_GAP_MS;
+}

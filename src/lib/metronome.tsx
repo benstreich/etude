@@ -17,8 +17,11 @@ import {
   clampVolume,
   cycleLevel,
   fitAccents,
+  handoffTick,
   parseSig,
+  resumeTick,
   SOUND_SETS,
+  tickInterval,
   volumeGain,
   type Level,
   type Ramp,
@@ -229,8 +232,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   const tickConfig = useCallback((from?: Run) => {
     const l = latest.current;
     const config = { bpm: l.bpm, pattern: l.accents, subdiv: l.subdiv, sound: l.sound, volume: l.volume };
-    if (!from) return config;
-    return { ...config, beat: from.beats, sub: from.sub, startIn: Math.max(0, from.nextAt - Date.now()) };
+    return from ? { ...config, ...handoffTick(from, Date.now()) } : config;
   }, []);
 
   // Fires once per subdivision tick. The beat counter only moves on `sub === 0`,
@@ -259,7 +261,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     });
     setLiveBpm((current) => (current === next ? current : next));
 
-    const interval = 60000 / next / n;
+    const interval = tickInterval(next, n);
     r.nextAt += interval;
     // after a long suspend, resync instead of firing a burst of catch-up clicks
     if (r.nextAt < Date.now() - 500) r.nextAt = Date.now() + interval;
@@ -420,15 +422,13 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       const r = run.current;
       if (state === 'active') {
         // where the service got to, so the bar carries on rather than restarting
-        const at = Controls?.stopTicking();
+        const report = Controls?.stopTicking();
         if (r && r.timer === null) {
-          if (at) {
-            r.beats = at.beat;
-            r.sub = at.sub;
-          }
-          const wait = at ? at.nextIn : 60000 / latest.current.bpm / latest.current.subdiv;
-          r.nextAt = Date.now() + wait;
-          r.timer = setTimeout(tick, wait);
+          const back = resumeTick(r, report, tickInterval(latest.current.bpm, latest.current.subdiv));
+          r.beats = back.beats;
+          r.sub = back.sub;
+          r.nextAt = Date.now() + back.wait;
+          r.timer = setTimeout(tick, back.wait);
         }
       } else if (r) {
         if (r.timer) clearTimeout(r.timer);
