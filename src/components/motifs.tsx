@@ -1,13 +1,13 @@
 // Musical motifs from the soul pass: progress drawn as notation instead of as
 // a ring or a pill row. Both draw in on mount and then sit still — the whole
 // motion budget for these screens.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
 
 import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
-import { accidentalFor, valueFor, type MelodyKey, type MelodyNote } from '@/lib/melody';
+import { accidentalFor, eighthsFor, meterFor, valueFor, type MelodyKey, type MelodyNote } from '@/lib/melody';
 import { barlines, tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
@@ -61,6 +61,9 @@ const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * 20);
 const MELODY_H = RULES[4] + 24; // rules plus the day letters beneath
 const NOTE_W = 34; // one note's column
 const BAR_W = 10; // barline plus its breathing room
+const METER_W = 16; // the time signature's column, only where the meter changes
+// numerator centred in the space above the middle rule, denominator below it
+const METER_DIGIT = { position: 'absolute' as const, left: 0, right: 0, textAlign: 'center' as const, fontFamily: F.bodySemi, fontSize: 15, lineHeight: 20 };
 const B_LINE = RULES[2]; // pitch index 4 sits on the middle rule
 // head centre on the middle rule needs the glyph box 36px above it (tuned on device:
 // 18 at a 54 rule); every glyph shares a baseline so one offset places them all
@@ -68,11 +71,12 @@ const HEAD_TO_TOP = 36;
 const headY = (pitch: number) => B_LINE - (pitch - 4) * 10;
 
 /**
- * The practice log as a melody: one bar per day, one note per focus practiced
- * that day, its pitch owned by the piece or technique (lib/melody.ts) and its
- * value the minutes against the daily goal — a whole note is the goal met, a
- * fermata over it means beaten. A day off is a rest. Today is the rightmost bar,
- * and the staff opens scrolled to it.
+ * The practice log as a melody: one bar per day, one note per session in it, its
+ * pitch owned by the piece or technique practised (lib/melody.ts) and its value
+ * that session's minutes against the daily goal — so a bar fills up as the day
+ * does, and how the day was split is its rhythm. A fermata over the last note of
+ * a bar means the goal was beaten. A day off is a rest. Today is the rightmost
+ * bar, and the staff opens scrolled to it.
  */
 export function MelodyStaff({
   bars,
@@ -96,38 +100,71 @@ export function MelodyStaff({
 }) {
   const C = useC();
   const scroll = useRef<ScrollView>(null);
-  const width = bars.reduce((w, b) => w + BAR_W + Math.max(1, b.notes.length) * NOTE_W, 0) + 20;
+  // Every bar is a day, so every bar has its own meter — written only where it
+  // changes, the way a score does, so a steady run of days stays quiet. A day off
+  // rests the whole bar and inherits the meter, like any full-bar rest.
+  const metered = useMemo(() => {
+    const out: { b: (typeof bars)[number]; meter: number | null; pad: number }[] = [];
+    let prev = 0; // the meter still in force, carried across days off
+    for (const b of bars) {
+      const m = meterFor(eighthsFor(b.notes, goal));
+      if (!m) {
+        out.push({ b, meter: null, pad: 0 });
+        continue;
+      }
+      out.push({ b, meter: m.beats === prev ? null : m.beats, pad: m.padEighths });
+      prev = m.beats;
+    }
+    return out;
+  }, [bars, goal]);
+  const width = metered.reduce((w, x) => w + BAR_W + (x.meter ? METER_W : 0) + (x.pad ? NOTE_W / 2 : 0) + Math.max(1, x.b.notes.length) * NOTE_W, 0) + 20;
   const jumped = useRef(false);
   // a plain render function, not a nested component: a component defined inside
   // render is a new type every time and would remount all 84 bars per re-render
-  const renderBar = (b: (typeof bars)[number]) => {
+  const renderBar = ({ b, meter, pad }: (typeof metered)[number]) => {
     const on = b.date === selected || b.date === sounding;
     const ink = on || b.isToday ? C.accent : C.ink;
+    const beaten = b.notes.reduce((a, n) => a + n.min, 0) > goal;
     return (
       <Pressable key={b.date} style={{ flexDirection: 'row' }} disabled={!onSelect} onPress={() => onSelect?.(b.date)}>
         <View style={{ width: BAR_W, paddingLeft: 4, marginTop: STAFF_TOP }}>
           <View style={{ width: 1.5, height: 81, backgroundColor: C.barline }} />
         </View>
+        {/* numerals rather than the notation font's signature glyphs: these sit on
+            the staff at a size the rules dictate, which those glyphs will not */}
+        {meter !== null && (
+          <View style={{ width: METER_W, height: MELODY_H, marginTop: STAFF_TOP }}>
+            <Text style={[METER_DIGIT, { top: 10, color: C.sub }]}>{meter}</Text>
+            <Text style={[METER_DIGIT, { top: 50, color: C.sub }]}>4</Text>
+          </View>
+        )}
         <View style={{ alignItems: 'center', height: MELODY_H }}>
           <View style={{ flexDirection: 'row', height: MELODY_H }}>
             {b.notes.length === 0 ? (
               <Text style={{ width: NOTE_W, textAlign: 'center', marginTop: RULES[1], fontFamily: F.notation, fontSize: 44, lineHeight: 44, color: on ? C.accent : C.sub }}>{'\u{1D13D}'}</Text>
             ) : (
-              b.notes.map((n) => {
+              b.notes.map((n, i) => {
                 const v = valueFor(n.min, goal);
                 const y = headY(n.pitch);
                 const acc = accidentalFor(n.pitch, melodyKey);
                 return (
-                  <View key={n.title} style={{ width: NOTE_W, height: MELODY_H }}>
+                  <View key={n.id} style={{ width: NOTE_W, height: MELODY_H }}>
                     {!!acc && <Text style={{ position: 'absolute', left: 0, top: y - 11, fontFamily: F.notation, fontSize: 18, lineHeight: 22, color: ink }}>{acc}</Text>}
-                    {n.min > goal && (
+                    {/* beating the goal is the day's doing, not one session's: the mark rides the bar's last note */}
+                    {beaten && i === b.notes.length - 1 && (
                       <Text style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', top: y - 42, fontFamily: F.notation, fontSize: 22, lineHeight: 22, color: ink }}>{'\u{1D110}'}</Text>
                     )}
                     <Text style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', top: y - HEAD_TO_TOP, fontFamily: F.notation, fontSize: 44, lineHeight: 44, color: ink }}>{v.glyph}</Text>
-                    {v.dotted && <View style={{ position: 'absolute', left: NOTE_W / 2 + 9, top: y - 7, width: 4, height: 4, borderRadius: 2, backgroundColor: ink }} />}
+                    {/* the whole-note head is wider than the rest, so its dot has to stand further off or it sits on the note */}
+                    {v.dotted && <View style={{ position: 'absolute', left: NOTE_W / 2 + (v.f >= 1 ? 14 : 9), top: y - 7, width: 4, height: 4, borderRadius: 2, backgroundColor: ink }} />}
                   </View>
                 );
               })
+            )}
+            {/* the day stopped half a beat short of a whole one — the bar says so
+                rather than quietly not adding up to its own signature */}
+            {pad > 0 && (
+              <Text style={{ width: NOTE_W / 2, textAlign: 'center', marginTop: RULES[1], fontFamily: F.notation, fontSize: 30, lineHeight: 30, color: on ? C.accent : C.sub }}>{'\u{1D13E}'}</Text>
             )}
           </View>
           <Text style={{ position: 'absolute', bottom: 0, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 0.5, color: on || b.isToday ? C.accent : C.tertiary }}>{b.day}</Text>
@@ -154,7 +191,7 @@ export function MelodyStaff({
         <View key={top} style={{ position: 'absolute', left: 0, right: 0, top, height: 1, backgroundColor: C.staffLine }} />
       ))}
       <View style={{ position: 'absolute', flexDirection: 'row', left: 0, right: 0, top: 0, bottom: 0 }}>
-        {bars.map(renderBar)}
+        {metered.map(renderBar)}
         <View style={{ flex: 1 }} />
         <View style={{ flexDirection: 'row', gap: 3, marginTop: STAFF_TOP }}>
           <View style={{ width: 1.5, height: 81, backgroundColor: C.barline }} />

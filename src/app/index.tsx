@@ -10,6 +10,7 @@ import { FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { LogPastModal } from '@/components/log-past';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
+import { StaffLegend } from '@/components/staff-legend';
 import { FermataMark, MelodyStaff } from '@/components/motifs';
 import { success, tap } from '@/lib/haptics';
 import { barsFor } from '@/lib/melody';
@@ -38,6 +39,7 @@ export default function Home() {
   const [focusOpen, setFocusOpen] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const melody = useMelodyPlayer();
   const [resumeAt, setResumeAt] = useState<string | null>(null); // the bar a pause stopped on
   const [editSess, setEditSess] = useState<Session | null>(null);
@@ -83,7 +85,7 @@ export default function Home() {
     d.setDate(d.getDate() - (83 - i));
     return d;
   });
-  const bars = barsFor(staffDates.map(dateKey), store.minutesByDate).map((b, i) => ({ ...b, day: dow[staffDates[i].getDay()], isToday: b.date === store.today }));
+  const bars = barsFor(staffDates.map(dateKey), store.minutesByDate, store.sessions, store.melodyKey).map((b, i) => ({ ...b, day: dow[staffDates[i].getDay()], isToday: b.date === store.today }));
   const goalMet = dayMin >= store.dailyGoal;
   const playFrom = (date: string) => {
     const from = bars.findIndex((b) => b.date === date);
@@ -176,6 +178,17 @@ export default function Home() {
             />
           </View>
           <Text style={[s.tapHint, { marginTop: 10, textAlign: 'center' }]}>{store.t('home.staffHint')}</Text>
+          {/* the staff says a lot in very little space; this is where that is spelled out */}
+          <Pressable
+            hitSlop={8}
+            accessibilityRole="button"
+            style={{ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12 }}
+            onPress={() => {
+              tap();
+              setLegendOpen(true);
+            }}>
+            <Text style={[s.tapHint, { color: C.accent }]}>{store.t('home.staffLegend.title')}</Text>
+          </Pressable>
         </View>
 
         <View style={{ marginTop: 32 }}>
@@ -289,6 +302,7 @@ export default function Home() {
         }}
       />
       <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
+      <StaffLegend visible={legendOpen} onClose={() => setLegendOpen(false)} />
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </View>
   );

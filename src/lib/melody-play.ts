@@ -1,6 +1,7 @@
 // Plays the melody staff on the grand piano (lib/piano-samples.ts): each note is
 // the nearest sample shifted to its pitch in the chosen key, held for its value.
-// Whole note = 1.6 s (quarter at 150), an empty bar rests half that.
+// Whole note = 1.6 s (quarter at 150), an empty bar rests half that. A bar holds
+// a day's sessions, so a day never runs longer than a whole note however it split.
 import { createAudioPlayer } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 
@@ -14,9 +15,9 @@ const REST_MS = 800;
 const RING_MS = 2600; // how long a note keeps decaying under the notes after it
 
 /**
- * The feel. Louder for longer notes (a whole note is a full day, played out),
- * a long crescendo through the phrase towards today, and a small per-day wobble
- * in loudness and timing seeded from the date so the same week always plays the
+ * The feel. Louder for longer notes (a whole note is a day's goal in one sitting),
+ * a long crescendo through the phrase towards today, and a small wobble in
+ * loudness and timing seeded from the focus, so a given piece always leans the
  * same way — human, but not random on every listen.
  */
 function dynamics(n: MelodyNote, fraction: number, index: number, total: number) {
@@ -99,7 +100,7 @@ export function useMelodyPlayer() {
     const mine = run.current;
     const live = () => mounted.current && run.current === mine;
     applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
-    const total = bars.filter((b) => b.notes.length).length;
+    const total = bars.reduce((n, b) => n + b.notes.length, 0); // notes, not bars: a bar may hold several
     let index = 0; // position in the phrase, for the long crescendo towards today
     for (const bar of bars) {
       if (!live()) return;
