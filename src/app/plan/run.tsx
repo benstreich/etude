@@ -7,11 +7,13 @@ import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { InstrumentAsk } from '@/components/instrument-ask';
 import { MetronomeSheet } from '@/components/metronome';
 import { MeasureBar, Tempo, TickDot } from '@/components/motifs';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
 import { Overline, useInstrumentFilter } from '@/components/ui';
+import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';
 import { useStore } from '@/lib/store';
@@ -40,8 +42,22 @@ function Runner({ id }: { id: string }) {
     return r && r.planId === id ? r : null;
   });
   const [idx, setIdx] = useState(resumed?.idx ?? 0);
-  // wall-clock timer, same pattern as the practice screen
-  const [startedAt, setStartedAt] = useState<number | null>(() => (resumed ? resumed.startedAt : Date.now()));
+  // #58 follow-up: a routine can hold a piece played on two instruments, and every
+  // segment logs its own session. Asked once for the whole run rather than per
+  // segment — a question between two bars of a timed routine is worse than the bug.
+  // A resumed run has already been through this, so it never asks twice.
+  const [askInst, setAskInst] = useState(
+    () =>
+      !resumed &&
+      (store.plans.find((p) => p.id === id)?.segments ?? []).some(
+        (sg) => sg.focus.kind !== 'Break' && instrumentChoices(store.allPieces.find((p) => p.name === sg.focus.name), inst).length > 0
+      )
+  );
+  const [runInst, setRunInst] = useState<string | null>(null);
+  // wall-clock timer, same pattern as the practice screen. It starts paused behind
+  // the instrument question — a clock running under a modal bills the player for
+  // time spent answering it.
+  const [startedAt, setStartedAt] = useState<number | null>(() => (resumed ? resumed.startedAt : askInst ? null : Date.now()));
   const [accum, setAccum] = useState(resumed?.accum ?? 0);
   const [seconds, setSeconds] = useState(resumed?.accum ?? 0);
   const [review, setReview] = useState<ReviewSession | null>(null);
@@ -74,7 +90,11 @@ function Runner({ id }: { id: string }) {
   const logSegment = (sec: number) => {
     if (!plan || !seg || seg.focus.kind === 'Break') return ''; // #59: rests are never logged
     const min = Math.max(1, Math.round(sec / 60));
-    return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id, inst || undefined);
+    // the run's answer only applies to segments actually played on that instrument:
+    // a piano-only piece sitting in a violin routine keeps its own tag
+    const segPiece = store.allPieces.find((p) => p.name === seg.focus.name);
+    const on = runInst && onInstrument(segPiece ?? {}, runInst) ? runInst : inst || undefined;
+    return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id, on);
   };
 
   const startSegment = (i: number) => {
@@ -210,6 +230,29 @@ function Runner({ id }: { id: string }) {
         <View style={{ width: 56 }} />
       </View>
 
+      <InstrumentAsk
+        visible={askInst}
+        name={plan.name}
+        subline={store.t('instrumentAsk.sublineRoutine', { name: plan.name })}
+        choices={[
+          ...new Set(
+            plan.segments.flatMap((sg) =>
+              sg.focus.kind === 'Break' ? [] : instrumentChoices(store.allPieces.find((p) => p.name === sg.focus.name), inst)
+            )
+          ),
+        ]}
+        // dismissing without answering still starts the run; the segments then fall
+        // back to their own tags exactly as they did before this question existed
+        onClose={() => {
+          setAskInst(false);
+          if (startedAt === null) setStartedAt(Date.now());
+        }}
+        onPick={(on) => {
+          setRunInst(on);
+          setAskInst(false);
+          setStartedAt(Date.now());
+        }}
+      />
       <MetronomeSheet visible={metroOpen} onClose={() => setMetroOpen(false)} />
 
       <SessionReview

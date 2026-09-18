@@ -11,11 +11,12 @@ import { ChevronIcon, PlayIcon, SearchIcon } from '@/components/icons';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeSheet } from '@/components/metronome';
 import { LiveWaveform, NoteTempo, RollingNumber, StaffProgress } from '@/components/motifs';
+import { InstrumentAsk } from '@/components/instrument-ask';
 import { ScorePill } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
 import { EntryRow, Overline, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
-import { instrumentLabel, onInstrument } from '@/lib/instrument-math';
+import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
 import { Piece, useStore } from '@/lib/store';
@@ -51,6 +52,13 @@ export default function Practice() {
   const [startClock, setStartClock] = useState(0); // same instant, mirrored to state so the header can read it during render
   const paused = startedAt === null;
   const inst = useInstrumentFilter();
+  // #58 follow-up: which instrument THIS session counts towards. A piece on two
+  // instruments can't be filed by its tag order — the player is asked at the start
+  // and the answer rides with the session until it is saved.
+  const [sessionInst, setSessionInst] = useState<string | null>(null);
+  const [askInst, setAskInst] = useState(false);
+  const focusPiece = store.allPieces.find((p) => p.name === focus?.name);
+  const instChoices = instrumentChoices(focusPiece, inst);
   // practice breaks (#59): the reminder fires each time the timer crosses another
   // `breakEvery` interval; a break pauses the session timer and counts down separately
   const [breaksSeen, setBreaksSeen] = useState(0); // intervals already answered (started or skipped)
@@ -143,13 +151,26 @@ export default function Practice() {
   );
   const plans = store.plans.filter((p) => p.name.toLowerCase().includes(q));
 
+  /** Start the clock. `on` is the answer to the instrument question, or null when it never had to be asked. */
+  const beginSession = (on: string | null) => {
+    setSessionInst(on);
+    setSeconds(0);
+    setAccum(0);
+    sessionStart.current = Date.now();
+    setStartClock(sessionStart.current);
+    setBreaksSeen(0);
+    setStartedAt(Date.now());
+    setRunning(true);
+  };
+
   const endSave = async () => {
     if (!focus) return;
     if (recording) await toggleRec();
     const min = Math.max(1, Math.round(seconds / 60));
     // #58 follow-up: the same piece can be practised on two instruments, so the
-    // session records the one selected here rather than the piece's own tag
-    const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, inst || undefined);
+    // session records the one picked when it started, then the tab in view, and
+    // only then falls back to the piece's own first tag
+    const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, sessionInst || inst || undefined);
     setRunning(false);
     setStartedAt(null);
     setAccum(0);
@@ -164,6 +185,7 @@ export default function Practice() {
     if (recording) await toggleRec(); // an attached take still running gets banked
     setReview(null);
     setFocus(null);
+    setSessionInst(null); // the next session asks again; a stale answer would misfile it
     router.push('/');
   };
 
@@ -360,9 +382,13 @@ export default function Practice() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <KeyboardAwareScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]} keyboardShouldPersistTaps="handled" bottomOffset={16}>
+        {/* the date was decoration; manual entry earns the slot and stays clear of
+            the instrument tabs and the search below it */}
         <View style={s.headRow}>
           <Overline>{store.t('tabs.practice')}</Overline>
-          <Text style={s.headDate}>{new Date(store.now).toLocaleDateString(store.lang, { weekday: 'short', day: 'numeric', month: 'long' })}</Text>
+          <Pressable style={{ marginLeft: 'auto' }} hitSlop={8} onPress={() => setPastOpen(true)}>
+            <Text style={s.manualLink}>{store.t('practice.logPast')}</Text>
+          </Pressable>
         </View>
         <Text style={s.title}>{store.t('practice.title')}</Text>
         {/* Instrument first, then the tools, then the search directly above the list
@@ -377,19 +403,6 @@ export default function Practice() {
             />
           </View>
         )}
-        <View style={s.toolsRow}>
-          <Pressable onPress={() => setPastOpen(true)}>
-            <Text style={s.toolLinkInk}>{store.t('practice.logPast')}</Text>
-          </Pressable>
-          <Text style={s.toolSep}>|</Text>
-          <Pressable onPress={() => setMetroOpen(true)}>
-            <NoteTempo bpm={metronome.bpm} active={metronome.running} />
-          </Pressable>
-          <Text style={s.toolSep}>|</Text>
-          <Pressable onPress={() => router.push('/tuner')}>
-            <Text style={s.toolLinkInk}>{store.t('tuner.tuner')}</Text>
-          </Pressable>
-        </View>
         <View style={s.searchRow}>
           <SearchIcon size={18} color={C.tertiary} />
           <TextInput
@@ -486,17 +499,23 @@ export default function Practice() {
           disabled={!focus}
           close
           onPress={() => {
-            setSeconds(0);
-            setAccum(0);
-            sessionStart.current = Date.now();
-            setStartClock(sessionStart.current);
-            setBreaksSeen(0);
-            setStartedAt(Date.now());
-            setRunning(true);
+            // ambiguous instrument: ask first, and let the answer start the session
+            if (instChoices.length) return setAskInst(true);
+            beginSession(null);
           }}
         />
       </View>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
+      <InstrumentAsk
+        visible={askInst}
+        name={focus?.name ?? ''}
+        choices={instChoices}
+        onClose={() => setAskInst(false)}
+        onPick={(on) => {
+          setAskInst(false);
+          beginSession(on);
+        }}
+      />
       <MetronomeSheet visible={metroOpen} onClose={() => setMetroOpen(false)} />
       <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} onImportTake={importTakes} recording={recording} />
     </View>
@@ -506,13 +525,11 @@ export default function Practice() {
 const useS = themed(({ C, fs }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
-  headDate: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
   title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, marginTop: 18, marginBottom: 4 },
+  manualLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
   filterRow: { marginTop: 14, marginBottom: 6 },
   search: { flex: 1, fontFamily: F.body, fontSize: fs(17), color: C.ink },
-  toolsRow: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  toolLinkInk: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
   toolSep: { fontSize: fs(14), color: C.staffLine },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 1, borderBottomColor: C.hairline },

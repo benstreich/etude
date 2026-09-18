@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EditSessionSheet } from '@/components/edit-session';
 import { ProgressBody } from '@/components/progress';
 import { FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
+import { InstrumentAsk } from '@/components/instrument-ask';
 import { LogPastModal } from '@/components/log-past';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { FermataMark, MelodyStaff } from '@/components/motifs';
@@ -16,6 +17,7 @@ import { useMelodyPlayer } from '@/lib/melody-play';
 import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
 import { useInstrumentFilter } from '@/components/ui';
+import { instrumentChoices } from '@/lib/instrument-math';
 import { dateKey, dayLabel, useStore, type Session } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -41,6 +43,7 @@ export default function Home() {
   const [editSess, setEditSess] = useState<Session | null>(null);
   // which day the log below the staff is reading; a tap on a note moves it
   const [pickedDay, setPickedDay] = useState<string | null>(null);
+  const [pendingLog, setPendingLog] = useState<number | null>(null); // minutes waiting on "which instrument?"
   const day = pickedDay ?? store.today;
 
   const focusOptions: { name: string; kind: 'Piece' | 'Technique' }[] = [
@@ -50,11 +53,17 @@ export default function Home() {
 
   // logs to whichever day the staff below has selected, so a missed day can be
   // filled in without leaving Home; today is the default
-  const quickLog = (min: number) => {
+  // #58 follow-up: a quick log against a piece played on two instruments has the same
+  // question to answer as a timed session — ask, then log with the answer.
+  const quickLog = (min: number, on?: string) => {
     if (!min) return;
-    success();
     const f = store.quickLogFocus;
-    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged', day, undefined, inst || undefined);
+    if (!on && instrumentChoices(store.allPieces.find((p) => p.name === f?.name), inst).length) {
+      setPendingLog(min);
+      return;
+    }
+    success();
+    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged', day, undefined, on || inst || undefined);
     const name = f?.name;
     if (day !== store.today) {
       const when = dayLabel(day, store.today, store.t, store.lang);
@@ -268,6 +277,17 @@ export default function Home() {
         </View>
       </ScrollView>
       <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
+      <InstrumentAsk
+        visible={pendingLog !== null}
+        name={store.quickLogFocus?.name ?? ''}
+        choices={instrumentChoices(store.allPieces.find((p) => p.name === store.quickLogFocus?.name), inst)}
+        onClose={() => setPendingLog(null)}
+        onPick={(on) => {
+          const min = pendingLog;
+          setPendingLog(null);
+          if (min) quickLog(min, on);
+        }}
+      />
       <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </View>

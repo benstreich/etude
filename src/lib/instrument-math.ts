@@ -22,6 +22,22 @@ export function onInstrument(p: Instrumented, inst: string): boolean {
   return list.length === 0 || list.includes(inst);
 }
 
+/**
+ * The instruments a session has to choose between before its minutes can be filed.
+ *
+ * A piece played on two instruments cannot be credited to one of them by default:
+ * taking the first of the set is a coin toss, and half the time the minutes land on
+ * the wrong instrument's total. Only the player knows which one today was.
+ *
+ * Empty means there is nothing to ask — the tab in view already names an instrument,
+ * the piece carries at most one, or it is untagged and so counts under every one.
+ */
+export function instrumentChoices(p: Instrumented | undefined, filter: string): string[] {
+  if (filter) return [];
+  const list = p ? pieceInstruments(p) : [];
+  return list.length > 1 ? list : [];
+}
+
 /** What to print under a row on the All list; empty when the piece is untagged. */
 export function instrumentLabel(p: Instrumented): string {
   return pieceInstruments(p).join(' · ');

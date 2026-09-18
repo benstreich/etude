@@ -461,6 +461,12 @@
     "noMatchesText": "Kein Stück und keine Technik passt zu Suche und Instrument.",
     "clearFilters": "Filter zurücksetzen"
   },
+  "instrumentAsk": {
+    "title": "Welches Instrument?",
+    "subline": "„%{name}“ gehört zu mehreren. Wähle das, auf dem du gerade spielst — die Minuten zählen dorthin.",
+    "sublineRoutine": "„%{name}“ enthält Stücke für mehrere Instrumente. Wähle das, auf dem du gerade spielst — dieser Durchlauf zählt dorthin.",
+    "change": "Instrument"
+  },
   "compare": {
     "title": "Takes vergleichen",
     "changeTakes": "Takes wechseln",

@@ -461,6 +461,12 @@
     "noMatchesText": "No piece or technique here fits that search and instrument.",
     "clearFilters": "Clear filters"
   },
+  "instrumentAsk": {
+    "title": "Which instrument?",
+    "subline": "“%{name}” is on more than one. Pick the one you are playing — these minutes count towards it.",
+    "sublineRoutine": "“%{name}” has pieces played on more than one instrument. Pick the one you are playing — this run counts towards it.",
+    "change": "Instrument"
+  },
   "compare": {
     "title": "Compare takes",
     "changeTakes": "Change takes",
