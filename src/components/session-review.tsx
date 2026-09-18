@@ -1,7 +1,7 @@
 // Session review — full-screen moment after the timer stops (#17), replacing
 // the plain note prompt. Shows the day's progress on a staff, achievement chips,
 // a note field, and can attach a take via the practice screen's recorder.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -59,10 +59,15 @@ export function SessionReview({
 
   // the soul-pass moment: content rises in, the completion cue plays once
   const openId = session?.id ?? null;
+  // one cue per session, not per run of this effect — it also depends on the
+  // voice and the sounds setting, and either arriving late replayed the cue
+  const cuedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!openId) return;
     rise.setValue(reduceMotion ? 1 : 0);
     if (!reduceMotion) Animated.timing(rise, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+    if (cuedFor.current === openId) return;
+    cuedFor.current = openId;
     playSessionComplete(soundsOn, voice);
   }, [openId, reduceMotion, rise, soundsOn, voice]);
 

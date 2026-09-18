@@ -35,10 +35,13 @@ export function playSessionComplete(enabled: boolean, voice: CueVoice = 'mallet'
   try {
     applyAudioMode({ playsInSilentMode: false, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
     const p = (players[voice] ??= createAudioPlayer(SESSION_COMPLETE[voice]));
-    p.play();
-    // rewind once it has finished, same trick as the metronome pool — seekTo is
-    // async, so doing it before play() can race the playhead
-    setTimeout(() => p.seekTo(0).catch(() => {}), 2500);
+    // Rewind before the cue, not on a timer after it. Seeking does not resume
+    // playback, but it does not stop it either: a rewind timed just past the
+    // sample's 2.4s that landed while the cue was still sounding — which it did
+    // whenever playback started late — sent it back to the top and you heard the
+    // cue twice. A fresh player is already at 0, so the first cue is immediate.
+    const rewound = p.currentTime > 0 ? p.seekTo(0).catch(() => {}) : Promise.resolve();
+    rewound.then(() => p.play());
   } catch {
     // a cue is decoration — never let it break the review screen
   }
