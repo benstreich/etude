@@ -8,7 +8,9 @@ class MetronomeControlsModule extends NativeModule<MetronomeControlsEvents> {
   update(_state: MetronomeControlsState) {}
   hide() {}
   startTicking(_tick: MetronomeTick) {}
-  stopTicking() {}
+  stopTicking() {
+    return null;
+  }
   updateTicking(_tick: MetronomeTick) {}
 }
 

@@ -222,10 +222,15 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     latest.current = { bpm, sig, ramp, subdiv, accents, sound, volume, startBpm: store.metroBpm };
   });
 
-  // everything the native background loop needs to sound like the in-app one
-  const tickConfig = useCallback(() => {
+  // Everything the native background loop needs to sound like the in-app one.
+  // Pass the live run to hand the loop over mid-bar: the service then picks the
+  // next tick up where the JS timer would have fired it, instead of restarting
+  // the bar with a click on top of the one JS had just played (#83).
+  const tickConfig = useCallback((from?: Run) => {
     const l = latest.current;
-    return { bpm: l.bpm, pattern: l.accents, subdiv: l.subdiv, sound: l.sound, volume: l.volume };
+    const config = { bpm: l.bpm, pattern: l.accents, subdiv: l.subdiv, sound: l.sound, volume: l.volume };
+    if (!from) return config;
+    return { ...config, beat: from.beats, sub: from.sub, startIn: Math.max(0, from.nextAt - Date.now()) };
   }, []);
 
   // Fires once per subdivision tick. The beat counter only moves on `sub === 0`,
@@ -405,24 +410,30 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
 
   // Android freezes JS timers whenever the activity pauses (screen off, home
   // button) — hand the click loop to the foreground service and take it back on
-  // resume. ponytail: while native ticks, bar counting and a bars-based ramp
-  // pause; a seconds-based ramp catches up on resume. Move the whole loop native
-  // if that ever matters.
+  // resume. The position travels both ways, so a run backgrounded on beat 3 of
+  // a bar is still on beat 3 when it comes back, and neither handover doubles a
+  // click. ponytail: the service counts beats for us, so a bars-based ramp keeps
+  // climbing in the background too — it is applied at the next JS tick.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = AppState.addEventListener('change', (state) => {
       const r = run.current;
       if (state === 'active') {
-        Controls?.stopTicking();
+        // where the service got to, so the bar carries on rather than restarting
+        const at = Controls?.stopTicking();
         if (r && r.timer === null) {
-          const interval = 60000 / latest.current.bpm / latest.current.subdiv;
-          r.nextAt = Date.now() + interval;
-          r.timer = setTimeout(tick, interval);
+          if (at) {
+            r.beats = at.beat;
+            r.sub = at.sub;
+          }
+          const wait = at ? at.nextIn : 60000 / latest.current.bpm / latest.current.subdiv;
+          r.nextAt = Date.now() + wait;
+          r.timer = setTimeout(tick, wait);
         }
       } else if (r) {
         if (r.timer) clearTimeout(r.timer);
         r.timer = null;
-        Controls?.startTicking(tickConfig());
+        Controls?.startTicking(tickConfig(r));
       }
     });
     return () => sub.remove();

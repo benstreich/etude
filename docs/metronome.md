@@ -81,6 +81,14 @@ the background click loop: tempo, accent pattern, subdivision, sound set and vol
 continues on the lock screen sounds like the one in the app. Edits made in the sheet are pushed at a
 live loop with `updateTicking`.
 
+The handover carries the *position* as well as the sound. `startTicking` is told which beat the next
+tick belongs to, how far into it, and how many milliseconds that tick still has to wait;
+`stopTicking` hands the same three back. So backgrounding the app mid-bar neither restarts the bar
+nor fires a click on top of the one JS has just played — which is what the double click on locking
+the screen was. A fresh start from the lock screen passes zeros and clicks straight away, as it
+should. Because the service counts beats, a bars-based ramp now keeps climbing while the screen is
+off; the tempo it reached is applied at the first tick back in JS.
+
 - **iOS** — `MPRemoteCommandCenter` (⏭ → faster, ⏮ → slower, play/pause → toggle) plus
   `MPNowPlayingInfoCenter` showing "96 BPM". It deliberately replaces expo-audio's
   `player.setActiveForLockScreen()`: both write the same now-playing info, so only one may be in charge.

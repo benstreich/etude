@@ -22,6 +22,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import java.util.concurrent.ConcurrentHashMap
 
 private const val CHANNEL_ID = "metronome-controls"
 private const val NOTIFICATION_ID = 7317
@@ -50,7 +51,14 @@ class TickState(
   // clicks per beat: 1 none, 2 eighths, 3 triplets, 4 sixteenths
   @Field val subdiv: Int = 1,
   @Field val sound: String = "wood",
-  @Field val volume: Int = 100
+  @Field val volume: Int = 100,
+  // Where the JS loop had got to when it handed over: the beat the next tick
+  // belongs to, how far into it, and how long that tick is still due to wait.
+  // Without these the service restarted the bar on its own downbeat, on top of
+  // the click JS had just played.
+  @Field val beat: Int = 0,
+  @Field val sub: Int = 0,
+  @Field val startIn: Double = 0.0
 ) : Record
 
 // Sample sets, mirroring SOUND_SETS in src/lib/metronome-math.ts. The four ids
@@ -74,10 +82,12 @@ private val SOUND_SETS: Map<String, IntArray> = mapOf(
  */
 object Clicks {
   const val SUB_BANK = 3 // the subdivision sample sits after the three beat levels
-  private var pool: SoundPool? = null
-  private val loaded = mutableMapOf<String, IntArray>() // set id -> SoundPool ids, by bank
+  @Volatile private var pool: SoundPool? = null
+  // written once by preload, read from the JS thread and the tick thread — both
+  // can ask for the first click of a run at the same moment
+  private val loaded = ConcurrentHashMap<String, IntArray>() // set id -> SoundPool ids, by bank
 
-  fun preload(context: Context): SoundPool {
+  @Synchronized fun preload(context: Context): SoundPool {
     pool?.let { return it }
     val p = SoundPool.Builder()
       .setMaxStreams(4) // four, so a subdivision click can overlap the beat's tail
@@ -97,8 +107,9 @@ object Clicks {
   /** Unknown set ids fall back to wood; a gain of 0 is a muted beat, not a play. */
   fun play(context: Context, sound: String, bank: Int, gain: Float) {
     if (gain <= 0f) return
-    val ids = loaded[sound] ?: loaded.getValue("wood")
-    preload(context).play(ids[bank.coerceIn(0, SUB_BANK)], gain, gain, 1, 0, 1f)
+    val p = pool ?: preload(context)
+    val ids = loaded[sound] ?: loaded["wood"] ?: return
+    p.play(ids[bank.coerceIn(0, SUB_BANK)], gain, gain, 1, 0, 1f)
   }
 }
 
@@ -201,28 +212,50 @@ class MetronomeControlsService : Service() {
     if (SOUND_SETS.containsKey(sound)) tickSound = sound
   }
 
-  fun startTicking(bpm: Int, pattern: IntArray, subdiv: Int, sound: String, volume: Int) {
+  /**
+   * Take the loop over from `beat`/`sub`, first tick in `startIn` ms — the rest
+   * of the beat the JS timer had already started. A fresh start (from the lock
+   * screen, with nothing to continue) passes 0, 0, 0 and clicks at once.
+   */
+  fun startTicking(
+    bpm: Int,
+    pattern: IntArray,
+    subdiv: Int,
+    sound: String,
+    volume: Int,
+    beat: Int,
+    sub: Int,
+    startIn: Double
+  ) {
     tune(bpm, pattern, subdiv, sound, volume)
     if (tickThread != null) return // already ticking; the new config applies from the next tick
     // without a wakelock the CPU naps between beats once the screen is off
     wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
       .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "etude:metronome")
       .also { it.acquire(4 * 60 * 60 * 1000L) } // 4h safety cap
-    tickBeat = 0
-    tickSub = 0
+    tickBeat = if (beat >= 0) beat else 0
+    tickSub = sub.coerceIn(0, 3)
     tickThread = HandlerThread("metronome-tick").also { it.start() }
     tickHandler = Handler(tickThread!!.looper)
-    tickNextAt = SystemClock.uptimeMillis().toDouble()
+    tickNextAt = SystemClock.uptimeMillis() + startIn.coerceAtLeast(0.0)
     tickHandler?.postAtTime(tickRunnable, tickNextAt.toLong())
   }
 
-  fun stopTicking() {
+  /**
+   * Hand the loop back, reporting where it got to so JS can carry the bar on
+   * in phase: the next tick's beat and position, and the wait still left on it.
+   * Null when nothing was ticking — there is no position to hand back.
+   */
+  fun stopTicking(): Map<String, Double>? {
+    if (tickThread == null) return null
+    val nextIn = (tickNextAt - SystemClock.uptimeMillis()).coerceAtLeast(0.0)
     tickHandler?.removeCallbacksAndMessages(null)
     tickThread?.quitSafely()
     tickThread = null
     tickHandler = null
     wakeLock?.takeIf { it.isHeld }?.release()
     wakeLock = null
+    return mapOf("beat" to tickBeat.toDouble(), "sub" to tickSub.toDouble(), "nextIn" to nextIn)
   }
 
   private fun goForeground() {
@@ -326,7 +359,8 @@ class MetronomeControlsModule : Module() {
 
     Function("startTicking") { state: TickState ->
       MetronomeControlsService.instance?.startTicking(
-        state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume
+        state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume,
+        state.beat, state.sub, state.startIn
       )
     }
 

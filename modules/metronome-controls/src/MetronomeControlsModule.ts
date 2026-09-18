@@ -5,6 +5,7 @@ import type {
   MetronomeControlsEvents,
   MetronomeControlsState,
   MetronomeTick,
+  MetronomeTickPos,
 } from './MetronomeControls.types';
 
 declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEvents> {
@@ -16,8 +17,11 @@ declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEven
   hide(): void;
   /** Android: the service clicks while JS timers are frozen (app backgrounded). No-op elsewhere. */
   startTicking(tick: MetronomeTick): void;
-  /** Android: hand the click loop back to JS. No-op elsewhere. */
-  stopTicking(): void;
+  /**
+   * Android: hand the click loop back to JS, returning where it got to — null
+   * when it wasn't ticking. Undefined on the platforms that never tick.
+   */
+  stopTicking(): MetronomeTickPos | null | undefined;
   /** Android: retune a loop that is already running — tempo, accents, subdivision, sound, volume. */
   updateTicking(tick: MetronomeTick): void;
   /** Android: decode every sample set into the SoundPool. Absent on iOS. */

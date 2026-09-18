@@ -34,4 +34,18 @@ export type MetronomeTick = {
   sound: string;
   /** 0-100. */
   volume: number;
+  /** Beat the next tick belongs to — counted from the start of the run, not the bar. */
+  beat?: number;
+  /** How far into that beat: 0 is the beat itself. */
+  sub?: number;
+  /** Milliseconds still owed on that tick; 0 clicks straight away. */
+  startIn?: number;
+};
+
+/** Where the background loop got to, handed back so JS can carry the bar on. */
+export type MetronomeTickPos = {
+  beat: number;
+  sub: number;
+  /** Milliseconds until the next tick was due. */
+  nextIn: number;
 };
