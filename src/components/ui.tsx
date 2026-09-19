@@ -128,12 +128,20 @@ export function Sheet({
                 <View style={[s.grabber, !grabber && { opacity: 0.6 }]} />
               </View>
             </GestureDetector>
+            {/* `enabled={false}`: the container above already lifts the whole sheet
+                clear of the keyboard, so this must not compensate a second time.
+                Left on, it added its own keyboard-height bottom inset and then
+                scrolled the focused field up by about that much again — which
+                pushed the top of the sheet out of view and left a dead gap under
+                the content. A short sheet lost everything and read as blank.
+                The lift stays: it is what makes this scroll view shrink and so
+                have anything to scroll at all (see useKeyboardLift above, #75). */}
             <KeyboardAwareScrollView
+              enabled={false}
               style={fill ? s.scrollFill : s.scroll}
               keyboardShouldPersistTaps="handled"
               scrollEnabled={scrollEnabled}
               showsVerticalScrollIndicator={false}
-              bottomOffset={16}
               contentContainerStyle={[align === 'bottom' && s.contentBottom, contentStyle]}>
               {children}
             </KeyboardAwareScrollView>

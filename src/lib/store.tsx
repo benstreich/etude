@@ -160,8 +160,10 @@ function seed(): State {
     recordings: [],
     attachments: [],
     plans: [],
-    // onboarding's goal step starts from this; its copy says start easy
-    dailyGoal: 20,
+    // onboarding's goal step starts from this; its copy says start easy, and 30
+    // still is — a real session that survives a busy day, so goal-met and the
+    // streak keep meaning something
+    dailyGoal: 30,
     weeklyGoal: 0,
     monthlyGoal: 0,
     yearlyGoal: 0,
