@@ -1,31 +1,38 @@
 // Your score, in full (#88): the same practice log Home's mini-staff draws,
 // engraved instead as a real page of music — bars wrapped into systems down
 // the screen, a key signature pinned once at the top, a meter on every bar
-// that changes it. Not a Bravura-set score (no font asset for it in this
-// environment) but the same drawn-SVG engraver lib/engrave.ts already proved
-// out for the Home staff, extended here with system wrapping.
+// that changes it. Set in Bravura, the SMuFL reference font, the same as
+// Home's staff; only stems and beams are still drawn (there is no glyph for
+// either in real engraving, they are always drawn). lib/engrave.ts's per-bar
+// layout is unchanged, extended here with system wrapping.
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Ellipse, G, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
 import { BackLink } from '@/components/ui';
 import {
+  BAR_PAD,
   BEAM_T,
-  flagPath,
-  HEAD_RY,
-  HEAD_TILT,
+  CLEF_X,
+  DOT_R,
+  flagOrigin,
+  GLYPH,
+  glyphFontSize,
   headerW,
-  headRx,
-  holeRx,
-  holeRy,
+  headGlyph,
+  headOrigin,
   layoutSystems,
   LINE_W,
+  METER_COL_W,
+  noteTop,
+  PAD_REST_X,
+  REST_X,
   signatureMarks,
   STEM_W,
   yOf,
@@ -47,6 +54,7 @@ const BLOCK_H = 140;
 const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * SP);
 const LINE = LINE_W(SP);
 const STEM = STEM_W(SP);
+const NOTE_FS = glyphFontSize(SP);
 const SYS_GAP = 16;
 const PAGE_PAD = 20;
 
@@ -120,8 +128,13 @@ export default function Score() {
 
   const togglePlay = () => {
     tap();
-    if (melody.playing) melody.stop();
-    else melody.play(bars, store.dailyGoal, melodyKey);
+    if (melody.playing) return melody.stop();
+    // from the day that's selected, as tapping a day on Home does — not from the
+    // top of the range. Every day off still sounds its rest, so opening on four
+    // weeks and playing from the start meant sitting through weeks of silence
+    // before the first note.
+    const from = bars.findIndex((b) => b.date === selectedDate);
+    melody.play(from >= 0 ? bars.slice(from) : bars, store.dailyGoal, melodyKey);
   };
 
   return (
@@ -260,12 +273,13 @@ function SystemRow({
           ))}
           {index === 0 && (
             <G transform={`translate(0, ${STAFF_TOP})`}>
-              <SvgText x={0.5 * SP} y={yOf(2, SP) + 2.25 * SP} fontFamily={F.notation} fontSize={4.2 * SP} fill={C.ink}>
-                {'\u{1D11E}'}
+              {/* Bravura's gClef sits on the G line by design — no empirical offset needed */}
+              <SvgText x={CLEF_X(SP)} y={yOf(2, SP)} fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.ink}>
+                {GLYPH.gClef}
               </SvgText>
               {signatureMarks(sig, SP).map((m, i) => (
-                <SvgText key={i} x={m.x} y={m.y + (m.sharp ? 0.42 * SP : 0.3 * SP)} fontFamily={F.notation} fontSize={1.85 * SP} fill={C.ink}>
-                  {m.sharp ? '♯' : '♭'}
+                <SvgText key={i} x={m.x} y={m.y} fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.ink}>
+                  {m.sharp ? GLYPH.accidentalSharp : GLYPH.accidentalFlat}
                 </SvgText>
               ))}
             </G>
@@ -277,7 +291,8 @@ function SystemRow({
             const quiet = on ? C.accent : C.sub;
             const beaten = (bar?.notes.reduce((a, n) => a + n.min, 0) ?? 0) > goal;
             const barX = headW + b.x;
-            const xOff = BAR_PAD + (b.meter !== null ? METER_COL_W : 0);
+            const meterW = b.meter !== null ? METER_COL_W(b.meter, SP) : 0;
+            const xOff = BAR_PAD(SP) + meterW;
             const lastNote = b.lay?.notes.at(-1);
             const isFinal = isLast && b.date === last;
             return (
@@ -286,16 +301,20 @@ function SystemRow({
                 {isFinal && <Rect x={b.width - 1.5 - 0.28 * SP} y={0} width={0.28 * SP} height={4 * SP} fill={C.sub} />}
                 {b.meter !== null && (
                   <G>
-                    <SvgText x={BAR_PAD + METER_COL_W / 2} y={yOf(6, SP) + 0.55 * SP} textAnchor="middle" fontFamily={F.bodyMed} fontSize={1.55 * SP} fill={C.sub}>
-                      {String(b.meter)}
+                    <SvgText x={BAR_PAD(SP) + meterW / 2} y={yOf(6, SP)} textAnchor="middle" fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.sub}>
+                      {GLYPH.timeSig(b.meter)}
                     </SvgText>
-                    <SvgText x={BAR_PAD + METER_COL_W / 2} y={yOf(2, SP) + 0.55 * SP} textAnchor="middle" fontFamily={F.bodyMed} fontSize={1.55 * SP} fill={C.sub}>
-                      4
+                    <SvgText x={BAR_PAD(SP) + meterW / 2} y={yOf(2, SP)} textAnchor="middle" fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.sub}>
+                      {GLYPH.timeSig(4)}
                     </SvgText>
                   </G>
                 )}
                 <G transform={`translate(${xOff}, 0)`}>
-                  {!b.lay && <Rect x={0.9 * SP} y={SP} width={1.15 * SP} height={0.45 * SP} fill={quiet} />}
+                  {!b.lay && (
+                    <SvgText x={REST_X(SP)} y={SP} fontFamily={F.smufl} fontSize={NOTE_FS} fill={quiet}>
+                      {GLYPH.restWhole}
+                    </SvgText>
+                  )}
                   {b.lay?.beams.map((bm, i) => (
                     <Polygon
                       key={`bm${i}`}
@@ -303,45 +322,32 @@ function SystemRow({
                       fill={ink}
                     />
                   ))}
-                  {b.lay?.notes.map((n) => (
-                    <G key={n.id}>
-                      {n.stem && <Rect x={n.stem.x} y={Math.min(n.stem.y1, n.stem.y2)} width={STEM} height={Math.abs(n.stem.y2 - n.stem.y1)} fill={ink} />}
-                      {n.flag && n.stem && <Path d={flagPath(n.stem.x + (n.down ? 0 : STEM), n.stem.y2, n.down, SP)} fill={ink} />}
-                      <Ellipse
-                        cx={n.x}
-                        cy={n.y}
-                        rx={headRx(n.head, SP)}
-                        ry={HEAD_RY(SP)}
-                        fill={ink}
-                        transform={n.head === 'whole' || n.head === 'breve' ? undefined : `rotate(${HEAD_TILT} ${n.x} ${n.y})`}
-                      />
-                      {n.head !== 'quarter' && n.head !== 'eighth' && (
-                        <Ellipse
-                          cx={n.x}
-                          cy={n.y}
-                          rx={holeRx(n.head, SP)}
-                          ry={holeRy(n.head, SP)}
-                          fill={C.bg}
-                          transform={`rotate(${n.head === 'whole' || n.head === 'breve' ? -22 : HEAD_TILT} ${n.x} ${n.y})`}
-                        />
-                      )}
-                      {n.head === 'breve' && (
-                        <G>
-                          <Rect x={n.x - 1.05 * SP} y={n.y - 0.62 * SP} width={STEM} height={1.24 * SP} fill={ink} />
-                          <Rect x={n.x + 1.05 * SP - STEM} y={n.y - 0.62 * SP} width={STEM} height={1.24 * SP} fill={ink} />
-                        </G>
-                      )}
-                      {n.dot && <Circle cx={n.dot.x} cy={n.dot.y} r={0.15 * SP} fill={ink} />}
-                    </G>
-                  ))}
+                  {b.lay?.notes.map((n) => {
+                    const head = headOrigin(n.head, n.x, n.y, SP);
+                    const flag = n.flag && n.stem ? flagOrigin(n.down, n.stem.x + (n.down ? 0 : STEM), n.stem.y2, SP) : null;
+                    return (
+                      <G key={n.id}>
+                        {n.stem && <Rect x={n.stem.x} y={Math.min(n.stem.y1, n.stem.y2)} width={STEM} height={Math.abs(n.stem.y2 - n.stem.y1)} fill={ink} />}
+                        {flag && (
+                          <SvgText x={flag.x} y={flag.y} fontFamily={F.smufl} fontSize={NOTE_FS} fill={ink}>
+                            {n.down ? GLYPH.flag8thDown : GLYPH.flag8thUp}
+                          </SvgText>
+                        )}
+                        <SvgText x={head.x} y={head.y} fontFamily={F.smufl} fontSize={NOTE_FS} fill={ink}>
+                          {headGlyph(n.head)}
+                        </SvgText>
+                        {n.dot && <Circle cx={n.dot.x} cy={n.dot.y} r={DOT_R(SP)} fill={ink} />}
+                      </G>
+                    );
+                  })}
                   {beaten && lastNote && (
-                    <SvgText x={lastNote.x} y={-0.55 * SP} textAnchor="middle" fontFamily={F.notation} fontSize={1.5 * SP} fill={ink}>
-                      {'\u{1D110}'}
+                    <SvgText x={lastNote.x} y={noteTop(lastNote, SP) - 0.4 * SP} textAnchor="middle" fontFamily={F.smufl} fontSize={NOTE_FS} fill={ink}>
+                      {GLYPH.fermataAbove}
                     </SvgText>
                   )}
                   {b.pad > 0 && b.lay && (
-                    <SvgText x={b.lay.width + 0.4 * SP} y={2 * SP + 0.9 * SP} fontFamily={F.notation} fontSize={2.3 * SP} fill={quiet}>
-                      {'\u{1D13E}'}
+                    <SvgText x={b.lay.width + PAD_REST_X(SP)} y={2 * SP} fontFamily={F.smufl} fontSize={NOTE_FS} fill={quiet}>
+                      {GLYPH.restEighth}
                     </SvgText>
                   )}
                 </G>
@@ -364,8 +370,6 @@ function SystemRow({
   );
 }
 
-const BAR_PAD = 0.4 * SP;
-const METER_COL_W = 1.45 * SP;
 
 /** The floating card over the score — never a fixed footer, never a backdrop. */
 function DayPanel({

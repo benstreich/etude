@@ -6,17 +6,25 @@ here changes that, and nothing in LICENSE restricts the components below.
 
 ## Fonts
 
-Both typefaces are licensed under the [SIL Open Font License 1.1](https://openfontlicense.org),
-bundled via the `@expo-google-fonts` packages.
+All three typefaces are licensed under the [SIL Open Font License 1.1](https://openfontlicense.org).
+The first two are bundled via the `@expo-google-fonts` packages; Bravura is
+vendored directly, as `assets/fonts/Bravura.otf`.
 
 | Font | Used for | Copyright |
 |---|---|---|
 | **Space Grotesk** (Regular, Medium, SemiBold) | Everything — headings and body alike | © Florian Karsten |
 | **Newsreader** (Italic, Medium Italic) | The musical voice: tempo terms, "of N min" counters, note placeholders | © Production Type |
+| **Bravura** 1.482 | The notation itself: clefs, noteheads, flags, rests, accidentals and time signatures on the practice staff and the full score | © Steinberg Media Technologies GmbH |
 
-The OFL permits bundling in an application. Neither font is sold on its own,
-neither is renamed, and neither carries a Reserved Font Name that this app
-violates.
+The OFL permits bundling in an application. None of the three is sold on its
+own, and none is renamed.
+
+Bravura *does* carry the Reserved Font Name "Bravura" — unlike the other two.
+That is not a conflict here: the OFL reserves the name only against **modified**
+versions, and this app ships the file exactly as Steinberg published it. Should
+the font ever be edited, the copy must be renamed before it is redistributed.
+Bravura is also the SMuFL reference font, and `src/lib/engrave.ts` is built
+against its published metrics.
 
 ## Frameworks and libraries
 

@@ -112,6 +112,8 @@ export default function RootLayout() {
     Newsreader_400Regular_Italic,
     Newsreader_500Medium_Italic,
     NotoMusic_400Regular,
+    // SMuFL reference font (Steinberg, OFL) — the melody staff's real engraving
+    Bravura: require('../../assets/fonts/Bravura.otf'),
   });
 
   if (!loaded) return null;

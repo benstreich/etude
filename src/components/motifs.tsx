@@ -8,7 +8,30 @@ import Svg, { Circle, Ellipse, G, Path, Polygon, Rect, Text as SvgText } from 'r
 import { Pressable } from '@/components/press';
 import { Bump } from '@/components/motion';
 import { Text } from '@/components/text';
-import { BEAM_T, flagPath, HEAD_RY, HEAD_TILT, headerW, headRx, holeRx, holeRy, layoutBar, LINE_W, signatureMarks, STEM_W, yOf, type BarLayout } from '@/lib/engrave';
+import {
+  BAR_PAD,
+  BEAM_T,
+  CLEF_X,
+  DOT_R,
+  flagOrigin,
+  GLYPH,
+  glyphFontSize,
+  headerW,
+  headGlyph,
+  headOrigin,
+  layoutBar,
+  LINE_W,
+  METER_COL_W,
+  noteTop,
+  PAD_COL_W,
+  PAD_REST_X,
+  REST_COL_W,
+  REST_X,
+  signatureMarks,
+  STEM_W,
+  yOf,
+  type BarLayout,
+} from '@/lib/engrave';
 import { eighthsFor, meterFor, SIGNATURE, type MelodyKey, type MelodyNote } from '@/lib/melody';
 import { barlines, tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -40,21 +63,14 @@ export function FermataMark({ pct, goalMet, size = 220 }: { pct: number; goalMet
     if (reduceMotion) v.setValue(clamped);
     else Animated.timing(v, { toValue: clamped, duration: 600, easing: GAUGE_EASE, useNativeDriver: false }).start();
   }, [clamped, reduceMotion, v]);
-  // the arc crossfades to success the moment the goal is met, alongside the fill
-  const [goalV] = useState(() => new Animated.Value(goalMet ? 1 : 0));
-  useEffect(() => {
-    if (reduceMotion) goalV.setValue(goalMet ? 1 : 0);
-    else Animated.timing(goalV, { toValue: goalMet ? 1 : 0, duration: 600, easing: GAUGE_EASE, useNativeDriver: false }).start();
-  }, [goalMet, reduceMotion, goalV]);
   const dashoffset = v.interpolate({ inputRange: [0, 100], outputRange: [FERMATA_LEN, 0] });
-  const stroke = goalV.interpolate({ inputRange: [0, 1], outputRange: [C.accent, C.success] });
   return (
     <Svg width={size} height={(size / 220) * 176} viewBox="2 5 36 28.8" style={{ overflow: 'visible' }}>
       <Path d={FERMATA_D} fill="none" stroke={C.accent} strokeOpacity={0.22} strokeWidth={3.4} strokeLinecap="round" />
       <AnimatedFermataPath
         d={FERMATA_D}
         fill="none"
-        stroke={stroke}
+        stroke={C.accent}
         strokeWidth={3.4}
         strokeLinecap="round"
         strokeDasharray={[FERMATA_LEN, FERMATA_LEN]}
@@ -71,12 +87,15 @@ const S = 16;
 const STAFF_TOP = 36;
 const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * S);
 const MELODY_H = RULES[4] + 30; // rules plus the day letters beneath
-const BAR_PAD = 0.4 * S; // the barline and its breathing room
-const METER_W = 1.45 * S; // the time signature's column, only where the meter changes
-const REST_W = 2.2 * S; // a day off
-const PAD_W = 1.6 * S; // the eighth rest that squares a bar with its signature
+// Column widths come from lib/engrave, the same ones the full score lays out
+// with — Home is the same notation at a smaller staff space, not a second guess
+// at it.
+const PAD = BAR_PAD(S); // the barline and its breathing room
+const REST_W = REST_COL_W(S); // a day off
+const PAD_W = PAD_COL_W(S); // the eighth rest that squares a bar with its signature
 const LINE = LINE_W(S);
 const STEM = STEM_W(S);
+const NOTE_FS = glyphFontSize(S);
 
 /**
  * The practice log as a melody: one bar per day, one note per session in it, its
@@ -129,7 +148,7 @@ export function MelodyStaff({
       if (m) prev = m.beats;
       const lay = b.notes.length ? layoutBar(b.notes, goal, S) : null;
       const pad = m?.padEighths ?? 0;
-      out.push({ b, meter, pad, lay, w: BAR_PAD + (meter !== null ? METER_W : 0) + (lay ? lay.width : REST_W) + (pad ? PAD_W : 0) });
+      out.push({ b, meter, pad, lay, w: PAD + (meter !== null ? METER_COL_W(meter, S) : 0) + (lay ? lay.width : REST_W) + (pad ? PAD_W : 0) });
     }
     return out;
   }, [bars, goal]);
@@ -143,7 +162,8 @@ export function MelodyStaff({
     const ink = on || b.isToday ? C.accent : C.ink;
     const quiet = on ? C.accent : C.sub;
     const beaten = b.notes.reduce((a, n) => a + n.min, 0) > goal;
-    const xOff = BAR_PAD + (meter !== null ? METER_W : 0);
+    const meterW = meter !== null ? METER_COL_W(meter, S) : 0;
+    const xOff = PAD + meterW;
     const last = lay?.notes[lay.notes.length - 1];
     return (
       <Pressable key={b.date} disabled={!onSelect} onPress={() => onSelect?.(b.date)}>
@@ -152,20 +172,25 @@ export function MelodyStaff({
         <Svg width={w} height={MELODY_H}>
           <G transform={`translate(0, ${STAFF_TOP})`}>
             <Rect x={0} y={0} width={LINE * 1.2} height={4 * S} fill={C.barline} />
-            {/* numerals, not the font's signature glyphs: these sit at the size the rules dictate */}
+            {/* the font's own numerals, as the full score sets them — the two staves
+                read as one hand, not as a score and a sketch of one */}
             {meter !== null && (
               <G>
-                <SvgText x={BAR_PAD + METER_W / 2} y={yOf(6, S) + 0.55 * S} textAnchor="middle" fontFamily={F.bodyMed} fontSize={1.55 * S} fill={C.sub}>
-                  {String(meter)}
+                <SvgText x={PAD + meterW / 2} y={yOf(6, S)} textAnchor="middle" fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.sub}>
+                  {GLYPH.timeSig(meter)}
                 </SvgText>
-                <SvgText x={BAR_PAD + METER_W / 2} y={yOf(2, S) + 0.55 * S} textAnchor="middle" fontFamily={F.bodyMed} fontSize={1.55 * S} fill={C.sub}>
-                  4
+                <SvgText x={PAD + meterW / 2} y={yOf(2, S)} textAnchor="middle" fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.sub}>
+                  {GLYPH.timeSig(4)}
                 </SvgText>
               </G>
             )}
             <G transform={`translate(${xOff}, 0)`}>
               {/* a whole rest hangs under the second rule, whatever the meter says */}
-              {!lay && <Rect x={0.9 * S} y={S} width={1.15 * S} height={0.45 * S} fill={quiet} />}
+              {!lay && (
+                <SvgText x={REST_X(S)} y={S} fontFamily={F.smufl} fontSize={NOTE_FS} fill={quiet}>
+                  {GLYPH.restWhole}
+                </SvgText>
+              )}
               {lay?.beams.map((bm, i) => (
                 <Polygon
                   key={`b${i}`}
@@ -173,49 +198,36 @@ export function MelodyStaff({
                   fill={ink}
                 />
               ))}
-              {lay?.notes.map((n) => (
-                <G key={n.id}>
-                  {n.stem && <Rect x={n.stem.x} y={Math.min(n.stem.y1, n.stem.y2)} width={STEM} height={Math.abs(n.stem.y2 - n.stem.y1)} fill={ink} />}
-                  {n.flag && n.stem && <Path d={flagPath(n.stem.x + (n.down ? 0 : STEM), n.stem.y2, n.down, S)} fill={ink} />}
-                  <Ellipse
-                    cx={n.x}
-                    cy={n.y}
-                    rx={headRx(n.head, S)}
-                    ry={HEAD_RY(S)}
-                    fill={ink}
-                    transform={n.head === 'whole' || n.head === 'breve' ? undefined : `rotate(${HEAD_TILT} ${n.x} ${n.y})`}
-                  />
-                  {/* an open head is a ring: the staff line behind it does not show through */}
-                  {n.head !== 'quarter' && n.head !== 'eighth' && (
-                    <Ellipse
-                      cx={n.x}
-                      cy={n.y}
-                      rx={holeRx(n.head, S)}
-                      ry={holeRy(n.head, S)}
-                      fill={C.bg}
-                      transform={`rotate(${n.head === 'whole' || n.head === 'breve' ? -22 : HEAD_TILT} ${n.x} ${n.y})`}
-                    />
-                  )}
-                  {n.head === 'breve' && (
-                    <G>
-                      <Rect x={n.x - 1.05 * S} y={n.y - 0.62 * S} width={STEM} height={1.24 * S} fill={ink} />
-                      <Rect x={n.x + 1.05 * S - STEM} y={n.y - 0.62 * S} width={STEM} height={1.24 * S} fill={ink} />
-                    </G>
-                  )}
-                  {n.dot && <Circle cx={n.dot.x} cy={n.dot.y} r={0.15 * S} fill={ink} />}
-                </G>
-              ))}
-              {/* beating the goal is the day's doing, not one session's, so the mark rides the bar */}
+              {lay?.notes.map((n) => {
+                const head = headOrigin(n.head, n.x, n.y, S);
+                const flag = n.flag && n.stem ? flagOrigin(n.down, n.stem.x + (n.down ? 0 : STEM), n.stem.y2, S) : null;
+                return (
+                  <G key={n.id}>
+                    {n.stem && <Rect x={n.stem.x} y={Math.min(n.stem.y1, n.stem.y2)} width={STEM} height={Math.abs(n.stem.y2 - n.stem.y1)} fill={ink} />}
+                    {flag && (
+                      <SvgText x={flag.x} y={flag.y} fontFamily={F.smufl} fontSize={NOTE_FS} fill={ink}>
+                        {n.down ? GLYPH.flag8thDown : GLYPH.flag8thUp}
+                      </SvgText>
+                    )}
+                    <SvgText x={head.x} y={head.y} fontFamily={F.smufl} fontSize={NOTE_FS} fill={ink}>
+                      {headGlyph(n.head)}
+                    </SvgText>
+                    {n.dot && <Circle cx={n.dot.x} cy={n.dot.y} r={DOT_R(S)} fill={ink} />}
+                  </G>
+                );
+              })}
+              {/* beating the goal is the day's doing, not one session's, so the mark rides the
+                  bar — clear of the note's own top (its stem, if it has one), not a fixed height */}
               {beaten && last && (
-                <SvgText x={last.x} y={-0.55 * S} textAnchor="middle" fontFamily={F.notation} fontSize={1.5 * S} fill={ink}>
-                  {'\u{1D110}'}
+                <SvgText x={last.x} y={noteTop(last, S) - 0.4 * S} textAnchor="middle" fontFamily={F.smufl} fontSize={NOTE_FS} fill={ink}>
+                  {GLYPH.fermataAbove}
                 </SvgText>
               )}
               {/* the day stopped half a beat short — the bar says so rather than
                   quietly not adding up to its own signature */}
               {pad > 0 && lay && (
-                <SvgText x={lay.width + 0.4 * S} y={2 * S + 0.9 * S} fontFamily={F.notation} fontSize={2.3 * S} fill={quiet}>
-                  {'\u{1D13E}'}
+                <SvgText x={lay.width + PAD_REST_X(S)} y={2 * S} fontFamily={F.smufl} fontSize={NOTE_FS} fill={quiet}>
+                  {GLYPH.restEighth}
                 </SvgText>
               )}
             </G>
@@ -266,12 +278,13 @@ export function MelodyStaff({
             <Rect key={top} x={0} y={top} width={headW} height={LINE} fill={C.staffLine} />
           ))}
           <G transform={`translate(0, ${STAFF_TOP})`}>
-            <SvgText x={0.5 * S} y={yOf(2, S) + 2.25 * S} fontFamily={F.notation} fontSize={4.2 * S} fill={C.ink}>
-              {'\u{1D11E}'}
+            {/* Bravura's gClef sits on the G line by design — no empirical offset needed */}
+            <SvgText x={CLEF_X(S)} y={yOf(2, S)} fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.ink}>
+              {GLYPH.gClef}
             </SvgText>
             {signatureMarks(sig, S).map((m, i) => (
-              <SvgText key={i} x={m.x} y={m.y + (m.sharp ? 0.42 * S : 0.3 * S)} fontFamily={F.notation} fontSize={1.85 * S} fill={C.ink}>
-                {m.sharp ? '♯' : '♭'}
+              <SvgText key={i} x={m.x} y={m.y} fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.ink}>
+                {m.sharp ? GLYPH.accidentalSharp : GLYPH.accidentalFlat}
               </SvgText>
             ))}
           </G>
