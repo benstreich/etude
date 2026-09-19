@@ -500,8 +500,12 @@ const useS = themed(({ C, fs, r }: T) =>
 
     title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
 
-    titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-    controls: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6 },
+    // wraps rather than overflows: the title and the controls together run wider
+    // than a phone at the default text size, and wider still under Dynamic Type,
+    // so on a narrow screen the controls drop to their own line instead of
+    // pushing the reference stepper off the right edge
+    titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
+    controls: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6, flexShrink: 1, flexWrap: 'wrap', rowGap: 4 },
     instRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
     instChip: { height: 34, paddingHorizontal: 14, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
     instChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
