@@ -81,7 +81,7 @@ assert.equal(lastPlayed({ name: 'a' }, [S('A', '2026-09-10')]), null, 'title mat
 console.log('check-movement ok');
 
 // --- section availability (why a row in the layout sheet is locked) --------
-import { sectionUnavailable, type AvailabilityInput } from '../src/lib/progress-availability.ts';
+import { availabilityFrom, countOnSections, sectionUnavailable, type AvailabilityInput } from '../src/lib/progress-availability.ts';
 
 const emptyInput = {
   sessions: [], pieces: [], recordings: [], mbd: {}, today: '2026-09-14', monday: true, lastStage: 2, hasGoals: false,
@@ -149,5 +149,44 @@ for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   for (const k of ['rated', 'history']) {
     assert.ok(prog.unavailable[k].includes('%{have}') && prog.unavailable[k].includes('%{need}'), `${lang}: ${k} must name both counts`);
   }
+}
+{
+  // The layout sheet draws a blocked section's switch as off, so the "n of m"
+  // count has to agree with the switches: counting the stored `on` reported
+  // more sections than the screen had switched on.
+  const layout = [
+    { key: 'volume', on: true }, // always renderable
+    { key: 'heatmap', on: true }, // always renderable
+    { key: 'hear', on: true }, // blocked with no recordings — drawn as off
+    { key: 'pipeline', on: true }, // blocked with no pieces — drawn as off
+    { key: 'movement', on: false }, // off outright
+  ];
+  assert.equal(countOnSections(layout, emptyInput), 2, 'a blocked section must not count as switched on');
+  assert.equal(countOnSections([], emptyInput), 0);
+  assert.equal(
+    countOnSections(layout.map((l) => ({ ...l, on: false })), emptyInput),
+    0,
+    'nothing on counts as nothing on, blocked or not'
+  );
+}
+{
+  // one builder for the availability input, so the sheet and the Settings row
+  // cannot disagree about what counts as available
+  const store = {
+    sessions: [],
+    pieces: [{ archived: true, targetDate: '2026-10-01' }, { archived: false }],
+    recordings: [],
+    minutesByDate: { '2026-09-14': 30 },
+    today: '2026-09-14',
+    weekStart: 'Monday',
+    stages: ['a', 'b', 'c'],
+    dailyGoal: 0,
+  } as unknown as Parameters<typeof availabilityFrom>[0];
+  const i = availabilityFrom(store);
+  assert.equal(i.pieces.length, 1, 'archived pieces do not count towards availability');
+  assert.equal(i.monday, true);
+  assert.equal(i.lastStage, 2, 'lastStage is the index of the last stage, not the count');
+  assert.equal(i.hasGoals, true, 'a piece with a target date counts as a goal even with no daily goal');
+  assert.equal(availabilityFrom({ ...store, weekStart: 'Sunday' } as typeof store).monday, false);
 }
 console.log('check-movement: reason strings passed');

@@ -28,6 +28,46 @@ export type AvailabilityInput = {
   hasGoals: boolean;
 };
 
+/**
+ * The availability input, built from the store once. Both the layout sheet and
+ * the Settings row need it, and building it twice by hand is how the two came
+ * to disagree about what "on" means.
+ */
+export function availabilityFrom(s: {
+  sessions: Session[];
+  pieces: Piece[];
+  recordings: Recording[];
+  minutesByDate: Record<string, number>;
+  today: string;
+  weekStart: string;
+  stages: unknown[];
+  dailyGoal: number;
+}): AvailabilityInput {
+  // Judged on the whole library rather than the current filter: the question is
+  // whether the data exists at all, not whether this week happens to show it.
+  const live = s.pieces.filter((p) => !p.archived);
+  return {
+    sessions: s.sessions,
+    pieces: live,
+    recordings: s.recordings,
+    mbd: s.minutesByDate,
+    today: s.today,
+    monday: s.weekStart === 'Monday',
+    lastStage: s.stages.length - 1,
+    hasGoals: s.dailyGoal > 0 || s.pieces.some((p) => !!p.targetDate),
+  };
+}
+
+/**
+ * How many sections are switched on *and* able to render — which is what the
+ * layout sheet's switches actually show. A section whose data floor is not met
+ * draws as off and cannot be toggled, so counting its stored `on` reports more
+ * sections than the screen has switches for.
+ */
+export function countOnSections(layout: { key: string; on: boolean }[], i: AvailabilityInput): number {
+  return layout.filter((l) => l.on && !sectionUnavailable(l.key, i)).length;
+}
+
 const plain = (reason: Reason): Unavailable => ({ reason, have: 0, need: 0 });
 
 /** Days with practice on or before today — the floor the insight cards use. */

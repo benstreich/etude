@@ -20,6 +20,7 @@ import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { KEYS } from '@/lib/melody';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
+import { availabilityFrom, countOnSections } from '@/lib/progress-availability';
 import { resolveLayout } from '@/lib/progress-sections';
 import { type LanguageSetting } from '@/lib/i18n';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
@@ -94,7 +95,7 @@ export default function Profile() {
   const [layoutOpen, setLayoutOpen] = useState(false);
   const layoutAll = resolveLayout(store.progressLayout);
   const layoutTotal = layoutAll.length;
-  const layoutOn = layoutAll.filter((l) => l.on).length;
+  const layoutOn = countOnSections(layoutAll, availabilityFrom(store));
   // ponytail: native in-app review sheet; row hides where no store flow exists (web, sideloads)
   const [canRate, setCanRate] = useState(false);
   useEffect(() => {
