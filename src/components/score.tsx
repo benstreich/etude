@@ -59,9 +59,20 @@ export function ScoreCard({ piece }: { piece: string }) {
   const [editing, setEditing] = useState<Attachment | null>(null);
   const [draft, setDraft] = useState('');
 
+  const pageCount = scores.reduce((a, x) => a + x.files.length, 0);
+
   return (
     <View style={{ gap: 12 }}>
-      <Overline>{store.t('score.title')}</Overline>
+      <View style={s.headRow}>
+        <Overline>{store.t('score.title')}</Overline>
+        {/* matches the Recordings header (Overline + a quiet count) so the two
+            "your material" sections on this page read as a pair */}
+        {scores.length > 0 && (
+          <Text style={s.headCount}>
+            {store.t('score.filesCount', { count: scores.length })} {'·'} {store.t('score.pages', { count: pageCount })}
+          </Text>
+        )}
+      </View>
       <Card style={{ padding: 12 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
           {scores.map((a) => (
@@ -302,6 +313,8 @@ function ZoomablePage({ uri, width, height }: { uri: string; width: number; heig
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
+  headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  headCount: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
   thumb: { width: 92, borderRadius: r(10), overflow: 'hidden', backgroundColor: C.track },
   thumbImg: { width: 92, height: 108, backgroundColor: '#fff' },
   thumbFoot: { paddingHorizontal: 6, paddingVertical: 5 },

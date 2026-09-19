@@ -20,7 +20,9 @@ import {
 } from '@/components/icons';
 import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
+import { ActionChip, ChipRow, Sheet } from '@/components/ui';
 import { applyAudioMode } from '@/lib/audio-mode';
+import { tap, thud } from '@/lib/haptics';
 import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 import {
@@ -80,6 +82,7 @@ export function RecordingsList({
   // used to rewrite the take on every frame, with no way back to where you started
   const [trim, setTrim] = useState<{ start: number; end: number } | null>(null);
   const [waveW, setWaveW] = useState(1);
+  const [sheetWaveW, setSheetWaveW] = useState(1); // the trim sheet's own, wider waveform
   const grabbed = useRef<TrimHandle>('start'); // handle claimed on touch-down, held for the whole drag
 
   // adjust-state-during-render pattern (react.dev "you might not need an effect").
@@ -212,19 +215,19 @@ export function RecordingsList({
     closeTrim();
   };
 
+  // playback scrub only — trimming now happens in its own sheet (below), on its own wider waveform
   const onWaveGrant = (r: Recording, x: number) => {
-    if (trimId === r.id) {
-      const c = clipOf(r);
-      grabbed.current = nearestHandle(c, x, waveW);
-      setTrim(dragHandle(c, grabbed.current, x, waveW));
-    } else if (currentId === r.id) {
-      player.seekTo(timeAt(r, x, waveW));
-    }
+    if (currentId === r.id) player.seekTo(timeAt(r, x, waveW));
   };
   const onWaveMove = (r: Recording, x: number) => {
-    if (trimId === r.id) setTrim(dragHandle(clipOf(r), grabbed.current, x, waveW));
-    else if (currentId === r.id) player.seekTo(timeAt(r, x, waveW));
+    if (currentId === r.id) player.seekTo(timeAt(r, x, waveW));
   };
+  const onTrimGrant = (r: Recording, x: number) => {
+    const c = clipOf(r);
+    grabbed.current = nearestHandle(c, x, sheetWaveW);
+    setTrim(dragHandle(c, grabbed.current, x, sheetWaveW));
+  };
+  const onTrimMove = (r: Recording, x: number) => setTrim(dragHandle(clipOf(r), grabbed.current, x, sheetWaveW));
 
   // starred ("my reference take") float to the top — the same takes Compare and
   // the Progress "hear the difference" section reach for, so the order matches.
@@ -236,6 +239,9 @@ export function RecordingsList({
     [recordings]
   );
 
+  const trimRec = trimId ? (recordings.find((r) => r.id === trimId) ?? null) : null;
+  const trimClip = trimRec ? clipOf(trimRec) : null; // the draft bounds, held out of the store until Save
+
   if (recordings.length === 0) return null;
 
   return (
@@ -244,7 +250,7 @@ export function RecordingsList({
         const playing = currentId === r.id && status.playing;
         const trimming = trimId === r.id;
         const c = clipOf(r); // draft bounds while trimming, the saved ones otherwise
-        const open = currentId === r.id || trimming;
+        const open = currentId === r.id;
         // An imported take carries no level samples, and gating the strip on them
         // took the scrub surface and the trim grips away with the picture — trimming
         // one was nudge-only, 0.1s a tap. Draw a flat track instead: no waveform to
@@ -311,7 +317,13 @@ export function RecordingsList({
                     style={s.iconBtn}
                     hitSlop={8}
                     accessibilityLabel={store.t('recordings.trim')}
-                    onPress={() => (trimming ? closeTrim() : openTrim(r))}>
+                    onPress={() => {
+                      if (trimming) closeTrim();
+                      else {
+                        thud(true);
+                        openTrim(r);
+                      }
+                    }}>
                     <ScissorsIcon color={trimming ? C.accent : C.sub} />
                   </Pressable>
                   <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.delete')} onPress={() => confirmRemove(r)}>
@@ -325,8 +337,8 @@ export function RecordingsList({
               <View
                 style={s.wave}
                 onLayout={(e) => setWaveW(e.nativeEvent.layout.width)}
-                onStartShouldSetResponder={() => trimming || currentId === r.id}
-                onMoveShouldSetResponder={() => trimming || currentId === r.id}
+                onStartShouldSetResponder={() => currentId === r.id}
+                onMoveShouldSetResponder={() => currentId === r.id}
                 onResponderGrant={(e) => onWaveGrant(r, e.nativeEvent.locationX)}
                 onResponderMove={(e) => onWaveMove(r, e.nativeEvent.locationX)}>
                 {wave.map((v, j) => {
@@ -347,111 +359,237 @@ export function RecordingsList({
                     />
                   );
                 })}
-                {trimming && (
-                  <>
-                    <TrimGrip x={(inPoint(c) / r.sec) * waveW} />
-                    <TrimGrip x={(outPoint(c) / r.sec) * waveW} />
-                  </>
-                )}
               </View>
             )}
 
-            {open && !trimming && (
+            {open && (
               <View style={s.toolBar}>
                 <Text style={s.meta}>
                   {fmt(at)} / {fmt(outPoint(r))}
                 </Text>
                 <View style={{ flex: 1 }} />
-                <Pressable style={[s.ratePill, rate !== 1 && { borderColor: C.accent }]} hitSlop={8} onPress={() => cycleRate(r)}>
-                  <Text style={[s.rateText, rate !== 1 && { color: C.accent }]}>{rateLabel(rate)}</Text>
-                </Pressable>
-                <Pressable
-                  style={s.iconBtn}
-                  hitSlop={8}
-                  accessibilityLabel={store.t('recordings.loop')}
-                  onPress={() => store.updateRecording(r.id, { loop: !r.loop })}>
-                  <LoopIcon color={r.loop ? C.accent : C.sub} />
-                </Pressable>
-                <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.share')} onPress={() => share(r)}>
-                  <ShareIcon color={C.sub} size={18} />
-                </Pressable>
-                {onMove && (
-                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.move')} onPress={() => onMove(r)}>
-                    <MoveIcon />
-                  </Pressable>
-                )}
-              </View>
-            )}
-
-            {trimming && (
-              <View style={{ gap: 8, paddingBottom: 10 }}>
-                <Bound
-                  label={store.t('recordings.in')}
-                  value={fmtFine(inPoint(c))}
-                  onNudge={(steps) => setTrim(nudgeTrim(c, 'start', steps))}
-                  onHere={currentId === r.id ? () => setTrim(setFromPlayhead(c, 'start', status.currentTime)) : undefined}
-                  hereLabel={store.t('recordings.here')}
-                />
-                <Bound
-                  label={store.t('recordings.out')}
-                  value={fmtFine(outPoint(c))}
-                  onNudge={(steps) => setTrim(nudgeTrim(c, 'end', steps))}
-                  onHere={currentId === r.id ? () => setTrim(setFromPlayhead(c, 'end', status.currentTime)) : undefined}
-                  hereLabel={store.t('recordings.here')}
-                />
-                <View style={s.toolBar}>
-                  <Text style={s.meta}>{store.t('recordings.clipLength', { len: fmtFine(outPoint(c) - inPoint(c)) })}</Text>
-                  <View style={{ flex: 1 }} />
-                  <Pressable
-                    style={s.iconBtn}
-                    hitSlop={8}
-                    accessibilityLabel={store.t('recordings.loop')}
-                    onPress={() => store.updateRecording(r.id, { loop: !r.loop })}>
-                    <LoopIcon color={r.loop ? C.accent : C.sub} />
-                  </Pressable>
-                  <Pressable
-                    style={s.iconBtn}
-                    hitSlop={8}
-                    accessibilityLabel={store.t('recordings.clearTrim')}
-                    onPress={() => setTrim({ start: 0, end: r.sec })}>
-                    <UndoIcon />
-                  </Pressable>
-                  <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.share')} onPress={() => share(r)}>
-                    <ShareIcon color={C.sub} size={18} />
-                  </Pressable>
-                </View>
-                {/* the share button sits inside the trim panel, which reads as
-                    "share the clip" — it can't be, so say so rather than surprise */}
-                <Text style={s.meta}>{store.t('recordings.shareWholeHint')}</Text>
-                <View style={s.trimActions}>
-                  <Pressable style={s.trimCancel} hitSlop={8} onPress={closeTrim}>
-                    <Text style={s.trimCancelText}>{store.t('recordings.cancelTrim')}</Text>
-                  </Pressable>
-                  <Pressable style={s.trimSave} hitSlop={8} onPress={() => saveTrim(r)}>
-                    <Text style={s.trimSaveText}>{store.t('recordings.saveTrim')}</Text>
-                  </Pressable>
-                </View>
+                <ChipRow>
+                  <ActionChip icon={() => null} label={rateLabel(rate)} active={rate !== 1} onPress={() => cycleRate(r)} />
+                  <ActionChip
+                    icon={(color) => <LoopIcon color={color} />}
+                    label={store.t('recordings.loop')}
+                    active={!!r.loop}
+                    onPress={() => store.updateRecording(r.id, { loop: !r.loop })}
+                  />
+                  <ActionChip icon={(color) => <ShareIcon color={color} size={18} />} label={store.t('recordings.share')} onPress={() => share(r)} />
+                  {onMove && (
+                    <Pressable style={s.iconBtn} hitSlop={8} accessibilityLabel={store.t('recordings.move')} onPress={() => onMove(r)}>
+                      <MoveIcon />
+                    </Pressable>
+                  )}
+                </ChipRow>
               </View>
             )}
           </View>
         );
       })}
+
+      <TrimSheet
+        recording={trimRec}
+        clip={trimClip}
+        waveW={sheetWaveW}
+        onLayoutWave={setSheetWaveW}
+        onGrant={(x) => trimRec && onTrimGrant(trimRec, x)}
+        onMove={(x) => trimRec && onTrimMove(trimRec, x)}
+        onNudge={(handle, steps) => trimClip && setTrim(nudgeTrim(trimClip, handle, steps))}
+        onHere={currentId === trimId && trimClip ? (handle) => setTrim(setFromPlayhead(trimClip, handle, status.currentTime)) : undefined}
+        loop={!!trimRec?.loop}
+        onToggleLoop={() => trimRec && store.updateRecording(trimRec.id, { loop: !trimRec.loop })}
+        onClear={() => trimRec && setTrim({ start: 0, end: trimRec.sec })}
+        onShare={() => trimRec && share(trimRec)}
+        onCancel={closeTrim}
+        onSave={() => trimRec && saveTrim(trimRec)}
+      />
     </View>
   );
 }
 
-/** A trim bound drawn over the waveform, so the grab point is visible before it is grabbed. */
-function TrimGrip({ x }: { x: number }) {
-  const C = useC();
+/**
+ * Trim moves into the app's Sheet (#88): today's inline panel borrowed its own
+ * borders and radii from nowhere in particular. `recording`/`clip` null means
+ * closed or closing — the body unmounts immediately, same as every other sheet
+ * keyed off a nullable "current item" (see EditSessionSheet).
+ */
+function TrimSheet({
+  recording,
+  clip,
+  waveW,
+  onLayoutWave,
+  onGrant,
+  onMove,
+  onNudge,
+  onHere,
+  loop,
+  onToggleLoop,
+  onClear,
+  onShare,
+  onCancel,
+  onSave,
+}: {
+  recording: Recording | null;
+  clip: Recording | null;
+  waveW: number;
+  onLayoutWave: (w: number) => void;
+  onGrant: (x: number) => void;
+  onMove: (x: number) => void;
+  onNudge: (handle: TrimHandle, steps: number) => void;
+  onHere?: (handle: TrimHandle) => void;
+  loop: boolean;
+  onToggleLoop: () => void;
+  onClear: () => void;
+  onShare: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
   return (
-    <View
-      pointerEvents="none"
-      style={{ position: 'absolute', left: Math.max(0, x - 1.5), top: -3, bottom: -3, width: 3, borderRadius: 1.5, backgroundColor: C.accent }}
-    />
+    <Sheet visible={recording !== null} onClose={onCancel} grabber>
+      {recording && clip && (
+        <TrimEditor
+          key={recording.id}
+          recording={recording}
+          clip={clip}
+          waveW={waveW}
+          onLayoutWave={onLayoutWave}
+          onGrant={onGrant}
+          onMove={onMove}
+          onNudge={onNudge}
+          onHere={onHere}
+          loop={loop}
+          onToggleLoop={onToggleLoop}
+          onClear={onClear}
+          onShare={onShare}
+          onCancel={onCancel}
+          onSave={onSave}
+        />
+      )}
+    </Sheet>
   );
 }
 
-/** One trim bound: its time, a ±0.1s nudge either side, and "put it where I'm listening". */
+function TrimEditor({
+  recording,
+  clip,
+  waveW,
+  onLayoutWave,
+  onGrant,
+  onMove,
+  onNudge,
+  onHere,
+  loop,
+  onToggleLoop,
+  onClear,
+  onShare,
+  onCancel,
+  onSave,
+}: {
+  recording: Recording;
+  clip: Recording;
+  waveW: number;
+  onLayoutWave: (w: number) => void;
+  onGrant: (x: number) => void;
+  onMove: (x: number) => void;
+  onNudge: (handle: TrimHandle, steps: number) => void;
+  onHere?: (handle: TrimHandle) => void;
+  loop: boolean;
+  onToggleLoop: () => void;
+  onClear: () => void;
+  onShare: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const s = useS();
+  const C = useC();
+  const store = useStore();
+  const wave = recording.wave?.length ? recording.wave : FLAT_WAVE;
+  const hasWave = !!recording.wave?.length;
+
+  return (
+    <View style={{ gap: 18 }}>
+      <View style={s.trimTitleRow}>
+        <Text style={s.trimTitle}>{store.t('recordings.trimTake')}</Text>
+        <Text style={s.trimName} numberOfLines={1}>
+          {recording.name || (recording.piece ?? '')}
+        </Text>
+      </View>
+
+      <View
+        style={s.trimWave}
+        onLayout={(e) => onLayoutWave(e.nativeEvent.layout.width)}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={(e) => onGrant(e.nativeEvent.locationX)}
+        onResponderMove={(e) => onMove(e.nativeEvent.locationX)}>
+        {wave.map((v, j) => {
+          const barAt = ((j + 0.5) / wave.length) * recording.sec;
+          const outside = barAt < inPoint(clip) || barAt > outPoint(clip);
+          return (
+            <View
+              key={j}
+              style={{
+                flex: 1,
+                height: hasWave ? 8 + v * 56 : 4,
+                borderRadius: 2,
+                backgroundColor: outside ? C.chartInactive : C.accent,
+                opacity: outside ? 0.3 : 1,
+              }}
+            />
+          );
+        })}
+        <TrimHandleMark x={(inPoint(clip) / recording.sec) * waveW} label={fmtFine(inPoint(clip))} above />
+        <TrimHandleMark x={(outPoint(clip) / recording.sec) * waveW} label={fmtFine(outPoint(clip))} above={false} />
+      </View>
+
+      <View style={{ gap: 8 }}>
+        <Bound label={store.t('recordings.in')} value={fmtFine(inPoint(clip))} onNudge={(steps) => onNudge('start', steps)} onHere={onHere && (() => onHere('start'))} hereLabel={store.t('recordings.here')} />
+        <Bound label={store.t('recordings.out')} value={fmtFine(outPoint(clip))} onNudge={(steps) => onNudge('end', steps)} onHere={onHere && (() => onHere('end'))} hereLabel={store.t('recordings.here')} />
+      </View>
+
+      <View style={s.trimFooterRow}>
+        <Text style={s.meta}>{store.t('recordings.clipLength', { len: fmtFine(outPoint(clip) - inPoint(clip)) })}</Text>
+        <View style={{ flex: 1 }} />
+        <ChipRow>
+          <ActionChip icon={(color) => <LoopIcon color={color} />} label={store.t('recordings.loop')} active={loop} onPress={onToggleLoop} />
+          <ActionChip icon={(color) => <UndoIcon color={color} />} label={store.t('recordings.clearTrim')} onPress={onClear} />
+          <ActionChip icon={(color) => <ShareIcon color={color} size={18} />} label={store.t('recordings.share')} onPress={onShare} />
+        </ChipRow>
+      </View>
+      {/* the share button sits inside the trim sheet, which reads as
+          "share the clip" — it can't be, so say so rather than surprise */}
+      <Text style={s.meta}>{store.t('recordings.shareWholeHint')}</Text>
+
+      <View style={{ gap: 10 }}>
+        <Pressable style={s.trimSaveBtn} onPress={onSave}>
+          <Text style={s.trimSaveBtnText}>{store.t('recordings.saveTrim')}</Text>
+        </Pressable>
+        <Pressable style={s.trimCancelBtn} hitSlop={8} onPress={onCancel}>
+          <Text style={s.trimCancelText}>{store.t('recordings.cancelTrim')}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** A handle on the trim waveform: the 3px bar itself, plus its own time label riding above (in) or below (out) it. */
+function TrimHandleMark({ x, label, above }: { x: number; label: string; above: boolean }) {
+  const s = useS();
+  const C = useC();
+  return (
+    <View pointerEvents="none" style={[s.trimHandle, { left: x - 1.5, backgroundColor: C.accent }]}>
+      <View style={[s.trimHandlePillWrap, above ? { bottom: '100%', marginBottom: 6 } : { top: '100%', marginTop: 6 }]}>
+        <View style={s.trimHandlePill}>
+          <Text style={s.trimHandlePillText}>{label}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** One trim bound: its time, a 30px nudge either side (0.1s steps), and "put it where I'm listening". */
 function Bound({
   label,
   value,
@@ -466,22 +604,26 @@ function Bound({
   hereLabel: string;
 }) {
   const s = useS();
+  const nudge = (steps: number, glyph: string, key: string) => (
+    <Pressable
+      key={key}
+      style={s.nudge}
+      hitSlop={7}
+      onPress={() => {
+        tap();
+        onNudge(steps);
+      }}>
+      <Text style={s.nudgeText}>{glyph}</Text>
+    </Pressable>
+  );
   return (
     <View style={s.boundRow}>
       <Text style={s.boundLabel}>{label}</Text>
       <Text style={s.boundValue}>{value}</Text>
       <View style={{ flex: 1 }} />
-      <Pressable style={s.nudge} hitSlop={6} onPress={() => onNudge(-1)}>
-        <Text style={s.nudgeText}>{'−'}</Text>
-      </Pressable>
-      <Pressable style={s.nudge} hitSlop={6} onPress={() => onNudge(1)}>
-        <Text style={s.nudgeText}>+</Text>
-      </Pressable>
-      {onHere && (
-        <Pressable style={s.here} hitSlop={6} onPress={onHere}>
-          <Text style={s.hereText}>{hereLabel}</Text>
-        </Pressable>
-      )}
+      {nudge(-1, '−', 'd')}
+      {nudge(1, '+', 'i')}
+      {onHere && <ActionChip icon={() => null} label={hereLabel} onPress={onHere} />}
     </View>
   );
 }
@@ -503,28 +645,25 @@ const useS = themed(({ C, fs, r }: T) =>
     nameInput: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink, padding: 0, borderBottomWidth: 1, borderBottomColor: C.accent },
     iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
     wave: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 32, marginBottom: 10 },
-    toolBar: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 10 },
-    ratePill: {
-      minWidth: 40,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: r(11),
-      borderWidth: 1,
-      borderColor: C.hairline,
-      alignItems: 'center',
-    },
-    rateText: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.sub },
+    toolBar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 10 },
     boundRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     boundLabel: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 0.5, color: C.tertiary, width: 26 },
     boundValue: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
-    nudge: { width: 30, height: 28, borderRadius: r(8), borderWidth: 1, borderColor: C.hairline, alignItems: 'center', justifyContent: 'center' },
-    nudgeText: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, lineHeight: fs(18) },
-    here: { paddingHorizontal: 10, height: 28, borderRadius: r(8), borderWidth: 1, borderColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-    hereText: { fontFamily: F.bodyMed, fontSize: fs(12), color: C.accent },
-    trimActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, paddingBottom: 4 },
-    trimCancel: { paddingHorizontal: 14, height: 34, borderRadius: r(10), alignItems: 'center', justifyContent: 'center' },
-    trimCancelText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
-    trimSave: { paddingHorizontal: 16, height: 34, borderRadius: r(10), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-    trimSaveText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.bg },
+    // the same size-30 stepper button geometry as ui.tsx's `Stepper`
+    nudge: { width: 30, height: 30, borderRadius: r(15), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
+    nudgeText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
+    trimTitleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+    trimTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
+    trimName: { flexShrink: 1, fontFamily: F.body, fontSize: fs(13), color: C.sub },
+    trimWave: { position: 'relative', flexDirection: 'row', alignItems: 'center', gap: 2, height: 72, marginTop: 12, marginBottom: 20 },
+    trimHandle: { position: 'absolute', top: -6, bottom: -6, width: 3, borderRadius: 1.5 },
+    trimHandlePillWrap: { position: 'absolute', left: -20, width: 43, alignItems: 'center' },
+    trimHandlePill: { height: 20, paddingHorizontal: 8, borderRadius: r(10), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+    trimHandlePillText: { fontFamily: F.bodyMed, fontSize: fs(11), color: '#fff', fontVariant: ['tabular-nums'] },
+    trimFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    trimSaveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+    trimSaveBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
+    trimCancelBtn: { height: 44, alignItems: 'center', justifyContent: 'center' },
+    trimCancelText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   })
 );

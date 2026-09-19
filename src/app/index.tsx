@@ -4,14 +4,15 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { EditSessionSheet } from '@/components/edit-session';
 import { ProgressBody } from '@/components/progress';
-import { FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
+import { ExpandIcon, FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { LogPastModal } from '@/components/log-past';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { StaffLegend } from '@/components/staff-legend';
-import { FermataMark, MelodyStaff } from '@/components/motifs';
+import { FermataMark, MelodyStaff, RollingNumber } from '@/components/motifs';
 import { success, tap } from '@/lib/haptics';
 import { barsFor } from '@/lib/melody';
 import { useMelodyPlayer } from '@/lib/melody-play';
@@ -20,7 +21,7 @@ import { fmtTime } from '@/components/progress/styles';
 import { useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices } from '@/lib/instrument-math';
 import { dateKey, dayLabel, useStore, type Session } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useTheme, type T } from '@/lib/theme';
 
 // taking `now` from the store keeps these reactive — a bare new Date() here gets
 // cached once by the react-compiler and shows yesterday after a midnight rollover
@@ -31,7 +32,7 @@ const greeting = (now: number, t: (k: string) => string) => {
 
 export default function Home() {
   const s = useS();
-  const C = useC();
+  const { C, reduceMotion, fs } = useTheme();
   const store = useStore();
   const inst = useInstrumentFilter();
   const router = useRouter();
@@ -131,7 +132,9 @@ export default function Home() {
             <FermataMark pct={(dayMin / Math.max(1, store.dailyGoal)) * 100} goalMet={goalMet} />
           </View>
           <View style={s.todayCountRow}>
-            <Text testID="today-minutes" style={s.todayCount}>{dayMin}</Text>
+            <View testID="today-minutes">
+              <RollingNumber value={dayMin} style={s.todayCount} height={fs(36)} />
+            </View>
             <Text style={s.todayCountUnit}>{store.t('home.minOf', { goal: store.dailyGoal })}</Text>
           </View>
         </View>
@@ -159,6 +162,16 @@ export default function Home() {
                   playFrom(resumeAt ?? day);
                 }}>
                 <Text style={s.playGlyph}>{melody.playing ? '❚❚' : '▶'}</Text>
+              </Pressable>
+              <Pressable
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={store.t('home.fullScore')}
+                onPress={() => {
+                  tap();
+                  router.push('/score');
+                }}>
+                <ExpandIcon size={15} color={C.accent} />
               </Pressable>
             </View>
           </View>
@@ -242,7 +255,18 @@ export default function Home() {
                 <Text style={s.addBtnText}>{store.t('home.chipMin', { min: m })}</Text>
               </Pressable>
             ))}
+            {/* the chips log to whichever day the staff above has picked — this
+                says so, right where the tap lands, not just in the overline above */}
+            {day !== store.today && (
+              <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(200)} style={s.landTag}>
+                <Text style={s.landTagText} numberOfLines={1}>
+                  {'→ '}
+                  {dayLabel(day, store.today, store.t, store.lang)}
+                </Text>
+              </Animated.View>
+            )}
           </View>
+          <Text style={s.tapHint}>{day === store.today ? store.t('home.landsToday') : store.t('home.landsOnDay', { day: dayLabel(day, store.today, store.t, store.lang) })}</Text>
         </View>
 
         <View style={{ marginTop: 32 }}>
@@ -338,6 +362,8 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   addRow: { marginTop: 10, flexDirection: 'row', gap: 8 },
   addBtn: { flex: 1, height: 36, borderRadius: 8, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   addBtnText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  landTag: { height: 36, paddingHorizontal: 10, borderRadius: 8, backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center' },
+  landTagText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   tapHint: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary },
   logRowWrap: { borderBottomWidth: 1, borderBottomColor: C.hairline },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 52 },

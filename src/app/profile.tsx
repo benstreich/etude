@@ -322,11 +322,11 @@ export default function Profile() {
       <View>
         <Overline>{store.t('settings.practice')}</Overline>
         <View style={{ marginTop: 6 }}>
-          {rows.map((row) => (
+          {rows.map((row, i) => (
             <Pressable
               key={row.key}
               testID={`setting-${row.key}`}
-              style={s.row}
+              style={[s.row, i === rows.length - 1 && s.rowClose]}
               onPress={() => (row.key === 'progressSections' ? setLayoutOpen(true) : open(row.key))}>
               <Text style={s.rowLabel}>{row.label}</Text>
               <Text style={s.rowValue} numberOfLines={1}>
@@ -341,7 +341,7 @@ export default function Profile() {
       <View>
         <Overline>{store.t('appearance.title')}</Overline>
         <View style={{ marginTop: 6 }}>
-          <Pressable style={s.row} onPress={() => router.push('/appearance')}>
+          <Pressable style={[s.row, s.rowClose]} onPress={() => router.push('/appearance')}>
             <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
             <Text style={s.rowValue} numberOfLines={1}>
               {store.t(store.theme === 'system' ? 'appearance.system' : store.theme === 'dark' ? 'appearance.dark' : 'appearance.light')}
@@ -367,8 +367,8 @@ export default function Profile() {
               [store.t('settings.exportCsv'), store.t('settings.exportCsvSub'), csv],
               [store.t('settings.restoreFromBackup'), store.t('settings.restoreSub'), restore],
             ] as const
-          ).map(([label, sub, onPress]) => (
-            <Pressable key={label} style={s.dataRow} onPress={onPress}>
+          ).map(([label, sub, onPress], i, arr) => (
+            <Pressable key={label} style={[s.dataRow, i === arr.length - 1 && s.rowClose]} onPress={onPress}>
               <View style={{ flex: 1 }}>
                 <Text style={s.dataLabel}>{label}</Text>
                 <Text style={s.dataSub}>{sub}</Text>

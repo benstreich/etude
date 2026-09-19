@@ -48,14 +48,17 @@ The first version. Everything below is new.
   when your target tempo is on course, and which ready pieces are going stale.
   Each waits until it has enough of your data to mean something.
 - Goals per week, month and year.
-- Your practice log written out as music: one bar per day, one note per
-  session, and the note is as long as the session was — so a day fills its bar
-  and the way you split it is its rhythm. Each piece keeps its own pitch, so
-  your repertoire turns into a tune you start to recognise, and it is played
-  back on a piano in whichever key you choose. Each bar carries its own time
-  signature, because a bar is a day and runs exactly as long as the day did —
-  4/4 is the goal met, 6/4 a day half again as long. "How to read the staff"
-  under it spells the whole thing out, with the note lengths in your own minutes.
+- Your practice log written out as music, engraved the way a score is: a treble
+  clef and your key signature pinned at the left while the weeks scroll under
+  them, stems that turn the right way, beamed runs, and a time signature on each
+  bar. One bar per day, one note per session, and the note is as long as the
+  session was — so a day fills its bar and the way you split it is its rhythm.
+  Each piece keeps its own pitch, so your repertoire turns into a tune you start
+  to recognise, and it is played back on a piano in whichever key you choose. The
+  bar carries its own meter because a bar is a day and runs exactly as long as the
+  day did — 4/4 is the goal met, 6/4 a day half again as long. "How to read the
+  staff" under it spells the whole thing out, with the note lengths in your own
+  minutes.
 
 **Tools**
 - A Tools tab: full-screen metronome with tap tempo, the tuner, and a drone —

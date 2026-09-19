@@ -128,6 +128,17 @@ export const LockIcon = ({ color: colorProp, size = 14 }: P) => {
   );
 };
 
+/** Four corner arrows — expands the Home mini-staff into the full score view. */
+export const ExpandIcon = ({ color: colorProp, size = 15 }: P) => {
+  const C = useC();
+  const color = colorProp ?? C.accent;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 3H3v6M15 3h6v6M15 21h6v-6M9 21H3v-6" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+};
+
 export const ChevronIcon = ({ color: colorProp, size = 12 }: P) => {
   const C = useC();
   const color = colorProp ?? C.faint;

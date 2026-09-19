@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Animated from 'react-native-reanimated';
 import { Pressable } from '@/components/press';
@@ -8,9 +8,10 @@ import { PlayIcon } from '@/components/icons';
 import { RollingNumber } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Bump } from '@/components/motion';
-import { EntryRow, UnderlineTabs, useKeyboardLift } from '@/components/ui';
+import { ActionChip, EntryRow, Stepper, Switch, UnderlineTabs, useKeyboardLift } from '@/components/ui';
+import { tap } from '@/lib/haptics';
 import { LOCK_SCREEN_STEP, preloadClicks, previewClick, useBeat, useMetronome } from '@/lib/metronome';
-import { describeRamp, MAX_BPM, SOUND_SETS, SUBDIVS, tapTempo, type RampUnit, type SoundSet } from '@/lib/metronome-math';
+import { describeRamp, MAX_BPM, MIN_BPM, SOUND_SETS, SUBDIVS, tapTempo, type RampUnit, type SoundSet } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -135,17 +136,17 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
             <Text style={[s.hint, { textAlign: 'center', marginTop: 10 }]}>{t('metronome.accentsHint')}</Text>
 
             <View style={s.bpmRow}>
-              <Step label="−5" onPress={() => nudge(-5)} />
-              <Step label="−1" onPress={() => nudge(-1)} />
+              <Step label="−5" disabled={bpm <= MIN_BPM} onPress={() => nudge(-5)} />
+              <Step label="−1" disabled={bpm <= MIN_BPM} onPress={() => nudge(-1)} />
               <View style={s.bpmBox}>
                 <View testID="metro-bpm">
-                  <RollingNumber value={bpm} style={s.bpm} height={fs(72)} />
+                  <RollingNumber value={bpm} style={s.bpm} height={fs(72)} fast />
                 </View>
                 <Text style={s.bpmUnit}>BPM</Text>
                 <Text style={s.bpmTerm}>{tempoTerm(bpm)}</Text>
               </View>
-              <Step label="+1" onPress={() => nudge(1)} />
-              <Step label="+5" onPress={() => nudge(5)} />
+              <Step label="+1" disabled={bpm >= MAX_BPM} onPress={() => nudge(1)} />
+              <Step label="+5" disabled={bpm >= MAX_BPM} onPress={() => nudge(5)} />
             </View>
 
             <EntryRow
@@ -213,36 +214,31 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
                   <Text style={s.label}>{t('metronome.tempoRamp')}</Text>
                   <Text style={s.hint}>{summary ?? t('metronome.rampOffHint')}</Text>
                 </View>
-                <View style={[s.switchTrack, ramp.on && s.switchTrackOn]}>
-                  <View style={[s.switchKnob, ramp.on && s.switchKnobOn]} />
-                </View>
+                <Switch value={ramp.on} onChange={(on) => setRamp({ on })} />
               </Pressable>
 
               {ramp.on && (
                 <View style={{ gap: 10 }}>
                   <View style={s.fieldRow}>
                     <Text style={s.fieldLabel}>{t('metronome.changeBy')}</Text>
-                    <NumberField value={ramp.step} onCommit={(step) => setRamp({ step })} />
-                    <Text style={s.fieldSuffix}>BPM</Text>
+                    <Stepper value={ramp.step} min={1} max={MAX_BPM} size={38} suffix="BPM" onChange={(step) => setRamp({ step })} />
                   </View>
                   <View style={s.fieldRow}>
                     <Text style={s.fieldLabel}>{t('metronome.every')}</Text>
-                    <NumberField value={ramp.every} onCommit={(every) => setRamp({ every })} />
-                    <View style={s.seg}>
-                      {UNITS.map((unit, i) => (
-                        <Pressable
-                          key={unit}
-                          style={[s.segBtn, i > 0 && s.segBtnDivider, ramp.unit === unit && s.segBtnSel]}
-                          onPress={() => setRamp({ unit })}>
-                          <Text style={[s.segText, ramp.unit === unit && s.segTextSel]}>{t(UNIT_KEY[unit])}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
+                    <Stepper value={ramp.every} min={1} max={MAX_BPM} size={38} onChange={(every) => setRamp({ every })} />
+                    {UNITS.map((unit) => (
+                      <ActionChip
+                        key={unit}
+                        label={t(UNIT_KEY[unit])}
+                        active={ramp.unit === unit}
+                        onPress={() => setRamp({ unit })}
+                        icon={() => null}
+                      />
+                    ))}
                   </View>
                   <View style={s.fieldRow}>
                     <Text style={s.fieldLabel}>{t('metronome.until')}</Text>
-                    <NumberField value={ramp.target} onCommit={(target) => setRamp({ target })} />
-                    <Text style={s.fieldSuffix}>BPM</Text>
+                    <Stepper value={ramp.target} min={MIN_BPM} max={MAX_BPM} size={38} suffix="BPM" onChange={(target) => setRamp({ target })} />
                   </View>
                   <Text style={s.hint}>{t('metronome.rampDownHint')}</Text>
                 </View>
@@ -275,44 +271,22 @@ function VolumeSlider({ value, onChange }: { value: number; onChange: (pct: numb
   );
 }
 
-const Step = ({ label, onPress }: { label: string; onPress: () => void }) => {
+const Step = ({ label, disabled, onPress }: { label: string; disabled?: boolean; onPress: () => void }) => {
   const s = useS();
+  const C = useC();
   return (
-    <Pressable style={s.step} hitSlop={6} onPress={onPress}>
-      <Text style={s.stepText}>{label}</Text>
+    <Pressable
+      style={s.step}
+      hitSlop={6}
+      disabled={disabled}
+      onPress={() => {
+        tap();
+        onPress();
+      }}>
+      <Text style={[s.stepText, disabled && { color: C.faint }]}>{label}</Text>
     </Pressable>
   );
 };
-
-/** Numeric field that only writes through once editing ends, so typing doesn't hit storage. */
-function NumberField({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
-  const s = useS();
-  const [text, setText] = useState(String(value));
-  // adjust-state-during-render pattern (react.dev "you might not need an effect")
-  const [prevValue, setPrevValue] = useState(value);
-  if (prevValue !== value) {
-    setPrevValue(value);
-    setText(String(value));
-  }
-  const commit = () => {
-    const parsed = Math.round(Number(text));
-    if (Number.isFinite(parsed) && parsed > 0 && parsed <= MAX_BPM) onCommit(parsed);
-    else setText(String(value));
-  };
-  return (
-    <TextInput
-      style={s.numberField}
-      value={text}
-      onChangeText={setText}
-      onBlur={commit}
-      onSubmitEditing={commit}
-      keyboardType="number-pad"
-      returnKeyType="done"
-      maxLength={3}
-      selectTextOnFocus
-    />
-  );
-}
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   pill: { height: 44, paddingHorizontal: 18, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
@@ -349,22 +323,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   label: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
   hint: { fontFamily: F.body, fontSize: fs(14.5), color: C.subStrong, lineHeight: fs(19) },
 
-  // joined segmented control: one bordered container, selected half tinted -
-  // still used for the ramp unit toggle (bars/seconds)
-  seg: { flexDirection: 'row', height: 44, borderRadius: r(12), backgroundColor: C.track, overflow: 'hidden' },
-  segBtn: { paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  segBtnDivider: { borderLeftWidth: 1, borderLeftColor: C.inputBorder },
-  segBtnSel: { backgroundColor: C.accentTint },
-  segText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub },
-  segTextSel: { color: C.accent, fontFamily: F.bodySemi },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  switchTrack: { width: 46, height: 28, borderRadius: r(14), backgroundColor: C.track, padding: 3 },
-  switchTrackOn: { backgroundColor: C.accent },
-  switchKnob: { width: 22, height: 22, borderRadius: r(11), backgroundColor: C.card },
-  switchKnobOn: { alignSelf: 'flex-end' },
 
-  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink, width: 84 },
-  fieldSuffix: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
-  numberField: { width: 72, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
 }));

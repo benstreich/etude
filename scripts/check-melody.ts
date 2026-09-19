@@ -1,7 +1,7 @@
 // The practice log as a melody: a pentatonic pitch per focus, a value per session, one bar per day, read in a key.
 import assert from 'node:assert';
 
-import { accidentalFor, barsFor, DEGREES, degreeFor, eighthsFor, eighthsOf, KEYS, meterFor, midiFor, NOTE_VALUES, pentatonicPitches, PITCHES, pitchFor, valueFor, type MelodyKey, type SessionNote } from '../src/lib/melody.ts';
+import { barsFor, DEGREES, degreeFor, eighthsFor, eighthsOf, KEYS, meterFor, midiFor, NOTE_VALUES, pentatonicPitches, PITCHES, pitchFor, valueFor, type MelodyKey, type SessionNote } from '../src/lib/melody.ts';
 
 // --- pitch ----------------------------------------------------------------
 assert.equal(pitchFor('Bach Invention', 'C'), pitchFor('Bach Invention', 'C')); // a piece always sings the same note
@@ -41,12 +41,9 @@ assert.equal(midiFor(4, 'F'), 70); // F major flattens B → Bb4
 assert.equal(midiFor(0, 'Eb'), 63); // Eb major: Bb Eb Ab → Eb4
 assert.equal(midiFor(4, 'F#'), 71); // F# major has six sharps (F C G D A E); B stays natural
 for (const key of KEYS) for (let p = 0; p < PITCHES.length; p++) assert.ok(Math.abs(midiFor(p, key) - midiFor(p, 'C')) <= 1); // a signature moves a note by at most a semitone
-assert.equal(accidentalFor(1, 'G'), '♯'); // F in G major is written with a sharp
-assert.equal(accidentalFor(4, 'F'), '♭'); // B in F major with a flat
-assert.equal(accidentalFor(4, 'G'), ''); // B in G major is natural
 
 // --- value ----------------------------------------------------------------
-assert.deepEqual(valueFor(20, 60), { f: 3 / 8, glyph: '\u{1D15F}', dotted: true }); // a third → dotted quarter
+assert.deepEqual(valueFor(20, 60), { f: 3 / 8, glyph: '\u{1D15F}', head: 'quarter', dotted: true }); // a third → dotted quarter
 assert.equal(valueFor(60, 60).glyph, '\u{1D15D}'); // goal met → whole
 assert.equal(valueFor(90, 60).glyph, '\u{1D15D}'); // half again as long → dotted whole
 assert.equal(valueFor(90, 60).dotted, true);
@@ -113,13 +110,11 @@ import { alterationFor } from '../src/lib/melody.ts';
 assert.equal(alterationFor(1, 'G'), 1); // F is sharpened in G major
 assert.equal(alterationFor(4, 'F'), -1); // B is flattened in F major
 for (let p = 0; p < PITCHES.length; p++) assert.equal(alterationFor(p, 'C'), 0, 'C major alters nothing');
-const GLYPH: Record<string, string> = { '-1': '\u{266D}', '0': '', '1': '\u{266F}' };
 for (const key of KEYS)
   for (let p = 0; p < PITCHES.length; p++) {
     const a = alterationFor(p, key);
     assert.ok(a === -1 || a === 0 || a === 1, `${key}/${p} alteration ${a}`);
     assert.equal(midiFor(p, key) - midiFor(p, 'C'), a, 'midiFor is the natural plus the alteration');
-    assert.equal(accidentalFor(p, key), GLYPH[String(a)], `${key}/${p} accidental`);
   }
 // a key signature is all sharps or all flats, never a mix
 for (const key of KEYS) {

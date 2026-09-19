@@ -17,7 +17,7 @@ export type MelodyKey = (typeof KEYS)[number];
 const SHARP_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B']; // the order sharps are added
 const FLAT_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
 // key → number of sharps (positive) or flats (negative)
-const SIGNATURE: Record<MelodyKey, number> = { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, Db: -5, Ab: -4, Eb: -3, Bb: -2, F: -1 };
+export const SIGNATURE: Record<MelodyKey, number> = { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, Db: -5, Ab: -4, Eb: -3, Bb: -2, F: -1 };
 
 /** -1, 0 or +1: how the key signature bends a staff position. */
 export function alterationFor(pitch: number, key: MelodyKey): -1 | 0 | 1 {
@@ -31,9 +31,6 @@ export function alterationFor(pitch: number, key: MelodyKey): -1 | 0 | 1 {
 export function midiFor(pitch: number, key: MelodyKey): number {
   return NATURAL_MIDI[pitch] + alterationFor(pitch, key);
 }
-
-/** The accidental to write before a note in `key` — the staff scrolls, so a signature at the far left would rarely be in view. */
-export const accidentalFor = (pitch: number, key: MelodyKey) => ({ [-1]: '\u{266D}', 0: '', 1: '\u{266F}' })[alterationFor(pitch, key)];
 
 /** The seven letter names, so a key's scale can be spelled by stepping through them. */
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
@@ -67,21 +64,24 @@ export function pitchFor(name: string, key: MelodyKey): number {
   return pentatonicPitches(key)[degreeFor(name)];
 }
 
+/** Which head a value is drawn with; the open ones carry no stem. `glyph` is the same note as one character, for the legend. */
+export type Head = 'eighth' | 'quarter' | 'half' | 'whole' | 'breve';
+
 /**
  * Note values by fraction of the goal; the glyphs are Unicode Musical Symbols.
  * Shortest first — the legend reads them in this order. A bar holds a day, not a
  * fixed meter, so these need not sum to four beats: a day that beat the goal
  * simply writes a longer bar, which is what actually happened.
  */
-export const NOTE_VALUES: { f: number; glyph: string; dotted: boolean }[] = [
-  { f: 1 / 8, glyph: '\u{1D160}', dotted: false },
-  { f: 1 / 4, glyph: '\u{1D15F}', dotted: false },
-  { f: 3 / 8, glyph: '\u{1D15F}', dotted: true },
-  { f: 1 / 2, glyph: '\u{1D15E}', dotted: false },
-  { f: 3 / 4, glyph: '\u{1D15E}', dotted: true },
-  { f: 1, glyph: '\u{1D15D}', dotted: false },
-  { f: 3 / 2, glyph: '\u{1D15D}', dotted: true },
-  { f: 2, glyph: '\u{1D15C}', dotted: false },
+export const NOTE_VALUES: { f: number; glyph: string; head: Head; dotted: boolean }[] = [
+  { f: 1 / 8, glyph: '\u{1D160}', head: 'eighth', dotted: false },
+  { f: 1 / 4, glyph: '\u{1D15F}', head: 'quarter', dotted: false },
+  { f: 3 / 8, glyph: '\u{1D15F}', head: 'quarter', dotted: true },
+  { f: 1 / 2, glyph: '\u{1D15E}', head: 'half', dotted: false },
+  { f: 3 / 4, glyph: '\u{1D15E}', head: 'half', dotted: true },
+  { f: 1, glyph: '\u{1D15D}', head: 'whole', dotted: false },
+  { f: 3 / 2, glyph: '\u{1D15D}', head: 'whole', dotted: true },
+  { f: 2, glyph: '\u{1D15C}', head: 'breve', dotted: false },
 ];
 
 /** Twice the goal: the longest note the table can write, and where the scale gives up. */

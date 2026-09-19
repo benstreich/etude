@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { EntryRow, Overline } from '@/components/ui';
+import { EntryRow, Overline, PulseRing } from '@/components/ui';
 import { useMetronome } from '@/lib/metronome';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
@@ -40,7 +40,10 @@ export default function Tools() {
         <Overline>{store.t('tabs.tools')}</Overline>
         {running && (
           <View style={s.headTempo}>
-            <View style={s.dot} />
+            <View style={{ width: 8, height: 8 }}>
+              <PulseRing color={C.accent} size={8} active={running} />
+              <View style={s.dot} />
+            </View>
             <Text style={s.headTempoText}>{bpm}</Text>
             <Text style={[s.headTempoText, { fontFamily: F.accent }]}>{tempoTerm(bpm)}</Text>
           </View>

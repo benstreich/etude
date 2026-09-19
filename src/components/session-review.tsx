@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlameIcon } from '@/components/icons';
 import { FermataMark, WaveformIcon } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { EntryRow, Overline, Stars } from '@/components/ui';
+import { ActionChip, ChipRow, EntryRow, Overline, Stars } from '@/components/ui';
 import { achievements } from '@/lib/growth-math';
 import { cueVoice, primaryOf } from '@/lib/cue-voice';
 import { pieceRatings } from '@/lib/rating-math';
@@ -181,6 +181,25 @@ export function SessionReview({
             </View>
           </View>
 
+          {onToggleTake && (
+            <View style={{ gap: 10 }}>
+              <Overline>{store.t('sessionReview.attachHeading')}</Overline>
+              <ChipRow>
+                <ActionChip
+                  icon={(color) => <WaveformIcon color={color} />}
+                  label={recording ? store.t('sessionReview.stopTake') : store.t('sessionReview.attachTake')}
+                  active={recording}
+                  haptic="thud"
+                  onPress={onToggleTake}
+                />
+                {/* a take doesn't have to come from this phone's mic */}
+                {onImportTake && !recording && (
+                  <ActionChip icon={() => null} label={store.t('sessionReview.importTake')} onPress={onImportTake} />
+                )}
+              </ChipRow>
+            </View>
+          )}
+
           <EntryRow
             top
             close
@@ -192,24 +211,7 @@ export function SessionReview({
             }
             testID="review-save"
             title={store.t('sessionReview.saveSession')}
-            right={
-              onToggleTake ? (
-                <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                  <Pressable style={s.takeBtn} onPress={onToggleTake} hitSlop={8}>
-                    {recording ? <View style={s.recDot} /> : <WaveformIcon />}
-                    <Text style={[s.takeText, recording && { color: C.accent }]}>
-                      {recording ? store.t('sessionReview.stopTake') : store.t('sessionReview.attachTake')}
-                    </Text>
-                  </Pressable>
-                  {/* a take doesn't have to come from this phone's mic */}
-                  {onImportTake && !recording && (
-                    <Pressable onPress={onImportTake} hitSlop={8}>
-                      <Text style={s.importText}>{store.t('sessionReview.importTake')}</Text>
-                    </Pressable>
-                  )}
-                </View>
-              ) : null
-            }
+            right={null}
             onPress={close}
           />
         </KeyboardAwareScrollView>
@@ -229,8 +231,4 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   chipSep: { color: C.staffLine },
   noteCard: { marginTop: 4, minHeight: 64, borderTopWidth: 1, borderTopColor: C.staffLine, paddingTop: 8 },
   noteInput: { flex: 1, fontFamily: F.body, fontSize: fs(17), lineHeight: fs(32), color: C.ink, padding: 0, textAlignVertical: 'top' },
-  takeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
-  takeText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
-  importText: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: C.sub },
 }));

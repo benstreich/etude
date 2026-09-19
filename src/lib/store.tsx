@@ -9,6 +9,7 @@ import { pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
 import { runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
+import { success } from './haptics';
 import { resolveRecordingUri, toStoredUri } from './doc-path';
 import { i18n, resolveLang, tr, type Lang, type LanguageSetting } from './i18n';
 import type { RampUnit } from './metronome-math';
@@ -383,6 +384,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const id = uid();
     // wall-clock start only for sessions logged on the day itself; backdated logs have no time of day
     const at = date === dateKey() ? Date.now() : undefined;
+    // read off the live state before the update: a goal crossing or a streak
+    // growing are read-only questions about what this log is about to change,
+    // not part of computing the next state itself
+    const before = state.minutesByDate[date] ?? 0;
+    const after = before + min;
+    const goalCrossed = before < state.dailyGoal && after >= state.dailyGoal;
+    const grace = graceFor(state.streakMode);
+    const streakGrew =
+      computeStreak({ ...state.minutesByDate, [date]: after }, state.breakDays, grace, new Date(now)) >
+      computeStreak(state.minutesByDate, state.breakDays, grace, new Date(now));
     setState((s) => {
       if (!s) return s;
       // #58: which instrument this session was on. The caller knows best — the same
@@ -402,6 +413,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sessions: [{ id, title, meta, min, date, planId, at, instrument: on }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
       };
     });
+    // two events landing in the same instant read as one long buzz; a streak
+    // growing on the same log that met the goal gets its own moment instead
+    if (goalCrossed) success();
+    if (streakGrew) {
+      if (goalCrossed) setTimeout(success, 900);
+      else success();
+    }
     return id;
   };
 

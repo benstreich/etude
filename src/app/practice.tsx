@@ -4,18 +4,20 @@ import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronIcon, PlayIcon } from '@/components/icons';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeSheet } from '@/components/metronome';
-import { LiveWaveform, NoteTempo, RollingNumber, StaffProgress } from '@/components/motifs';
+import { LiveWaveform, RollingNumber, StaffProgress } from '@/components/motifs';
 import { InstrumentAsk } from '@/components/instrument-ask';
-import { ScorePill } from '@/components/score';
+import { ScoreViewer, useScores } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { EntryRow, Overline, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { EntryRow, Overline, PulseRing, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { tap, thud } from '@/lib/haptics';
 import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
@@ -24,6 +26,49 @@ import { pickRecordings } from '@/lib/import-recording';
 import { useTakeRecorder } from '@/lib/use-take-recorder';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
+
+/**
+ * One of the tool strip's four equal cells (record, tempo, tuner, score). Only
+ * the live cell fills — everywhere else is the whole signal, so the background
+ * crossfades rather than snapping.
+ */
+function ToolCell({
+  glyph,
+  label,
+  live = false,
+  divider = false,
+  disabled = false,
+  onPress,
+}: {
+  glyph: (color: string) => React.ReactNode;
+  label: string;
+  live?: boolean;
+  divider?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const s = useS();
+  const C = useC();
+  const { reduceMotion } = useTheme();
+  const on = useSharedValue(live ? 1 : 0);
+  useEffect(() => {
+    on.value = reduceMotion ? (live ? 1 : 0) : withTiming(live ? 1 : 0, { duration: 200 });
+  }, [live, reduceMotion, on]);
+  const bgStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.value, [0, 1], ['transparent', C.accent]) }));
+  const color = live ? C.bg : C.ink;
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={[s.toolCell, divider && s.toolCellDivider, disabled && { opacity: 0.4 }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} />
+      <View style={s.toolGlyphBox}>{glyph(color)}</View>
+      <Text style={[s.toolLabel, { color }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function Practice() {
   const s = useS();
@@ -59,6 +104,8 @@ export default function Practice() {
   const [askInst, setAskInst] = useState(false);
   const focusPiece = store.allPieces.find((p) => p.name === focus?.name);
   const instChoices = instrumentChoices(focusPiece, inst);
+  const scores = useScores(focus?.kind === 'Piece' ? focus.name : undefined);
+  const [scoreOpen, setScoreOpen] = useState<(typeof scores)[number] | null>(null);
   // practice breaks (#59): the reminder fires each time the timer crosses another
   // `breakEvery` interval; a break pauses the session timer and counts down separately
   const [breaksSeen, setBreaksSeen] = useState(0); // intervals already answered (started or skipped)
@@ -212,7 +259,12 @@ export default function Practice() {
             <RollingNumber value={ss} style={s.timer} height={fs(100)} />
           </View>
           <View style={s.statusRow}>
-            {!paused && <View style={s.statusDot} />}
+            {!paused && (
+              <View style={{ width: 8, height: 8 }}>
+                <PulseRing color={C.accent} size={8} active={!paused} />
+                <View style={s.statusDot} />
+              </View>
+            )}
             <Text style={[s.status, paused ? { color: C.sub } : { color: C.accent }]}>
               {paused ? store.t('practice.paused') : (
                 <>
@@ -268,28 +320,52 @@ export default function Practice() {
               <LiveWaveform active={!recPaused} getLevel={micLevel} onSample={onSample} bars={40} height={30} />
             </View>
           )}
-          <View style={s.runToolsRow}>
-            <Pressable style={[s.recPill, recording && !recPaused && s.recPillOn]} onPress={toggleRec}>
-              <View style={[s.recDot, recording && !recPaused && { backgroundColor: C.bg }]} />
-              <Text style={[s.recText, recording && !recPaused && { color: C.bg }]}>
-                {recording ? store.t('practice.stopRecording') : store.t('practice.record')}
-              </Text>
-            </Pressable>
-            {recording && (
-              <Pressable onPress={pauseResumeRec}>
-                <Text style={s.toolLink}>{recPaused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}</Text>
-              </Pressable>
-            )}
-            <Text style={s.toolSep}>|</Text>
-            <Pressable onPress={() => setMetroOpen(true)}>
-              <NoteTempo bpm={metronome.bpm} active={metronome.running} />
-            </Pressable>
-            <Text style={s.toolSep}>|</Text>
-            <Pressable onPress={() => router.push('/tuner')}>
-              <Text style={s.toolLink}>{store.t('tuner.tuner')}</Text>
-            </Pressable>
-            {focus.kind === 'Piece' && <ScorePill piece={focus.name} />}
+          <View style={s.toolStrip}>
+            <ToolCell
+              live={recording && !recPaused}
+              label={recording ? store.t('practice.stopRecording') : store.t('practice.record')}
+              glyph={(color) => <Text style={{ fontFamily: F.body, fontSize: fs(13), color }}>{'●'}</Text>}
+              onPress={() => {
+                thud(recording); // start is a medium thud, stop answers lighter
+                toggleRec();
+              }}
+            />
+            <ToolCell
+              divider
+              label={`${metronome.bpm} ${tempoTerm(metronome.bpm)}`}
+              glyph={(color) => <Text style={{ fontFamily: F.notation, fontSize: fs(22), color }}>{'\u{1D15F}'}</Text>}
+              onPress={() => {
+                tap();
+                setMetroOpen(true);
+              }}
+            />
+            <ToolCell
+              divider
+              label={store.t('tuner.tuner')}
+              glyph={(color) => <Text style={{ fontFamily: F.body, fontSize: fs(20), color }}>{'♯'}</Text>}
+              onPress={() => router.push('/tuner')}
+            />
+            <ToolCell
+              divider
+              disabled={scores.length === 0}
+              label={store.t('score.title')}
+              glyph={(color) => <Text style={{ fontFamily: F.body, fontSize: fs(19), color }}>{'§'}</Text>}
+              onPress={() => {
+                tap();
+                setScoreOpen(scores[0]);
+              }}
+            />
           </View>
+          {(recording || recPaused) && (
+            <Text style={s.toolHint}>
+              {store.t('practice.toolStripRecording', { name: focus.name })}
+              {' · '}
+              <Text style={{ color: C.accent }} onPress={pauseResumeRec}>
+                {recPaused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}
+              </Text>
+            </Text>
+          )}
+          {focus.kind === 'Piece' && <ScoreViewer piece={focus.name} start={scoreOpen} onClose={() => setScoreOpen(null)} />}
         </View>
         <View>
           <EntryRow
@@ -530,7 +606,6 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
   manualLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
   filterRow: { marginTop: 14, marginBottom: 6 },
-  toolSep: { fontSize: fs(14), color: C.staffLine },
   noMatch: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textAlign: 'center', marginTop: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 1, borderBottomColor: C.hairline },
   optionBar: { width: 1.5, height: 32, backgroundColor: C.barline, borderRadius: 1 },
@@ -559,12 +634,11 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   breakBtnText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.ink },
   breakClock: { fontFamily: F.head, fontSize: fs(30), color: C.ink, fontVariant: ['tabular-nums'], minWidth: 84, textAlign: 'center' },
   breakStep: { fontSize: fs(24), color: C.sub, paddingHorizontal: 6 },
-  // wraps: with a recording pause link and a score pill in play, one line runs off a phone
-  runToolsRow: { marginTop: 24, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, rowGap: 10 },
-  recPill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 999, backgroundColor: C.track },
-  recPillOn: { backgroundColor: C.accent, borderColor: C.accent },
-  recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
-  recText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
-  toolLink: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
+  toolStrip: { marginTop: 24, flexDirection: 'row', width: '100%', borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.staffLine },
+  toolCell: { flex: 1, minWidth: 0, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden' },
+  toolCellDivider: { borderLeftWidth: 1, borderLeftColor: C.staffLine },
+  toolGlyphBox: { height: 24, alignItems: 'center', justifyContent: 'center' },
+  toolLabel: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 0.3 },
+  toolHint: { marginTop: 10, textAlign: 'center', fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
   discard: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textDecorationLine: 'underline', textDecorationColor: C.sub },
 }));

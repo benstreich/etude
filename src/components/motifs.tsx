@@ -2,12 +2,14 @@
 // a ring or a pill row. Both draw in on mount and then sit still — the whole
 // motion budget for these screens.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
-import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
+import { Animated, Easing, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
+import Svg, { Circle, Ellipse, G, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Pressable } from '@/components/press';
+import { Bump } from '@/components/motion';
 import { Text } from '@/components/text';
-import { accidentalFor, eighthsFor, meterFor, valueFor, type MelodyKey, type MelodyNote } from '@/lib/melody';
+import { BEAM_T, flagPath, HEAD_RY, HEAD_TILT, headerW, headRx, holeRx, holeRy, layoutBar, LINE_W, signatureMarks, STEM_W, yOf, type BarLayout } from '@/lib/engrave';
+import { eighthsFor, meterFor, SIGNATURE, type MelodyKey, type MelodyNote } from '@/lib/melody';
 import { barlines, tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
@@ -27,6 +29,8 @@ const AnimatedFermataPath = Animated.createAnimatedComponent(Path);
  * Home's daily-goal indicator: the fermata arc fills as today's minutes come
  * in, and the dot (the goal) turns from `logoDot` to `accent` on completion.
  */
+const GAUGE_EASE = Easing.bezier(0.33, 1, 0.68, 1);
+
 export function FermataMark({ pct, goalMet, size = 220 }: { pct: number; goalMet: boolean; size?: number }) {
   const C = useC();
   const { reduceMotion } = useTheme();
@@ -34,16 +38,23 @@ export function FermataMark({ pct, goalMet, size = 220 }: { pct: number; goalMet
   const [v] = useState(() => new Animated.Value(reduceMotion ? clamped : 0));
   useEffect(() => {
     if (reduceMotion) v.setValue(clamped);
-    else Animated.timing(v, { toValue: clamped, duration: 700, useNativeDriver: false }).start();
+    else Animated.timing(v, { toValue: clamped, duration: 600, easing: GAUGE_EASE, useNativeDriver: false }).start();
   }, [clamped, reduceMotion, v]);
+  // the arc crossfades to success the moment the goal is met, alongside the fill
+  const [goalV] = useState(() => new Animated.Value(goalMet ? 1 : 0));
+  useEffect(() => {
+    if (reduceMotion) goalV.setValue(goalMet ? 1 : 0);
+    else Animated.timing(goalV, { toValue: goalMet ? 1 : 0, duration: 600, easing: GAUGE_EASE, useNativeDriver: false }).start();
+  }, [goalMet, reduceMotion, goalV]);
   const dashoffset = v.interpolate({ inputRange: [0, 100], outputRange: [FERMATA_LEN, 0] });
+  const stroke = goalV.interpolate({ inputRange: [0, 1], outputRange: [C.accent, C.success] });
   return (
     <Svg width={size} height={(size / 220) * 176} viewBox="2 5 36 28.8" style={{ overflow: 'visible' }}>
       <Path d={FERMATA_D} fill="none" stroke={C.accent} strokeOpacity={0.22} strokeWidth={3.4} strokeLinecap="round" />
       <AnimatedFermataPath
         d={FERMATA_D}
         fill="none"
-        stroke={C.accent}
+        stroke={stroke}
         strokeWidth={3.4}
         strokeLinecap="round"
         strokeDasharray={[FERMATA_LEN, FERMATA_LEN]}
@@ -54,29 +65,32 @@ export function FermataMark({ pct, goalMet, size = 220 }: { pct: number; goalMet
   );
 }
 
-// Staff geometry. Rules at STAFF_TOP + 0/20/40/60/80 (a space is 20px, a step
-// 10px); the top margin leaves room for a fermata over the highest note.
-const STAFF_TOP = 42;
-const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * 20);
-const MELODY_H = RULES[4] + 24; // rules plus the day letters beneath
-const NOTE_W = 34; // one note's column
-const BAR_W = 10; // barline plus its breathing room
-const METER_W = 16; // the time signature's column, only where the meter changes
-// numerator centred in the space above the middle rule, denominator below it
-const METER_DIGIT = { position: 'absolute' as const, left: 0, right: 0, textAlign: 'center' as const, fontFamily: F.bodySemi, fontSize: 15, lineHeight: 20 };
-const B_LINE = RULES[2]; // pitch index 4 sits on the middle rule
-// head centre on the middle rule needs the glyph box 36px above it (tuned on device:
-// 18 at a 54 rule); every glyph shares a baseline so one offset places them all
-const HEAD_TO_TOP = 36;
-const headY = (pitch: number) => B_LINE - (pitch - 4) * 10;
+// Staff geometry in the unit a score is built from: the staff space S. Five
+// rules 4S tall, with room above for a fermata and for the clef's flourish.
+const S = 16;
+const STAFF_TOP = 36;
+const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * S);
+const MELODY_H = RULES[4] + 30; // rules plus the day letters beneath
+const BAR_PAD = 0.4 * S; // the barline and its breathing room
+const METER_W = 1.45 * S; // the time signature's column, only where the meter changes
+const REST_W = 2.2 * S; // a day off
+const PAD_W = 1.6 * S; // the eighth rest that squares a bar with its signature
+const LINE = LINE_W(S);
+const STEM = STEM_W(S);
 
 /**
  * The practice log as a melody: one bar per day, one note per session in it, its
  * pitch owned by the piece or technique practised (lib/melody.ts) and its value
  * that session's minutes against the daily goal — so a bar fills up as the day
- * does, and how the day was split is its rhythm. A fermata over the last note of
- * a bar means the goal was beaten. A day off is a rest. Today is the rightmost
- * bar, and the staff opens scrolled to it.
+ * does, and how the day was split is its rhythm. Each bar carries its own meter,
+ * written where it changes, because a bar is a day and lasts as long as the day
+ * did. A fermata over a bar means the goal was beaten, a day off is a rest.
+ * Today is the rightmost bar, and the staff opens scrolled to it.
+ *
+ * The notes are drawn rather than typed (lib/engrave.ts): the notation font has
+ * only stem-up glyphs, which are wrong above the middle line, and cannot beam.
+ * The clef and key signature are pinned to the left and never scroll, so the
+ * staff always says what it is being read in.
  */
 export function MelodyStaff({
   bars,
@@ -90,7 +104,7 @@ export function MelodyStaff({
   bars: { date: string; day: string; isToday: boolean; notes: MelodyNote[] }[];
   /** daily goal in minutes; the note values are read against it */
   goal: number;
-  /** the key the staff is read in; altered notes get their accidental written in front */
+  /** the key the staff is read in; its signature is written once, at the left */
   melodyKey: MelodyKey;
   /** dateKey of the day being read below the staff; its notes and letter go accent */
   selected?: string;
@@ -100,105 +114,170 @@ export function MelodyStaff({
 }) {
   const C = useC();
   const scroll = useRef<ScrollView>(null);
+  const sig = SIGNATURE[melodyKey] ?? 0;
+  const headW = headerW(sig, S);
+
   // Every bar is a day, so every bar has its own meter — written only where it
   // changes, the way a score does, so a steady run of days stays quiet. A day off
   // rests the whole bar and inherits the meter, like any full-bar rest.
   const metered = useMemo(() => {
-    const out: { b: (typeof bars)[number]; meter: number | null; pad: number }[] = [];
+    const out: { b: (typeof bars)[number]; meter: number | null; pad: number; lay: BarLayout | null; w: number }[] = [];
     let prev = 0; // the meter still in force, carried across days off
     for (const b of bars) {
       const m = meterFor(eighthsFor(b.notes, goal));
-      if (!m) {
-        out.push({ b, meter: null, pad: 0 });
-        continue;
-      }
-      out.push({ b, meter: m.beats === prev ? null : m.beats, pad: m.padEighths });
-      prev = m.beats;
+      const meter = m && m.beats !== prev ? m.beats : null;
+      if (m) prev = m.beats;
+      const lay = b.notes.length ? layoutBar(b.notes, goal, S) : null;
+      const pad = m?.padEighths ?? 0;
+      out.push({ b, meter, pad, lay, w: BAR_PAD + (meter !== null ? METER_W : 0) + (lay ? lay.width : REST_W) + (pad ? PAD_W : 0) });
     }
     return out;
   }, [bars, goal]);
-  const width = metered.reduce((w, x) => w + BAR_W + (x.meter ? METER_W : 0) + (x.pad ? NOTE_W / 2 : 0) + Math.max(1, x.b.notes.length) * NOTE_W, 0) + 20;
+  const width = metered.reduce((w, x) => w + x.w, 0) + 24;
   const jumped = useRef(false);
+
   // a plain render function, not a nested component: a component defined inside
   // render is a new type every time and would remount all 84 bars per re-render
-  const renderBar = ({ b, meter, pad }: (typeof metered)[number]) => {
+  const renderBar = ({ b, meter, pad, lay, w }: (typeof metered)[number]) => {
     const on = b.date === selected || b.date === sounding;
     const ink = on || b.isToday ? C.accent : C.ink;
+    const quiet = on ? C.accent : C.sub;
     const beaten = b.notes.reduce((a, n) => a + n.min, 0) > goal;
+    const xOff = BAR_PAD + (meter !== null ? METER_W : 0);
+    const last = lay?.notes[lay.notes.length - 1];
     return (
-      <Pressable key={b.date} style={{ flexDirection: 'row' }} disabled={!onSelect} onPress={() => onSelect?.(b.date)}>
-        <View style={{ width: BAR_W, paddingLeft: 4, marginTop: STAFF_TOP }}>
-          <View style={{ width: 1.5, height: 81, backgroundColor: C.barline }} />
-        </View>
-        {/* numerals rather than the notation font's signature glyphs: these sit on
-            the staff at a size the rules dictate, which those glyphs will not */}
-        {meter !== null && (
-          <View style={{ width: METER_W, height: MELODY_H, marginTop: STAFF_TOP }}>
-            <Text style={[METER_DIGIT, { top: 10, color: C.sub }]}>{meter}</Text>
-            <Text style={[METER_DIGIT, { top: 50, color: C.sub }]}>4</Text>
-          </View>
-        )}
-        <View style={{ alignItems: 'center', height: MELODY_H }}>
-          <View style={{ flexDirection: 'row', height: MELODY_H }}>
-            {b.notes.length === 0 ? (
-              <Text style={{ width: NOTE_W, textAlign: 'center', marginTop: RULES[1], fontFamily: F.notation, fontSize: 44, lineHeight: 44, color: on ? C.accent : C.sub }}>{'\u{1D13D}'}</Text>
-            ) : (
-              b.notes.map((n, i) => {
-                const v = valueFor(n.min, goal);
-                const y = headY(n.pitch);
-                const acc = accidentalFor(n.pitch, melodyKey);
-                return (
-                  <View key={n.id} style={{ width: NOTE_W, height: MELODY_H }}>
-                    {!!acc && <Text style={{ position: 'absolute', left: 0, top: y - 11, fontFamily: F.notation, fontSize: 18, lineHeight: 22, color: ink }}>{acc}</Text>}
-                    {/* beating the goal is the day's doing, not one session's: the mark rides the bar's last note */}
-                    {beaten && i === b.notes.length - 1 && (
-                      <Text style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', top: y - 42, fontFamily: F.notation, fontSize: 22, lineHeight: 22, color: ink }}>{'\u{1D110}'}</Text>
-                    )}
-                    <Text style={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', top: y - HEAD_TO_TOP, fontFamily: F.notation, fontSize: 44, lineHeight: 44, color: ink }}>{v.glyph}</Text>
-                    {/* the whole-note head is wider than the rest, so its dot has to stand further off or it sits on the note */}
-                    {v.dotted && <View style={{ position: 'absolute', left: NOTE_W / 2 + (v.f >= 1 ? 14 : 9), top: y - 7, width: 4, height: 4, borderRadius: 2, backgroundColor: ink }} />}
-                  </View>
-                );
-              })
+      <Pressable key={b.date} disabled={!onSelect} onPress={() => onSelect?.(b.date)}>
+        {/* the landed day answers the tap: the same spring the stars settle on */}
+        <Bump trigger={on} peak={1.12}>
+        <Svg width={w} height={MELODY_H}>
+          <G transform={`translate(0, ${STAFF_TOP})`}>
+            <Rect x={0} y={0} width={LINE * 1.2} height={4 * S} fill={C.barline} />
+            {/* numerals, not the font's signature glyphs: these sit at the size the rules dictate */}
+            {meter !== null && (
+              <G>
+                <SvgText x={BAR_PAD + METER_W / 2} y={yOf(6, S) + 0.55 * S} textAnchor="middle" fontFamily={F.bodyMed} fontSize={1.55 * S} fill={C.sub}>
+                  {String(meter)}
+                </SvgText>
+                <SvgText x={BAR_PAD + METER_W / 2} y={yOf(2, S) + 0.55 * S} textAnchor="middle" fontFamily={F.bodyMed} fontSize={1.55 * S} fill={C.sub}>
+                  4
+                </SvgText>
+              </G>
             )}
-            {/* the day stopped half a beat short of a whole one — the bar says so
-                rather than quietly not adding up to its own signature */}
-            {pad > 0 && (
-              <Text style={{ width: NOTE_W / 2, textAlign: 'center', marginTop: RULES[1], fontFamily: F.notation, fontSize: 30, lineHeight: 30, color: on ? C.accent : C.sub }}>{'\u{1D13E}'}</Text>
-            )}
-          </View>
-          <Text style={{ position: 'absolute', bottom: 0, fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 0.5, color: on || b.isToday ? C.accent : C.tertiary }}>{b.day}</Text>
-          {on && <View style={{ position: 'absolute', bottom: -6, width: 16, height: 1.5, backgroundColor: C.accent }} />}
-        </View>
+            <G transform={`translate(${xOff}, 0)`}>
+              {/* a whole rest hangs under the second rule, whatever the meter says */}
+              {!lay && <Rect x={0.9 * S} y={S} width={1.15 * S} height={0.45 * S} fill={quiet} />}
+              {lay?.beams.map((bm, i) => (
+                <Polygon
+                  key={`b${i}`}
+                  points={`${bm.x1},${bm.y1} ${bm.x2},${bm.y2} ${bm.x2},${bm.y2 + (bm.down ? -BEAM_T(S) : BEAM_T(S))} ${bm.x1},${bm.y1 + (bm.down ? -BEAM_T(S) : BEAM_T(S))}`}
+                  fill={ink}
+                />
+              ))}
+              {lay?.notes.map((n) => (
+                <G key={n.id}>
+                  {n.stem && <Rect x={n.stem.x} y={Math.min(n.stem.y1, n.stem.y2)} width={STEM} height={Math.abs(n.stem.y2 - n.stem.y1)} fill={ink} />}
+                  {n.flag && n.stem && <Path d={flagPath(n.stem.x + (n.down ? 0 : STEM), n.stem.y2, n.down, S)} fill={ink} />}
+                  <Ellipse
+                    cx={n.x}
+                    cy={n.y}
+                    rx={headRx(n.head, S)}
+                    ry={HEAD_RY(S)}
+                    fill={ink}
+                    transform={n.head === 'whole' || n.head === 'breve' ? undefined : `rotate(${HEAD_TILT} ${n.x} ${n.y})`}
+                  />
+                  {/* an open head is a ring: the staff line behind it does not show through */}
+                  {n.head !== 'quarter' && n.head !== 'eighth' && (
+                    <Ellipse
+                      cx={n.x}
+                      cy={n.y}
+                      rx={holeRx(n.head, S)}
+                      ry={holeRy(n.head, S)}
+                      fill={C.bg}
+                      transform={`rotate(${n.head === 'whole' || n.head === 'breve' ? -22 : HEAD_TILT} ${n.x} ${n.y})`}
+                    />
+                  )}
+                  {n.head === 'breve' && (
+                    <G>
+                      <Rect x={n.x - 1.05 * S} y={n.y - 0.62 * S} width={STEM} height={1.24 * S} fill={ink} />
+                      <Rect x={n.x + 1.05 * S - STEM} y={n.y - 0.62 * S} width={STEM} height={1.24 * S} fill={ink} />
+                    </G>
+                  )}
+                  {n.dot && <Circle cx={n.dot.x} cy={n.dot.y} r={0.15 * S} fill={ink} />}
+                </G>
+              ))}
+              {/* beating the goal is the day's doing, not one session's, so the mark rides the bar */}
+              {beaten && last && (
+                <SvgText x={last.x} y={-0.55 * S} textAnchor="middle" fontFamily={F.notation} fontSize={1.5 * S} fill={ink}>
+                  {'\u{1D110}'}
+                </SvgText>
+              )}
+              {/* the day stopped half a beat short — the bar says so rather than
+                  quietly not adding up to its own signature */}
+              {pad > 0 && lay && (
+                <SvgText x={lay.width + 0.4 * S} y={2 * S + 0.9 * S} fontFamily={F.notation} fontSize={2.3 * S} fill={quiet}>
+                  {'\u{1D13E}'}
+                </SvgText>
+              )}
+            </G>
+          </G>
+        </Svg>
+        </Bump>
+        <Text style={{ position: 'absolute', bottom: 0, left: 0, width: w, textAlign: 'center', fontFamily: F.bodySemi, fontSize: 11, letterSpacing: 0.5, color: on || b.isToday ? C.accent : C.tertiary }}>
+          {b.day}
+        </Text>
+        {on && <View style={{ position: 'absolute', bottom: -6, left: w / 2 - 8, width: 16, height: 1.5, backgroundColor: C.accent }} />}
       </Pressable>
     );
   };
+
   return (
-    <ScrollView
-      ref={scroll}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      // opens on today; measured content is the only reliable moment to jump there. Once:
-      // a note logged into a past day widens the content and must not yank the view back
-      onContentSizeChange={() => {
-        if (jumped.current) return;
-        jumped.current = true;
-        scroll.current?.scrollToEnd({ animated: false });
-      }}
-      style={{ height: MELODY_H + 6 }}
-      contentContainerStyle={{ width, height: MELODY_H }}>
-      {RULES.map((top) => (
-        <View key={top} style={{ position: 'absolute', left: 0, right: 0, top, height: 1, backgroundColor: C.staffLine }} />
-      ))}
-      <View style={{ position: 'absolute', flexDirection: 'row', left: 0, right: 0, top: 0, bottom: 0 }}>
-        {metered.map(renderBar)}
-        <View style={{ flex: 1 }} />
-        <View style={{ flexDirection: 'row', gap: 3, marginTop: STAFF_TOP }}>
-          <View style={{ width: 1.5, height: 81, backgroundColor: C.barline }} />
-          <View style={{ width: 3, height: 81, backgroundColor: C.sub }} />
+    <View style={{ height: MELODY_H + 6 }}>
+      <ScrollView
+        ref={scroll}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        // opens on today; measured content is the only reliable moment to jump there. Once:
+        // a note logged into a past day widens the content and must not yank the view back
+        onContentSizeChange={() => {
+          if (jumped.current) return;
+          jumped.current = true;
+          scroll.current?.scrollToEnd({ animated: false });
+        }}
+        style={{ height: MELODY_H, marginLeft: headW }}
+        contentContainerStyle={{ width, height: MELODY_H }}>
+        {RULES.map((top) => (
+          <View key={top} style={{ position: 'absolute', left: 0, right: 0, top, height: LINE, backgroundColor: C.staffLine }} />
+        ))}
+        <View style={{ position: 'absolute', flexDirection: 'row', left: 0, right: 0, top: 0, bottom: 0 }}>
+          {metered.map(renderBar)}
+          <View style={{ flex: 1 }} />
+          <View style={{ flexDirection: 'row', gap: 3, marginTop: STAFF_TOP }}>
+            <View style={{ width: LINE * 1.2, height: 4 * S, backgroundColor: C.barline }} />
+            <View style={{ width: 0.28 * S, height: 4 * S, backgroundColor: C.sub }} />
+          </View>
         </View>
+      </ScrollView>
+      {/* The clef and key signature stay put while the weeks scroll under them. A
+          scrolling staff would otherwise lose the one thing that says what it is
+          being read in, which is why every note used to carry its own accidental. */}
+      <View style={{ position: 'absolute', left: 0, top: 0, width: headW, height: MELODY_H, backgroundColor: C.bg }}>
+        <Svg width={headW} height={MELODY_H}>
+          {RULES.map((top) => (
+            <Rect key={top} x={0} y={top} width={headW} height={LINE} fill={C.staffLine} />
+          ))}
+          <G transform={`translate(0, ${STAFF_TOP})`}>
+            <SvgText x={0.5 * S} y={yOf(2, S) + 2.25 * S} fontFamily={F.notation} fontSize={4.2 * S} fill={C.ink}>
+              {'\u{1D11E}'}
+            </SvgText>
+            {signatureMarks(sig, S).map((m, i) => (
+              <SvgText key={i} x={m.x} y={m.y + (m.sharp ? 0.42 * S : 0.3 * S)} fontFamily={F.notation} fontSize={1.85 * S} fill={C.ink}>
+                {m.sharp ? '♯' : '♭'}
+              </SvgText>
+            ))}
+          </G>
+        </Svg>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -252,7 +331,13 @@ export function StaffProgress({ pct }: { pct: number }) {
  */
 export function MeasureBar({ segments, done, color }: { segments: number[]; done: number; color?: string }) {
   const C = useC();
-  const draw = useDraw(900);
+  const { reduceMotion } = useTheme();
+  const target = Math.min(100, Math.max(0, done * 100));
+  const [fillPct] = useState(() => new Animated.Value(reduceMotion ? target : 0));
+  useEffect(() => {
+    if (reduceMotion) return fillPct.setValue(target);
+    Animated.timing(fillPct, { toValue: target, duration: 500, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: false }).start();
+  }, [target, reduceMotion, fillPct]);
   const bars = barlines(segments);
   const fill = color ?? C.accent;
   return (
@@ -266,7 +351,7 @@ export function MeasureBar({ segments, done, color }: { segments: number[]; done
           height: 3,
           borderRadius: 2,
           backgroundColor: fill,
-          width: draw.interpolate({ inputRange: [0, 1], outputRange: ['0%', `${Math.min(100, Math.max(0, done * 100))}%`] }),
+          width: fillPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
         }}
       />
       {bars.map((f, i) => (
@@ -460,27 +545,29 @@ const useS = themed(({ C }: T) => StyleSheet.create({
  * number cutting. `height` must be the text's line height, since that is the
  * distance one digit travels. Digits only, so tabular figures keep it steady.
  */
-export function RollingNumber({ value, style, height }: { value: number | string; style?: TextStyle; height: number }) {
+export function RollingNumber({ value, style, height, fast }: { value: number | string; style?: TextStyle; height: number; fast?: boolean }) {
   const chars = String(value).split('');
   return (
     <View style={{ flexDirection: 'row', height, overflow: 'hidden' }}>
       {chars.map((c, i) => (
         // keyed by position: digit 3 stays digit 3 as the number changes, so the
         // column rolls rather than being torn down and rebuilt at the new value
-        <Digit key={`${chars.length}-${i}`} digit={Number(c)} style={style} height={height} />
+        <Digit key={`${chars.length}-${i}`} digit={Number(c)} style={style} height={height} fast={fast} />
       ))}
     </View>
   );
 }
 
-function Digit({ digit, style, height }: { digit: number; style?: TextStyle; height: number }) {
+function Digit({ digit, style, height, fast }: { digit: number; style?: TextStyle; height: number; fast?: boolean }) {
   const { reduceMotion } = useTheme();
   const [y] = useState(() => new Animated.Value(-digit * height));
   useEffect(() => {
     const to = -digit * height;
     if (reduceMotion) return y.setValue(to);
-    Animated.spring(y, { toValue: to, useNativeDriver: true, friction: 9, tension: 70 }).start();
-  }, [digit, height, reduceMotion, y]);
+    // the BPM roll (fast) settles quicker than the session/timer odometer: it
+    // changes in 1-BPM steps far more often than a timer ticks
+    Animated.spring(y, fast ? { toValue: to, useNativeDriver: true, friction: 10, tension: 140 } : { toValue: to, useNativeDriver: true, friction: 9, tension: 70 }).start();
+  }, [digit, height, reduceMotion, y, fast]);
   return (
     <View style={{ height, overflow: 'hidden' }}>
       <Animated.View style={{ transform: [{ translateY: y }] }}>

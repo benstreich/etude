@@ -217,6 +217,7 @@
     },
     "staffHint": "Tap a day to see its log — quick log lands there too",
     "playMelody": "Play this week",
+    "fullScore": "Your score, in full",
     "todaysLog": "Today's log",
     "tapToAdjust": "tap to adjust",
     "nothingLoggedToday": "Nothing logged yet today",
@@ -224,6 +225,8 @@
     "quickLog": "Quick log",
     "chooseFocus": "Choose focus",
     "chipMin": "+%{min} min",
+    "landsToday": "Lands on today",
+    "landsOnDay": "Lands on %{day}",
     "min": "%{min} min",
     "addedMinFocus": "Added %{min} min · %{name}",
     "addedMinutes": "Added %{min} minutes",
@@ -254,6 +257,7 @@
     "running": "Practicing",
     "stopRecording": "Stop recording",
     "record": "Record",
+    "toolStripRecording": "Recording %{name}",
     "resume": "Resume",
     "pause": "Pause",
     "endSave": "End & save",
@@ -716,6 +720,7 @@
     "notePlaceholder": "How did it go? Add a note…",
     "stopTake": "Stop take",
     "attachTake": "Attach take",
+    "attachHeading": "Attach a take",
     "saveSession": "Save session",
     "streakChip": {
       "one": "1-day streak",
@@ -740,6 +745,7 @@
     "star": "Mark as reference take",
     "unstar": "Remove reference mark",
     "trim": "Trim",
+    "trimTake": "Trim take",
     "save": "Save name",
     "cancel": "Cancel editing",
     "loop": "Loop the clip",
@@ -824,7 +830,8 @@
     "openSettings": "Open settings",
     "error": "The microphone isn't available",
     "errorBody": "Another app may be using it. Close it and try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "stringHint": "Tap a string to pin it. Étude buzzes once as the note comes in."
   },
   "score": {
     "title": "Score",
@@ -833,6 +840,10 @@
     "pages": {
       "one": "%{count} page",
       "other": "%{count} pages"
+    },
+    "filesCount": {
+      "one": "%{count} file",
+      "other": "%{count} files"
     },
     "pageOf": "Page %{n} of %{total}",
     "namePlaceholder": "Name this score",
@@ -843,6 +854,20 @@
     "noPdfRenderer": "PDFs need the full app build. Photos work everywhere.",
     "importFailed": "Could not add that file.",
     "more": "Rename or delete"
+  },
+  "fullScore": {
+    "title": "Your score",
+    "log": "Log",
+    "goalBeats": "%{min} min = 4 beats",
+    "earlier": "Earlier",
+    "startOfLog": "Start of the log",
+    "showingWeeks": {
+      "one": "showing 1 week",
+      "other": "showing %{count} weeks"
+    },
+    "later": "Later",
+    "thisIsToday": "This is today",
+    "rest": "A rest — nothing logged"
   },
   "tools": {
     "title": "Tools",
