@@ -59,6 +59,8 @@ export const GLYPH = {
   fermataAbove: '\u{E4C0}',
   accidentalSharp: '\u{E262}',
   accidentalFlat: '\u{E260}',
+  /** The metronome-mark quarter note — sized for inline text, not for a staff. */
+  metNoteQuarterUp: '\u{ECA5}',
   /** A whole number as a run of Bravura digit glyphs — a day can run past 9 beats. */
   timeSig: (n: number) =>
     [...String(Math.max(0, Math.round(n)))].map((d) => String.fromCodePoint(0xe080 + Number(d))).join(''),
@@ -263,8 +265,9 @@ const CLEF_SEP = 0.6;
 const SIG_X0 = 0.5 + CLEF_W + CLEF_SEP;
 // Bravura's accidentalSharp/Flat are close to a full staff space wide
 // (glyphAdvanceWidths: 0.996 / 0.904) — this step has to clear that, or
-// consecutive accidentals overlap.
-const SIG_STEP = 1.15;
+// consecutive accidentals overlap. Set just above the sharp's advance width,
+// the way a signature is engraved: six sharps cost real staff width on Home.
+const SIG_STEP = 1.05;
 /** The widest accidental, so the block's right edge clears the last one drawn. */
 const SIG_W = 1.0;
 
@@ -278,11 +281,14 @@ export function signatureMarks(sig: number, S: number): { x: number; y: number; 
   }));
 }
 
+/** The air after the last accidental — less than the clef's, the notes can sit close. */
+const SIG_SEP_END = 0.3;
+
 /** Width of the clef-and-signature block, which is pinned to the left of the staff. */
 export const headerW = (sig: number, S: number) => {
   const n = Math.abs(sig);
   // with no signature the block is just the clef and its air
-  return n === 0 ? SIG_X0 * S : (SIG_X0 + (n - 1) * SIG_STEP + SIG_W + CLEF_SEP) * S;
+  return n === 0 ? SIG_X0 * S : (SIG_X0 + (n - 1) * SIG_STEP + SIG_W + SIG_SEP_END) * S;
 };
 
 // --- the full score: bars wrapped into systems down the page ---------------

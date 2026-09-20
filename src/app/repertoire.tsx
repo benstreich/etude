@@ -234,7 +234,7 @@ export default function Repertoire() {
       </View>
       <View style={s.titleRow}>
         <Text style={s.title}>{store.t('tabs.repertoire')}</Text>
-        <Pressable style={s.fabBtn} onPress={() => setAddOpen(true)}>
+        <Pressable testID="repertoire-add" style={s.fabBtn} onPress={() => setAddOpen(true)}>
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
@@ -377,6 +377,7 @@ export default function Repertoire() {
                 <View style={s.searchWrap}>
                   <SearchIcon color={C.tertiary} />
                   <TextInput
+                    testID="add-name-input"
                     style={s.searchInput}
                     value={name}
                     onChangeText={setName}
@@ -415,6 +416,7 @@ export default function Repertoire() {
                       </Pressable>
                     ))}
                     <Pressable
+                      testID="add-create"
                       style={[s.sugRow, shown.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
                       onPress={() => setCreating(name.trim())}>
                       <Text style={s.createText}>{store.t('repertoire.createNamed', { name: name.trim() })}</Text>
@@ -448,7 +450,7 @@ export default function Repertoire() {
                     onSubmitEditing={() => add(creating, artist.trim())}
                     returnKeyType="done"
                   />
-                  <Pressable style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
+                  <Pressable testID="add-confirm" style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
                     <Text style={s.plusText}>+</Text>
                   </Pressable>
                 </View>

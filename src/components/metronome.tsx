@@ -136,20 +136,19 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
             <Text style={[s.hint, { textAlign: 'center', marginTop: 10 }]}>{t('metronome.accentsHint')}</Text>
 
             <View style={s.bpmRow}>
-              <Step label="−5" disabled={bpm <= MIN_BPM} onPress={() => nudge(-5)} />
-              <Step label="−1" disabled={bpm <= MIN_BPM} onPress={() => nudge(-1)} />
+              <Step label="−5" testID="metro-minus-5" disabled={bpm <= MIN_BPM} onPress={() => nudge(-5)} />
+              <Step label="−1" testID="metro-minus-1" disabled={bpm <= MIN_BPM} onPress={() => nudge(-1)} />
               <View style={s.bpmBox}>
-                <View testID="metro-bpm">
-                  <RollingNumber value={bpm} style={s.bpm} height={fs(72)} fast />
-                </View>
+                <RollingNumber testID="metro-bpm" value={bpm} style={s.bpm} height={fs(72)} fast />
                 <Text style={s.bpmUnit}>BPM</Text>
                 <Text style={s.bpmTerm}>{tempoTerm(bpm)}</Text>
               </View>
-              <Step label="+1" disabled={bpm >= MAX_BPM} onPress={() => nudge(1)} />
-              <Step label="+5" disabled={bpm >= MAX_BPM} onPress={() => nudge(5)} />
+              <Step label="+1" testID="metro-plus-1" disabled={bpm >= MAX_BPM} onPress={() => nudge(1)} />
+              <Step label="+5" testID="metro-plus-5" disabled={bpm >= MAX_BPM} onPress={() => nudge(5)} />
             </View>
 
             <EntryRow
+              testID="metro-start"
               keySize={52}
               keyStyle={running ? { backgroundColor: C.accent } : { borderWidth: 1.5, borderColor: C.ink }}
               keyContent={running ? <View style={{ width: 14, height: 14, borderRadius: 2, backgroundColor: C.bg }} /> : <PlayIcon color={C.ink} />}
@@ -271,11 +270,12 @@ function VolumeSlider({ value, onChange }: { value: number; onChange: (pct: numb
   );
 }
 
-const Step = ({ label, disabled, onPress }: { label: string; disabled?: boolean; onPress: () => void }) => {
+const Step = ({ label, disabled, onPress, testID }: { label: string; disabled?: boolean; onPress: () => void; testID?: string }) => {
   const s = useS();
   const C = useC();
   return (
     <Pressable
+      testID={testID}
       style={s.step}
       hitSlop={6}
       disabled={disabled}

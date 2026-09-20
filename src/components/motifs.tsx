@@ -83,19 +83,28 @@ export function FermataMark({ pct, goalMet, size = 220 }: { pct: number; goalMet
 
 // Staff geometry in the unit a score is built from: the staff space S. Five
 // rules 4S tall, with room above for a fermata and for the clef's flourish.
-const S = 16;
-const STAFF_TOP = 36;
-const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * S);
-const MELODY_H = RULES[4] + 30; // rules plus the day letters beneath
-// Column widths come from lib/engrave, the same ones the full score lays out
-// with — Home is the same notation at a smaller staff space, not a second guess
-// at it.
-const PAD = BAR_PAD(S); // the barline and its breathing room
-const REST_W = REST_COL_W(S); // a day off
-const PAD_W = PAD_COL_W(S); // the eighth rest that squares a bar with its signature
-const LINE = LINE_W(S);
-const STEM = STEM_W(S);
-const NOTE_FS = glyphFontSize(S);
+// The staff space answers to the key: six sharps pin a wide signature to the
+// left, so heavy keys read on a slightly smaller staff and the week keeps its
+// room. Column widths come from lib/engrave, the same ones the full score lays
+// out with — Home is the same notation at a smaller staff space, not a second
+// guess at it.
+const staffSpace = (sig: number) => (Math.abs(sig) >= 6 ? 12 : Math.abs(sig) >= 4 ? 13 : 14);
+const geometry = (S: number) => {
+  const STAFF_TOP = Math.round(2.25 * S);
+  const RULES = [0, 1, 2, 3, 4].map((i) => STAFF_TOP + i * S);
+  return {
+    S,
+    STAFF_TOP,
+    RULES,
+    MELODY_H: RULES[4] + 30, // rules plus the day letters beneath
+    PAD: BAR_PAD(S), // the barline and its breathing room
+    REST_W: REST_COL_W(S), // a day off
+    PAD_W: PAD_COL_W(S), // the eighth rest that squares a bar with its signature
+    LINE: LINE_W(S),
+    STEM: STEM_W(S),
+    NOTE_FS: glyphFontSize(S),
+  };
+};
 
 /**
  * The practice log as a melody: one bar per day, one note per session in it, its
@@ -134,6 +143,7 @@ export function MelodyStaff({
   const C = useC();
   const scroll = useRef<ScrollView>(null);
   const sig = SIGNATURE[melodyKey] ?? 0;
+  const { S, STAFF_TOP, RULES, MELODY_H, PAD, REST_W, PAD_W, LINE, STEM, NOTE_FS } = useMemo(() => geometry(staffSpace(sig)), [sig]);
   const headW = headerW(sig, S);
 
   // Every bar is a day, so every bar has its own meter — written only where it
@@ -151,7 +161,7 @@ export function MelodyStaff({
       out.push({ b, meter, pad, lay, w: PAD + (meter !== null ? METER_COL_W(meter, S) : 0) + (lay ? lay.width : REST_W) + (pad ? PAD_W : 0) });
     }
     return out;
-  }, [bars, goal]);
+  }, [bars, goal, S, PAD, REST_W, PAD_W]);
   const width = metered.reduce((w, x) => w + x.w, 0) + 24;
   const jumped = useRef(false);
 
@@ -376,18 +386,35 @@ export function MeasureBar({ segments, done, color }: { segments: number[]; done
   );
 }
 
+/**
+ * Bravura's metronome-mark quarter note, drawn through SVG like every other
+ * glyph the app engraves. In a plain Text, Android's shaper drops the head off
+ * Noto Music's U+1D15F and leaves a bare stem — so the note never goes through
+ * Text. `size` is the glyph's full height; it descends 0.141/0.829 of it.
+ */
+export function MetNote({ size, color }: { size: number; color: string }) {
+  const em = size / 0.829; // metNoteQuarterUp spans 0.829 em, 0.688 of it above the baseline
+  return (
+    <Svg width={0.34 * em + 1} height={size} style={{ overflow: 'visible' }}>
+      <SvgText x={0} y={0.688 * em} fontFamily={F.smufl} fontSize={em} fill={color}>
+        {GLYPH.metNoteQuarterUp}
+      </SvgText>
+    </Svg>
+  );
+}
+
 /** "♩ 96 Moderato" — note glyph, BPM and term in one inline run; accent while a metronome is actually running. */
 export function NoteTempo({ bpm, active, size = 14 }: { bpm: number; active?: boolean; size?: number }) {
   const C = useC();
   const { fs } = useTheme();
   const color = active ? C.accent : C.subStrong;
   return (
-    <Text>
-      <Text style={{ fontFamily: F.notation, fontSize: fs(size + 2), color }}>{'\u{1D15F} '}</Text>
-      <Text style={{ fontFamily: F.bodySemi, fontSize: fs(size), color: active ? C.accent : C.ink }}>{bpm} </Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <MetNote size={fs(size + 2)} color={color} />
+      <Text style={{ fontFamily: F.bodySemi, fontSize: fs(size), color: active ? C.accent : C.ink }}>{bpm}</Text>
       {/* the italic serif is the accent voice only — plain sans when this isn't running */}
       <Text style={{ fontFamily: active ? F.accent : F.body, fontSize: fs(size), color }}>{tempoTerm(bpm)}</Text>
-    </Text>
+    </View>
   );
 }
 
@@ -558,10 +585,12 @@ const useS = themed(({ C }: T) => StyleSheet.create({
  * number cutting. `height` must be the text's line height, since that is the
  * distance one digit travels. Digits only, so tabular figures keep it steady.
  */
-export function RollingNumber({ value, style, height, fast }: { value: number | string; style?: TextStyle; height: number; fast?: boolean }) {
+export function RollingNumber({ value, style, height, fast, testID }: { value: number | string; style?: TextStyle; height: number; fast?: boolean; testID?: string }) {
   const chars = String(value).split('');
   return (
-    <View style={{ flexDirection: 'row', height, overflow: 'hidden' }}>
+    // the rolling digits are ten clipped Texts per column — nothing a screen
+    // reader (or Maestro) can read, so the row carries the value itself
+    <View testID={testID} accessible accessibilityLabel={String(value)} style={{ flexDirection: 'row', height, overflow: 'hidden' }}>
       {chars.map((c, i) => (
         // keyed by position: digit 3 stays digit 3 as the number changes, so the
         // column rolls rather than being torn down and rebuilt at the new value

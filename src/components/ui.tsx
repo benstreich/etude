@@ -284,11 +284,11 @@ export function SearchField({
  * A section heading that folds its contents away. The chevron turns; the open
  * state belongs to the caller so it can be persisted (Techniques remembers it).
  */
-export function SectionHead({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) {
+export function SectionHead({ label, open, onToggle, testID }: { label: string; open: boolean; onToggle: () => void; testID?: string }) {
   const s = useS();
   const C = useC();
   return (
-    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle}>
+    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle} testID={testID}>
       <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
         <ChevronIcon color={C.tertiary} size={10} />
       </View>
@@ -546,7 +546,7 @@ export function Stepper({
  * they finish together; the row around it (label + hint + switch) is the
  * caller's Pressable, matching the metronome's existing switch row.
  */
-export function Switch({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+export function Switch({ value, onChange, testID }: { value: boolean; onChange: (v: boolean) => void; testID?: string }) {
   const s = useS();
   const C = useC();
   const { reduceMotion } = useTheme();
@@ -558,6 +558,7 @@ export function Switch({ value, onChange }: { value: boolean; onChange: (v: bool
   const trackStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.value, [0, 1], [C.track, C.accent]) }));
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       onPress={() => {

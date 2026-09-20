@@ -165,6 +165,7 @@ export default function Score() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingBottom: 84, paddingTop: 8 }} showsVerticalScrollIndicator={false}>
         <Pressable
+          testID="score-earlier"
           style={[s.edgeRow, atStart && { opacity: 0.35 }]}
           disabled={atStart}
           onPress={() => {
@@ -196,6 +197,7 @@ export default function Score() {
         ))}
 
         <Pressable
+          testID="score-later"
           style={[s.edgeRow, weeksShown <= 1 && { opacity: 0.28 }]}
           disabled={weeksShown <= 1}
           onPress={() => {

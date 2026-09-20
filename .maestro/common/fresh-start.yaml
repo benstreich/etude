@@ -11,6 +11,7 @@ appId: com.benstreich.etude
     clearState: true
     permissions:
       notifications: allow
+      microphone: allow
 - tapOn: "Get started"
 - tapOn: "Skip"
 - assertVisible: "Étude"

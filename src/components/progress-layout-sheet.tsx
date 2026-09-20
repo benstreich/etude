@@ -63,7 +63,7 @@ export function ProgressLayoutSheet({ visible, onClose }: { visible: boolean; on
           />
         ))}
       </View>
-      <Pressable style={s.reset} hitSlop={8} onPress={() => save([])}>
+      <Pressable testID="layout-reset" style={s.reset} hitSlop={8} onPress={() => save([])}>
         <Text style={[s.resetText, { color: C.accent }]}>{store.t('settings.resetDefault')}</Text>
       </Pressable>
     </Sheet>
@@ -144,6 +144,7 @@ function Row({
         </Text>
       </View>
       <Switch
+        testID={`layout-switch-${item.key}`}
         value={item.on && !blocked}
         disabled={!!blocked}
         onValueChange={onToggle}

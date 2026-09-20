@@ -1,0 +1,88 @@
+# The timed session, end to end: pick a focus, start, pause, resume, end &
+# save, review — then prove the minute landed on Home. And the other exit:
+# a discarded session must leave no trace.
+appId: com.benstreich.etude
+name: Time a session
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Practice"
+
+# a seeded technique, so the flow does not depend on the user having pieces
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+- scrollUntilVisible:
+    element:
+      id: "start-session"
+    direction: UP
+- tapOn:
+    id: "start-session"
+
+# the session is running: the tab bar is gone and the pause row is there
+- assertVisible:
+    id: "practice-pause"
+
+# the running session must survive the process dying — kill the app, relaunch,
+# and the clock is still going where it was (store.liveSession + restoreLive)
+- launchApp
+- tapOn: "Practice"
+- assertVisible:
+    id: "practice-pause"
+
+- tapOn:
+    id: "practice-pause"
+- tapOn:
+    id: "practice-pause"
+
+- tapOn:
+    id: "practice-end"
+
+# ending hands over to the review, which commits the session
+- tapOn:
+    id: "review-save"
+
+# the clock ran on through the restart, so the save reads one minute or two —
+# what it must never read is zero (lost) or more (counting time not practised)
+- tapOn: "Home"
+- scrollUntilVisible:
+    element:
+      id: "today-minutes"
+    direction: UP
+- assertVisible:
+    id: "today-minutes"
+    text: "^[12]$"
+
+# --- the other exit: discard must not log ---------------------------------
+- tapOn: "Practice"
+- tapOn: "Scales & arpeggios"
+- scrollUntilVisible:
+    element:
+      id: "start-session"
+    direction: UP
+- tapOn:
+    id: "start-session"
+- scrollUntilVisible:
+    element:
+      id: "practice-discard"
+    direction: DOWN
+- tapOn:
+    id: "practice-discard"
+# the native confirm — its buttons are text, there is nothing else to select
+- tapOn: "Discard"
+
+# back on the idle screen, and Home still says one minute, not two
+- assertVisible:
+    id: "start-session"
+- tapOn: "Home"
+- scrollUntilVisible:
+    element:
+      id: "today-minutes"
+    direction: UP
+- assertVisible:
+    id: "today-minutes"
+    text: "^[12]$"

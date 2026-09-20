@@ -76,6 +76,7 @@ export default function Drone() {
           return (
             <Pressable
               key={n}
+              testID={`drone-note-${n.replace('#', 's')}`}
               style={[s.key, sel && s.keySel]}
               onPress={() => {
                 if (!sel) tap();
@@ -105,6 +106,7 @@ export default function Drone() {
       </View>
 
       <EntryRow
+        testID="drone-play"
         keySize={52}
         keyStyle={playing ? { backgroundColor: C.accent } : { borderWidth: 1.5, borderColor: C.ink }}
         keyContent={playing ? <View style={s.stopSquare} /> : <PlayIcon color={C.ink} />}

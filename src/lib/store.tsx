@@ -16,7 +16,7 @@ import type { RampUnit } from './metronome-math';
 import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
-import { applySessionUpdate } from './session-math';
+import { applySessionUpdate, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
 import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
@@ -137,6 +137,9 @@ type State = Settings & {
   recordings: Recording[];
   attachments: Attachment[]; // sheet music / photos per piece (#60)
   plans: Plan[];
+  // the session in flight, if one is: persisted so a process death cannot lose
+  // it. Practice restores it on mount (session-math.restoreLive).
+  liveSession: LiveSession | null;
 };
 
 const KEY = 'etude-state-v1';
@@ -160,6 +163,7 @@ function seed(): State {
     recordings: [],
     attachments: [],
     plans: [],
+    liveSession: null,
     // onboarding's goal step starts from this; its copy says start easy, and 30
     // still is — a real session that survives a busy day, so goal-met and the
     // streak keep meaning something
@@ -249,6 +253,8 @@ type Store = State & {
   deleteTempoEntry: (pieceId: string, date: string) => void;
   deleteSession: (id: string) => void;
   setSessionNote: (id: string, note: string) => void;
+  /** Writes (or clears) the session in flight; every change is persisted at once. */
+  setLiveSession: (ls: LiveSession | null) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
   updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'instruments' | 'artwork'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
@@ -474,6 +480,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) =>
       s ? { ...s, sessions: s.sessions.map((x) => (x.id === id ? { ...x, note: note.trim() || undefined } : x)) } : s
     );
+  };
+
+  const setLiveSession = (ls: LiveSession | null) => {
+    setState((s) => (s ? { ...s, liveSession: ls } : s));
   };
 
   const updateSession: Store['updateSession'] = (id, patch) => {
@@ -757,6 +767,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast,
     showToast,
     logMinutes,
+    setLiveSession,
     addPlan,
     updatePlan,
     removePlan,

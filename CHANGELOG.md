@@ -19,6 +19,9 @@ The first version. Everything below is new.
   breaks that never count towards your total.
 - Break reminders that nudge you every 20–45 minutes if you want them.
 - A session review when you save: what you did, how it felt, and a rating.
+- A running session survives the app closing or your phone restarting — the
+  clock picks up where it was, and a long gap comes back paused instead of
+  counting time you didn't practise.
 
 **Repertoire**
 - Pieces and techniques, each with stages from learning to ready, a current and

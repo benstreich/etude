@@ -1,20 +1,33 @@
 # End-to-end flows
 
-Three flows, one per thing that breaks silently: a session that does not persist,
-a routine that does not log, a reminder that is never scheduled. Everything below
-the UI is already covered by `npm run check` — these exist for the wiring.
+One flow per thing that breaks silently: a session that does not persist, a
+routine that does not log, a reminder that is never scheduled, a setting that
+resets. Everything below the UI is already covered by `npm run check` — these
+exist for the wiring.
 
 | Flow | Covers |
 |---|---|
-| `log-session.yaml` | quick log arithmetic, goal line, AsyncStorage round-trip across a restart |
+| `log-session.yaml` | quick log arithmetic, goal line, store round-trip across a restart |
 | `run-routine.yaml` | plan editor → store, run state across screens, per-segment logging, review sheet |
 | `set-reminder.yaml` | reminder persistence and turning it back off |
+| `onboarding.yaml` | the real (non-skipped) onboarding path; its one atomic store write, read back |
+| `practice-session.yaml` | the timer: start, surviving an app restart mid-session, pause, end & save, review commit — and discard leaving no trace |
+| `repertoire-piece.yaml` | manual piece creation (offline), stage change, tempo log, all after a relaunch |
+| `edit-session.yaml` | editing minutes moves the day's totals; deleting zeroes them |
+| `log-past.yaml` | calendar logging onto yesterday (date computed in `scripts/yesterday.js`) |
+| `metronome.yaml` | BPM steps, start/stop, tempo persistence |
+| `drone.yaml` | note → frequency wiring, play/stop |
+| `tuner.yaml` | the native pitch module loads, mic session opens, instrument choice persists |
+| `appearance.yaml` | theme + sounds persistence, read off the Settings row |
+| `progress-sections.yaml` | a layout switch turns a Home section off, and it stays off |
+| `score-view.yaml` | the full score opens and pages; the staff legend opens |
 
-`common/fresh-start.yaml` is a subflow: clear state, grant notifications, tap
-through onboarding's welcome screen and skip the rest. Every flow starts with
-it, so none of them depend on the one before.
+`common/fresh-start.yaml` is a subflow: clear state, grant notifications and
+the microphone, tap through onboarding's welcome screen and skip the rest.
+Every flow starts with it (except `onboarding.yaml`, which owns onboarding),
+so none of them depend on the one before.
 
-All three pass against a release build on a Pixel_10a emulator (Maestro 2.10.0).
+All pass against a release build on a Pixel_10a emulator (Maestro 2.10.0).
 
 ## Running them
 
@@ -29,12 +42,26 @@ curl -fsSL https://get.maestro.mobile.dev | bash
 eas build --profile e2e-test --platform android --local
 
 # with an emulator or simulator running, and the build installed
-npm run e2e                       # all three
+npm run e2e                       # the whole suite, one maestro process
+npm run e2e:retry                 # one flow at a time, each retried once — see below
 maestro test .maestro/log-session.yaml
 maestro studio                    # inspect the hierarchy when a selector misses
 ```
 
+On Windows the emulator's adb link can drop mid-suite under sustained load
+("device offline" and every later flow failing in milliseconds). `e2e:retry`
+absorbs that: flows run one per maestro invocation and a failed flow gets one
+more try before it counts. A flow that fails twice is a real failure.
+
 ## Gotchas found the hard way
+
+- **A local gradle release build silently runs the published OTA bundle**, not
+  your code: the embedded manifest keeps a stale `commitTime`, so expo-updates
+  prefers the downloaded update. Building with `./gradlew assembleRelease`
+  instead of the eas profile? Set `expo.modules.updates.ENABLED` to `false` in
+  `android/app/src/main/AndroidManifest.xml` first, and revert it after.
+  Confirm with `adb logcat -d | grep dev.expo.updates` — it must log
+  "explicitly disabled". (EAS `e2e-test` builds are not affected.)
 
 - **Scroll before every tap below the fold.** The quick-log chips move when a
   session row appears above them, so even the second chip in the same row needs

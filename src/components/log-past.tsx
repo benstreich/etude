@@ -85,13 +85,14 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
                     })}
                   </ScrollView>
                 )}
-                <Pressable hitSlop={8} onPress={() => setShowAll((v) => !v)}>
+                <Pressable testID="log-past-show-all" hitSlop={8} onPress={() => setShowAll((v) => !v)}>
                   <Text style={s.showAll}>{showAll ? store.t('logPast.showLess') : store.t('logPast.showAll')}</Text>
                 </Pressable>
               </View>
             )}
 
             <TextInput
+              testID="log-past-minutes"
               style={s.input}
               value={pastMin}
               onChangeText={(t) => setPastMin(t.replace(/\D/g, '').slice(0, 3))}
@@ -106,7 +107,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
               </View>
               <Text style={s.checkLabel}>{store.t('logPast.addMoreAfterSaving')}</Text>
             </Pressable>
-            <Pressable style={[s.saveBtn, (!pastDate || !Number(pastMin)) && { opacity: 0.4 }]} onPress={logPast}>
+            <Pressable testID="log-past-add" style={[s.saveBtn, (!pastDate || !Number(pastMin)) && { opacity: 0.4 }]} onPress={logPast}>
               <Text style={s.saveBtnText}>{store.t('logPast.add')}</Text>
             </Pressable>
     </Sheet>

@@ -1,0 +1,46 @@
+# Theme is the setting a user notices instantly if it resets. Set it to dark,
+# read it back off the Settings row, and again after a restart.
+appId: com.benstreich.etude
+name: Go dark and stay dark
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "setting-appearance"
+    direction: DOWN
+- tapOn:
+    id: "setting-appearance"
+
+- tapOn:
+    id: "appearance-theme-dark"
+- tapOn:
+    id: "appearance-sounds"
+- back
+
+# the row reads the theme straight back
+- scrollUntilVisible:
+    element:
+      id: "setting-appearance"
+    direction: DOWN
+- assertVisible:
+    text: ".*Dark.*"
+    childOf:
+      id: "setting-appearance"
+
+# and still does after the process dies
+- launchApp
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "setting-appearance"
+    direction: DOWN
+- assertVisible:
+    text: ".*Dark.*"
+    childOf:
+      id: "setting-appearance"

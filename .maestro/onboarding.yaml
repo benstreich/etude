@@ -1,0 +1,44 @@
+# Onboarding taken for real, not skipped: pick an instrument, pick a goal,
+# decline reminders, finish the tour. The one atomic store write at the end is
+# the thing under test — a killed onboarding must not half-persist, and the
+# chosen goal has to be the one Settings reads back.
+appId: com.benstreich.etude
+name: Onboard for real
+tags:
+  - regression
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- tapOn:
+    id: "onboarding-start"
+- tapOn:
+    id: "onboarding-inst-Piano"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-goal-30"
+- tapOn:
+    id: "onboarding-continue"
+- tapOn:
+    id: "onboarding-not-now"
+- tapOn:
+    id: "onboarding-done"
+- assertVisible: "Étude"
+
+# the goal picked on step 2 is what Settings reads back
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "setting-goal"
+    direction: DOWN
+- assertVisible:
+    text: ".*30.*"
+    childOf:
+      id: "setting-goal"
+
+# onboarded survives the process dying — the app must not onboard twice
+- launchApp
+- assertVisible: "Étude"

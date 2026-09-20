@@ -141,7 +141,7 @@ export default function PieceDetail() {
     <KeyboardAwareScrollView style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
         <BackLink label={store.t('tabs.repertoire')} onPress={() => router.back()} />
-        <Pressable hitSlop={8} onPress={() => setMenuOpen(true)}>
+        <Pressable testID="piece-menu" hitSlop={8} onPress={() => setMenuOpen(true)}>
           <Text style={s.navGlyph}>⋯</Text>
         </Pressable>
       </View>
@@ -165,6 +165,7 @@ export default function PieceDetail() {
           {store.stages.map((_, i) => (
             <Pressable
               key={i}
+              testID={`piece-stage-${i}`}
               style={{ flex: 1 }}
               hitSlop={{ top: 10, bottom: 10 }}
               onPress={() => {

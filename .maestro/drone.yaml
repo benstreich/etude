@@ -1,0 +1,22 @@
+# The drone: pick a note, read its frequency, start and stop. Nothing here
+# persists by design — the flow only proves the wiring stands up.
+appId: com.benstreich.etude
+name: Sound a drone
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Tools"
+- tapOn:
+    id: "tool-drone"
+
+# A4 at the default reference is 440 — the one frequency everyone knows
+- tapOn:
+    id: "drone-note-A"
+- assertVisible: ".*440.*"
+
+- tapOn:
+    id: "drone-play"
+- tapOn:
+    id: "drone-play"

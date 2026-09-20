@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronIcon, PlayIcon } from '@/components/icons';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeSheet } from '@/components/metronome';
-import { LiveWaveform, RollingNumber, StaffProgress } from '@/components/motifs';
+import { LiveWaveform, MetNote, RollingNumber, StaffProgress } from '@/components/motifs';
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { ScoreViewer, useScores } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
@@ -21,6 +21,7 @@ import { tap, thud } from '@/lib/haptics';
 import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
+import { restoreLive } from '@/lib/session-math';
 import { Piece, useStore } from '@/lib/store';
 import { pickRecordings } from '@/lib/import-recording';
 import { useTakeRecorder } from '@/lib/use-take-recorder';
@@ -79,28 +80,32 @@ export default function Practice() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const metronome = useMetronome();
-  const [focus, setFocus] = useState<{ name: string; kind: 'Piece' | 'Technique' } | null>(null);
-  const [running, setRunning] = useState(false);
+  // a session the last process left behind (store.liveSession) is revived right
+  // in these initializers — before the first paint, so a restart never shows
+  // the idle screen mid-session and never loses the minutes (#restoreLive)
+  const [revived] = useState(() => (store.liveSession ? { ...store.liveSession, ...restoreLive(store.liveSession, Date.now()) } : null));
+  const [focus, setFocus] = useState<{ name: string; kind: 'Piece' | 'Technique' } | null>(revived ? { name: revived.name, kind: revived.kind } : null);
+  const [running, setRunning] = useState(!!revived);
   // the staff nav (StaffNav in _layout.tsx) reads this to hide itself while a session runs
   useEffect(() => {
     navigation.setOptions({ tabBarStyle: running ? { display: 'none' } : undefined });
   }, [running, navigation]);
   // wall-clock based so time keeps counting while the app is backgrounded
-  const [startedAt, setStartedAt] = useState<number | null>(null); // null = paused
-  const [accum, setAccum] = useState(0); // seconds banked across pauses
-  const [seconds, setSeconds] = useState(0);
+  const [startedAt, setStartedAt] = useState<number | null>(revived?.startedAt ?? null); // null = paused
+  const [accum, setAccum] = useState(revived?.accum ?? 0); // seconds banked across pauses
+  const [seconds, setSeconds] = useState(revived?.accum ?? 0);
   const [pastOpen, setPastOpen] = useState(false);
   const [metroOpen, setMetroOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [review, setReview] = useState<ReviewSession | null>(null); // saved session shown in the review moment
-  const sessionStart = useRef(0); // wall clock when the session was started
-  const [startClock, setStartClock] = useState(0); // same instant, mirrored to state so the header can read it during render
+  const sessionStart = useRef(revived?.startClock ?? 0); // wall clock when the session was started
+  const [startClock, setStartClock] = useState(revived?.startClock ?? 0); // same instant, mirrored to state so the header can read it during render
   const paused = startedAt === null;
   const inst = useInstrumentFilter();
   // #58 follow-up: which instrument THIS session counts towards. A piece on two
   // instruments can't be filed by its tag order — the player is asked at the start
   // and the answer rides with the session until it is saved.
-  const [sessionInst, setSessionInst] = useState<string | null>(null);
+  const [sessionInst, setSessionInst] = useState<string | null>(revived?.inst ?? null);
   const [askInst, setAskInst] = useState(false);
   const focusPiece = store.allPieces.find((p) => p.name === focus?.name);
   const instChoices = instrumentChoices(focusPiece, inst);
@@ -108,7 +113,7 @@ export default function Practice() {
   const [scoreOpen, setScoreOpen] = useState<(typeof scores)[number] | null>(null);
   // practice breaks (#59): the reminder fires each time the timer crosses another
   // `breakEvery` interval; a break pauses the session timer and counts down separately
-  const [breaksSeen, setBreaksSeen] = useState(0); // intervals already answered (started or skipped)
+  const [breaksSeen, setBreaksSeen] = useState(revived?.breaksSeen ?? 0); // intervals already answered (started or skipped)
   const [breakEnd, setBreakEnd] = useState<number | null>(null); // wall clock when the current break ends
   const [breakLeft, setBreakLeft] = useState(0);
   const breakNotif = useRef<string | null>(null);
@@ -178,6 +183,24 @@ export default function Practice() {
     return () => clearInterval(t);
   }, [running, startedAt, accum]);
 
+  // The session in flight is mirrored into the store, so a process death cannot
+  // lose it. `lastSeen` heartbeats every 10s: restoreLive() keeps the clock
+  // running through a brief death and comes back paused after a long one. The
+  // setter rides a ref — it is a new function per store render, and depending
+  // on it would loop this effect through its own writes.
+  const setLive = useRef(store.setLiveSession);
+  useEffect(() => {
+    setLive.current = store.setLiveSession;
+  });
+  useEffect(() => {
+    if (!running || !focus) return;
+    const write = () =>
+      setLive.current({ name: focus.name, kind: focus.kind, startedAt, accum, startClock: sessionStart.current, inst: sessionInst, breaksSeen, lastSeen: Date.now() });
+    write();
+    const t = setInterval(write, 10000);
+    return () => clearInterval(t);
+  }, [running, focus, startedAt, accum, sessionInst, breaksSeen]);
+
   const q = query.trim().toLowerCase();
   // every piece in the repertoire is practisable — reaching the last stage used
   // to hide it here, which just looked like the piece had gone missing (#41).
@@ -218,6 +241,7 @@ export default function Practice() {
     // session records the one picked when it started, then the tab in view, and
     // only then falls back to the piece's own first tag
     const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, sessionInst || inst || undefined);
+    store.setLiveSession(null);
     setRunning(false);
     setStartedAt(null);
     setAccum(0);
@@ -333,7 +357,7 @@ export default function Practice() {
             <ToolCell
               divider
               label={`${metronome.bpm} ${tempoTerm(metronome.bpm)}`}
-              glyph={(color) => <Text style={{ fontFamily: F.notation, fontSize: fs(22), color }}>{'\u{1D15F}'}</Text>}
+              glyph={(color) => <MetNote size={fs(22)} color={color} />}
               onPress={() => {
                 tap();
                 setMetroOpen(true);
@@ -378,6 +402,7 @@ export default function Practice() {
                 <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
               </View>
             }
+            testID="practice-pause"
             title={paused ? store.t('practice.resume') : store.t('practice.pause')}
             subline={breakInMin !== null ? store.t('practice.breakDueIn', { min: breakInMin }) : undefined}
             right={null}
@@ -396,6 +421,7 @@ export default function Practice() {
             keySize={48}
             keyStyle={{ backgroundColor: C.ink }}
             keyContent={<View style={{ width: 14, height: 14, borderRadius: 2, backgroundColor: C.bg }} />}
+            testID="practice-end"
             title={store.t('practice.endSave')}
             subline={store.t('practice.minSoFar', { min: minSoFar })}
             right={null}
@@ -403,11 +429,13 @@ export default function Practice() {
           />
         </View>
         <Pressable
+          testID="practice-discard"
           style={{ marginTop: 18, alignSelf: 'center' }}
           hitSlop={8}
           onPress={() => {
             const discard = () => {
               discardTake();
+              store.setLiveSession(null);
               setRunning(false);
               setStartedAt(null);
               setAccum(0);
@@ -450,7 +478,7 @@ export default function Practice() {
             </Text>
           )}
         </View>
-        {sel && <Text style={s.optionNote}>{'\u{1D15F}'}</Text>}
+        {sel && <MetNote size={fs(22)} color={C.accent} />}
       </Pressable>
     );
   };
@@ -509,6 +537,7 @@ export default function Practice() {
             {/* folds away like Repertoire's, and shares the same stored choice */}
             <View style={{ marginTop: 32 }}>
               <SectionHead
+                testID="toggle-techniques"
                 label={store.t('practice.techniques')}
                 open={store.showTechniques}
                 onToggle={() => store.updateSettings({ showTechniques: !store.showTechniques })}
@@ -611,7 +640,6 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   optionBar: { width: 1.5, height: 32, backgroundColor: C.barline, borderRadius: 1 },
   optionText: { fontFamily: F.bodyMed, fontSize: fs(16), lineHeight: fs(22), color: C.ink },
   optionMeta: { fontFamily: F.body, fontSize: fs(14.5), lineHeight: fs(18), color: C.subStrong },
-  optionNote: { fontFamily: F.notation, fontSize: fs(22), lineHeight: fs(22), color: C.accent },
   routineRow: { flexDirection: 'row', alignItems: 'center', gap: 14, height: 60, borderBottomWidth: 1, borderBottomColor: C.hairline },
   planAdd: { height: 44, justifyContent: 'center' },
   planAddText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },

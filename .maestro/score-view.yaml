@@ -1,0 +1,41 @@
+# The full score and the staff legend: both are read-only, so the test is
+# that they open, page, and come back without wedging navigation.
+appId: com.benstreich.etude
+name: Read the score and the legend
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn:
+    id: "open-score"
+
+# a week back, a week forward — the Earlier row sits under the staves
+- scrollUntilVisible:
+    element:
+      id: "score-earlier"
+    direction: DOWN
+- tapOn:
+    id: "score-earlier"
+- scrollUntilVisible:
+    element:
+      id: "score-later"
+    direction: DOWN
+- tapOn:
+    id: "score-later"
+
+- back
+- assertVisible:
+    id: "today-minutes"
+
+# the legend sheet under the staff
+- scrollUntilVisible:
+    element:
+      id: "staff-legend-open"
+    direction: DOWN
+- tapOn:
+    id: "staff-legend-open"
+- assertVisible: "Every day is a bar.*"
+- back
+- assertVisible:
+    id: "staff-legend-open"

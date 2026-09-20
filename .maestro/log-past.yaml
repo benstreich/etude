@@ -1,0 +1,57 @@
+# Practice done off the clock, logged onto yesterday through the calendar.
+# The date is computed, not hardcoded — on the 1st of a month the flow pages
+# the calendar back before tapping the day.
+appId: com.benstreich.etude
+name: Log a past day
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- runScript: scripts/yesterday.js
+
+- scrollUntilVisible:
+    element:
+      id: "log-past-open"
+    direction: DOWN
+- tapOn:
+    id: "log-past-open"
+
+- runFlow:
+    when:
+      true: ${output.prevMonth == 'yes'}
+    commands:
+      - tapOn:
+          id: "cal-prev"
+- tapOn:
+    id: "cal-day-${output.yd}"
+
+# a focus, so the entry has a name — seeded, so always present
+- tapOn: "Scales & arpeggios"
+
+- tapOn:
+    id: "log-past-minutes"
+- inputText: "20"
+# the keyboard sits exactly where the Add button is
+- hideKeyboard
+- tapOn:
+    id: "log-past-add"
+
+# the minutes landed on a day, and it was not today: the month calendar counts
+# one practiced day while today's own counter stays at zero. (On the 1st of a
+# month yesterday belongs to the previous month, so the count reads 0 there.)
+- runFlow:
+    when:
+      true: ${output.prevMonth == 'no'}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "1 of .* days"
+          direction: DOWN
+- scrollUntilVisible:
+    element:
+      id: "today-minutes"
+    direction: UP
+- assertVisible:
+    id: "today-minutes"
+    text: "^0$"

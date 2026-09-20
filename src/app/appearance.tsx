@@ -30,11 +30,11 @@ const RADII: { value: RadiusMode; key: string }[] = [
   { value: 'soft', key: 'appearance.soft' },
   { value: 'round', key: 'appearance.round' },
 ];
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Chip({ label, selected, onPress, testID }: { label: string; selected: boolean; onPress: () => void; testID?: string }) {
   const s = useS();
   const C = useC();
   return (
-    <Pressable style={[s.chip, selected && s.chipSel]} onPress={onPress}>
+    <Pressable testID={testID} style={[s.chip, selected && s.chipSel]} onPress={onPress}>
       <Text style={[s.chipText, selected && { color: C.accent }]}>{label}</Text>
     </Pressable>
   );
@@ -92,7 +92,7 @@ export default function Appearance() {
         <Overline style={s.sectionLabel}>{store.t('appearance.theme')}</Overline>
         <View style={s.chipWrap}>
           {THEMES.map((o) => (
-            <Chip key={o.value} label={store.t(o.key)} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
+            <Chip key={o.value} testID={`appearance-theme-${o.value}`} label={store.t(o.key)} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
           ))}
         </View>
       </View>
@@ -137,7 +137,7 @@ export default function Appearance() {
           <Text style={s.switchLabel}>{store.t('appearance.reduceMotion')}</Text>
           <Text style={s.switchHint}>{store.t('appearance.reduceMotionHint')}</Text>
         </View>
-        <Switch value={store.reduceMotion} onChange={(v) => store.updateSettings({ reduceMotion: v })} />
+        <Switch testID="appearance-reduce-motion" value={store.reduceMotion} onChange={(v) => store.updateSettings({ reduceMotion: v })} />
       </View>
 
       <View style={s.switchRow}>
@@ -145,7 +145,7 @@ export default function Appearance() {
           <Text style={s.switchLabel}>{store.t('appearance.sounds')}</Text>
           <Text style={s.switchHint}>{store.t('appearance.soundsHint')}</Text>
         </View>
-        <Switch value={store.sounds} onChange={(v) => store.updateSettings({ sounds: v })} />
+        <Switch testID="appearance-sounds" value={store.sounds} onChange={(v) => store.updateSettings({ sounds: v })} />
       </View>
     </ScrollView>
   );

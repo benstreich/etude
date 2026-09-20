@@ -80,14 +80,14 @@ export function Onboarding() {
           <ProgressDot key={i} active={i === step} />
         ))}
       </View>
-      <Pressable hitSlop={10} onPress={() => finish('Off')}>
+      <Pressable testID="onboarding-skip" hitSlop={10} onPress={() => finish('Off')}>
         <Text style={s.skip}>{store.t('onboarding.skip')}</Text>
       </Pressable>
     </View>
   );
 
-  const primary = (label: string, onPress: () => void) => (
-    <Pressable style={({ pressed }) => [s.primaryBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={onPress}>
+  const primary = (label: string, onPress: () => void, testID?: string) => (
+    <Pressable testID={testID} style={({ pressed }) => [s.primaryBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={onPress}>
       <Text style={s.primaryText}>{label}</Text>
     </Pressable>
   );
@@ -102,7 +102,7 @@ export function Onboarding() {
           <Text style={s.tagline}>{store.t('onboarding.tagline')}</Text>
         </View>
         <View style={{ flex: 1.4 }} />
-        {primary(store.t('onboarding.getStarted'), () => go(1))}
+        {primary(store.t('onboarding.getStarted'), () => go(1), 'onboarding-start')}
         <View style={s.lockRow}>
           <LockIcon size={13} color={C.sub} />
           <Text style={s.lockText}>{store.t('onboarding.privacyNote')}</Text>
@@ -128,6 +128,7 @@ export function Onboarding() {
                   return (
                     <Pressable
                       key={inst}
+                      testID={`onboarding-inst-${inst}`}
                       style={[s.chip, sel && s.chipSel]}
                       onPress={() => setInstruments((l) => (sel ? l.filter((x) => x !== inst) : [...l, inst]))}>
                       <Text style={[s.chipText, sel && s.chipTextSel]}>{store.t(`onboarding.inst${inst}`)}</Text>
@@ -190,7 +191,7 @@ export function Onboarding() {
                 {GOALS.map((g) => {
                   const sel = goal === g;
                   return (
-                    <Pressable key={g} style={[s.chip, sel && s.chipSel]} onPress={() => setGoal(g)}>
+                    <Pressable testID={`onboarding-goal-${g}`} key={g} style={[s.chip, sel && s.chipSel]} onPress={() => setGoal(g)}>
                       <Text style={[s.chipText, sel && s.chipTextSel]}>{g}</Text>
                     </Pressable>
                   );
@@ -249,8 +250,9 @@ export function Onboarding() {
             {primary(store.t('onboarding.turnOnReminders'), () => {
               setReminder(time);
               go(4);
-            })}
+            }, 'onboarding-reminders-on')}
             <Pressable
+              testID="onboarding-not-now"
               style={s.ghostBtn}
               onPress={() => {
                 setReminder('Off');
@@ -260,9 +262,9 @@ export function Onboarding() {
             </Pressable>
           </View>
         ) : step === 4 ? (
-          primary(store.t('onboarding.letsGo'), () => finish(reminder))
+          primary(store.t('onboarding.letsGo'), () => finish(reminder), 'onboarding-done')
         ) : (
-          primary(store.t('onboarding.continue'), () => go(step + 1))
+          primary(store.t('onboarding.continue'), () => go(step + 1), 'onboarding-continue')
         )}
       </View>
     </View>

@@ -342,7 +342,7 @@ export default function Profile() {
       <View>
         <Overline>{store.t('appearance.title')}</Overline>
         <View style={{ marginTop: 6 }}>
-          <Pressable style={[s.row, s.rowClose]} onPress={() => router.push('/appearance')}>
+          <Pressable testID="setting-appearance" style={[s.row, s.rowClose]} onPress={() => router.push('/appearance')}>
             <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
             <Text style={s.rowValue} numberOfLines={1}>
               {store.t(store.theme === 'system' ? 'appearance.system' : store.theme === 'dark' ? 'appearance.dark' : 'appearance.light')}

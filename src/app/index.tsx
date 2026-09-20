@@ -132,9 +132,7 @@ export default function Home() {
             <FermataMark pct={(dayMin / Math.max(1, store.dailyGoal)) * 100} goalMet={goalMet} />
           </View>
           <View style={s.todayCountRow}>
-            <View testID="today-minutes">
-              <RollingNumber value={dayMin} style={s.todayCount} height={fs(36)} />
-            </View>
+            <RollingNumber testID="today-minutes" value={dayMin} style={s.todayCount} height={fs(36)} />
             <Text style={s.todayCountUnit}>{store.t('home.minOf', { goal: store.dailyGoal })}</Text>
           </View>
         </View>
@@ -164,6 +162,7 @@ export default function Home() {
                 <Text style={s.playGlyph}>{melody.playing ? '❚❚' : '▶'}</Text>
               </Pressable>
               <Pressable
+                testID="open-score"
                 hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel={store.t('home.fullScore')}
@@ -193,6 +192,7 @@ export default function Home() {
           <Text style={[s.tapHint, { marginTop: 10, textAlign: 'center' }]}>{store.t('home.staffHint')}</Text>
           {/* the staff says a lot in very little space; this is where that is spelled out */}
           <Pressable
+            testID="staff-legend-open"
             hitSlop={8}
             accessibilityRole="button"
             style={{ alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12 }}
@@ -274,17 +274,17 @@ export default function Home() {
             <Text style={s.overline}>{dayLabel(day, store.today, store.t, store.lang)}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
               <Text style={s.tapHint}>{store.t('home.tapToAdjust')}</Text>
-              <Pressable hitSlop={8} onPress={() => setPastOpen(true)}>
+              <Pressable testID="log-past-open" hitSlop={8} onPress={() => setPastOpen(true)}>
                 <Text style={s.manualLink}>{store.t('practice.logPast')}</Text>
               </Pressable>
             </View>
           </View>
           <View style={{ marginTop: 4 }}>
-            {dayLog.map((l) => {
+            {dayLog.map((l, i) => {
               return (
                 <View key={l.id} style={s.logRowWrap}>
                   {/* the full session editor — focus, minutes, rating, note — same as on the piece page */}
-                  <Pressable style={s.logRow} onPress={() => setEditSess(l)}>
+                  <Pressable testID={`session-row-${i}`} style={s.logRow} onPress={() => setEditSess(l)}>
                     {/* backdated logs carry no time of day (store.logMinutes), so the column collapses rather than gaping */}
                     {!!l.at && <Text style={s.logTime}>{new Date(l.at).toLocaleTimeString(store.lang, { hour: '2-digit', minute: '2-digit', hour12: false })}</Text>}
                     <Text style={s.logTitle} numberOfLines={1}>
@@ -294,7 +294,7 @@ export default function Home() {
                       {l.min}
                       <Text style={s.logMinUnit}> {store.t('home.minWord')}</Text>
                     </Text>
-                    <Pressable hitSlop={8} style={s.logDelete} onPress={() => store.deleteSession(l.id)}>
+                    <Pressable testID={`session-delete-${i}`} hitSlop={8} style={s.logDelete} onPress={() => store.deleteSession(l.id)}>
                       <Text style={s.logDeleteText}>×</Text>
                     </Pressable>
                   </Pressable>

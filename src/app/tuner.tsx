@@ -305,6 +305,7 @@ export default function Tuner() {
         <Text style={s.title}>{store.t('tuner.tuner')}</Text>
         <View style={s.controls}>
           <Pressable
+            testID="tuner-instruments"
             accessibilityRole="button"
             accessibilityState={{ expanded: instOpen }}
             accessibilityLabel={`${store.t('tuner.instrument')}: ${store.t(`tuner.${instrument.id}`)}`}
@@ -326,6 +327,7 @@ export default function Tuner() {
             return (
               <Pressable
                 key={i.id}
+                testID={`tuner-inst-${i.id}`}
                 style={[s.instChip, sel && s.instChipSel]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: sel }}

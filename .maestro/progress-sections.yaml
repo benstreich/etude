@@ -1,0 +1,47 @@
+# The progress layout is the user's own: switch a default section off and it
+# must stay off — on Home now, and after a restart. Volume is the default
+# section that renders even on a fresh install, so it is the one to flip.
+appId: com.benstreich.etude
+name: Customise progress sections
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+# a fresh install shows the empty state instead of sections — log something first
+- scrollUntilVisible:
+    element:
+      id: "quick-log-15"
+    direction: DOWN
+- tapOn:
+    id: "quick-log-15"
+
+# the section is on by default, so its card is on Home
+- scrollUntilVisible:
+    element:
+      text: "This week"
+    direction: DOWN
+
+- scrollUntilVisible:
+    element:
+      id: "open-settings"
+    direction: UP
+- tapOn:
+    id: "open-settings"
+- scrollUntilVisible:
+    element:
+      id: "setting-progressSections"
+    direction: DOWN
+- tapOn:
+    id: "setting-progressSections"
+- tapOn:
+    id: "layout-switch-volume"
+- back
+- back
+
+# gone from Home
+- assertNotVisible: "This week"
+
+# and still gone after a restart
+- launchApp
+- assertNotVisible: "This week"

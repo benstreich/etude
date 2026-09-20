@@ -87,7 +87,7 @@ export function TempoLadder({ piece }: { piece: Piece }) {
 
   if (log.length === 0)
     return (
-      <Pressable onPress={openLog}>
+      <Pressable testID="tempo-log-open" onPress={openLog}>
         <Card style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Text style={s.ghostGlyph}>♩=</Text>
           <View style={{ flex: 1 }}>
@@ -121,7 +121,7 @@ export function TempoLadder({ piece }: { piece: Piece }) {
         </View>
         <TempoChart log={log} target={piece.targetBpm} />
         <View style={s.footRow}>
-          <Pressable style={s.tintBtn} onPress={openLog}>
+          <Pressable testID="tempo-log-open" style={s.tintBtn} onPress={openLog}>
             <Text style={s.tintBtnText}>{store.t('tempoLadder.logTodaysTempo')}</Text>
           </Pressable>
           <MetronomeButton compact presetBpm={last.bpm} />
@@ -170,7 +170,7 @@ function LogSheet({
           <Text style={s.sheetTitle}>{t('tempoLadder.todaysTempo')}</Text>
           <View style={s.stepRow}>
             {[-5, -1].map((d) => (
-              <Pressable key={d} style={s.stepBtn} hitSlop={6} onPress={() => bump(d)}>
+              <Pressable key={d} testID={`tempo-minus-${-d}`} style={s.stepBtn} hitSlop={6} onPress={() => bump(d)}>
                 <Text style={s.stepText}>{d}</Text>
               </Pressable>
             ))}
@@ -179,12 +179,12 @@ function LogSheet({
               <Text style={s.sheetUnit}>BPM</Text>
             </View>
             {[1, 5].map((d) => (
-              <Pressable key={d} style={s.stepBtn} hitSlop={6} onPress={() => bump(d)}>
+              <Pressable key={d} testID={`tempo-plus-${d}`} style={s.stepBtn} hitSlop={6} onPress={() => bump(d)}>
                 <Text style={s.stepText}>+{d}</Text>
               </Pressable>
             ))}
           </View>
-          <Pressable style={s.saveBtn} onPress={onSave}>
+          <Pressable testID="tempo-log-save" style={s.saveBtn} onPress={onSave}>
             <Text style={s.saveText}>{t('tempoLadder.logTempo')}</Text>
           </Pressable>
         </Pressable>
