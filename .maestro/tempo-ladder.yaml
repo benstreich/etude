@@ -126,8 +126,11 @@ tags:
     id: "ladder-pass"
 - waitForAnimationToEnd:
     timeout: 3000
-# the metronome started at the app default of 90, so +4 lands on 94
-- assertVisible: "Up to 94 BPM"
+# Assert the advance itself, not the toast announcing it: toasts clear after
+# 2.4s (store.tsx), so asserting one is a race against the wait above. The
+# running session's tool strip carries the live metronome tempo, and the
+# metronome starts at the app default of 90, so +4 lands on 94.
+- assertVisible: "94 Moderato"
 
 - tapOn:
     id: "practice-end"
