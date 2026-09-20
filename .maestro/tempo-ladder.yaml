@@ -1,0 +1,142 @@
+# Auto-advancing tempo ladder (#90): three clean passes move the live metronome
+# a step, and the new tempo lands in the piece's tempo log.
+#
+# The arithmetic — counting, resetting, both ceilings — is covered
+# deterministically by `npm run check:ladder`. What only this flow can check is
+# the wiring across three screens: config persisted on the piece, the block
+# appearing in a running session, and `setBpm` + `logTempo` actually firing.
+appId: com.benstreich.etude
+name: Tempo ladder auto-advance
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+# a piece to ladder, created offline (a name no iTunes search matches)
+- tapOn: "Repertoire"
+- tapOn:
+    id: "repertoire-add"
+- tapOn:
+    id: "add-name-input"
+- inputText: "Zzq Ladder 902"
+- hideKeyboard
+- tapOn:
+    id: "add-create"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "add-confirm"
+    retryTapIfNoChange: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "add-confirm"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- scrollUntilVisible:
+    element:
+      text: "Zzq Ladder 902"
+    direction: DOWN
+- tapOn: "Zzq Ladder 902"
+
+# a target tempo — without one the ladder has no ceiling and stays off
+- scrollUntilVisible:
+    element:
+      id: "piece-add-target-tempo"
+    direction: DOWN
+- tapOn:
+    id: "piece-add-target-tempo"
+- tapOn:
+    id: "tempo-current-input"
+- inputText: "100"
+- tapOn:
+    id: "tempo-target-input"
+- inputText: "120"
+- hideKeyboard
+- tapOn:
+    id: "tempo-target-save"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# switch auto-advance on; the defaults are 3 passes, +4 BPM
+- scrollUntilVisible:
+    element:
+      id: "ladder-auto-switch"
+    direction: DOWN
+- tapOn:
+    id: "ladder-auto-switch"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# the config is persisted per piece, so it survives a relaunch
+- launchApp
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Zzq Ladder 902"
+    direction: DOWN
+- tapOn: "Zzq Ladder 902"
+- scrollUntilVisible:
+    element:
+      text: "Clean passes needed"
+    direction: DOWN
+- assertVisible: "Clean passes needed"
+
+# start a session on that piece
+- tapOn: "Practice"
+- scrollUntilVisible:
+    element:
+      text: "Zzq Ladder 902"
+    direction: DOWN
+- tapOn: "Zzq Ladder 902"
+- tapOn:
+    id: "start-session"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# with the metronome stopped the block is the hint row, not the tally
+- assertVisible: "Start the metronome to count passes"
+
+- tapOn:
+    id: "session-metronome"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "metro-start"
+- waitForAnimationToEnd:
+    timeout: 2000
+- back
+
+# three clean passes: the first two only fill the tally, the third advances
+- assertVisible:
+    id: "ladder-tally"
+- tapOn:
+    id: "ladder-pass"
+- tapOn:
+    id: "ladder-pass"
+- tapOn:
+    id: "ladder-pass"
+- waitForAnimationToEnd:
+    timeout: 3000
+# the metronome started at the app default of 90, so +4 lands on 94
+- assertVisible: "Up to 94 BPM"
+
+- tapOn:
+    id: "practice-end"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# the advance logged the new tempo against the piece
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Zzq Ladder 902"
+    direction: DOWN
+- tapOn: "Zzq Ladder 902"
+- scrollUntilVisible:
+    element:
+      text: "94"
+    direction: DOWN
+- assertVisible: "94"

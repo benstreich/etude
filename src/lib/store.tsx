@@ -5,6 +5,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
 import { forPiece, type Attachment } from './attachment-math';
+import type { LadderConfig } from './ladder-math';
 import { pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
 import { runAutoBackup } from './backup';
@@ -67,6 +68,7 @@ export type Piece = {
   targetRating?: number; // 1-5 rolling-average star target for the deadline (spec 2026-09-15)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
   stageLog?: StageEntry[]; // every stage change, ascending, one per day; backfilled by migrate (spec 2026-09-15)
+  ladder?: LadderConfig; // #90; clean-pass auto-advance. Absent = LADDER_DEFAULTS, never written back
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
   artwork?: string; // album cover URL from the iTunes search that added the piece
 };
@@ -256,7 +258,7 @@ type Store = State & {
   /** Writes (or clears) the session in flight; every change is persisted at once. */
   setLiveSession: (ls: LiveSession | null) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
-  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'instruments' | 'artwork'>>) => void;
+  updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'instruments' | 'artwork' | 'ladder'>>) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */

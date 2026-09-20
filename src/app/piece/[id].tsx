@@ -258,7 +258,7 @@ export default function PieceDetail() {
           {forecast?.plateau && <Text style={[s.tempoTarget, { marginTop: 8, color: C.accent }]}>{store.t('piece.plateau')}</Text>}
         </View>
       ) : (
-        <Pressable style={s.ghostRow} onPress={openTempo}>
+        <Pressable testID="piece-add-target-tempo" style={s.ghostRow} onPress={openTempo}>
           <MetronomeIcon color={C.sub} />
           <Text style={s.ghostRowText}>{store.t('piece.addTargetTempo')}</Text>
         </Pressable>
@@ -419,12 +419,13 @@ export default function PieceDetail() {
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {(
                   [
-                    [store.t('piece.currentBpm'), cur, setCur],
-                    [store.t('piece.targetBpm'), target, setTarget],
+                    [store.t('piece.currentBpm'), cur, setCur, 'tempo-current-input'],
+                    [store.t('piece.targetBpm'), target, setTarget, 'tempo-target-input'],
                   ] as const
-                ).map(([ph, val, set]) => (
+                ).map(([ph, val, set, id]) => (
                   <TextInput
                     key={ph}
+                    testID={id}
                     style={s.input}
                     value={val}
                     onChangeText={(t) => set(t.replace(/\D/g, '').slice(0, 3))}
@@ -438,7 +439,7 @@ export default function PieceDetail() {
                 <Text style={s.tempoTarget}>{store.t('piece.targetRating')}</Text>
                 <Stars value={targetStars} onChange={setTargetStars} size={22} />
               </View>
-              <Pressable style={s.saveBtn} onPress={saveTempo}>
+              <Pressable testID="tempo-target-save" style={s.saveBtn} onPress={saveTempo}>
                 <Text style={s.saveText}>{store.t('piece.save')}</Text>
               </Pressable>
       </Sheet>
