@@ -69,3 +69,7 @@ modules/*/android/build/
 # working notes — session logs, plans, specs, store paperwork.
 # They stay on disk; the public repo shows the product, not the notebook.
 docs/internal/
+
+# local planning scratch, not part of the app
+plans/
+redesign/
