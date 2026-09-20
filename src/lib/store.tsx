@@ -5,6 +5,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { AppState } from 'react-native';
 
 import { forPiece, type Attachment } from './attachment-math';
+import { removeFolderIn, renameFolderIn, validFolderName } from './folder-math';
 import { pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
 import { runAutoBackup } from './backup';
@@ -67,6 +68,7 @@ export type Piece = {
   targetRating?: number; // 1-5 rolling-average star target for the deadline (spec 2026-09-15)
   tempoLog?: TempoEntry[]; // kept sorted ascending by date, one entry per day
   stageLog?: StageEntry[]; // every stage change, ascending, one per day; backfilled by migrate (spec 2026-09-15)
+  folder?: string; // #102; a name from settings.folders. Unset = ungrouped
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
   artwork?: string; // album cover URL from the iTunes search that added the piece
 };
@@ -108,6 +110,11 @@ type Settings = {
   yearlyGoal: number;
   quickLogFocus: { name: string; kind: 'Piece' | 'Technique' } | null;
   stages: string[]; // ordered; last stage counts as "ready"
+  // #102. Ordered and user-editable like `stages`; [] = no folders, and the
+  // repertoire renders flat. `collapsedFolders` persists the chevrons, the same
+  // way showTechniques persists its one section.
+  folders: string[];
+  collapsedFolders: string[];
   // Metronome. Flat rather than nested so the shallow seed merge below backfills
   // each key on its own when an install predates it.
   metroBpm: number; // the tempo a run starts at; a ramp moves the live one, not this
@@ -201,6 +208,8 @@ function seed(): State {
     quickLog: [15, 30, 45],
     quickLogFocus: null,
     stages: ['Learning', 'Polishing', 'Ready'],
+    folders: [],
+    collapsedFolders: [],
     metroBpm: 90,
     metroTimeSig: '4/4',
     metroRampOn: false,
@@ -273,6 +282,15 @@ type Store = State & {
   renamePiece: (id: string, name: string) => boolean;
   removePiece: (id: string) => void;
   setArchived: (id: string, archived: boolean) => void;
+  // #102. Folders are names, not ids: `piece.folder` holds one, so a rename has to
+  // cascade — which is why these are store actions and not updateSettings patches.
+  setPieceFolder: (id: string, folder: string | null) => void;
+  /** False when the name is blank, too long, already taken, or one folder too many — the caller toasts. */
+  addFolder: (name: string) => boolean;
+  renameFolder: (from: string, to: string) => boolean;
+  /** Drops the folder and un-files its pieces. The pieces themselves are kept. */
+  removeFolder: (name: string) => void;
+  toggleFolderCollapsed: (name: string) => void;
   /** `name` is set for imported takes, which arrive with a filename worth keeping. */
   addRecording: (piece: string, uri: string, sec: number, wave?: number[], name?: string) => void;
   toggleStar: (id: string) => void;
@@ -669,6 +687,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t(archived ? 'toast.archived' : 'toast.restored'));
   };
 
+  const setPieceFolder: Store['setPieceFolder'] = (id, folder) => {
+    setState((s) =>
+      s ? { ...s, pieces: s.pieces.map((p) => (p.id === id ? { ...p, folder: folder ?? undefined } : p)) } : s
+    );
+  };
+
+  const addFolder: Store['addFolder'] = (name) => {
+    const valid = validFolderName(name, state?.folders ?? []);
+    if (!valid) return false;
+    setState((s) => (s ? { ...s, folders: [...s.folders, valid] } : s));
+    return true;
+  };
+
+  const renameFolder: Store['renameFolder'] = (from, to) => {
+    // the folder being renamed is not its own duplicate, so it comes out of the list first
+    const valid = validFolderName(to, (state?.folders ?? []).filter((f) => f !== from));
+    if (!valid) return false;
+    setState((s) => {
+      if (!s) return s;
+      const { folders, pieces } = renameFolderIn(s.folders, s.pieces, from, valid);
+      return { ...s, folders, pieces, collapsedFolders: s.collapsedFolders.map((f) => (f === from ? valid : f)) };
+    });
+    return true;
+  };
+
+  const removeFolder: Store['removeFolder'] = (name) => {
+    setState((s) => {
+      if (!s) return s;
+      const { folders, pieces } = removeFolderIn(s.folders, s.pieces, name);
+      // drop the collapse flag too, or a folder created with the same name later
+      // would come back already shut
+      return { ...s, folders, pieces, collapsedFolders: s.collapsedFolders.filter((f) => f !== name) };
+    });
+    showToast(t('toast.folderRemoved'));
+  };
+
+  const toggleFolderCollapsed: Store['toggleFolderCollapsed'] = (name) => {
+    setState((s) =>
+      s
+        ? {
+            ...s,
+            collapsedFolders: s.collapsedFolders.includes(name)
+              ? s.collapsedFolders.filter((f) => f !== name)
+              : [...s.collapsedFolders, name],
+          }
+        : s
+    );
+  };
+
   const addRecording: Store['addRecording'] = (piece, uri, sec, wave, name) => {
     setState((s) =>
       s
@@ -786,6 +853,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     renamePiece,
     removePiece,
     setArchived,
+    setPieceFolder,
+    addFolder,
+    renameFolder,
+    removeFolder,
+    toggleFolderCollapsed,
     addRecording,
     deleteRecording,
     renameRecording,
