@@ -752,6 +752,8 @@
     "share": "Share",
     "move": "Move to a piece",
     "clearTrim": "Clear the trim",
+    "trimSilence": "Trim silence",
+    "trimSilenceNone": "No silence to trim",
     "in": "In",
     "out": "Out",
     "here": "Here",

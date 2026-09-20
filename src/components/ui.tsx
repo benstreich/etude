@@ -584,12 +584,20 @@ export function ActionChip({
   label,
   active = false,
   haptic = 'tap',
+  disabled = false,
+  accessibilityLabel,
+  testID,
   onPress,
 }: {
   icon: (color: string) => React.ReactNode;
   label: string;
   active?: boolean;
   haptic?: 'tap' | 'thud' | 'thudLight' | 'none';
+  /** Stays visible and readable, just inert — a chip that vanishes teaches nothing. */
+  disabled?: boolean;
+  /** Say *why* when disabled; the label alone reads as an offer that doesn't answer. */
+  accessibilityLabel?: string;
+  testID?: string;
   onPress: () => void;
 }) {
   const s = useS();
@@ -600,10 +608,14 @@ export function ActionChip({
     on.value = reduceMotion ? (active ? 1 : 0) : withTiming(active ? 1 : 0, { duration: 180 });
   }, [active, reduceMotion, on]);
   const bgStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.value, [0, 1], [C.track, C.accentTint]) }));
-  const color = active ? C.accent : C.ink;
+  const color = disabled ? C.sub : active ? C.accent : C.ink;
   return (
     <Pressable
       hitSlop={5}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      testID={testID}
       onPress={() => {
         if (haptic === 'tap') tap();
         else if (haptic === 'thud') thud();
