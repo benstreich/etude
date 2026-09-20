@@ -73,8 +73,8 @@ function Editor({
       },
     ]);
 
-  const stepBtn = (label: string, d: number) => (
-    <Pressable style={s.stepBtn} onPress={() => step(d)} onLongPress={() => holdStart(d)} onPressOut={holdEnd}>
+  const stepBtn = (label: string, d: number, testID?: string) => (
+    <Pressable testID={testID} style={s.stepBtn} onPress={() => step(d)} onLongPress={() => holdStart(d)} onPressOut={holdEnd}>
       <Text style={s.stepGlyph}>{label}</Text>
     </Pressable>
   );
@@ -117,11 +117,11 @@ function Editor({
             <View>
               <Text style={s.label}>{store.t('editSession.minutes')}</Text>
               <View style={s.stepper}>
-                {stepBtn('−', -5)}
+                {stepBtn('−', -5, 'edit-session-minus')}
                 <View style={s.stepValue}>
                   <Text style={s.stepValueText}>{min}</Text>
                 </View>
-                {stepBtn('+', +5)}
+                {stepBtn('+', +5, 'edit-session-plus')}
               </View>
             </View>
 
@@ -142,10 +142,10 @@ function Editor({
               />
             </View>
 
-            <Pressable style={({ pressed }) => [s.saveBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={save}>
+            <Pressable testID="edit-session-save" style={({ pressed }) => [s.saveBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={save}>
               <Text style={s.saveText}>{store.t('editSession.saveChanges')}</Text>
             </Pressable>
-            <Pressable style={s.deleteBtn} onPress={remove}>
+            <Pressable testID="edit-session-delete" style={s.deleteBtn} onPress={remove}>
               <Text style={s.deleteText}>{store.t('editSession.deleteSession')}</Text>
             </Pressable>
     </>

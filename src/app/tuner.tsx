@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { Text } from '@/components/text';
-import { BackLink, Card } from '@/components/ui';
+import { BackLink, Card, Stepper } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { inputSampleRate, readSamples, startInput, stopInput, type TunerStatus } from '@/lib/tuner-input';
 import {
@@ -128,6 +128,16 @@ export default function Tuner() {
     [reduceMotion],
   );
 
+  // the halo and the note answer the lock as one event, on the same curve —
+  // separate timings used to arrive at slightly different moments
+  const settleLock = useCallback(
+    (sv: typeof lock, to: number) => {
+      'worklet';
+      sv.value = reduceMotion ? to : withTiming(to, { duration: 250 });
+    },
+    [reduceMotion],
+  );
+
   const reset = useCallback(() => {
     history.current = [];
     wasLocked.current = false;
@@ -135,9 +145,9 @@ export default function Tuner() {
     setTarget(null);
     settle(cents, 0);
     fade(live, 0);
-    fade(lock, 0);
+    settleLock(lock, 0);
     fade(prox, 0);
-  }, [cents, live, lock, prox, settle, fade]);
+  }, [cents, live, lock, prox, settle, fade, settleLock]);
 
   const tick = useCallback(() => {
     const samples = readSamples();
@@ -167,7 +177,7 @@ export default function Tuner() {
     fade(prox, 1 - Math.abs(off) / 50);
 
     const locked = Math.abs(off) <= LOCK_CENTS;
-    fade(lock, locked ? 1 : 0);
+    settleLock(lock, locked ? 1 : 0);
     // Exactly once, on the way in. Never on the way out — otherwise it buzzes
     // continuously while a peg is being turned.
     if (locked && !wasLocked.current) Haptics.selectionAsync().catch(() => {});
@@ -177,7 +187,7 @@ export default function Tuner() {
       prev?.midi === n.midi ? prev : { name: n.name, octave: n.octave, midi: n.midi },
     );
     setTarget(pinned ?? nearestString(n.midi, instrument.strings));
-  }, [cents, live, lock, prox, settle, fade, reset, refA, pinned, instrument]);
+  }, [cents, live, lock, prox, settle, fade, settleLock, reset, refA, pinned, instrument]);
 
   const begin = useCallback(async () => {
     setStatus('starting');
@@ -295,6 +305,7 @@ export default function Tuner() {
         <Text style={s.title}>{store.t('tuner.tuner')}</Text>
         <View style={s.controls}>
           <Pressable
+            testID="tuner-instruments"
             accessibilityRole="button"
             accessibilityState={{ expanded: instOpen }}
             accessibilityLabel={`${store.t('tuner.instrument')}: ${store.t(`tuner.${instrument.id}`)}`}
@@ -304,27 +315,8 @@ export default function Tuner() {
             </Text>
           </Pressable>
           <Text style={s.controlSep}>|</Text>
-          <Text style={s.controlLabel}>
-            {store.t('tuner.reference')} <Text style={s.controlValue}>{refA}</Text>
-          </Text>
-          <View style={s.stepper}>
-            <Pressable
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={`${store.t('tuner.reference')} −1`}
-              disabled={refA <= MIN_REF_A}
-              onPress={() => store.updateSettings({ tunerRefA: Math.max(MIN_REF_A, refA - 1) })}>
-              <Text style={[s.stepBtn, refA <= MIN_REF_A && s.stepOff]}>−</Text>
-            </Pressable>
-            <Pressable
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={`${store.t('tuner.reference')} +1`}
-              disabled={refA >= MAX_REF_A}
-              onPress={() => store.updateSettings({ tunerRefA: Math.min(MAX_REF_A, refA + 1) })}>
-              <Text style={[s.stepBtn, refA >= MAX_REF_A && s.stepOff]}>+</Text>
-            </Pressable>
-          </View>
+          <Text style={s.controlLabel}>{store.t('tuner.reference')}</Text>
+          <Stepper value={refA} min={MIN_REF_A} max={MAX_REF_A} size={30} onChange={(v) => store.updateSettings({ tunerRefA: v })} />
         </View>
       </View>
       {/* a real picker, not a cycle-on-tap: every instrument visible, one tap to choose */}
@@ -335,6 +327,7 @@ export default function Tuner() {
             return (
               <Pressable
                 key={i.id}
+                testID={`tuner-inst-${i.id}`}
                 style={[s.instChip, sel && s.instChipSel]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: sel }}
@@ -408,25 +401,51 @@ export default function Tuner() {
               const isPinned = pinned === i;
               const n = toNote(midiToHz(midi, refA), refA);
               return (
-                <Pressable
+                <StringCell
                   key={`${midi}-${i}`}
-                  style={s.stringCell}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isPinned }}
-                  accessibilityLabel={`${n.name.replace('#', '♯')}${n.octave}`}
-                  onPress={() => setPinned(isPinned ? null : i)}>
-                  <View style={[s.stringDot, (on || isPinned) && s.stringDotOn]} />
-                  <Text style={[s.stringLabel, (on || isPinned) && s.stringLabelOn]}>
-                    {n.name.replace('#', '♯')}
-                  </Text>
-                </Pressable>
+                  on={on || isPinned}
+                  label={n.name.replace('#', '♯')}
+                  octave={n.octave}
+                  onPress={() => setPinned(isPinned ? null : i)}
+                />
               );
             })}
           </View>
+          <Text style={s.stringHint}>{store.t('tuner.stringHint')}</Text>
         </View>
       )}
 
     </ScrollView>
+  );
+}
+
+/** A string in the row below the gauge. Its dot grows rather than swaps on selection, and the label crossfades along with it. */
+function StringCell({ on, label, octave, onPress }: { on: boolean; label: string; octave: number; onPress: () => void }) {
+  const s = useS();
+  const C = useC();
+  const { reduceMotion } = useTheme();
+  const t = useSharedValue(on ? 1 : 0);
+  React.useEffect(() => {
+    t.value = reduceMotion ? (on ? 1 : 0) : withSpring(on ? 1 : 0, { damping: 14, stiffness: 260 });
+  }, [on, reduceMotion, t]);
+  const dotStyle = useAnimatedStyle(() => ({
+    width: 9 + t.value * 5,
+    height: 9 + t.value * 5,
+    borderRadius: (9 + t.value * 5) / 2,
+    borderColor: interpolateColor(t.value, [0, 1], [C.barline, C.accent]),
+    backgroundColor: interpolateColor(t.value, [0, 1], ['transparent', C.accent]),
+  }));
+  const labelStyle = useAnimatedStyle(() => ({ color: interpolateColor(t.value, [0, 1], [C.tertiary, C.ink]) }));
+  return (
+    <Pressable
+      style={s.stringCell}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={`${label}${octave}`}
+      onPress={onPress}>
+      <Animated.View style={[s.stringDot, dotStyle]} />
+      <Animated.Text style={[s.stringLabel, labelStyle]}>{label}</Animated.Text>
+    </Pressable>
   );
 }
 
@@ -483,8 +502,12 @@ const useS = themed(({ C, fs, r }: T) =>
 
     title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
 
-    titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-    controls: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6 },
+    // wraps rather than overflows: the title and the controls together run wider
+    // than a phone at the default text size, and wider still under Dynamic Type,
+    // so on a narrow screen the controls drop to their own line instead of
+    // pushing the reference stepper off the right edge
+    titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
+    controls: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6, flexShrink: 1, flexWrap: 'wrap', rowGap: 4 },
     instRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
     instChip: { height: 34, paddingHorizontal: 14, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
     instChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
@@ -493,9 +516,6 @@ const useS = themed(({ C, fs, r }: T) =>
     controlValue: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
     controlChevron: { color: C.tertiary },
     controlSep: { color: C.staffLine, fontSize: fs(14) },
-    stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    stepBtn: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent, textAlign: 'center' },
-    stepOff: { color: C.faint },
 
     gaugeWrap: { alignItems: 'center', marginTop: 24 },
     // pinned to the gauge's own width, not the screen's, so the labels stay
@@ -533,10 +553,8 @@ const useS = themed(({ C, fs, r }: T) =>
     strings: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 8 },
     stringCell: { minWidth: 44, minHeight: 48, alignItems: 'center', gap: 8 },
     stringDot: { width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.5, borderColor: C.barline, backgroundColor: 'transparent' },
-    stringDotOn: { width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent, borderColor: C.accent },
     stringLabel: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.tertiary },
-    stringLabelOn: { color: C.ink },
-
+    stringHint: { marginTop: 14, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
 
     statusCard: { marginTop: 24, padding: 20, gap: 8 },
     statusTitle: { fontFamily: F.headBold, fontSize: fs(17), color: C.ink },

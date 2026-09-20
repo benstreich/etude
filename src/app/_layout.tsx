@@ -112,6 +112,8 @@ export default function RootLayout() {
     Newsreader_400Regular_Italic,
     Newsreader_500Medium_Italic,
     NotoMusic_400Regular,
+    // SMuFL reference font (Steinberg, OFL) — the melody staff's real engraving
+    Bravura: require('../../assets/fonts/Bravura.otf'),
   });
 
   if (!loaded) return null;
@@ -210,6 +212,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="plan/run" options={{ href: null }} />
             <Tabs.Screen name="compare" options={{ href: null }} />
             <Tabs.Screen name="tuner" options={{ href: null }} />
+            <Tabs.Screen name="score" options={{ href: null }} />
           </Tabs>
           <RunPill bottom={NAV_H + insets.bottom + 12} />
           <Toast />

@@ -3,14 +3,26 @@
 import React, { useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
-import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming, type EntryExitAnimationFunction } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClockIcon, LockIcon, LogoMark, MetronomeIcon, NoteIcon } from '@/components/icons';
 import { Text } from '@/components/text';
+import { tap } from '@/lib/haptics';
 import { useStore } from '@/lib/store';
 import { F, themed, useTheme, type T } from '@/lib/theme';
+
+// tighter, quieter: the same 160ms/5px screen-enter rhythm as every other
+// section, just running sideways for a step in a sequence
+const stepEnter = (dir: 1 | -1): EntryExitAnimationFunction =>
+  () => {
+    'worklet';
+    return {
+      initialValues: { opacity: 0, transform: [{ translateX: dir * 5 }] },
+      animations: { opacity: withTiming(1, { duration: 160 }), transform: [{ translateX: withTiming(0, { duration: 160, easing: Easing.ease }) }] },
+    };
+  };
 
 // Chip VALUES are persisted in settings — translate displayed labels only.
 const INSTRUMENTS = ['Piano', 'Guitar', 'Violin', 'Voice', 'Drums', 'Bass', 'Cello'];
@@ -35,6 +47,8 @@ export function Onboarding() {
   // seeded default, not a second number: Skip calls finish() with whatever is
   // here, so a literal would quietly overwrite the goal seed() just set
   const [goal, setGoal] = useState(store.dailyGoal);
+  const [goalFocused, setGoalFocused] = useState(false);
+  const [goalFieldW, setGoalFieldW] = useState(46);
   const [time, setTime] = useState('6:00 PM');
   const [reminder, setReminder] = useState('Off'); // the reminder step's answer, saved when the tour ends
 
@@ -63,17 +77,17 @@ export function Onboarding() {
     <View style={s.topRow}>
       <View style={s.dotsRow}>
         {[1, 2, 3, 4].map((i) => (
-          <View key={i} style={[s.dot, i === step && s.dotActive]} />
+          <ProgressDot key={i} active={i === step} />
         ))}
       </View>
-      <Pressable hitSlop={10} onPress={() => finish('Off')}>
+      <Pressable testID="onboarding-skip" hitSlop={10} onPress={() => finish('Off')}>
         <Text style={s.skip}>{store.t('onboarding.skip')}</Text>
       </Pressable>
     </View>
   );
 
-  const primary = (label: string, onPress: () => void) => (
-    <Pressable style={({ pressed }) => [s.primaryBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={onPress}>
+  const primary = (label: string, onPress: () => void, testID?: string) => (
+    <Pressable testID={testID} style={({ pressed }) => [s.primaryBtn, pressed && { transform: [{ scale: 0.98 }] }]} onPress={onPress}>
       <Text style={s.primaryText}>{label}</Text>
     </Pressable>
   );
@@ -88,7 +102,7 @@ export function Onboarding() {
           <Text style={s.tagline}>{store.t('onboarding.tagline')}</Text>
         </View>
         <View style={{ flex: 1.4 }} />
-        {primary(store.t('onboarding.getStarted'), () => go(1))}
+        {primary(store.t('onboarding.getStarted'), () => go(1), 'onboarding-start')}
         <View style={s.lockRow}>
           <LockIcon size={13} color={C.sub} />
           <Text style={s.lockText}>{store.t('onboarding.privacyNote')}</Text>
@@ -101,7 +115,7 @@ export function Onboarding() {
       <View style={[s.page, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
         {header}
         <KeyboardAwareScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bottomOffset={16}>
-          <Animated.View key={step} entering={reduceMotion ? undefined : (forward ? FadeInRight : FadeInLeft).duration(280)}>
+          <Animated.View key={step} entering={reduceMotion ? undefined : stepEnter(forward ? 1 : -1)}>
           {step === 1 && (
             <>
               <View style={s.headerBlock}>
@@ -114,6 +128,7 @@ export function Onboarding() {
                   return (
                     <Pressable
                       key={inst}
+                      testID={`onboarding-inst-${inst}`}
                       style={[s.chip, sel && s.chipSel]}
                       onPress={() => setInstruments((l) => (sel ? l.filter((x) => x !== inst) : [...l, inst]))}>
                       <Text style={[s.chipText, sel && s.chipTextSel]}>{store.t(`onboarding.inst${inst}`)}</Text>
@@ -149,25 +164,34 @@ export function Onboarding() {
                 <Text style={s.subline}>{store.t('onboarding.goalSubline')}</Text>
               </View>
               <View style={s.bigNumBlock}>
-                {/* editable, so any goal is reachable — the chips are just shortcuts (#37) */}
-                <TextInput
-                  style={s.bigNum}
-                  value={String(goal)}
-                  onChangeText={(t) => setGoal(Number(t.replace(/\D/g, '').slice(0, 3)))}
-                  onBlur={() => {
-                    if (goal < 1) setGoal(1);
-                  }}
-                  keyboardType="number-pad"
-                  selectTextOnFocus
-                  textAlign="center"
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                  <GoalFlank delta={-5} goal={goal} onChange={setGoal} />
+                  <View style={{ alignItems: 'center' }} onLayout={(e) => setGoalFieldW(e.nativeEvent.layout.width)}>
+                    {/* editable, so any goal is reachable — the chips are just shortcuts (#37) */}
+                    <TextInput
+                      style={s.bigNum}
+                      value={String(goal)}
+                      onChangeText={(t) => setGoal(Number(t.replace(/\D/g, '').slice(0, 3)))}
+                      onFocus={() => setGoalFocused(true)}
+                      onBlur={() => {
+                        setGoalFocused(false);
+                        setGoal(Math.min(300, Math.max(1, goal || 1)));
+                      }}
+                      keyboardType="number-pad"
+                      selectTextOnFocus
+                      textAlign="center"
+                    />
+                    <GoalRule focused={goalFocused} width={goalFieldW} />
+                  </View>
+                  <GoalFlank delta={5} goal={goal} onChange={setGoal} />
+                </View>
                 <Text style={s.bigNumCaption}>{store.t('onboarding.minutesADay')}</Text>
               </View>
               <View style={[s.chipWrap, { justifyContent: 'center' }]}>
                 {GOALS.map((g) => {
                   const sel = goal === g;
                   return (
-                    <Pressable key={g} style={[s.chip, sel && s.chipSel]} onPress={() => setGoal(g)}>
+                    <Pressable testID={`onboarding-goal-${g}`} key={g} style={[s.chip, sel && s.chipSel]} onPress={() => setGoal(g)}>
                       <Text style={[s.chipText, sel && s.chipTextSel]}>{g}</Text>
                     </Pressable>
                   );
@@ -226,8 +250,9 @@ export function Onboarding() {
             {primary(store.t('onboarding.turnOnReminders'), () => {
               setReminder(time);
               go(4);
-            })}
+            }, 'onboarding-reminders-on')}
             <Pressable
+              testID="onboarding-not-now"
               style={s.ghostBtn}
               onPress={() => {
                 setReminder('Off');
@@ -237,21 +262,71 @@ export function Onboarding() {
             </Pressable>
           </View>
         ) : step === 4 ? (
-          primary(store.t('onboarding.letsGo'), () => finish(reminder))
+          primary(store.t('onboarding.letsGo'), () => finish(reminder), 'onboarding-done')
         ) : (
-          primary(store.t('onboarding.continue'), () => go(step + 1))
+          primary(store.t('onboarding.continue'), () => go(step + 1), 'onboarding-continue')
         )}
       </View>
     </View>
   );
 }
 
+/** A 44px flank either side of the goal field — a one-thumb decision for a value off the preset row. */
+function GoalFlank({ delta, goal, onChange }: { delta: number; goal: number; onChange: (v: number) => void }) {
+  const s = useS();
+  const { C } = useTheme();
+  const next = Math.min(300, Math.max(1, goal + delta));
+  const disabled = next === goal;
+  return (
+    <Pressable
+      style={s.goalFlank}
+      hitSlop={6}
+      disabled={disabled}
+      onPress={() => {
+        if (disabled) return;
+        tap();
+        onChange(next);
+      }}>
+      <Text style={[s.goalFlankText, disabled && { color: C.faint }]}>{delta > 0 ? `+${delta}` : delta}</Text>
+    </Pressable>
+  );
+}
+
+/** The rule under the goal field: present before it's tapped, growing full-width and accent on focus. */
+function GoalRule({ focused, width }: { focused: boolean; width: number }) {
+  const s = useS();
+  const { C, reduceMotion } = useTheme();
+  const t = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    t.value = reduceMotion ? (focused ? 1 : 0) : withTiming(focused ? 1 : 0, { duration: 200, easing: Easing.bezier(0.33, 1, 0.68, 1) });
+  }, [focused, reduceMotion, t]);
+  const style = useAnimatedStyle(() => ({
+    width: 46 + t.value * (Math.max(46, width) - 46),
+    backgroundColor: interpolateColor(t.value, [0, 1], [C.chartInactive, C.accent]),
+  }));
+  return <Animated.View style={[s.goalRule, style]} />;
+}
+
+/** A progress dot: the active one grows rather than swapping colour instantly. */
+function ProgressDot({ active }: { active: boolean }) {
+  const s = useS();
+  const { C, reduceMotion } = useTheme();
+  const t = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    t.value = reduceMotion ? (active ? 1 : 0) : withTiming(active ? 1 : 0, { duration: 260, easing: Easing.bezier(0.33, 1, 0.68, 1) });
+  }, [active, reduceMotion, t]);
+  const style = useAnimatedStyle(() => ({
+    width: 5 + t.value * 15,
+    backgroundColor: interpolateColor(t.value, [0, 1], [C.chartInactive, C.accent]),
+  }));
+  return <Animated.View style={[s.dot, style]} />;
+}
+
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 24 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 40 },
   dotsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 5, height: 5, borderRadius: r(999), backgroundColor: C.chartInactive },
-  dotActive: { width: 20, borderRadius: r(999), backgroundColor: C.accent },
+  dot: { height: 5, borderRadius: r(999) },
   skip: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.tertiary },
   wordmark: { fontFamily: F.head, fontSize: fs(34), letterSpacing: -0.5, color: C.ink },
   tagline: { fontFamily: F.body, fontSize: fs(16), lineHeight: fs(24), color: C.sub, maxWidth: 280, textAlign: 'center' },
@@ -271,6 +346,9 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   bigNumBlock: { alignItems: 'center', paddingTop: 20, paddingBottom: 32 },
   bigNum: { fontFamily: F.head, fontSize: fs(66), letterSpacing: -1, color: C.accent, padding: 0, minWidth: fs(120) },
   bigNumCaption: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.sub },
+  goalRule: { height: 2, borderRadius: 1, marginTop: 2 },
+  goalFlank: { width: 44, height: 44, borderRadius: r(22), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
+  goalFlankText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
   listCard: { backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: r(16), padding: 16 },
   listLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   tourIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center' },

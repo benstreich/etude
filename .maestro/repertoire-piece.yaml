@@ -1,0 +1,69 @@
+# A piece's whole life on one screen: created by hand (no network), given a
+# stage, given a tempo log — and all three still there after a restart.
+appId: com.benstreich.etude
+name: Add a piece and work it
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Repertoire"
+- tapOn:
+    id: "repertoire-add"
+- tapOn:
+    id: "add-name-input"
+- inputText: "Zzq Etude 991"
+# a name no iTunes search matches: the suggestion rows would otherwise push
+# the manual "Create" row under the keyboard
+- hideKeyboard
+# the manual row, not an iTunes suggestion — the flow must not need a network
+- tapOn:
+    id: "add-create"
+# the sheet swaps to its second step; tapping mid-relayout lands beside the
+# button, so let it settle first. Artist is optional, the + confirms as-is.
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "add-confirm"
+    retryTapIfNoChange: true
+# the first tap sometimes lands without activating the press — if the sheet is
+# still there, press again; once it closed this is a no-op
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "add-confirm"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- scrollUntilVisible:
+    element:
+      text: "Zzq Etude 991"
+    direction: DOWN
+- tapOn: "Zzq Etude 991"
+
+# stage: tap the middle segment of Learning / Polishing / Ready
+- tapOn:
+    id: "piece-stage-1"
+
+# log a tempo for today
+- scrollUntilVisible:
+    element:
+      id: "tempo-log-open"
+    direction: DOWN
+- tapOn:
+    id: "tempo-log-open"
+- tapOn:
+    id: "tempo-plus-5"
+- tapOn:
+    id: "tempo-log-save"
+
+# everything above was a store write; a relaunch must read it all back
+- launchApp
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Zzq Etude 991"
+    direction: DOWN
+- tapOn: "Zzq Etude 991"
+- assertVisible: "Polishing"

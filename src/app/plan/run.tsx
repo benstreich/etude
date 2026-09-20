@@ -8,11 +8,12 @@ import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { InstrumentAsk } from '@/components/instrument-ask';
+import { PlayIcon } from '@/components/icons';
 import { MetronomeSheet } from '@/components/metronome';
 import { MeasureBar, Tempo, TickDot } from '@/components/motifs';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { Overline, useInstrumentFilter } from '@/components/ui';
+import { EntryRow, Overline, PulseRing, useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';
@@ -173,6 +174,8 @@ function Runner({ id }: { id: string }) {
   const mm = String(Math.floor(shown / 60)).padStart(2, '0');
   const ss = String(shown % 60).padStart(2, '0');
   const chipBpm = metro.running ? metro.bpm : (seg.bpm ?? null);
+  const nextSeg = plan.segments[idx + 1];
+  const nextLabel = nextSeg ? (nextSeg.focus.kind === 'Break' ? store.t('planRun.break') : nextSeg.focus.name) : undefined;
 
   // opens the full sheet so tempo/time-sig/ramp stay adjustable mid-session (#31)
   const openMetro = () => {
@@ -206,28 +209,52 @@ function Runner({ id }: { id: string }) {
         <Text style={s.of}>{isBreak ? store.t('planRun.breakHint') : store.t('planRun.ofMin', { min: seg.min })}</Text>
         {!isBreak && (
         <Pressable style={s.metroChip} onPress={openMetro}>
-          <TickDot bpm={chipBpm ?? 0} on={metro.running} color={C.accent} />
+          <View style={{ width: 8, height: 8 }}>
+            <PulseRing color={C.accent} size={8} active={metro.running} />
+            <TickDot bpm={chipBpm ?? 0} on={metro.running} color={C.accent} />
+          </View>
           {chipBpm ? <Tempo bpm={chipBpm} size={13.5} /> : <Text style={s.metroText}>{store.t('metronome.metronome')}</Text>}
         </Pressable>
         )}
       </View>
 
-      <View style={s.controls}>
-        <Pressable
-          style={s.pauseBtn}
+      <View>
+        <EntryRow
+          top
+          keySize={48}
+          keyStyle={{ borderWidth: 1.5, borderColor: C.ink, backgroundColor: 'transparent' }}
+          keyContent={
+            paused ? (
+              <PlayIcon color={C.ink} />
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
+                <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
+              </View>
+            )
+          }
+          title={paused ? store.t('practice.resume') : store.t('practice.pause')}
+          right={null}
           onPress={() => {
             if (paused) setStartedAt(Date.now());
             else {
               setAccum(seconds);
               setStartedAt(null);
             }
-          }}>
-          <Text style={s.pauseText}>{paused ? '▶' : '❚❚'}</Text>
-        </Pressable>
-        <Pressable testID="run-next" style={s.nextBtn} onPress={() => advance(Math.max(60, seconds))}>
-          <Text style={s.nextText}>{idx + 1 < plan.segments.length ? store.t('planRun.next') : store.t('planRun.finish')}</Text>
-        </Pressable>
-        <View style={{ width: 56 }} />
+          }}
+        />
+        <EntryRow
+          top={false}
+          close
+          testID="run-next"
+          keySize={48}
+          keyStyle={{ backgroundColor: C.ink }}
+          keyContent={<View style={{ width: 14, height: 14, borderRadius: 2, backgroundColor: C.bg }} />}
+          title={idx + 1 < plan.segments.length ? store.t('planRun.next') : store.t('planRun.finish')}
+          subline={nextLabel}
+          right={null}
+          onPress={() => advance(Math.max(60, seconds))}
+        />
       </View>
 
       <InstrumentAsk
@@ -280,9 +307,4 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   metroChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.accentTint, borderRadius: r(999), paddingVertical: 9, paddingHorizontal: 15, marginTop: 10 },
   metroDot: { width: 7, height: 7, borderRadius: r(4), backgroundColor: C.accent },
   metroText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 },
-  pauseBtn: { width: 56, height: 56, borderRadius: r(28), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
-  pauseText: { fontSize: fs(16), color: C.ink },
-  nextBtn: { width: 74, height: 74, borderRadius: r(37), backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  nextText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.bg },
 }));

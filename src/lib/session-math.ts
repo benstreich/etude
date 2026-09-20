@@ -2,6 +2,39 @@
 // minutes must move totalMin and that day's minutesByDate by the same delta —
 // these three are the source of every stat, streak, and heatmap cell.
 
+/** A practice session in flight, persisted so a process death cannot lose it. */
+export type LiveSession = {
+  name: string;
+  kind: 'Piece' | 'Technique';
+  /** wall clock when last (re)started; null while paused */
+  startedAt: number | null;
+  /** seconds banked up to the last pause or resume */
+  accum: number;
+  /** wall clock when the session began — the header's "started 9:55" */
+  startClock: number;
+  /** the instrument answered at start, when it had to be asked */
+  inst: string | null;
+  breaksSeen: number;
+  /** heartbeat: the last moment the app was alive with this session running */
+  lastSeen: number;
+};
+
+/** A restart inside this window keeps the clock running through the gap —
+ * long enough to crash, reboot and pick the phone back up mid-practice. */
+export const LIVE_GRACE_MS = 600000;
+
+/**
+ * What a restored session's clock should read. A brief death (a crash, an OS
+ * restart) keeps running through the gap; a longer one banks time only up to
+ * the last heartbeat and comes back paused — an app killed overnight must not
+ * claim the night was practised.
+ */
+export function restoreLive(ls: Pick<LiveSession, 'startedAt' | 'accum' | 'lastSeen'>, now: number): { accum: number; startedAt: number | null } {
+  if (ls.startedAt === null) return { accum: ls.accum, startedAt: null };
+  if (now - ls.lastSeen <= LIVE_GRACE_MS) return { accum: ls.accum, startedAt: ls.startedAt };
+  return { accum: ls.accum + Math.max(0, Math.round((ls.lastSeen - ls.startedAt) / 1000)), startedAt: null };
+}
+
 type Sess = { id: string; title: string; meta: string; min: number; date: string; note?: string; rating?: number };
 type Totals = { sessions: Sess[]; minutesByDate: Record<string, number>; totalMin: number };
 

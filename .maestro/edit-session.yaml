@@ -1,0 +1,56 @@
+# A logged session, reopened: minutes edited up, then the whole thing deleted.
+# The counters have to follow both ways — an edit that only changes the row
+# and not the totals is the regression this exists for.
+appId: com.benstreich.etude
+name: Edit and delete a session
+tags:
+  - smoke
+---
+- runFlow: common/fresh-start.yaml
+
+- scrollUntilVisible:
+    element:
+      id: "quick-log-15"
+    direction: DOWN
+- tapOn:
+    id: "quick-log-15"
+
+- scrollUntilVisible:
+    element:
+      id: "session-row-0"
+    direction: DOWN
+- tapOn:
+    id: "session-row-0"
+
+# +5 on the sheet, saved
+- tapOn:
+    id: "edit-session-plus"
+- tapOn:
+    id: "edit-session-save"
+
+- scrollUntilVisible:
+    element:
+      id: "today-minutes"
+    direction: UP
+- assertVisible:
+    id: "today-minutes"
+    text: "^20$"
+
+# now delete it — the day must read zero again, not keep ghost minutes
+- scrollUntilVisible:
+    element:
+      id: "session-row-0"
+    direction: DOWN
+- tapOn:
+    id: "session-row-0"
+- tapOn:
+    id: "edit-session-delete"
+- tapOn: "Delete"
+
+- scrollUntilVisible:
+    element:
+      id: "today-minutes"
+    direction: UP
+- assertVisible:
+    id: "today-minutes"
+    text: "^0$"

@@ -1,7 +1,7 @@
 // Self-check for the pure session-edit math. Run: npm run check:session
 import assert from 'node:assert/strict';
 
-import { applySessionUpdate } from '../src/lib/session-math.ts';
+import { applySessionUpdate, LIVE_GRACE_MS, restoreLive } from '../src/lib/session-math.ts';
 
 const base = () => ({
   sessions: [
@@ -47,5 +47,27 @@ assert.equal(s.sessions.find((x) => x.id === 'b')!.note, 'slow');
 // unknown id is a strict no-op (same object back)
 const b = base();
 assert.equal(applySessionUpdate(b, 'nope', { min: 99 }), b);
+
+// --- restoreLive: a killed app must not lose the running session, and a
+// long-dead one must not claim the gap was practised -----------------------
+const t0 = Date.parse('2026-09-20T10:00:00Z');
+
+// paused at death → still paused, minutes intact
+assert.deepEqual(restoreLive({ startedAt: null, accum: 300, lastSeen: t0 }, t0 + 999999), { accum: 300, startedAt: null });
+
+// a brief death: the clock kept running straight through it
+const brief = restoreLive({ startedAt: t0, accum: 60, lastSeen: t0 + 50000 }, t0 + 50000 + LIVE_GRACE_MS);
+assert.deepEqual(brief, { accum: 60, startedAt: t0 });
+
+// one ms past the grace: banked up to the last heartbeat, comes back paused
+const late = restoreLive({ startedAt: t0, accum: 60, lastSeen: t0 + 50000 }, t0 + 50001 + LIVE_GRACE_MS);
+assert.deepEqual(late, { accum: 110, startedAt: null }); // 60 banked + 50s seen running
+
+// an app killed overnight: eight hours of sleep are not practice
+const night = restoreLive({ startedAt: t0, accum: 0, lastSeen: t0 + 120000 }, t0 + 8 * 3600000);
+assert.deepEqual(night, { accum: 120, startedAt: null });
+
+// a heartbeat that predates the start (clock skew, restored backup) clamps at 0
+assert.deepEqual(restoreLive({ startedAt: t0, accum: 30, lastSeen: t0 - 5000 }, t0 + 2 * LIVE_GRACE_MS), { accum: 30, startedAt: null });
 
 console.log('check-session: all assertions passed');

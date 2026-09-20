@@ -11,7 +11,7 @@ import { AddFocus } from '@/components/add-focus';
 import { PlayIcon } from '@/components/icons';
 import { Tempo } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { Sheet } from '@/components/ui';
+import { Sheet, Stepper } from '@/components/ui';
 import { PlanSegment, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -93,23 +93,27 @@ export default function PlanBuilder() {
           {store.t('plan.segmentCount', { count: plan.segments.length })} · {store.t('plan.minTotal', { min: totalMin })}
         </Text>
 
-        <View style={{ gap: 10, marginTop: 20 }}>
-          {plan.segments.map((seg, i) => (
-            <Pressable key={i} style={s.segCard} onPress={() => openEdit(i)}>
-              <Text style={s.handle}>⠿</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.segTitle, seg.focus.kind === 'Break' && { color: C.sub }]} numberOfLines={1}>
-                  {seg.focus.kind === 'Break' ? store.t('plan.break') : seg.focus.name}
-                  {seg.note ? ` · ${seg.note}` : ''}
-                </Text>
-                {!!seg.bpm && <Tempo bpm={seg.bpm} size={12.5} />}
-              </View>
-              <View style={s.minChip}>
-                <Text style={s.minChipText}>{store.t('plan.minShort', { min: seg.min })}</Text>
-              </View>
-            </Pressable>
-          ))}
-          <Pressable testID="plan-add-segment" style={s.addRow} onPress={() => openEdit(-1)}>
+        <View style={{ marginTop: 20 }}>
+          {plan.segments.map((seg, i) => {
+            const isBreak = seg.focus.kind === 'Break';
+            return (
+              <Pressable key={i} style={s.segRow} onPress={() => openEdit(i)}>
+                <Text style={s.handle}>⠿</Text>
+                <View style={[s.segBar, { backgroundColor: isBreak ? C.chartInactive : C.accent }]} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[s.segTitle, isBreak && { color: C.sub }]} numberOfLines={1}>
+                    {isBreak ? store.t('plan.break') : seg.focus.name}
+                    {seg.note ? ` · ${seg.note}` : ''}
+                  </Text>
+                  {!!seg.bpm && <Tempo bpm={seg.bpm} size={12.5} />}
+                </View>
+                <View style={s.minChip}>
+                  <Text style={s.minChipText}>{store.t('plan.minShort', { min: seg.min })}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+          <Pressable testID="plan-add-segment" style={[s.addRow, { marginTop: 14 }]} onPress={() => openEdit(-1)}>
             <Text style={s.addPlus}>+</Text>
             <Text style={s.addText}>{store.t('plan.addSegment')}</Text>
           </Pressable>
@@ -175,6 +179,8 @@ export default function PlanBuilder() {
                   value={draft?.min ?? 10}
                   min={1}
                   max={180}
+                  coarseStep={5}
+                  size={38}
                   onChange={(min) => setDraft((d) => (d ? { ...d, min } : d))}
                 />
               </View>
@@ -215,28 +221,6 @@ export default function PlanBuilder() {
   );
 }
 
-function Stepper({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (v: number) => void }) {
-  const s = useS();
-  const bump = (d: number) => onChange(Math.min(max, Math.max(min, value + d)));
-  return (
-    <View style={s.stepper}>
-      <Pressable style={s.stepBtn} hitSlop={6} onPress={() => bump(-5)}>
-        <Text style={s.stepText}>−5</Text>
-      </Pressable>
-      <Pressable style={s.stepBtn} hitSlop={6} onPress={() => bump(-1)}>
-        <Text style={s.stepText}>−1</Text>
-      </Pressable>
-      <Text style={s.stepValue}>{value}</Text>
-      <Pressable style={s.stepBtn} hitSlop={6} onPress={() => bump(1)}>
-        <Text style={s.stepText}>+1</Text>
-      </Pressable>
-      <Pressable style={s.stepBtn} hitSlop={6} onPress={() => bump(5)}>
-        <Text style={s.stepText}>+5</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
   navRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
@@ -245,7 +229,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   saveLink: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
   title: { fontFamily: F.head, fontSize: fs(28), color: C.ink, padding: 0 },
   meta: { fontFamily: F.body, fontSize: fs(13.5), color: C.sub, marginTop: 4 },
-  segCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: r(16), padding: 16 },
+  segRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 64, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  segBar: { width: 3, height: 30, borderRadius: 1.5 },
   handle: { fontSize: fs(15), color: C.chartInactive },
   segTitle: { fontFamily: F.bodyMed, fontSize: fs(15.5), color: C.ink },
   segSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
@@ -266,10 +251,6 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   input: { height: 48, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.body, fontSize: fs(14.5), color: C.ink },
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepBtn: { width: 38, height: 38, borderRadius: r(19), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.ink },
-  stepValue: { fontFamily: F.head, fontSize: fs(18), color: C.ink, minWidth: 34, textAlign: 'center', fontVariant: ['tabular-nums'] },
   emptyHint: { fontFamily: F.body, fontSize: fs(13.5), color: C.subStrong, paddingTop: 8 },
   bpmInput: { width: 90, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, textAlign: 'center' },
   rowBtns: { flexDirection: 'row', gap: 10 },

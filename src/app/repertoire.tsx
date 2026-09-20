@@ -10,14 +10,11 @@ import { NoteIcon, SearchIcon } from '@/components/icons';
 import { MeasureBar } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
-import { Card, Overline, SearchField, SectionHead, Sheet, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { Card, Overline, SearchField, SectionHead, Sheet, stageColor, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
-import { F, themed, useC, type Palette, type T } from '@/lib/theme';
-
-// last stage green, next-to-last accent, the rest muted
-const stageColor = (C: Palette, i: number, n: number) => (i >= n - 1 ? C.success : i === n - 2 ? C.accent : C.sub);
+import { F, themed, useC, type T } from '@/lib/theme';
 
 type Suggestion = { track: string; artist: string; artwork?: string };
 
@@ -188,7 +185,6 @@ export default function Repertoire() {
   const renderRow = (p: Piece, i: number) => {
     const st = stats(p);
     const n = store.stages.length;
-    const lastStage = p.stage >= n - 1;
     const dueNote = p.stage >= n - 1 && stale(p)?.due ? store.t('repertoire.dueForReview', { days: stale(p)!.daysSince }) : '';
     return (
       <Animated.View key={p.id} layout={LinearTransition.duration(260)} exiting={FadeOut.duration(180)}>
@@ -206,7 +202,7 @@ export default function Repertoire() {
                 <Text style={[s.tag, { color: stageColor(C, p.stage, n) }]}>{store.stages[Math.min(p.stage, n - 1)]}</Text>
                 <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
                   {store.stages.map((_, k) => (
-                    <View key={k} style={[s.dot, { backgroundColor: k <= p.stage ? (lastStage ? C.success : C.accent) : C.track }]} />
+                    <View key={k} style={[s.dot, { backgroundColor: k <= p.stage ? stageColor(C, p.stage, n) : C.track }]} />
                   ))}
                 </View>
               </View>
@@ -214,7 +210,7 @@ export default function Repertoire() {
           </View>
           {p.stage >= 0 && (
             <View style={{ marginTop: 12 }}>
-              <MeasureBar segments={store.stages.map(() => 1)} done={p.pct / 100} />
+              <MeasureBar segments={store.stages.map(() => 1)} done={p.pct / 100} color={stageColor(C, p.stage, n)} />
             </View>
           )}
           <View style={s.rowMeta}>
@@ -238,7 +234,7 @@ export default function Repertoire() {
       </View>
       <View style={s.titleRow}>
         <Text style={s.title}>{store.t('tabs.repertoire')}</Text>
-        <Pressable style={s.fabBtn} onPress={() => setAddOpen(true)}>
+        <Pressable testID="repertoire-add" style={s.fabBtn} onPress={() => setAddOpen(true)}>
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
@@ -381,6 +377,7 @@ export default function Repertoire() {
                 <View style={s.searchWrap}>
                   <SearchIcon color={C.tertiary} />
                   <TextInput
+                    testID="add-name-input"
                     style={s.searchInput}
                     value={name}
                     onChangeText={setName}
@@ -419,6 +416,7 @@ export default function Repertoire() {
                       </Pressable>
                     ))}
                     <Pressable
+                      testID="add-create"
                       style={[s.sugRow, shown.length > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
                       onPress={() => setCreating(name.trim())}>
                       <Text style={s.createText}>{store.t('repertoire.createNamed', { name: name.trim() })}</Text>
@@ -452,7 +450,7 @@ export default function Repertoire() {
                     onSubmitEditing={() => add(creating, artist.trim())}
                     returnKeyType="done"
                   />
-                  <Pressable style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
+                  <Pressable testID="add-confirm" style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
                     <Text style={s.plusText}>+</Text>
                   </Pressable>
                 </View>

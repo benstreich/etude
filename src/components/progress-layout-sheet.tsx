@@ -7,7 +7,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { Text } from '@/components/text';
 import { Sheet } from '@/components/ui';
-import { sectionUnavailable, type Unavailable } from '@/lib/progress-availability';
+import { availabilityFrom, countOnSections, sectionUnavailable, type Unavailable } from '@/lib/progress-availability';
 import { resolveLayout, type LayoutItem } from '@/lib/progress-sections';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -23,18 +23,7 @@ export function ProgressLayoutSheet({ visible, onClose }: { visible: boolean; on
   const C = useC();
   const store = useStore();
   const layout = resolveLayout(store.progressLayout);
-  // Judged on the whole library rather than the current filter: the question is
-  // whether the data exists at all, not whether this week happens to show it.
-  const blockedBy = {
-    sessions: store.sessions,
-    pieces: store.pieces.filter((p) => !p.archived),
-    recordings: store.recordings,
-    mbd: store.minutesByDate,
-    today: store.today,
-    monday: store.weekStart === 'Monday',
-    lastStage: store.stages.length - 1,
-    hasGoals: store.dailyGoal > 0 || store.pieces.some((p) => !!p.targetDate),
-  };
+  const blockedBy = availabilityFrom(store);
   const [dragging, setDragging] = useState(false);
   const active = useSharedValue(-1); // index of the row being dragged
   const dragY = useSharedValue(0);
@@ -48,7 +37,8 @@ export function ProgressLayoutSheet({ visible, onClose }: { visible: boolean; on
     save(next);
   };
   const n = layout.length;
-  const on = layout.filter((l) => l.on).length;
+  // what the switches below actually show: a blocked section draws as off
+  const on = countOnSections(layout, blockedBy);
 
   return (
     <Sheet visible={visible} onClose={onClose} grabber fill scrollEnabled={!dragging}>
@@ -73,7 +63,7 @@ export function ProgressLayoutSheet({ visible, onClose }: { visible: boolean; on
           />
         ))}
       </View>
-      <Pressable style={s.reset} hitSlop={8} onPress={() => save([])}>
+      <Pressable testID="layout-reset" style={s.reset} hitSlop={8} onPress={() => save([])}>
         <Text style={[s.resetText, { color: C.accent }]}>{store.t('settings.resetDefault')}</Text>
       </Pressable>
     </Sheet>
@@ -154,6 +144,7 @@ function Row({
         </Text>
       </View>
       <Switch
+        testID={`layout-switch-${item.key}`}
         value={item.on && !blocked}
         disabled={!!blocked}
         onValueChange={onToggle}

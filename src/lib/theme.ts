@@ -90,6 +90,8 @@ export const F = {
   bodySemi: 'SpaceGrotesk_600SemiBold',
   // notation glyphs only (quarter note U+1D15F, rest U+1D13D, sharp U+266F) — stems up only, no stem-down glyph exists
   notation: 'NotoMusic_400Regular',
+  // the melody staff's real engraving: SMuFL glyphs from lib/engrave.ts's GLYPH table
+  smufl: 'Bravura',
 };
 
 export type T = {

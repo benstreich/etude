@@ -200,8 +200,24 @@
     "minOf": "Min. von %{goal}",
     "minWord": "Min.",
     "offTheClock": "Schnell eintragen",
+    "staffLegend": {
+      "title": "Die Notenzeile lesen",
+      "intro": "Jeder Tag ist ein Takt, und jede geübte Einheit ist eine Note darin. Ein Tag füllt sich also beim Üben, und wie du ihn aufteilst, ist sein Rhythmus.",
+      "pitchHead": "Die Tonhöhe",
+      "pitch": "Jedes Stück und jede Technik hat ihre eigene Note und behält sie. Kommst du zum selben Stück zurück, landet es auf derselben Linie — so wird dein Repertoire nach und nach zu einer Melodie, die du wiedererkennst.",
+      "lengthHead": "Die Notenlänge",
+      "length": "Wie lange die Note gehalten wird, ist deine Übezeit, gemessen an deinem Tagesziel von %{goal} Min:",
+      "aboutMin": "etwa %{min} Min",
+      "marksHead": "Der Rest",
+      "rest": "Ein Tag ohne Eintrag ist eine Pause.",
+      "fermata": "Übertriffst du das Ziel, bekommt die letzte Note des Tages eine Fermate — so lang gehalten, wie du magst.",
+      "meterHead": "Die Taktart",
+      "meter": "Jeder Takt hat seine eigene. 4/4 ist ein Tag, der das Ziel erreicht hat; 6/4 ein Tag, der halb so lang noch einmal war. Das ist Absicht — ein Takt ist ein Tag, keine feste Taktart, und dauert genau so lang wie der Tag. Geschrieben wird sie nur dort, wo sie wechselt. Endet ein Tag zwischen zwei Schlägen, schliesst der Takt mit einer kurzen Pause, damit er genau das ergibt, was seine Taktart verspricht.",
+      "key": "Die ganze Notenzeile wird in %{key} gelesen und gespielt. Ändern kannst du das in den Einstellungen."
+    },
     "staffHint": "Tag antippen zeigt sein Protokoll — Schnelleinträge landen dort",
     "playMelody": "Diese Woche abspielen",
+    "fullScore": "Deine Partitur, ganz",
     "todaysLog": "Heutiges Protokoll",
     "tapToAdjust": "zum Anpassen tippen",
     "nothingLoggedToday": "Noch nichts heute eingetragen",
@@ -209,6 +225,8 @@
     "quickLog": "Schnelleintrag",
     "chooseFocus": "Fokus wählen",
     "chipMin": "+%{min} Min.",
+    "landsToday": "Landet heute",
+    "landsOnDay": "Landet am %{day}",
     "min": "%{min} Min.",
     "addedMinFocus": "%{min} Min. hinzugefügt · %{name}",
     "addedMinutes": "%{min} Minuten hinzugefügt",
@@ -239,6 +257,7 @@
     "running": "Läuft",
     "stopRecording": "Aufnahme beenden",
     "record": "Aufnehmen",
+    "toolStripRecording": "Nimmt %{name} auf",
     "resume": "Fortsetzen",
     "pause": "Pause",
     "endSave": "Beenden & speichern",
@@ -701,6 +720,7 @@
     "notePlaceholder": "Wie ist es gelaufen? Notiz hinzufügen…",
     "stopTake": "Take stoppen",
     "attachTake": "Take anhängen",
+    "attachHeading": "Take anhängen",
     "saveSession": "Einheit speichern",
     "streakChip": {
       "one": "1-Tag-Serie",
@@ -725,6 +745,7 @@
     "star": "Als Referenz-Take markieren",
     "unstar": "Referenz-Markierung entfernen",
     "trim": "Kürzen",
+    "trimTake": "Take kürzen",
     "save": "Namen speichern",
     "cancel": "Bearbeiten abbrechen",
     "loop": "Ausschnitt wiederholen",
@@ -809,7 +830,8 @@
     "openSettings": "Einstellungen öffnen",
     "error": "Mikrofon nicht verfügbar",
     "errorBody": "Vielleicht nutzt es gerade eine andere App. Schließe sie und versuche es erneut.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "stringHint": "Tippe auf eine Saite, um sie festzuhalten. Étude summt einmal, sobald der Ton ankommt."
   },
   "score": {
     "title": "Noten",
@@ -818,6 +840,10 @@
     "pages": {
       "one": "%{count} Seite",
       "other": "%{count} Seiten"
+    },
+    "filesCount": {
+      "one": "%{count} Datei",
+      "other": "%{count} Dateien"
     },
     "pageOf": "Seite %{n} von %{total}",
     "namePlaceholder": "Noten benennen",
@@ -828,6 +854,20 @@
     "noPdfRenderer": "PDFs brauchen den vollen App-Build. Fotos funktionieren überall.",
     "importFailed": "Datei konnte nicht hinzugefügt werden.",
     "more": "Umbenennen oder löschen"
+  },
+  "fullScore": {
+    "title": "Deine Partitur",
+    "log": "Log",
+    "goalBeats": "%{min} Min. = 4 Schläge",
+    "earlier": "Früher",
+    "startOfLog": "Anfang des Logs",
+    "showingWeeks": {
+      "one": "zeigt 1 Woche",
+      "other": "zeigt %{count} Wochen"
+    },
+    "later": "Später",
+    "thisIsToday": "Das ist heute",
+    "rest": "Eine Pause — nichts eingetragen"
   },
   "tools": {
     "title": "Werkzeuge",

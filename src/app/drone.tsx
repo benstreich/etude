@@ -10,10 +10,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PlayIcon } from '@/components/icons';
 import { Text } from '@/components/text';
-import { BackLink, EntryRow, Overline, UnderlineTabs } from '@/components/ui';
+import { BackLink, EntryRow, Overline, Stepper, UnderlineTabs } from '@/components/ui';
 import { applyAudioMode } from '@/lib/audio-mode';
 import { A4_MAX, A4_MIN, DRONE_NOTES, DRONE_OCTAVES, droneFreq, droneRate, type DroneNote } from '@/lib/drone';
 import { DRONE_SAMPLES } from '@/lib/drone-samples';
+import { tap } from '@/lib/haptics';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -73,7 +74,14 @@ export default function Drone() {
         {DRONE_NOTES.map((n) => {
           const sel = n === note;
           return (
-            <Pressable key={n} style={[s.key, sel && s.keySel]} onPress={() => setNote(n)}>
+            <Pressable
+              key={n}
+              testID={`drone-note-${n.replace('#', 's')}`}
+              style={[s.key, sel && s.keySel]}
+              onPress={() => {
+                if (!sel) tap();
+                setNote(n);
+              }}>
               <Text style={[s.keyText, sel && { color: C.accent }]}>{n}</Text>
             </Pressable>
           );
@@ -94,18 +102,11 @@ export default function Drone() {
 
       <View style={s.refRow}>
         <Overline>{store.t('drone.reference')}</Overline>
-        <View style={s.stepper}>
-          <Pressable hitSlop={10} onPress={() => setA4((v) => Math.max(A4_MIN, v - 1))}>
-            <Text style={s.stepText}>−</Text>
-          </Pressable>
-          <Text style={s.stepValue}>{a4}</Text>
-          <Pressable hitSlop={10} onPress={() => setA4((v) => Math.min(A4_MAX, v + 1))}>
-            <Text style={s.stepText}>+</Text>
-          </Pressable>
-        </View>
+        <Stepper value={a4} min={A4_MIN} max={A4_MAX} size={30} onChange={setA4} />
       </View>
 
       <EntryRow
+        testID="drone-play"
         keySize={52}
         keyStyle={playing ? { backgroundColor: C.accent } : { borderWidth: 1.5, borderColor: C.ink }}
         keyContent={playing ? <View style={s.stopSquare} /> : <PlayIcon color={C.ink} />}
@@ -135,9 +136,6 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   keySel: { borderColor: C.accent, backgroundColor: C.accentTint },
   keyText: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink },
   refRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.staffLine },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  stepText: { fontFamily: F.bodySemi, fontSize: fs(18), color: C.accent, lineHeight: fs(22) },
-  stepValue: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink, minWidth: 40, textAlign: 'center', fontVariant: ['tabular-nums'] },
   stopSquare: { width: 14, height: 14, borderRadius: 2, backgroundColor: C.bg },
   hint: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong, lineHeight: fs(19) },
 }));

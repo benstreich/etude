@@ -8,28 +8,16 @@ import Svg, { Circle, Polygon, Polyline } from 'react-native-svg';
 import Animated, { Easing, FadeInUp, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
 import { Text } from '@/components/text';
+import { fmtAxis, niceMax, tickIndices } from '@/lib/chart-math';
 import type { ChartPoint } from '@/lib/heatmap-math';
 import { F, themed, useTheme, type T } from '@/lib/theme';
 
 const H = 120; // plot height
 const GUTTER = 34; // y-axis label column
-const TICKS = 5; // x labels, first and last included
 
 const APolyline = Animated.createAnimatedComponent(Polyline);
 const APolygon = Animated.createAnimatedComponent(Polygon);
 const ACircle = Animated.createAnimatedComponent(Circle);
-
-/** Round the top of the axis up to a value the eye can divide: tens of minutes, then whole hours. */
-export const niceMax = (max: number) => (max <= 120 ? Math.max(10, Math.ceil(max / 10) * 10) : Math.ceil(max / 60) * 60);
-
-/** "45m", "1h", "1.5h" — short enough for a 34-point gutter. */
-export const fmtAxis = (min: number) => (min < 60 ? `${min}m` : min % 60 === 0 ? `${min / 60}h` : `${(min / 60).toFixed(1)}h`);
-
-/** Indices of the x labels: every day of a week, otherwise first, last and evenly spaced between. */
-export const tickIndices = (n: number) => {
-  if (n <= 7) return Array.from({ length: n }, (_, i) => i);
-  return Array.from({ length: TICKS }, (_, i) => Math.round((i * (n - 1)) / (TICKS - 1)));
-};
 
 export function MinutesChart({
   points,

@@ -13,14 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar } from '@/components/calendar';
 import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
-import { LiveWaveform, MeasureBar, NoteTempo } from '@/components/motifs';
+import { LiveWaveform, MeasureBar, NoteTempo, WaveformIcon } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { recordingPair } from '@/lib/movement-math';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
-import { BackLink, Card, Overline, RuledStats, Sheet, Stars } from '@/components/ui';
+import { ActionChip, BackLink, Card, ChipRow, Overline, RuledStats, Sheet, stageColor, Stars } from '@/components/ui';
 import { deadlineStatus } from '@/lib/goal-math';
 import { tap } from '@/lib/haptics';
 import { pickRecordings } from '@/lib/import-recording';
@@ -30,7 +30,7 @@ import { MAX_BPM } from '@/lib/metronome-math';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
-import { F, themed, useC, useTheme, type Palette, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
@@ -44,8 +44,6 @@ function Seg({ filled, delay, color, track, style }: { filled: boolean; delay: n
   const anim = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(v.value, [0, 1], [track, color]) }));
   return <Animated.View style={[style, anim]} />;
 }
-
-const stageColor = (C: Palette, i: number, n: number) => (i < 0 ? C.sub : i >= n - 1 ? C.success : C.accent);
 
 export default function PieceDetail() {
   const s = useS();
@@ -143,7 +141,7 @@ export default function PieceDetail() {
     <KeyboardAwareScrollView style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
         <BackLink label={store.t('tabs.repertoire')} onPress={() => router.back()} />
-        <Pressable hitSlop={8} onPress={() => setMenuOpen(true)}>
+        <Pressable testID="piece-menu" hitSlop={8} onPress={() => setMenuOpen(true)}>
           <Text style={s.navGlyph}>⋯</Text>
         </Pressable>
       </View>
@@ -167,6 +165,7 @@ export default function PieceDetail() {
           {store.stages.map((_, i) => (
             <Pressable
               key={i}
+              testID={`piece-stage-${i}`}
               style={{ flex: 1 }}
               hitSlop={{ top: 10, bottom: 10 }}
               onPress={() => {
@@ -295,32 +294,29 @@ export default function PieceDetail() {
             its parent, which on Android also swallows the taps that land outside it.
             Heading on its own line, actions wrapping underneath. */}
         <Overline>{recordings.length ? store.t('piece.recordingsCount', { count: recordings.length }) : store.t('piece.recordings')}</Overline>
-        <View style={s.takeActions}>
-          <Pressable style={s.takeAction} hitSlop={8} onPress={take.toggle}>
-            <Text style={[s.compareLink, take.recording && { color: C.accent }]}>
-              {take.recording ? store.t('piece.stopTake') : store.t('piece.recordTake')}
-            </Text>
-          </Pressable>
-          {!take.recording && (
-            <Pressable style={s.takeAction} hitSlop={8} onPress={importTakes}>
-              <Text style={s.compareLink}>{store.t('piece.importTake')}</Text>
-            </Pressable>
-          )}
+        <ChipRow>
+          <ActionChip
+            icon={(color) => <WaveformIcon color={color} />}
+            label={take.recording ? store.t('piece.stopTake') : store.t('piece.recordTake')}
+            active={take.recording}
+            haptic="thud"
+            onPress={take.toggle}
+          />
+          {!take.recording && <ActionChip icon={() => null} label={store.t('piece.importTake')} onPress={importTakes} />}
           {recordings.length >= 2 && !take.recording && (
-            <Pressable
-              style={s.takeAction}
-              hitSlop={8}
+            <ActionChip
+              icon={() => null}
+              label={store.t('piece.compare')}
               onPress={() =>
                 router.push({
                   pathname: '/compare',
                   // the same before/after Progress uses: starred takes win, else oldest vs newest
                   params: { piece: piece.name, ...comparePair },
                 })
-              }>
-              <Text style={s.compareLink}>{store.t('piece.compare')}</Text>
-            </Pressable>
+              }
+            />
           )}
-        </View>
+        </ChipRow>
         {take.recording && (
           <View style={{ marginTop: 4, marginBottom: 10, gap: 8 }}>
             <LiveWaveform active={!take.paused} getLevel={take.micLevel} onSample={take.onSample} />
@@ -499,12 +495,10 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   masterByRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.staffLine },
   masterByDate: { marginTop: 6, fontFamily: F.bodyMed, fontSize: fs(17), color: C.ink },
   compareLink: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
-  takeActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: -4 },
   instRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   instChip: { paddingHorizontal: 14, height: 34, borderRadius: r(17), borderWidth: 1, borderColor: C.hairline, alignItems: 'center', justifyContent: 'center' },
   instChipText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
   instHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
-  takeAction: { paddingVertical: 6, paddingRight: 4, minHeight: 32, justifyContent: 'center' },
   emptyHint: { fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.sub },
   histRow: { flexDirection: 'row', alignItems: 'center', height: 44, gap: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
   histDay: { width: 88, fontFamily: F.body, fontSize: fs(14), color: C.subStrong },

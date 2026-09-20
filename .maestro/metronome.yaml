@@ -1,0 +1,41 @@
+# The metronome's BPM: stepped, started, stopped — and the stepped value is
+# the one that comes back after a restart. The click itself is audio and
+# cannot be asserted; what breaks silently is the persistence.
+appId: com.benstreich.etude
+name: Metronome keeps its tempo
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Tools"
+- tapOn:
+    id: "tool-metronome"
+
+# the seed tempo
+- assertVisible:
+    id: "metro-bpm"
+    text: "^90$"
+
+- tapOn:
+    id: "metro-plus-5"
+- tapOn:
+    id: "metro-minus-1"
+- assertVisible:
+    id: "metro-bpm"
+    text: "^94$"
+
+# start and stop — the engine must survive both without taking the UI down
+- tapOn:
+    id: "metro-start"
+- tapOn:
+    id: "metro-start"
+
+# the stepped tempo survives the process dying
+- launchApp
+- tapOn: "Tools"
+- tapOn:
+    id: "tool-metronome"
+- assertVisible:
+    id: "metro-bpm"
+    text: "^94$"

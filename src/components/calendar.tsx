@@ -51,6 +51,7 @@ export function Calendar({
     <>
       <View style={s.calHeader}>
         <Pressable
+          testID="cal-prev"
           style={[s.calNav, backStop && { opacity: 0.25 }]}
           hitSlop={8}
           disabled={backStop}
@@ -59,6 +60,7 @@ export function Calendar({
         </Pressable>
         <Text style={s.calMonth}>{calMonth.toLocaleDateString(store.lang, { month: 'long', year: 'numeric' })}</Text>
         <Pressable
+          testID="cal-next"
           style={[s.calNav, fwdStop && { opacity: 0.25 }]}
           hitSlop={8}
           disabled={fwdStop}
@@ -81,6 +83,7 @@ export function Calendar({
           return (
             <Pressable
               key={k}
+              testID={`cal-day-${k}`}
               style={s.calCell}
               disabled={disabled}
               onPress={() => {

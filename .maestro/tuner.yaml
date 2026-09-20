@@ -1,0 +1,27 @@
+# The tuner opens against a granted mic and keeps its instrument choice. An
+# emulator has no pitch to detect, so the gauge itself stays quiet — the
+# screen coming up at all (module loaded, mic session opened) is the test.
+appId: com.benstreich.etude
+name: Open the tuner
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Tools"
+- tapOn:
+    id: "tool-tuner"
+
+- assertVisible:
+    id: "tuner-instruments"
+- tapOn:
+    id: "tuner-instruments"
+- tapOn:
+    id: "tuner-inst-violin"
+
+# the instrument choice is a setting, not a whim — it survives a restart
+- launchApp
+- tapOn: "Tools"
+- tapOn:
+    id: "tool-tuner"
+- assertVisible: ".*[Vv]iolin.*"

@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { Bar, Card, Overline, ScreenTitle } from '@/components/ui';
+import { Bar, Card, Overline, ScreenTitle, Switch } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import {
   ACCENTS,
@@ -29,12 +30,36 @@ const RADII: { value: RadiusMode; key: string }[] = [
   { value: 'soft', key: 'appearance.soft' },
   { value: 'round', key: 'appearance.round' },
 ];
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Chip({ label, selected, onPress, testID }: { label: string; selected: boolean; onPress: () => void; testID?: string }) {
   const s = useS();
   const C = useC();
   return (
-    <Pressable style={[s.chip, selected && s.chipSel]} onPress={onPress}>
+    <Pressable testID={testID} style={[s.chip, selected && s.chipSel]} onPress={onPress}>
       <Text style={[s.chipText, selected && { color: C.accent }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const SWATCH_EASE = Easing.bezier(0.2, 1.3, 0.4, 1);
+
+/** An accent swatch. The selected ring draws in and the dot dips to 0.88 and settles, both on the tap. */
+function AccentSwatch({ color, selected, label, onPress }: { color: string; selected: boolean; label: string; onPress: () => void }) {
+  const s = useS();
+  const C = useC();
+  const ring = useSharedValue(selected ? 1 : 0);
+  const dip = useSharedValue(1);
+  useEffect(() => {
+    ring.value = withTiming(selected ? 1 : 0, { duration: 200, easing: SWATCH_EASE });
+    if (selected) dip.value = withSequence(withTiming(0.88, { duration: 90 }), withTiming(1, { duration: 110, easing: SWATCH_EASE }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+  const ringStyle = useAnimatedStyle(() => ({ borderColor: interpolateColor(ring.value, [0, 1], ['transparent', C.ink]) }));
+  const dotStyle = useAnimatedStyle(() => ({ transform: [{ scale: dip.value }] }));
+  return (
+    <Pressable accessibilityLabel={label} onPress={onPress}>
+      <Animated.View style={[s.dotRing, ringStyle]}>
+        <Animated.View style={[s.dot, { backgroundColor: color }, dotStyle]} />
+      </Animated.View>
     </Pressable>
   );
 }
@@ -67,7 +92,7 @@ export default function Appearance() {
         <Overline style={s.sectionLabel}>{store.t('appearance.theme')}</Overline>
         <View style={s.chipWrap}>
           {THEMES.map((o) => (
-            <Chip key={o.value} label={store.t(o.key)} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
+            <Chip key={o.value} testID={`appearance-theme-${o.value}`} label={store.t(o.key)} selected={store.theme === o.value} onPress={() => store.updateSettings({ theme: o.value })} />
           ))}
         </View>
       </View>
@@ -75,18 +100,15 @@ export default function Appearance() {
       <View>
         <Overline style={s.sectionLabel}>{store.t('appearance.accent')}</Overline>
         <View style={s.dotRow}>
-          {(Object.keys(ACCENTS) as AccentName[]).map((name) => {
-            const sel = store.accent === name;
-            return (
-              <Pressable
-                key={name}
-                accessibilityLabel={store.t(ACCENTS[name].label)}
-                style={[s.dotRing, sel && { borderColor: C.ink }]}
-                onPress={() => store.updateSettings({ accent: name })}>
-                <View style={[s.dot, { backgroundColor: ACCENTS[name].light[0] }]} />
-              </Pressable>
-            );
-          })}
+          {(Object.keys(ACCENTS) as AccentName[]).map((name) => (
+            <AccentSwatch
+              key={name}
+              color={ACCENTS[name].light[0]}
+              selected={store.accent === name}
+              label={store.t(ACCENTS[name].label)}
+              onPress={() => store.updateSettings({ accent: name })}
+            />
+          ))}
         </View>
         {/* #80: icon and widgets follow along; the Android launcher may blink the app away for a moment */}
         <Text style={s.accentHint}>{store.t('appearance.accentHint')}</Text>
@@ -115,12 +137,7 @@ export default function Appearance() {
           <Text style={s.switchLabel}>{store.t('appearance.reduceMotion')}</Text>
           <Text style={s.switchHint}>{store.t('appearance.reduceMotionHint')}</Text>
         </View>
-        <Switch
-          value={store.reduceMotion}
-          onValueChange={(v) => store.updateSettings({ reduceMotion: v })}
-          trackColor={{ true: C.accent, false: C.track }}
-          thumbColor={C.card}
-        />
+        <Switch testID="appearance-reduce-motion" value={store.reduceMotion} onChange={(v) => store.updateSettings({ reduceMotion: v })} />
       </View>
 
       <View style={s.switchRow}>
@@ -128,12 +145,7 @@ export default function Appearance() {
           <Text style={s.switchLabel}>{store.t('appearance.sounds')}</Text>
           <Text style={s.switchHint}>{store.t('appearance.soundsHint')}</Text>
         </View>
-        <Switch
-          value={store.sounds}
-          onValueChange={(v) => store.updateSettings({ sounds: v })}
-          trackColor={{ true: C.accent, false: C.track }}
-          thumbColor={C.card}
-        />
+        <Switch testID="appearance-sounds" value={store.sounds} onChange={(v) => store.updateSettings({ sounds: v })} />
       </View>
     </ScrollView>
   );

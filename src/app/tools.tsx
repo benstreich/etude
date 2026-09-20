@@ -5,12 +5,13 @@ import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MetNote } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { EntryRow, Overline } from '@/components/ui';
+import { EntryRow, Overline, PulseRing } from '@/components/ui';
 import { useMetronome } from '@/lib/metronome';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 export default function Tools() {
   const s = useS();
@@ -18,6 +19,7 @@ export default function Tools() {
   const store = useStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { fs } = useTheme();
   const { running, bpm, timeSig } = useMetronome();
 
   const tools: { href: Href; title: string; blurb: string; accent?: boolean; glyph: React.ReactNode }[] = [
@@ -26,7 +28,7 @@ export default function Tools() {
       title: store.t('tools.metronome'),
       blurb: running ? store.t('tools.metronomeRunning', { bpm, term: tempoTerm(bpm), sig: timeSig }) : store.t('tools.metronomeBlurb'),
       accent: running,
-      glyph: <Text style={[s.glyph, { fontFamily: F.notation }]}>{'\u{1D15F}'}</Text>,
+      glyph: <MetNote size={fs(26)} color={C.ink} />,
     },
     // the text font's sharp, not the notation font's: Noto Music hangs its accidentals off the baseline and the tile read off-centre
     { href: '/tuner', title: store.t('tools.tuner'), blurb: store.t('tools.tunerBlurb'), glyph: <Text style={s.glyph}>{'♯'}</Text> },
@@ -40,7 +42,10 @@ export default function Tools() {
         <Overline>{store.t('tabs.tools')}</Overline>
         {running && (
           <View style={s.headTempo}>
-            <View style={s.dot} />
+            <View style={{ width: 8, height: 8 }}>
+              <PulseRing color={C.accent} size={8} active={running} />
+              <View style={s.dot} />
+            </View>
             <Text style={s.headTempoText}>{bpm}</Text>
             <Text style={[s.headTempoText, { fontFamily: F.accent }]}>{tempoTerm(bpm)}</Text>
           </View>
@@ -51,6 +56,7 @@ export default function Tools() {
         {tools.map((tool, i) => (
           <EntryRow
             key={String(tool.href)}
+            testID={`tool-${String(tool.href).slice(1)}`}
             keySize={52}
             keyStyle={{ borderWidth: 1.5, borderColor: C.ink }}
             keyContent={tool.glyph}
