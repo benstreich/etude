@@ -84,6 +84,12 @@ tags:
     direction: DOWN
 - assertVisible: "Clean passes needed"
 
+# the piece page is pushed over the tab bar, so there is no "Practice" tab to
+# reach until we come back out of it
+- back
+- waitForAnimationToEnd:
+    timeout: 2000
+
 # start a session on that piece
 - tapOn: "Practice"
 - scrollUntilVisible:
@@ -125,6 +131,9 @@ tags:
 
 - tapOn:
     id: "practice-end"
+# ending hands over to the review, which is what commits the session
+- tapOn:
+    id: "review-save"
 - waitForAnimationToEnd:
     timeout: 3000
 
