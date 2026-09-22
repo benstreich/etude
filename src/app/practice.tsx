@@ -17,7 +17,7 @@ import { InstrumentAsk } from '@/components/instrument-ask';
 import { ScoreViewer, useScores } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
 import { Text } from '@/components/text';
-import { EntryRow, Overline, PulseRing, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { ActionChip, ChipRow, EntryRow, Overline, PulseRing, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { tap, thud } from '@/lib/haptics';
 import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
@@ -112,6 +112,10 @@ export default function Practice() {
   const [sessionInst, setSessionInst] = useState<string | null>(revived?.inst ?? null);
   const [askInst, setAskInst] = useState(false);
   const focusPiece = store.allPieces.find((p) => p.name === focus?.name);
+  // the trouble spot this session is about (#91): null = the whole piece. One per
+  // session; re-tapping another chip simply changes it, last selection wins.
+  const [spotId, setSpotId] = useState<string | null>(revived?.spot ?? null);
+  const openSpots = (focusPiece?.spots ?? []).filter((sp) => !sp.resolvedAt);
   const instChoices = instrumentChoices(focusPiece, inst);
   const scores = useScores(focus?.kind === 'Piece' ? focus.name : undefined);
   const [scoreOpen, setScoreOpen] = useState<(typeof scores)[number] | null>(null);
@@ -199,11 +203,11 @@ export default function Practice() {
   useEffect(() => {
     if (!running || !focus) return;
     const write = () =>
-      setLive.current({ name: focus.name, kind: focus.kind, startedAt, accum, startClock: sessionStart.current, inst: sessionInst, breaksSeen, lastSeen: Date.now() });
+      setLive.current({ name: focus.name, kind: focus.kind, startedAt, accum, startClock: sessionStart.current, inst: sessionInst, breaksSeen, spot: spotId, lastSeen: Date.now() });
     write();
     const t = setInterval(write, 10000);
     return () => clearInterval(t);
-  }, [running, focus, startedAt, accum, sessionInst, breaksSeen]);
+  }, [running, focus, startedAt, accum, sessionInst, breaksSeen, spotId]);
 
   const q = query.trim().toLowerCase();
   // every piece in the repertoire is practisable — reaching the last stage used
@@ -244,8 +248,10 @@ export default function Practice() {
     // #58 follow-up: the same piece can be practised on two instruments, so the
     // session records the one picked when it started, then the tab in view, and
     // only then falls back to the piece's own first tag
-    const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, sessionInst || inst || undefined);
+    // the store drops a spot that was resolved or deleted mid-session (#91)
+    const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, sessionInst || inst || undefined, spotId ?? undefined);
     store.setLiveSession(null);
+    setSpotId(null);
     setRunning(false);
     setStartedAt(null);
     setAccum(0);
@@ -342,6 +348,19 @@ export default function Practice() {
               </Pressable>
             </View>
           )}
+          {/* which passage the minutes go to (#91) — only when the piece has open spots */}
+          {openSpots.length > 0 && (
+            <View style={{ marginTop: 22, alignSelf: 'stretch', gap: 8 }}>
+              <Overline>{store.t('spots.workingOn')}</Overline>
+              <ChipRow>
+                <ActionChip icon={() => null} label={store.t('spots.wholePiece')} active={spotId === null} testID="spot-chip-whole" onPress={() => setSpotId(null)} />
+                {openSpots.map((sp) => (
+                  <ActionChip key={sp.id} icon={() => null} label={sp.label} active={spotId === sp.id} testID={`spot-chip-${sp.id}`} onPress={() => setSpotId(sp.id)} />
+                ))}
+              </ChipRow>
+            </View>
+          )}
+
           {/* the clean-pass ladder (#90). It renders nothing unless the focus is a
               piece with a target tempo and auto-advance switched on for it. */}
           {focusPiece && <LadderTally piece={focusPiece} />}
@@ -445,6 +464,7 @@ export default function Practice() {
             const discard = () => {
               discardTake();
               store.setLiveSession(null);
+              setSpotId(null);
               setRunning(false);
               setStartedAt(null);
               setAccum(0);

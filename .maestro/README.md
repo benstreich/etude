@@ -23,6 +23,7 @@ exist for the wiring.
 | `score-view.yaml` | the full score opens and pages; the staff legend opens |
 | `trim-silence.yaml` | a recorded take saves and reaches the trim sheet with the Trim silence action (the maths is `check:silence`; see the flow header) |
 | `tempo-ladder.yaml` | ladder config persisted on the piece, the in-session tally, and the advance reaching both the metronome and the tempo log |
+| `spots.yaml` | a trouble spot added on the piece page, offered as a chip in a running session, and its minutes on the stats line afterwards (the maths is `check:spot`) |
 
 `common/fresh-start.yaml` is a subflow: clear state, grant notifications and
 the microphone, tap through onboarding's welcome screen and skip the rest.

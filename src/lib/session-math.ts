@@ -15,6 +15,8 @@ export type LiveSession = {
   /** the instrument answered at start, when it had to be asked */
   inst: string | null;
   breaksSeen: number;
+  /** the trouble spot chosen for this session (#91), so a restart keeps the choice; absent = whole piece */
+  spot?: string | null;
   /** heartbeat: the last moment the app was alive with this session running */
   lastSeen: number;
 };

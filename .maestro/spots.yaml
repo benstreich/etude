@@ -1,0 +1,66 @@
+# Trouble spots (#91): a spot added on the piece page is offered as a chip in a
+# running session, and the minutes logged against it show up in its stats line.
+appId: com.benstreich.etude
+name: Trouble spots
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+# a seeded technique is a piece too, with the same page — no network needed
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+
+- scrollUntilVisible:
+    element:
+      id: "spot-add"
+    direction: DOWN
+- tapOn:
+    id: "spot-add"
+- tapOn:
+    id: "spot-label-input"
+- inputText: "bars 12-16"
+- hideKeyboard
+- tapOn:
+    id: "spot-save"
+- assertVisible: "bars 12-16"
+# no minutes yet
+- assertVisible: "0 min.*"
+
+# a session on that piece offers the spot as a chip
+- tapOn: "Practice"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+- scrollUntilVisible:
+    element:
+      id: "start-session"
+    direction: UP
+- tapOn:
+    id: "start-session"
+- assertVisible:
+    id: "spot-chip-whole"
+- tapOn: "bars 12-16"
+- tapOn:
+    id: "practice-end"
+- tapOn:
+    id: "review-save"
+
+# back on the piece page the spot has its minute (a session is at least 1 min)
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+- scrollUntilVisible:
+    element:
+      text: "bars 12-16"
+    direction: DOWN
+- assertVisible: "[1-9][0-9]* min.*"

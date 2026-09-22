@@ -754,6 +754,27 @@
     "lastTime": "Letztes Mal: %{n} ★",
     "importTake": "Stattdessen importieren"
   },
+  "spots": {
+    "title": "Problemstellen",
+    "add": "Stelle hinzufügen",
+    "edit": "Stelle bearbeiten",
+    "labelPlaceholder": "z. B. Takte 12–16",
+    "notePlaceholder": "Notiz (optional)",
+    "empty": "Markiere knifflige Stellen, um sie separat zu verfolgen.",
+    "resolve": "Als sicher markieren",
+    "reopen": "Wieder öffnen",
+    "solidGroup": "Sicher (%{n})",
+    "delete": "Stelle löschen",
+    "deleteBody": "Vergangene Einheiten behalten ihre Minuten – nur die Stelle geht.",
+    "wholePiece": "Ganzes Stück",
+    "workingOn": "Gerade dran",
+    "lastNever": "noch nie",
+    "last": "zuletzt %{date}",
+    "trendUp": "▲ wird besser",
+    "trendDown": "▼ lässt nach",
+    "trendFlat": "▬ stabil",
+    "options": "Optionen der Stelle"
+  },
   "recordings": {
     "namePlaceholder": "Take benennen",
     "untitled": "Take",
