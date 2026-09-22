@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,10 +11,11 @@ import { MeasureBar } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
 import { Card, Overline, SearchField, SectionHead, Sheet, stageColor, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
+import { groupByFolder, MAX_FOLDER_NAME, MAX_FOLDERS } from '@/lib/folder-math';
 import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 type Suggestion = { track: string; artist: string; artwork?: string };
 
@@ -61,6 +62,10 @@ export default function Repertoire() {
   const [listQuery, setListQuery] = useState(''); // searches the repertoire itself, not the add sheet
   const [addOpen, setAddOpen] = useState(false);
   const [customTech, setCustomTech] = useState('');
+  // #102. `newFolder` null = the inline field in the piece sheet is closed; '' = open and empty.
+  const [newFolder, setNewFolder] = useState<string | null>(null);
+  const [folderMenu, setFolderMenu] = useState<string | null>(null); // the folder being managed
+  const [renameDraft, setRenameDraft] = useState('');
 
   const closeAdd = () => {
     setAddOpen(false);
@@ -74,6 +79,47 @@ export default function Repertoire() {
     if (!t.trim()) return;
     if (store.techniques.includes(t)) store.removeTechnique(t);
     else store.addTechnique(t.trim());
+  };
+
+  const { reduceMotion } = useTheme();
+
+  // A folder is created from the piece sheet and the piece goes straight into it —
+  // making an empty folder and then filing something into it is two trips for one
+  // intention. An invalid name keeps the sheet open (profile.tsx's save rule: never
+  // a false save), so the half-typed name is still there to fix.
+  const createFolder = (p: Piece) => {
+    const name = (newFolder ?? '').trim();
+    if (!store.addFolder(name)) return store.showToast(store.t('repertoire.errFolder'));
+    store.setPieceFolder(p.id, name);
+    setMenuPiece({ ...p, folder: name });
+    setNewFolder(null);
+  };
+  const closeMenu = () => {
+    setMenuPiece(null);
+    setNewFolder(null);
+  };
+  const openFolderMenu = (folder: string) => {
+    setRenameDraft(folder);
+    setFolderMenu(folder);
+  };
+  const saveRename = () => {
+    if (folderMenu === null) return;
+    if (renameDraft.trim() === folderMenu) return setFolderMenu(null); // unchanged
+    if (!store.renameFolder(folderMenu, renameDraft)) return store.showToast(store.t('repertoire.errFolder'));
+    setFolderMenu(null);
+  };
+  const confirmDeleteFolder = (folder: string) => {
+    Alert.alert(store.t('repertoire.deleteFolder'), store.t('repertoire.deleteFolderBody'), [
+      { text: store.t('recordings.moveCancel'), style: 'cancel' },
+      {
+        text: store.t('repertoire.deleteFolder'),
+        style: 'destructive',
+        onPress: () => {
+          store.removeFolder(folder);
+          setFolderMenu(null);
+        },
+      },
+    ]);
   };
 
   const inst = useInstrumentFilter();
@@ -188,7 +234,10 @@ export default function Repertoire() {
     const dueNote = p.stage >= n - 1 && stale(p)?.due ? store.t('repertoire.dueForReview', { days: stale(p)!.daysSince }) : '';
     return (
       <Animated.View key={p.id} layout={LinearTransition.duration(260)} exiting={FadeOut.duration(180)}>
-        <Pressable style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={() => router.push(`/piece/${p.id}`)}>
+        <Pressable
+          style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
+          onPress={() => router.push(`/piece/${p.id}`)}
+          onLongPress={() => setMenuPiece(p)}>
           <View style={s.rowTop}>
             <Cover uri={p.artwork} />
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -293,6 +342,47 @@ export default function Repertoire() {
             </View>
           </View>
         </>
+      ) : store.folders.length > 0 && !listQ ? (
+        // Folders are a fold over the already-filtered list, never a second copy of
+        // it — so the instrument tab applies first and a folder it empties stays on
+        // screen at count 0 rather than disappearing. Search wins over folders
+        // outright (the `!listQ` above): a match must never hide inside a collapsed
+        // group, so any query renders the flat list exactly as it did before #102.
+        <View style={{ gap: 6 }}>
+          {groupByFolder(active, store.folders).map((sec, si) => {
+            if (sec.folder === null && sec.pieces.length === 0) return null;
+            // '' is the ungrouped section's collapse key — validFolderName rejects a
+            // blank name, so no real folder can ever collide with it
+            const key = sec.folder ?? '';
+            const open = !store.collapsedFolders.includes(key);
+            return (
+              <View key={si} style={{ gap: 6 }}>
+                <View style={s.folderHead}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <SectionHead
+                      label={`${sec.folder ?? store.t('repertoire.ungrouped')} · ${sec.pieces.length}`}
+                      open={open}
+                      onToggle={() => store.toggleFolderCollapsed(key)}
+                    />
+                  </View>
+                  {sec.folder !== null && (
+                    <Pressable
+                      hitSlop={8}
+                      accessibilityLabel={store.t('repertoire.folderOptions')}
+                      onPress={() => openFolderMenu(sec.folder!)}>
+                      <Text style={s.moreText}>⋯</Text>
+                    </Pressable>
+                  )}
+                </View>
+                {open && (
+                  <Animated.View layout={reduceMotion ? undefined : LinearTransition.duration(260)}>
+                    {sec.pieces.map(renderRow)}
+                  </Animated.View>
+                )}
+              </View>
+            );
+          })}
+        </View>
       ) : (
         <View>{active.map(renderRow)}</View>
       )}
@@ -527,8 +617,8 @@ export default function Repertoire() {
         </Pressable>
       </Modal>
 
-      <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={() => setMenuPiece(null)}>
-        <Pressable style={s.backdrop} onPress={() => setMenuPiece(null)}>
+      <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={closeMenu}>
+        <Pressable style={s.backdrop} onPress={closeMenu}>
           <Pressable style={s.sheet} onPress={() => {}}>
             {menuPiece && (
               <>
@@ -561,11 +651,73 @@ export default function Repertoire() {
                     </Text>
                   </>
                 )}
+                {/* Folders are for live pieces: archived ones have their own section and
+                    techniques have theirs, and neither is grouped (#102). */}
+                {!menuPiece.archived && menuPiece.kind !== 'Technique' && (
+                  <>
+                    <Text style={s.instHint}>{store.t('repertoire.moveToFolder')}</Text>
+                    <View style={[s.chipWrap, { paddingVertical: 10 }]}>
+                      {store.folders.map((f) => {
+                        const sel = menuPiece.folder === f;
+                        return (
+                          <Pressable
+                            key={f}
+                            style={[s.chip, sel && s.chipSel]}
+                            onPress={() => {
+                              store.setPieceFolder(menuPiece.id, sel ? null : f);
+                              setMenuPiece({ ...menuPiece, folder: sel ? undefined : f });
+                            }}>
+                            <Text style={[s.chipText, sel && { color: C.accent }]}>{f}</Text>
+                          </Pressable>
+                        );
+                      })}
+                      {!!menuPiece.folder && (
+                        <Pressable
+                          style={s.chip}
+                          onPress={() => {
+                            store.setPieceFolder(menuPiece.id, null);
+                            setMenuPiece({ ...menuPiece, folder: undefined });
+                          }}>
+                          <Text style={s.chipText}>{store.t('repertoire.noFolder')}</Text>
+                        </Pressable>
+                      )}
+                      {store.folders.length < MAX_FOLDERS && newFolder === null && (
+                        <Pressable style={s.chip} onPress={() => setNewFolder('')}>
+                          <Text style={[s.chipText, { color: C.accent }]}>
+                            <Text style={{ color: C.accent }}>+ </Text>
+                            {store.t('repertoire.newFolder')}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                    {newFolder !== null && (
+                      <View style={[s.addRow, { paddingBottom: 10 }]}>
+                        <TextInput
+                          style={s.input}
+                          value={newFolder}
+                          onChangeText={setNewFolder}
+                          maxLength={MAX_FOLDER_NAME}
+                          placeholder={store.t('repertoire.newFolder')}
+                          placeholderTextColor={C.faint}
+                          autoFocus
+                          returnKeyType="done"
+                          onSubmitEditing={() => createFolder(menuPiece)}
+                        />
+                        <Pressable
+                          style={s.plusBtn}
+                          accessibilityLabel={store.t('repertoire.saveFolder')}
+                          onPress={() => createFolder(menuPiece)}>
+                          <Text style={s.fabText}>+</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </>
+                )}
                 <Pressable
                   style={s.sheetRow}
                   onPress={() => {
                     store.setArchived(menuPiece.id, !menuPiece.archived);
-                    setMenuPiece(null);
+                    closeMenu();
                   }}>
                   <Text style={s.sheetRowText}>{menuPiece.archived ? store.t('repertoire.restore') : store.t('repertoire.archive')}</Text>
                 </Pressable>
@@ -573,9 +725,42 @@ export default function Repertoire() {
                   style={s.sheetRow}
                   onPress={() => {
                     store.removePiece(menuPiece.id);
-                    setMenuPiece(null);
+                    closeMenu();
                   }}>
                   <Text style={[s.sheetRowText, { color: C.accent }]}>{store.t('repertoire.remove')}</Text>
+                </Pressable>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Rename or drop one folder. Delete is the destructive one, so it confirms and
+          says plainly that the pieces survive it — only the grouping goes (#102). */}
+      <Modal visible={folderMenu !== null} transparent animationType="fade" onRequestClose={() => setFolderMenu(null)}>
+        <Pressable style={s.backdrop} onPress={() => setFolderMenu(null)}>
+          <Pressable style={s.sheet} onPress={() => {}}>
+            {folderMenu !== null && (
+              <>
+                <Text style={s.sheetTitle}>{folderMenu}</Text>
+                <Text style={s.instHint}>{store.t('repertoire.renameFolder')}</Text>
+                <View style={[s.addRow, { paddingVertical: 10 }]}>
+                  <TextInput
+                    style={s.input}
+                    value={renameDraft}
+                    onChangeText={setRenameDraft}
+                    maxLength={MAX_FOLDER_NAME}
+                    placeholderTextColor={C.faint}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={saveRename}
+                  />
+                  <Pressable style={s.plusBtn} accessibilityLabel={store.t('repertoire.saveFolder')} onPress={saveRename}>
+                    <Text style={s.fabText}>+</Text>
+                  </Pressable>
+                </View>
+                <Pressable style={s.sheetRow} onPress={() => confirmDeleteFolder(folderMenu)}>
+                  <Text style={[s.sheetRowText, { color: C.accent }]}>{store.t('repertoire.deleteFolder')}</Text>
                 </Pressable>
               </>
             )}
@@ -588,6 +773,7 @@ export default function Repertoire() {
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 20 },
+  folderHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   addRow: { flexDirection: 'row', gap: 8 },
   sugRow: { paddingVertical: 10 },
   createText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
