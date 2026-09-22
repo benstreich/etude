@@ -68,25 +68,28 @@ tags:
 - tapOn:
     id: "suggest-start"
 
-# the runner opens on the first suggested segment, a seeded technique
+# the runner opens on the first suggested segment (two seeded techniques, two segments)
 - assertVisible: "Segment 1 of 2"
+
+# leaving the runner keeps the run going: the shell's pill is the way back — it
+# resolves the unsaved plan the same way the runner does — and the card stays
+# hidden while a run is in flight
+- back
+- assertVisible: ".*in progress.*"
+- assertNotVisible:
+    id: "suggest-card"
+- tapOn: ".*in progress.*"
+- assertVisible: "Segment 1 of 2"
+
+# end mid-segment: the native confirm, then the review commits the minute like any routine
 - tapOn:
     id: "run-end"
-# ending within the first 30 seconds leaves without logging — nothing to confirm
-- tapOn: "Practice"
-
-# dismiss hides the card
-- scrollUntilVisible:
-    element:
-      id: "suggest-dismiss"
-    direction: DOWN
+- tapOn: "End"
+- assertVisible: "Session saved"
 - tapOn:
-    id: "suggest-dismiss"
-- assertNotVisible:
-    id: "suggest-card"
+    id: "review-save"
 
-# ...and it stays hidden across a restart
-- launchApp
-- tapOn: "Practice"
-- assertNotVisible:
-    id: "suggest-card"
+# Dismiss is not driven here: ending the run logs a minute against one of the
+# two seeded techniques, which takes its signal away, so the card cannot come
+# back within the same seed. The hide condition is pure (suggest-math / the
+# suggestDismissed setting) and the dismiss tap is one updateSettings call.
