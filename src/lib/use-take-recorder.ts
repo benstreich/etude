@@ -15,6 +15,7 @@ import { Platform } from 'react-native';
 
 import { LEVEL_FLOOR } from '@/components/motifs';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
+import { detectSilence } from '@/lib/silence-math';
 import { toStoredUri, useStore } from '@/lib/store';
 import { downsample } from '@/lib/wave-math';
 
@@ -94,6 +95,9 @@ export function useTakeRecorder(pieceName: () => string | null) {
     applyAudioMode({ playsInSilentMode: true });
     const raw = waveRef.current;
     waveRef.current = [];
+    // totalMs banks only un-paused time, which is exactly the span `raw` covers, so
+    // one number both maps sample indices to seconds and lands as the take's length.
+    const sec = Math.round(totalMs / 1000);
     const piece = nameRef.current();
     // No focus at stop time — the piece was deleted, or the screen was left with a
     // take still running. Dropping it here lost the audio *and* leaked the file:
@@ -104,8 +108,12 @@ export function useTakeRecorder(pieceName: () => string | null) {
       store.addRecording(
         piece ?? store.t('recordings.unfiled'),
         toStoredUri(recorder.uri),
-        Math.round(totalMs / 1000),
-        downsample(raw)
+        sec,
+        downsample(raw),
+        undefined,
+        // the lead-in and tail nearly every take has: set as playback bounds, never
+        // written to the file, and re-draggable in the trim sheet like any other trim
+        detectSilence(raw, sec) ?? undefined
       );
   };
 

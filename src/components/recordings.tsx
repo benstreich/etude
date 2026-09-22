@@ -23,6 +23,7 @@ import { Text } from '@/components/text';
 import { ActionChip, ChipRow, Sheet } from '@/components/ui';
 import { applyAudioMode } from '@/lib/audio-mode';
 import { tap, thud } from '@/lib/haptics';
+import { detectSilence } from '@/lib/silence-math';
 import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 import {
@@ -34,6 +35,7 @@ import {
   nudgeTrim,
   outPoint,
   setFromPlayhead,
+  setHandle,
   timeAt,
   type Handle as TrimHandle,
 } from '@/lib/trim-math';
@@ -46,6 +48,14 @@ const fmtFine = (sec: number) => `${fmt(sec)}.${Math.floor((sec % 1) * 10)}`;
 // are never drawn as heights (see `hasWave`); the array only sets how finely the
 // track is divided, so the playhead and the trim shading have somewhere to land.
 const FLAT_WAVE: number[] = Array(60).fill(0);
+
+// Put both handles at once, each through setHandle so MIN_CLIP and the ordering
+// invariant hold. The out point moves first: the in point then clamps against the
+// new bound rather than the one the user is replacing.
+const snapTo = (c: Recording, t: { start: number; end: number }) => {
+  const out = setHandle(c, 'end', t.end);
+  return setHandle({ ...c, ...out }, 'start', t.start);
+};
 
 const RATES = [1, 0.75, 0.5];
 const nextRate = (rate: number) => RATES[(RATES.indexOf(rate) + 1) % RATES.length] ?? 0.75;
@@ -317,6 +327,7 @@ export function RecordingsList({
                     style={s.iconBtn}
                     hitSlop={8}
                     accessibilityLabel={store.t('recordings.trim')}
+                    testID="recording-trim"
                     onPress={() => {
                       if (trimming) closeTrim();
                       else {
@@ -400,6 +411,7 @@ export function RecordingsList({
         onHere={currentId === trimId && trimClip ? (handle) => setTrim(setFromPlayhead(trimClip, handle, status.currentTime)) : undefined}
         loop={!!trimRec?.loop}
         onToggleLoop={() => trimRec && store.updateRecording(trimRec.id, { loop: !trimRec.loop })}
+        onTrimSilence={(t) => trimClip && setTrim(snapTo(trimClip, t))}
         onClear={() => trimRec && setTrim({ start: 0, end: trimRec.sec })}
         onShare={() => trimRec && share(trimRec)}
         onCancel={closeTrim}
@@ -426,6 +438,7 @@ function TrimSheet({
   onHere,
   loop,
   onToggleLoop,
+  onTrimSilence,
   onClear,
   onShare,
   onCancel,
@@ -441,6 +454,7 @@ function TrimSheet({
   onHere?: (handle: TrimHandle) => void;
   loop: boolean;
   onToggleLoop: () => void;
+  onTrimSilence: (t: { start: number; end: number }) => void;
   onClear: () => void;
   onShare: () => void;
   onCancel: () => void;
@@ -461,6 +475,7 @@ function TrimSheet({
           onHere={onHere}
           loop={loop}
           onToggleLoop={onToggleLoop}
+          onTrimSilence={onTrimSilence}
           onClear={onClear}
           onShare={onShare}
           onCancel={onCancel}
@@ -482,6 +497,7 @@ function TrimEditor({
   onHere,
   loop,
   onToggleLoop,
+  onTrimSilence,
   onClear,
   onShare,
   onCancel,
@@ -497,6 +513,7 @@ function TrimEditor({
   onHere?: (handle: TrimHandle) => void;
   loop: boolean;
   onToggleLoop: () => void;
+  onTrimSilence: (t: { start: number; end: number }) => void;
   onClear: () => void;
   onShare: () => void;
   onCancel: () => void;
@@ -507,6 +524,13 @@ function TrimEditor({
   const store = useStore();
   const wave = recording.wave?.length ? recording.wave : FLAT_WAVE;
   const hasWave = !!recording.wave?.length;
+  // The sheet only has the 60-bar wave, not the raw level stream the recorder saw,
+  // so these bounds land within a bar of the ones auto-trim used — close enough for
+  // a snap the user can then drag, which is the whole point of offering it here.
+  const silence = useMemo(
+    () => (recording.wave?.length ? detectSilence(recording.wave, recording.sec) : null),
+    [recording.wave, recording.sec]
+  );
 
   return (
     <View style={{ gap: 18 }}>
@@ -554,6 +578,16 @@ function TrimEditor({
         <View style={{ flex: 1 }} />
         <ChipRow>
           <ActionChip icon={(color) => <LoopIcon color={color} />} label={store.t('recordings.loop')} active={loop} onPress={onToggleLoop} />
+          {hasWave && (
+            <ActionChip
+              icon={(color) => <ScissorsIcon color={color} size={18} />}
+              label={store.t('recordings.trimSilence')}
+              disabled={!silence}
+              accessibilityLabel={silence ? undefined : store.t('recordings.trimSilenceNone')}
+              testID="trim-silence"
+              onPress={() => silence && onTrimSilence(silence)}
+            />
+          )}
           <ActionChip icon={(color) => <UndoIcon color={color} />} label={store.t('recordings.clearTrim')} onPress={onClear} />
           <ActionChip icon={(color) => <ShareIcon color={color} size={18} />} label={store.t('recordings.share')} onPress={onShare} />
         </ChipRow>
@@ -563,10 +597,10 @@ function TrimEditor({
       <Text style={s.meta}>{store.t('recordings.shareWholeHint')}</Text>
 
       <View style={{ gap: 10 }}>
-        <Pressable style={s.trimSaveBtn} onPress={onSave}>
+        <Pressable style={s.trimSaveBtn} testID="trim-save" onPress={onSave}>
           <Text style={s.trimSaveBtnText}>{store.t('recordings.saveTrim')}</Text>
         </Pressable>
-        <Pressable style={s.trimCancelBtn} hitSlop={8} onPress={onCancel}>
+        <Pressable style={s.trimCancelBtn} hitSlop={8} testID="trim-cancel" onPress={onCancel}>
           <Text style={s.trimCancelText}>{store.t('recordings.cancelTrim')}</Text>
         </Pressable>
       </View>

@@ -292,7 +292,8 @@ type Store = State & {
   removeFolder: (name: string) => void;
   toggleFolderCollapsed: (name: string) => void;
   /** `name` is set for imported takes, which arrive with a filename worth keeping. */
-  addRecording: (piece: string, uri: string, sec: number, wave?: number[], name?: string) => void;
+  // trim: auto-detected silence bounds (#88), non-destructive like every other trim
+  addRecording: (piece: string, uri: string, sec: number, wave?: number[], name?: string, trim?: { start: number; end: number }) => void;
   toggleStar: (id: string) => void;
   deleteRecording: (id: string) => void;
   renameRecording: (id: string, name: string) => void;
@@ -736,10 +737,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const addRecording: Store['addRecording'] = (piece, uri, sec, wave, name) => {
+  const addRecording: Store['addRecording'] = (piece, uri, sec, wave, name, trim) => {
     setState((s) =>
       s
-        ? { ...s, recordings: [{ id: uid(), piece, uri, sec, wave, date: dateKey(), at: Date.now(), ...(name ? { name } : {}) }, ...s.recordings] }
+        ? { ...s, recordings: [{ id: uid(), piece, uri, sec, wave, date: dateKey(), at: Date.now(), ...(name ? { name } : {}), ...(trim ?? {}) }, ...s.recordings] }
         : s
     );
     showToast(t('toast.recordingSaved'));
