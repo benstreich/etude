@@ -55,39 +55,45 @@ current signature, which is also what protects the app from a pattern left by an
 
 ## How the beat is scheduled
 
-A plain `setTimeout` chain that re-aims at the wall clock every tick, so an interval that fires late
-doesn't accumulate. With subdivisions on it fires per *subdivision* (`60000 / bpm / subdiv`) and
-counts `{beats, sub}` rather than a tick index — `advanceTick` — so changing the subdivision mid-run
-lands on the next beat instead of re-slicing the bar. The ramp only ever sees whole beats. The tempo for the *next* interval is recomputed from elapsed counters rather than
-accumulated per beat — a dropped tick can't drift the ramp. If the process was suspended long enough
-that the next target is over 500ms in the past, the clock resyncs instead of firing a burst of
-catch-up clicks.
+**Android** (a dev build): the clicks are not scheduled at all — they are *mixed*. The native
+`Ticker` (`modules/metronome-controls`, Kotlin) feeds one `AudioTrack` a continuous mono stream in
+10 ms chunks and writes each click's PCM at the exact sample offset where the beat falls. A frame in a
+stream cannot be late or early, so the grid holds to the sample whatever the JS thread is doing, and
+every sound set behaves the same — the 22 ms rim sample no longer depends on a fresh SoundPool stream
+spinning up in time. This engine is the only click source whenever the metronome runs, in the app or
+with the screen off; there is no handover any more. It reports each tick to JS (`onTick`) for the beat
+dots and the ramp, delayed by what is queued ahead of the speaker so the dot moves when the click is heard.
 
-This is not sample-accurate; it is a JS timer. Good to a couple of milliseconds, which is under what
-anyone hears against their own playing. A sample-accurate scheduler means rendering bars of audio
-natively — worth it only if someone can actually hear the difference.
+The bar lives natively as `beatFrame` (the current downbeat's frame) plus `beat`/`sub`, the next tick.
+Subdivision ticks sit on the beat's own grid (`beatFrame + sub · beatLen / n`), so changing the
+subdivision mid-beat re-slices the current beat rather than limping, and a tempo edit moves the pending
+click at once. Tempo, accent pattern, subdivision, sound and volume are `@Volatile` fields read as each
+tick is placed; JS pushes edits down with `updateTicking`, and the ramp's tempo with `update`.
 
-Clicks come from two players per sound, used alternately, and a set's eight players are built on
-first use and kept — rebuilding one mid-run would drop a click. Each is rewound 150ms after it fires, so the
-beat itself is a bare `play()` with no `await seekTo()` in the way. Two deep is enough: the same
-player only comes round again after two beats, 400ms even at the top of the dial.
+**Elsewhere** (iOS, Expo Go, web): a `setTimeout` chain that re-aims at the wall clock every tick.
+With subdivisions on it fires per *subdivision* (`60000 / bpm / subdiv`) and counts `{beats, sub}`
+rather than a tick index — `advanceTick` — so changing the subdivision mid-run lands on the next beat
+instead of re-slicing the bar. The ramp only ever sees whole beats, and the tempo for the *next*
+interval is recomputed from elapsed counters rather than accumulated per beat, so a dropped tick can't
+drift it. `nextTick` decides where the successor of a tick goes: a tick the JS thread let fire late
+used to get its successor scheduled `interval` after the *planned* time, which at 120 BPM and 300 ms
+late is two clicks 200 ms apart — the double click. Now a successor whose slot is more than a quarter
+gone is dropped and counted (the bar keeps its phase), and a gap over 500 ms means the process was
+suspended, so the grid restarts from now instead of firing a burst of catch-up clicks.
+
+The JS clock is only as punctual as the JS thread, a few ms when idle. Clicks there come from two
+expo-audio players per sound, used alternately; each is rewound 150 ms after it fires, so the beat
+itself is a bare `play()`.
 
 ## The lock-screen module
 
 `modules/metronome-controls` is a local Expo module (autolinked from `modules/`, no `package.json`
 entry needed). It exposes `show` / `update` / `hide` and emits `onCommand` with `inc` | `dec` |
-`toggle`; JS decides that those mean ±5 BPM. `startTicking` / `updateTicking` / `stopTicking` carry
-the background click loop: tempo, accent pattern, subdivision, sound set and volume, so a run that
-continues on the lock screen sounds like the one in the app. Edits made in the sheet are pushed at a
-live loop with `updateTicking`.
-
-The handover carries the *position* as well as the sound. `startTicking` is told which beat the next
-tick belongs to, how far into it, and how many milliseconds that tick still has to wait;
-`stopTicking` hands the same three back. So backgrounding the app mid-bar neither restarts the bar
-nor fires a click on top of the one JS has just played — which is what the double click on locking
-the screen was. A fresh start from the lock screen passes zeros and clicks straight away, as it
-should. Because the service counts beats, a bars-based ramp now keeps climbing while the screen is
-off; the tempo it reached is applied at the first tick back in JS.
+`toggle`; JS decides that those mean ±5 BPM. `startTicking` / `updateTicking` / `stopTicking` drive
+the beat engine described above: tempo, accent pattern, subdivision, sound set and volume. The engine
+does not depend on the service — it starts on the JS call, while `startForegroundService()` is still
+creating the service — so a start from the lock screen clicks at once too. The service's job is the
+notification and keeping the process alive with the screen off.
 
 - **iOS** — `MPRemoteCommandCenter` (⏭ → faster, ⏮ → slower, play/pause → toggle) plus
   `MPNowPlayingInfoCenter` showing "96 BPM". It deliberately replaces expo-audio's

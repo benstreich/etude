@@ -1,9 +1,11 @@
-// ponytail: the beat is scheduled by a JS timer that re-aims at the wall clock every
-// tick, not by a sample-accurate audio thread. Good to a couple of ms, which is well
-// under what anyone can hear against their own playing. Revisit only if someone can.
+// Two clocks. On Android the clicks are mixed into one continuous audio stream by
+// the native engine (modules/metronome-controls, Ticker): sample-accurate, and
+// unmoved by anything the JS thread is doing. Everywhere else the beat is a JS
+// timer chain that re-aims at the wall clock every tick — good to a few ms when
+// the JS thread is idle, and `nextTick` keeps a late tick from doubling.
 import { createAudioPlayer, requestNotificationPermissionsAsync, type AudioPlayer } from 'expo-audio';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import Controls from '../../modules/metronome-controls';
 import { applyAudioMode } from './audio-mode';
@@ -17,9 +19,8 @@ import {
   clampVolume,
   cycleLevel,
   fitAccents,
-  handoffTick,
+  nextTick,
   parseSig,
-  resumeTick,
   SOUND_SETS,
   tickInterval,
   volumeGain,
@@ -74,28 +75,29 @@ const bankFor = (level: Level) => level - 1; // 1 plain → 0, 2 mid → 1, 3 ac
 export const LOCK_SCREEN_STEP = 5;
 
 // --- click playback -------------------------------------------------------
-// Android (dev build): the native SoundPool, the same engine the background loop
-// uses, so in-app and lock-screen clicks are the same click (#78). expo-audio's
-// ExoPlayer smeared the onset of these 30 ms samples — quiet and thin in the
-// app, and its rewind replayed them as a fast double.
+// Android (dev build): the native engine streams the beat itself; the only click
+// JS asks for directly is the sound picker's preview, through the same decoded
+// samples (#78). expo-audio's ExoPlayer smeared the onset of these 30 ms samples
+// — quiet and thin in the app, and its rewind replayed them as a fast double.
 // Elsewhere: two expo-audio players per sound, used alternately; a player is
 // rewound right after it fires, so the beat itself is a bare play().
 // ponytail: pools are built per sound set on first use and kept — five sets of
 // eight players is cheap, and rebuilding one mid-run would drop a click.
 
-const nativeClicks = typeof Controls?.click === 'function';
+/** True where the native engine exists (an Android dev build) — then it owns every click of a run. */
+const nativeEngine = typeof Controls?.click === 'function';
 const pools: Partial<Record<SoundSet, AudioPlayer[][]>> = {};
 const cursor = [0, 0, 0, 0];
 
 function ensurePool(set: SoundSet) {
-  if (nativeClicks) return Controls!.preloadClicks!();
+  if (nativeEngine) return Controls!.preloadClicks!();
   if (pools[set]) return;
   const pair = (source: number) => [createAudioPlayer(source), createAudioPlayer(source)];
   pools[set] = SAMPLES[set].map(pair);
 }
 
 function playClick(set: SoundSet, bank: number, volume: number) {
-  if (nativeClicks) return Controls!.click!({ sound: set, bank, volume });
+  if (nativeEngine) return Controls!.click!({ sound: set, bank, volume });
   const gain = volumeGain(volume);
   const pool = pools[set];
   if (!pool || gain <= 0) return;
@@ -225,48 +227,58 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     latest.current = { bpm, sig, ramp, subdiv, accents, sound, volume, startBpm: store.metroBpm };
   });
 
-  // Everything the native background loop needs to sound like the in-app one.
-  // Pass the live run to hand the loop over mid-bar: the service then picks the
-  // next tick up where the JS timer would have fired it, instead of restarting
-  // the bar with a click on top of the one JS had just played (#83).
-  const tickConfig = useCallback((from?: Run) => {
+  // Everything the native engine needs to sound like the sheet says it should.
+  const tickConfig = useCallback(() => {
     const l = latest.current;
-    const config = { bpm: l.bpm, pattern: l.accents, subdiv: l.subdiv, sound: l.sound, volume: l.volume };
-    return from ? { ...config, ...handoffTick(from, Date.now()) } : config;
+    return { bpm: l.bpm, pattern: l.accents, subdiv: l.subdiv, sound: l.sound, volume: l.volume };
   }, []);
 
-  // Fires once per subdivision tick. The beat counter only moves on `sub === 0`,
-  // so the ramp below still measures whole beats however finely we are clicking.
-  const tick = useCallback(function tickFn() {
-    const r = run.current;
-    if (!r) return;
-    const { sig: liveSig, ramp: liveRamp, subdiv: n, accents: bar, sound: set, volume: vol } = latest.current;
-
-    if (r.sub === 0) {
-      const level = accentLevel(r.beats, liveSig, bar);
-      if (level > 0) playClick(set, bankFor(level), vol); // 0 = the user muted this beat
-      emitBeat(r.beats % liveSig.beats);
-    } else {
-      playClick(set, SUB_BANK, vol);
-    }
-
-    const pos = advanceTick(r, n);
-    r.beats = pos.beats;
-    r.sub = pos.sub;
-
+  // The ramp, measured from the run's baseline: whole beats completed since the
+  // baseline for a bars ramp, wall-clock seconds for a seconds ramp. Both clocks
+  // call this after every tick; only a change reaches React state.
+  const applyRamp = useCallback((r: Run) => {
+    const { sig: liveSig, ramp: liveRamp } = latest.current;
     const since = r.beats - r.baseBeats;
     const next = bpmAfter(r.baseBpm, liveRamp, {
       bars: Math.floor(since / liveSig.beats),
       seconds: (Date.now() - r.startedAt) / 1000,
     });
     setLiveBpm((current) => (current === next ? current : next));
-
-    const interval = tickInterval(next, n);
-    r.nextAt += interval;
-    // after a long suspend, resync instead of firing a burst of catch-up clicks
-    if (r.nextAt < Date.now() - 500) r.nextAt = Date.now() + interval;
-    r.timer = setTimeout(tickFn, Math.max(0, r.nextAt - Date.now()));
+    return next;
   }, []);
+
+  // The JS clock (iOS, Expo Go, web). Fires once per subdivision tick; the beat
+  // counter only moves on `sub === 0`, so the ramp still measures whole beats
+  // however finely we are clicking.
+  const tick = useCallback(
+    function tickFn() {
+      const r = run.current;
+      if (!r) return;
+      const { sig: liveSig, subdiv: n, accents: bar, sound: set, volume: vol } = latest.current;
+
+      if (r.sub === 0) {
+        const level = accentLevel(r.beats, liveSig, bar);
+        if (level > 0) playClick(set, bankFor(level), vol); // 0 = the user muted this beat
+        emitBeat(r.beats % liveSig.beats);
+      } else {
+        playClick(set, SUB_BANK, vol);
+      }
+
+      const pos = advanceTick(r, n);
+      r.beats = pos.beats;
+      r.sub = pos.sub;
+      const next = applyRamp(r);
+
+      // a tick that fired late must not have its successor land on top of it —
+      // ticks already gone are dropped, and the bar keeps its phase (see nextTick)
+      const step = nextTick(r, r.nextAt, Date.now(), tickInterval(next, n), n);
+      r.beats = step.beats;
+      r.sub = step.sub;
+      r.nextAt = step.nextAt;
+      r.timer = setTimeout(tickFn, Math.max(0, r.nextAt - Date.now()));
+    },
+    [applyRamp]
+  );
 
   const start = useCallback(() => {
     if (run.current) return;
@@ -277,12 +289,11 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     metroRunning = true;
     setRunning(true);
     Controls?.show({ bpm: startBpm, running: true });
-    if (Platform.OS === 'android' && AppState.currentState !== 'active') {
-      // started from the lock screen — JS timers are frozen, the service clicks
-      Controls?.startTicking(tickConfig());
-    } else {
-      tick();
-    }
+    // Android: the native engine clicks from the first beat, in the app and with
+    // the screen off alike; it reports each tick through onTick (below). It does
+    // not wait for the foreground service, so this holds from the lock screen too.
+    if (nativeEngine) Controls!.startTicking(tickConfig());
+    else tick();
     applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' });
     if (Platform.OS === 'android')
       requestNotificationPermissionsAsync()
@@ -347,15 +358,10 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     [store]
   );
 
-  const setSubdiv = useCallback(
-    (n: number) => {
-      const value = clampSubdiv(n);
-      // land on the next beat rather than mid-figure, so the pulse never limps
-      if (run.current) run.current.sub = 0;
-      store.updateSettings({ metroSubdiv: value });
-    },
-    [store]
-  );
+  // Mid-run the count simply rolls into the next beat at the first tick past the
+  // new slicing (advanceTick; the native engine re-slices the beat itself).
+  // Zeroing `sub` here used to replay the beat that had just sounded — a double.
+  const setSubdiv = useCallback((n: number) => store.updateSettings({ metroSubdiv: clampSubdiv(n) }), [store]);
 
   const cycleAccent = useCallback(
     (beat: number) => {
@@ -410,44 +416,35 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     return () => sub?.remove();
   }, [nudge, pause, start]);
 
-  // Android freezes JS timers whenever the activity pauses (screen off, home
-  // button) — hand the click loop to the foreground service and take it back on
-  // resume. The position travels both ways, so a run backgrounded on beat 3 of
-  // a bar is still on beat 3 when it comes back, and neither handover doubles a
-  // click. ponytail: the service counts beats for us, so a bars-based ramp keeps
-  // climbing in the background too — it is applied at the next JS tick.
+  // The native engine's beat, mirrored for the dots and the ramp. `beat`/`sub`
+  // is the tick it has just placed, `nextBeat`/`nextSub` the one after — the
+  // run's counters always hold the *next* tick, as the JS clock keeps them, so
+  // setBpm and setRamp can rebase against them without caring which clock runs.
+  // Android suspends JS timers with the activity, never native audio, so the
+  // stream carries the bar through a locked screen; these events queue and the
+  // mirror catches up when the app is back.
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = AppState.addEventListener('change', (state) => {
+    if (!nativeEngine) return;
+    const sub = Controls!.addListener('onTick', ({ beat, sub: pos, nextBeat, nextSub }) => {
       const r = run.current;
-      if (state === 'active') {
-        // where the service got to, so the bar carries on rather than restarting
-        const report = Controls?.stopTicking();
-        if (r && r.timer === null) {
-          const back = resumeTick(r, report, tickInterval(latest.current.bpm, latest.current.subdiv));
-          r.beats = back.beats;
-          r.sub = back.sub;
-          r.nextAt = Date.now() + back.wait;
-          r.timer = setTimeout(tick, back.wait);
-        }
-      } else if (r) {
-        if (r.timer) clearTimeout(r.timer);
-        r.timer = null;
-        Controls?.startTicking(tickConfig(r));
-      }
+      if (!r) return; // a tick placed just before stop() landed
+      if (pos === 0) emitBeat(beat % latest.current.sig.beats);
+      r.beats = nextBeat;
+      r.sub = nextSub;
+      applyRamp(r);
     });
     return () => sub.remove();
-  }, [tick, tickConfig]);
+  }, [applyRamp]);
 
+  // the notification and the engine both follow the live tempo, the ramp's included
   useEffect(() => {
     if (running) Controls?.update({ bpm, running: true });
   }, [bpm, running]);
 
-  // the native loop keeps ticking while backgrounded — push edits made from the
-  // sheet (or a widget) straight at it, or the lock screen drifts out of step
+  // edits made in the sheet (or from a widget) reach the running engine at once
   useEffect(() => {
     if (running) Controls?.updateTicking(tickConfig());
-  }, [running, subdiv, accents, sound, volume, tickConfig]);
+  }, [running, bpm, subdiv, accents, sound, volume, tickConfig]);
 
   // a stopped metronome follows the saved start tempo, including edits made elsewhere
   useEffect(() => {

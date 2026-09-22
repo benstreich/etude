@@ -8,13 +8,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.media.SoundPool
 import android.os.Build
 import android.os.Handler
-import android.os.HandlerThread
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
-import android.os.SystemClock
+import android.os.Process
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -22,7 +24,11 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.max
 
 private const val CHANNEL_ID = "metronome-controls"
 private const val NOTIFICATION_ID = 7317
@@ -52,10 +58,8 @@ class TickState(
   @Field val subdiv: Int = 1,
   @Field val sound: String = "wood",
   @Field val volume: Int = 100,
-  // Where the JS loop had got to when it handed over: the beat the next tick
-  // belongs to, how far into it, and how long that tick is still due to wait.
-  // Without these the service restarted the bar on its own downbeat, on top of
-  // the click JS had just played.
+  // Where to pick the bar up: the beat the first tick belongs to, how far into
+  // it, and how long that tick still has to wait. A fresh start passes zeros.
   @Field val beat: Int = 0,
   @Field val sub: Int = 0,
   @Field val startIn: Double = 0.0
@@ -73,24 +77,71 @@ private val SOUND_SETS: Map<String, IntArray> = mapOf(
   "rim" to intArrayOf(R.raw.rim_beat, R.raw.rim_mid, R.raw.rim_accent, R.raw.rim_sub)
 )
 
+/** The rate scripts/make-click.py writes every sample at; the engine streams at the same one. */
+private const val RATE = 44100
+
 /**
- * The one click engine, shared by the in-app beat and the background loop (#78).
- * Two engines at the same nominal gain sounded nothing alike: ExoPlayer streams,
- * and spinning a pipeline up per play smears the first milliseconds of a 30 ms
- * sample — where all of a click's loudness lives. SoundPool holds decoded PCM and
- * fires it whole. ponytail: lives for the process; twenty 4 KB samples.
+ * The click samples as raw PCM, decoded once per process. The beat engine mixes
+ * them into its own stream, so a click is never a separate playback that has to
+ * spin up — which is where SoundPool lost the first milliseconds of the 22 ms
+ * rim sample, and with them the click.
+ */
+object Samples {
+  const val SUB_BANK = 3 // the subdivision sample sits after the three beat levels
+  private val cache = ConcurrentHashMap<String, Array<ShortArray>>()
+
+  /** Unknown set ids fall back to wood. */
+  fun get(context: Context, sound: String): Array<ShortArray> {
+    val id = if (SOUND_SETS.containsKey(sound)) sound else "wood"
+    return cache.getOrPut(id) {
+      val res = context.applicationContext.resources
+      Array(SOUND_SETS[id]!!.size) { i -> res.openRawResource(SOUND_SETS[id]!![i]).use(::decodeWav) }
+    }
+  }
+
+  fun preload(context: Context) {
+    for (id in SOUND_SETS.keys) get(context, id)
+  }
+
+  /** 16-bit PCM WAV to mono samples. Multichannel files keep their first channel. */
+  private fun decodeWav(input: InputStream): ShortArray {
+    val bytes = input.readBytes()
+    val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+    var channels = 1
+    var bits = 16
+    var pos = 12 // past "RIFF" size "WAVE"
+    while (pos + 8 <= bytes.size) {
+      val id = String(bytes, pos, 4, Charsets.US_ASCII)
+      val size = buf.getInt(pos + 4)
+      val body = pos + 8
+      if (id == "fmt ") {
+        channels = buf.getShort(body + 2).toInt()
+        bits = buf.getShort(body + 14).toInt()
+      } else if (id == "data") {
+        if (bits != 16) return ShortArray(0)
+        val frames = size / 2 / max(1, channels)
+        val out = ShortArray(frames)
+        for (f in 0 until frames) out[f] = buf.getShort(body + f * channels * 2)
+        return out
+      }
+      pos = body + size + (size and 1)
+    }
+    return ShortArray(0)
+  }
+}
+
+/**
+ * One-shot clicks for the sound picker's preview (#78). Timing does not matter
+ * for a preview, so SoundPool is fine here; the beat itself goes through Ticker.
  */
 object Clicks {
-  const val SUB_BANK = 3 // the subdivision sample sits after the three beat levels
   @Volatile private var pool: SoundPool? = null
-  // written once by preload, read from the JS thread and the tick thread — both
-  // can ask for the first click of a run at the same moment
   private val loaded = ConcurrentHashMap<String, IntArray>() // set id -> SoundPool ids, by bank
 
   @Synchronized fun preload(context: Context): SoundPool {
     pool?.let { return it }
     val p = SoundPool.Builder()
-      .setMaxStreams(4) // four, so a subdivision click can overlap the beat's tail
+      .setMaxStreams(4)
       .setAudioAttributes(
         AudioAttributes.Builder()
           .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -104,20 +155,191 @@ object Clicks {
     return p
   }
 
-  /** Unknown set ids fall back to wood; a gain of 0 is a muted beat, not a play. */
   fun play(context: Context, sound: String, bank: Int, gain: Float) {
     if (gain <= 0f) return
     val p = pool ?: preload(context)
     val ids = loaded[sound] ?: loaded["wood"] ?: return
-    p.play(ids[bank.coerceIn(0, SUB_BANK)], gain, gain, 1, 0, 1f)
+    p.play(ids[bank.coerceIn(0, Samples.SUB_BANK)], gain, gain, 1, 0, 1f)
+  }
+}
+
+/**
+ * The beat engine: one AudioTrack fed a continuous mono stream in which every
+ * click is mixed at an exact sample offset. Whenever the metronome runs, in the
+ * app or with the screen off, this is what clicks — JS only mirrors the beat for
+ * the dots and pushes tempo edits down.
+ *
+ * Why not a timer firing SoundPool: a timer is only as punctual as the thread it
+ * runs on, and each play() is a fresh stream that takes a variable few ms to
+ * start. Frames in a stream cannot be late or early — the position of a click
+ * is arithmetic on the sample count — so the grid holds to the sample whatever
+ * the CPU is doing, and a tempo change just moves where the next click lands.
+ *
+ * The bar is kept as `beatFrame`, the frame of the current beat's downbeat, and
+ * `beat`/`sub`, the next tick to play. Subdivision ticks are placed on the beat's
+ * own grid (`beatFrame + sub * beatLen / n`), so changing the subdivision mid-beat
+ * re-slices the current beat instead of limping, and a tempo change moves the
+ * pending tick at once rather than after it.
+ */
+object Ticker {
+  @Volatile var bpm = 120
+    set(value) { field = value.coerceIn(20, 300) }
+  @Volatile var pattern = intArrayOf(3, 1, 1, 1)
+  @Volatile var subdiv = 1
+    set(value) { field = value.coerceIn(1, 4) }
+  @Volatile var sound = "wood"
+  @Volatile var gain = 1f
+  /** Called (on the main thread, about when the click is heard) with the tick just played and the one after it. */
+  var onTick: ((beat: Int, sub: Int, nextBeat: Int, nextSub: Int) -> Unit)? = null
+
+  @Volatile private var running = false
+  private var thread: Thread? = null
+  private var wakeLock: PowerManager.WakeLock? = null
+  private var beat = 0
+  private var sub = 0
+
+  val isRunning: Boolean get() = running
+
+  fun tune(bpm: Int, pattern: IntArray, subdiv: Int, sound: String, volume: Int) {
+    this.bpm = bpm
+    if (pattern.isNotEmpty()) this.pattern = pattern
+    this.subdiv = subdiv
+    this.gain = volume.coerceIn(0, 100) / 100f
+    if (SOUND_SETS.containsKey(sound)) this.sound = sound
+  }
+
+  @Synchronized fun start(context: Context, beat: Int, sub: Int, startInMs: Double) {
+    if (running) return
+    val app = context.applicationContext
+    this.beat = max(0, beat)
+    this.sub = sub.coerceIn(0, 3)
+    // the audio HAL keeps the CPU up while the stream plays, but a partial wake
+    // lock is what guarantees it between chunks with the screen off
+    wakeLock = (app.getSystemService(Context.POWER_SERVICE) as PowerManager)
+      .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "etude:metronome")
+      .also { it.acquire(4 * 60 * 60 * 1000L) } // 4h safety cap
+    running = true
+    thread = Thread({ loop(app, startInMs.coerceAtLeast(0.0)) }, "metronome-audio").also { it.start() }
+  }
+
+  @Synchronized fun stop() {
+    if (!running) return
+    running = false
+    thread?.join(500) // the loop is never blocked longer than one 10 ms chunk write
+    thread = null
+    wakeLock?.takeIf { it.isHeld }?.release()
+    wakeLock = null
+  }
+
+  private class Voice(val sample: ShortArray, var pos: Int, val gain: Float)
+
+  private fun loop(app: Context, startInMs: Double) {
+    Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+    val chunk = RATE / 100 // 10 ms of frames per write: how quickly an edit reaches the stream
+    val minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+    val bufBytes = max(minBuf, chunk * 2 * 4)
+    val track = AudioTrack.Builder()
+      .setAudioAttributes(
+        AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .build()
+      )
+      .setAudioFormat(
+        AudioFormat.Builder()
+          .setSampleRate(RATE)
+          .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+          .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+          .build()
+      )
+      .setBufferSizeInBytes(bufBytes)
+      .setTransferMode(AudioTrack.MODE_STREAM)
+      .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
+      .build()
+    // what sits queued between a write and the speaker — the dots are told to wait this long
+    val queuedMs = (bufBytes / 2) * 1000L / RATE
+    val main = Handler(Looper.getMainLooper())
+    val mix = FloatArray(chunk)
+    val out = ShortArray(chunk)
+    val voices = ArrayList<Voice>()
+    var written = 0L // frames handed to the track so far
+    var beatLen = RATE * 60.0 / bpm
+    // the first tick lands `startIn` from now; a mid-beat pickup puts its downbeat before that
+    var beatFrame = startInMs * RATE / 1000.0 - sub * beatLen / subdiv
+
+    track.play()
+    try {
+      while (running) {
+        java.util.Arrays.fill(mix, 0f)
+        val end = written + chunk
+
+        // place every tick that falls inside this chunk
+        while (true) {
+          val n = subdiv
+          beatLen = RATE * 60.0 / bpm
+          if (sub >= n) { // the subdivision shrank under a running beat: on to the next downbeat
+            sub = 0
+            beat++
+            beatFrame += beatLen
+          }
+          var tickFrame = beatFrame + sub * beatLen / n
+          if (tickFrame < written) {
+            // its moment passed while the tempo or slicing changed — play it now, and
+            // re-anchor the bar on a downbeat so the grid runs on from here
+            tickFrame = written.toDouble()
+            if (sub == 0) beatFrame = tickFrame
+          }
+          if (tickFrame >= end) break
+          val offset = (tickFrame - written).toInt()
+          val set = Samples.get(app, sound)
+          val g = gain
+          val sample = if (sub == 0) {
+            val pat = pattern
+            val level = pat[beat % pat.size].coerceIn(0, 3)
+            if (level > 0) set[level - 1] else null // 0 = the user muted this beat: count it, don't play it
+          } else set[Samples.SUB_BANK]
+          if (sample != null && sample.isNotEmpty() && g > 0f) voices.add(Voice(sample, -offset, g))
+
+          val playedBeat = beat
+          val playedSub = sub
+          val nextSub = if (sub + 1 >= n) 0 else sub + 1
+          val nextBeat = if (sub + 1 >= n) beat + 1 else beat
+          onTick?.let { cb -> main.postDelayed({ cb(playedBeat, playedSub, nextBeat, nextSub) }, queuedMs + offset * 1000L / RATE) }
+          sub++ // the roll into the next beat happens at the top of the loop, against the subdivision then in force
+        }
+
+        // mix the voices in flight; `pos` is the sample index at the chunk's first frame
+        val it = voices.iterator()
+        while (it.hasNext()) {
+          val v = it.next()
+          var i = max(0, -v.pos)
+          while (i < chunk) {
+            val si = v.pos + i
+            if (si >= v.sample.size) break
+            mix[i] += v.sample[si] * v.gain
+            i++
+          }
+          v.pos += chunk
+          if (v.pos >= v.sample.size) it.remove()
+        }
+        for (i in 0 until chunk) out[i] = mix[i].coerceIn(-32768f, 32767f).toInt().toShort()
+        if (track.write(out, 0, chunk, AudioTrack.WRITE_BLOCKING) < 0) break
+        written += chunk
+      }
+    } finally {
+      try {
+        track.pause()
+        track.flush()
+      } catch (_: Exception) {}
+      track.release()
+    }
   }
 }
 
 /**
  * Foreground service whose job is the ongoing notification carrying the
- * − / play-pause / + buttons, plus the click loop while JS timers are frozen.
- * It keeps the process alive while the screen is off and puts the controls on
- * the lock screen.
+ * − / play-pause / + buttons. It also keeps the process alive while the screen
+ * is off, so the Ticker above keeps streaming.
  */
 class MetronomeControlsService : Service() {
   private var bpm = 120
@@ -129,11 +351,10 @@ class MetronomeControlsService : Service() {
   override fun onCreate() {
     super.onCreate()
     instance = this
-    Clicks.preload(this) // so the first background beat isn't silent while samples load
+    Samples.preload(this) // decoded before the first beat asks for them
   }
 
   override fun onDestroy() {
-    stopTicking()
     instance = null
     super.onDestroy()
   }
@@ -158,104 +379,7 @@ class MetronomeControlsService : Service() {
     this.bpm = bpm
     this.running = running
     this.subtitle = subtitle
-    tickBpm = bpm.coerceIn(20, 300) // lock-screen nudges reach a live background loop too
     goForeground()
-  }
-
-  // --- background click loop -----------------------------------------------
-  // Android freezes JS timers while the activity is paused, so JS hands the
-  // click loop over on backgrounding and takes it back on resume.
-
-  private var tickThread: HandlerThread? = null
-  private var tickHandler: Handler? = null
-  @Volatile private var tickBpm = 120
-  @Volatile private var tickPattern = intArrayOf(3, 1, 1, 1)
-  @Volatile private var tickSubdiv = 1
-  @Volatile private var tickSound = "wood"
-  @Volatile private var tickGain = 1f
-  private var tickBeat = 0
-  private var tickSub = 0 // position inside the beat; 0 is the beat itself
-  private var tickNextAt = 0.0 // fractional ms so odd tempos don't drift
-
-  private val tickRunnable = object : Runnable {
-    override fun run() {
-      val pattern = tickPattern
-      val subdiv = tickSubdiv.coerceIn(1, 4)
-      if (tickSub == 0) {
-        // level 0 means the user muted this beat — count it, don't play it
-        val level = pattern[tickBeat % pattern.size].coerceIn(0, 3)
-        if (level > 0) Clicks.play(this@MetronomeControlsService, tickSound, level - 1, tickGain)
-      } else {
-        Clicks.play(this@MetronomeControlsService, tickSound, Clicks.SUB_BANK, tickGain)
-      }
-      tickSub++
-      if (tickSub >= subdiv) {
-        tickSub = 0
-        tickBeat++
-      }
-      val interval = 60000.0 / tickBpm / subdiv
-      tickNextAt += interval
-      val now = SystemClock.uptimeMillis()
-      if (tickNextAt < now) tickNextAt = now + interval
-      tickHandler?.postAtTime(this, tickNextAt.toLong())
-    }
-  }
-
-  private var wakeLock: PowerManager.WakeLock? = null
-
-  /** Tempo, bar, subdivision, sound and volume — applied from the next tick. */
-  fun tune(bpm: Int, pattern: IntArray, subdiv: Int, sound: String, volume: Int) {
-    tickBpm = bpm.coerceIn(20, 300)
-    if (pattern.isNotEmpty()) tickPattern = pattern
-    tickSubdiv = subdiv.coerceIn(1, 4)
-    tickGain = volume.coerceIn(0, 100) / 100f
-    if (SOUND_SETS.containsKey(sound)) tickSound = sound
-  }
-
-  /**
-   * Take the loop over from `beat`/`sub`, first tick in `startIn` ms — the rest
-   * of the beat the JS timer had already started. A fresh start (from the lock
-   * screen, with nothing to continue) passes 0, 0, 0 and clicks at once.
-   */
-  fun startTicking(
-    bpm: Int,
-    pattern: IntArray,
-    subdiv: Int,
-    sound: String,
-    volume: Int,
-    beat: Int,
-    sub: Int,
-    startIn: Double
-  ) {
-    tune(bpm, pattern, subdiv, sound, volume)
-    if (tickThread != null) return // already ticking; the new config applies from the next tick
-    // without a wakelock the CPU naps between beats once the screen is off
-    wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
-      .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "etude:metronome")
-      .also { it.acquire(4 * 60 * 60 * 1000L) } // 4h safety cap
-    tickBeat = if (beat >= 0) beat else 0
-    tickSub = sub.coerceIn(0, 3)
-    tickThread = HandlerThread("metronome-tick").also { it.start() }
-    tickHandler = Handler(tickThread!!.looper)
-    tickNextAt = SystemClock.uptimeMillis() + startIn.coerceAtLeast(0.0)
-    tickHandler?.postAtTime(tickRunnable, tickNextAt.toLong())
-  }
-
-  /**
-   * Hand the loop back, reporting where it got to so JS can carry the bar on
-   * in phase: the next tick's beat and position, and the wait still left on it.
-   * Null when nothing was ticking — there is no position to hand back.
-   */
-  fun stopTicking(): Map<String, Double>? {
-    if (tickThread == null) return null
-    val nextIn = (tickNextAt - SystemClock.uptimeMillis()).coerceAtLeast(0.0)
-    tickHandler?.removeCallbacksAndMessages(null)
-    tickThread?.quitSafely()
-    tickThread = null
-    tickHandler = null
-    wakeLock?.takeIf { it.isHeld }?.release()
-    wakeLock = null
-    return mapOf("beat" to tickBeat.toDouble(), "sub" to tickSub.toDouble(), "nextIn" to nextIn)
   }
 
   private fun goForeground() {
@@ -325,14 +449,19 @@ class MetronomeControlsModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("MetronomeControls")
-    Events("onCommand")
+    Events("onCommand", "onTick")
 
     OnCreate {
       MetronomeControlsService.onCommand = { command -> sendEvent("onCommand", mapOf("command" to command)) }
+      Ticker.onTick = { beat, sub, nextBeat, nextSub ->
+        sendEvent("onTick", mapOf("beat" to beat, "sub" to sub, "nextBeat" to nextBeat, "nextSub" to nextSub))
+      }
     }
 
     OnDestroy {
       MetronomeControlsService.onCommand = null
+      Ticker.onTick = null
+      Ticker.stop()
       hide()
     }
 
@@ -349,32 +478,34 @@ class MetronomeControlsModule : Module() {
             .putExtra(MetronomeControlsService.EXTRA_SUBTITLE, state.subtitle)
         )
       }
+      // the notification's tempo and the stream's are one number
+      Ticker.bpm = state.bpm
     }
 
     Function("update") { state: ControlsState ->
       MetronomeControlsService.instance?.update(state.bpm, state.running, state.subtitle)
+      Ticker.bpm = state.bpm
     }
 
     Function("hide") { hide() }
 
+    // The engine does not depend on the service: it starts at once, on the JS
+    // thread's call, while startForegroundService() is still creating the service.
     Function("startTicking") { state: TickState ->
-      MetronomeControlsService.instance?.startTicking(
-        state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume,
-        state.beat, state.sub, state.startIn
-      )
+      Ticker.tune(state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume)
+      Ticker.start(context, state.beat, state.sub, state.startIn)
     }
 
     Function("updateTicking") { state: TickState ->
-      MetronomeControlsService.instance?.tune(
-        state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume
-      )
+      Ticker.tune(state.bpm, state.pattern.toIntArray(), state.subdiv, state.sound, state.volume)
     }
 
-    Function("stopTicking") {
-      MetronomeControlsService.instance?.stopTicking()
-    }
+    Function("stopTicking") { Ticker.stop() }
 
-    Function("preloadClicks") { Clicks.preload(context) }
+    Function("preloadClicks") {
+      Samples.preload(context)
+      Clicks.preload(context)
+    }
 
     Function("click") { c: Click ->
       Clicks.play(context, c.sound, c.bank, c.volume.coerceIn(0, 100) / 100f)

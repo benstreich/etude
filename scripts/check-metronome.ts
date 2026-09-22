@@ -19,8 +19,9 @@ import {
   parseSig,
   tapTempo,
   advanceTick,
-  handoffTick,
-  resumeTick,
+  MIN_LEAD,
+  nextTick,
+  RESYNC_AFTER_MS,
   tickInterval,
   volumeGain,
   type Ramp,
@@ -157,50 +158,46 @@ for (const sig of [
 assert.deepEqual(defaultAccents({ beats: 6, denom: 8 }), [ACCENT, PLAIN, PLAIN, MID, PLAIN, PLAIN]);
 assert.deepEqual(defaultAccents({ beats: 3, denom: 8 }), [ACCENT, PLAIN, PLAIN], 'simple meter gets no group click');
 
-// --- handing the loop over, and taking it back ------------------------
-// Backgrounding moves the click loop to the foreground service and coming
-// back takes it again. Restarting instead of continuing is what doubled the
-// click and reset the bar, so the phase is the thing to pin down.
+// --- the JS clock: a late tick never doubles ---------------------------
+// `pos` is already the position after the tick that just fired; `dueAt` is
+// when that tick was meant to go. On time, the next one is simply a beat later.
+assert.deepEqual(nextTick({ beats: 1, sub: 0 }, 10_000, 10_003, 500, 1), { beats: 1, sub: 0, nextAt: 10_500, dropped: 0 });
 
-// the service is told which tick is next and what is left of its wait
-assert.deepEqual(handoffTick({ beats: 7, sub: 1, nextAt: 10_250 }, 10_000), { beat: 7, sub: 1, startIn: 250 });
-// a tick already due fires at once instead of being scheduled in the past
-assert.deepEqual(handoffTick({ beats: 7, sub: 1, nextAt: 10_250 }, 11_000), { beat: 7, sub: 1, startIn: 0 });
-// the beat counter is absolute, not a position in the bar: beat 12 of 4/4 is
-// still beat 12, or a bars-based ramp loses everything it had climbed
-assert.equal(handoffTick({ beats: 12, sub: 0, nextAt: 1 }, 0).beat, 12);
+// a tick that fired 300 ms late at 120 BPM still has 200 ms of its successor's
+// slot left: that click plays, on the grid — it is the late one that was wrong
+assert.deepEqual(nextTick({ beats: 1, sub: 0 }, 10_000, 10_300, 500, 1), { beats: 1, sub: 0, nextAt: 10_500, dropped: 0 });
+// 400 ms late, the successor would land 100 ms after it — the double click. Its
+// slot is more than MIN_LEAD gone, so it is dropped and the beat after it plays
+{
+  const step = nextTick({ beats: 1, sub: 0 }, 10_000, 10_400, 500, 1);
+  assert.equal(step.nextAt, 11_000, 'the next audible click stays on the grid');
+  assert.equal(step.dropped, 1);
+  assert.deepEqual([step.beats, step.sub], [2, 0], 'the dropped beat is counted, so the bar keeps its phase');
+  assert.equal(accentLevel(step.beats, four), accentLevel(2, four));
+}
+// right at the edge: a slot with exactly MIN_LEAD of the interval left is still played
+assert.equal(MIN_LEAD, 0.25);
+assert.equal(nextTick({ beats: 1, sub: 0 }, 10_000, 10_375, 500, 1).dropped, 0);
+assert.equal(nextTick({ beats: 1, sub: 0 }, 10_000, 10_376, 500, 1).dropped, 1);
 
-// coming back, the service's position wins and the wait is what was left of it
-assert.deepEqual(resumeTick({ beats: 7, sub: 1 }, { beat: 30, sub: 2, nextIn: 120 }, 500), {
-  beats: 30,
-  sub: 2,
-  wait: 120,
-});
-// nothing ticked natively (iOS, Expo Go, a run that never left the foreground):
-// the run keeps its own count and waits a whole interval
-assert.deepEqual(resumeTick({ beats: 7, sub: 1 }, null, 500), { beats: 7, sub: 1, wait: 500 });
-assert.deepEqual(resumeTick({ beats: 7, sub: 1 }, undefined, 500), { beats: 7, sub: 1, wait: 500 });
-// a report that reached us late doesn't schedule the next tick in the past
-assert.equal(resumeTick({ beats: 0, sub: 0 }, { beat: 3, sub: 0, nextIn: -40 }, 500).wait, 0);
-// counters cross the bridge as doubles
-assert.deepEqual(resumeTick({ beats: 0, sub: 0 }, { beat: 12.0, sub: 0.0, nextIn: 33.4 }, 500), {
-  beats: 12,
-  sub: 0,
-  wait: 33.4,
-});
+// dropped ticks advance the subdivision count the same way played ones would:
+// two sixteenths gone at 120 BPM lands on the third of the same beat
+{
+  const step = nextTick({ beats: 4, sub: 1 }, 10_000, 10_250, 125, 4);
+  assert.equal(step.dropped, 2);
+  assert.deepEqual([step.beats, step.sub], [4, 3]);
+  assert.equal(step.nextAt, 10_375);
+}
 
-// A round trip is the whole point: the tick that was next when the screen went
-// off is the tick that plays when it comes back, at the moment it was due —
-// not a fresh downbeat on top of the click JS had just played.
-const handed = handoffTick({ beats: 5, sub: 0, nextAt: 1_000 }, 900);
-const taken = resumeTick({ beats: 5, sub: 0 }, { ...handed, nextIn: handed.startIn }, 500);
-assert.deepEqual(taken, { beats: 5, sub: 0, wait: 100 });
-assert.equal(accentLevel(taken.beats, four), accentLevel(5, four), 'the bar plays the accent it was going to');
-
-// the service counts on: three bars of 4/4 later the ramp still measures whole
-// bars from the run's own zero
-const later = resumeTick({ beats: 5, sub: 0 }, { beat: 17, sub: 0, nextIn: 0 }, 500);
-assert.equal(Math.floor((later.beats - 5) / four.beats), 3);
+// a very late tick means the process slept: the grid restarts from now, with
+// the count kept, instead of sprinting through the bar it missed
+assert.equal(RESYNC_AFTER_MS, 500);
+{
+  const step = nextTick({ beats: 9, sub: 0 }, 10_000, 12_000, 500, 1);
+  assert.deepEqual(step, { beats: 9, sub: 0, nextAt: 12_500, dropped: 0 });
+}
+// ...and just inside that window it still catches up on the grid
+assert.deepEqual(nextTick({ beats: 9, sub: 0 }, 10_000, 10_850, 500, 1), { beats: 10, sub: 0, nextAt: 11_000, dropped: 1 });
 
 // interval: 120 BPM is half a second a beat, and subdivisions divide it
 assert.equal(tickInterval(120, 1), 500);

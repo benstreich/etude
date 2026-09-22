@@ -108,50 +108,49 @@ export function advanceTick(pos: TickPos, subdiv: number): TickPos {
   return sub >= n ? { beats: pos.beats + 1, sub: 0 } : { beats: pos.beats, sub };
 }
 
-// --- handing the loop over, and taking it back ------------------------
-// Android freezes JS timers when the activity pauses, so the click loop moves
-// to the foreground service and back. What travels is a position, not a fresh
-// start: a service that opens its own bar clicks on top of the one JS has just
-// played and restarts the phrase, which is exactly what it used to do.
+// --- the JS scheduler's clock -----------------------------------------
+// Where JS times the clicks itself (iOS, Expo Go, web — Android streams them
+// natively, see modules/metronome-controls), a tick is a setTimeout callback
+// and fires as late as the JS thread lets it.
 
 /** Milliseconds between ticks. Clamped, so a junk tempo can't schedule at Infinity. */
 export const tickInterval = (bpm: number, subdiv: number) => 60000 / clampBpm(bpm) / clampSubdiv(subdiv);
 
-/** What the service is told: which tick is next, and how long it still has to wait. */
-export type Handoff = { beat: number; sub: number; startIn: number };
-
-/** Hand the next tick over as the JS timer had it queued. */
-export function handoffTick(run: TickPos & { nextAt: number }, now: number): Handoff {
-  return {
-    beat: Math.max(0, run.beats),
-    sub: Math.max(0, run.sub),
-    // a tick already due fires at once rather than being scheduled in the past
-    startIn: Math.max(0, run.nextAt - now),
-  };
-}
-
-/** Where the service got to, as it hands the loop back. */
-export type TickReport = { beat: number; sub: number; nextIn: number };
+/** A tick whose slot is already this far gone (as a share of the interval) is dropped rather than played late. */
+export const MIN_LEAD = 0.25;
+/** Past this many ms behind, the process was suspended: the grid restarts from now instead of catching up. */
+export const RESYNC_AFTER_MS = 500;
 
 /**
- * Take the loop back. `report` is null whenever nothing was ticking natively —
- * iOS, Expo Go, a run that never left the foreground — and then the run keeps
- * its own count and waits a whole interval, as it did before the service
- * existed. The beat counter is absolute: the bar accent and a bars-based ramp
- * both measure against it, so it continues rather than restarting at zero.
+ * When the next tick goes, given that the one due at `dueAt` has just fired at
+ * `now` and `pos` is already the position after it.
+ *
+ * The naive `dueAt + interval` is the double click: a tick that fired 300 ms
+ * late (a render, a state save, a screen change on the JS thread) got its
+ * successor scheduled 200 ms later at 120 BPM — two clicks nearly on top of
+ * each other, and the bar's phase kept only by accident. Ticks whose slot is
+ * already more than `MIN_LEAD` of an interval gone are dropped and counted, so
+ * the accent pattern and a bars-based ramp stay in phase and the next audible
+ * click lands on the grid. A gap past `RESYNC_AFTER_MS` means the process
+ * slept; the grid then restarts from now rather than sprinting through the missed bar.
  */
-export function resumeTick(
-  run: TickPos,
-  report: TickReport | null | undefined,
-  interval: number
-): TickPos & { wait: number } {
-  if (!report) return { beats: run.beats, sub: run.sub, wait: interval };
-  return {
-    // integers cross the bridge as doubles
-    beats: Math.max(0, Math.round(report.beat)),
-    sub: Math.max(0, Math.round(report.sub)),
-    wait: Math.max(0, report.nextIn),
-  };
+export function nextTick(
+  pos: TickPos,
+  dueAt: number,
+  now: number,
+  interval: number,
+  subdiv: number,
+): TickPos & { nextAt: number; dropped: number } {
+  let at = dueAt + interval;
+  if (at < now - RESYNC_AFTER_MS) return { beats: pos.beats, sub: pos.sub, nextAt: now + interval, dropped: 0 };
+  let p = pos;
+  let dropped = 0;
+  while (at < now + interval * MIN_LEAD) {
+    at += interval;
+    p = advanceTick(p, subdiv);
+    dropped++;
+  }
+  return { beats: p.beats, sub: p.sub, nextAt: at, dropped };
 }
 
 // --- click sounds -----------------------------------------------------
