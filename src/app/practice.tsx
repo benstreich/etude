@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Alert, AppState, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -23,6 +23,7 @@ import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrume
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
 import { restoreLive } from '@/lib/session-math';
+import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
 import { Piece, useStore } from '@/lib/store';
 import { pickRecordings } from '@/lib/import-recording';
 import { useTakeRecorder } from '@/lib/use-take-recorder';
@@ -202,8 +203,29 @@ export default function Practice() {
       setLive.current({ name: focus.name, kind: focus.kind, startedAt, accum, startClock: sessionStart.current, inst: sessionInst, breaksSeen, lastSeen: Date.now() });
     write();
     const t = setInterval(write, 10000);
-    return () => clearInterval(t);
+    // Android freezes this interval the moment the screen goes off, so the last
+    // heartbeat is otherwise the one before the pocket. The state change itself
+    // still reaches JS — stamp it, so a kill hours later banks up to here.
+    const sub = AppState.addEventListener('change', write);
+    return () => {
+      clearInterval(t);
+      sub.remove();
+    };
   }, [running, focus, startedAt, accum, sessionInst, breaksSeen]);
+
+  // The session's foreground service (Android): the process stays alive with the
+  // screen off, and the notification's own clock keeps ticking. Repainted on
+  // transitions only — start, pause, resume, a new focus — never per second.
+  const sessionWord = store.t('practice.session');
+  const pausedWord = store.t('practice.paused');
+  useEffect(() => {
+    if (!running || !focus) {
+      hideSessionNotice();
+      return;
+    }
+    const elapsedMs = accum * 1000 + (startedAt !== null ? Date.now() - startedAt : 0);
+    showSessionNotice({ title: focus.name, subtitle: startedAt !== null ? sessionWord : pausedWord, running: startedAt !== null, elapsedMs });
+  }, [running, focus, startedAt, accum, sessionWord, pausedWord]);
 
   const q = query.trim().toLowerCase();
   // every piece in the repertoire is practisable — reaching the last stage used

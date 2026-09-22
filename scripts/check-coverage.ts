@@ -25,6 +25,7 @@ const EXEMPT: Record<string, string> = {
   'piano-samples.ts': 'static require() map of bundled assets',
   'plan-run-state.ts': 'a module-level variable and a useSyncExternalStore subscription',
   'reminders.ts': 'expo-notifications scheduling; the parsing is in reminder-time.ts',
+  'session-notice.ts': 'two calls into the practice-session foreground service; the restore logic is in session-math.ts',
   'review.ts': 'expo-store-review call; the logic is in review-math.ts',
   'sounds.ts': 'expo-audio playback',
   'store.tsx': 'React context over AsyncStorage; the logic lives in the -math modules',

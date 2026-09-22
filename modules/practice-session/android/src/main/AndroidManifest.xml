@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <!-- Android 14+: a timer is none of the named foreground-service categories, so it is
+       declared as special use with the subtype below. Play asks for the same text at submission. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+  <application>
+    <service
+      android:name=".PracticeSessionService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse">
+      <property
+        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="Keeps the running practice-session timer alive and visible while the user plays their instrument with the screen off" />
+    </service>
+  </application>
+</manifest>

@@ -19,15 +19,21 @@ export type LiveSession = {
   lastSeen: number;
 };
 
-/** A restart inside this window keeps the clock running through the gap —
- * long enough to crash, reboot and pick the phone back up mid-practice. */
-export const LIVE_GRACE_MS = 600000;
+/**
+ * A restart inside this window keeps the clock running through the gap. It has
+ * to cover a whole practice stretch, not just a crash: Android freezes JS timers
+ * the moment the screen goes off, so the heartbeat below stops well before the
+ * process is killed, and a 23-minute session with the phone in a pocket used to
+ * come back paused at the last heartbeat — 00:49. A process that survives counts
+ * that gap in full (the timer is wall-clock), and a killed one must agree.
+ */
+export const LIVE_GRACE_MS = 4 * 3600000;
 
 /**
- * What a restored session's clock should read. A brief death (a crash, an OS
- * restart) keeps running through the gap; a longer one banks time only up to
- * the last heartbeat and comes back paused — an app killed overnight must not
- * claim the night was practised.
+ * What a restored session's clock should read. A death inside LIVE_GRACE_MS (a
+ * crash, an OS restart, Android reclaiming the app mid-practice) keeps running
+ * through the gap; a longer one banks time only up to the last heartbeat and
+ * comes back paused — an app killed overnight must not claim the night was practised.
  */
 export function restoreLive(ls: Pick<LiveSession, 'startedAt' | 'accum' | 'lastSeen'>, now: number): { accum: number; startedAt: number | null } {
   if (ls.startedAt === null) return { accum: ls.accum, startedAt: null };

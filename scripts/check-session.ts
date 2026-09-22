@@ -59,6 +59,16 @@ assert.deepEqual(restoreLive({ startedAt: null, accum: 300, lastSeen: t0 }, t0 +
 const brief = restoreLive({ startedAt: t0, accum: 60, lastSeen: t0 + 50000 }, t0 + 50000 + LIVE_GRACE_MS);
 assert.deepEqual(brief, { accum: 60, startedAt: t0 });
 
+// the bug: screen off 49 s in froze the heartbeat, Android killed the app, the
+// player came back 23 minutes later — the clock must read 23 minutes and run
+{
+  const back = restoreLive({ startedAt: t0, accum: 0, lastSeen: t0 + 49000 }, t0 + 23 * 60000);
+  assert.deepEqual(back, { accum: 0, startedAt: t0 });
+  assert.equal(Math.round((t0 + 23 * 60000 - back.startedAt! ) / 60000), 23);
+}
+// the window covers a long practice stretch, not just a crash
+assert.ok(LIVE_GRACE_MS >= 3 * 3600000);
+
 // one ms past the grace: banked up to the last heartbeat, comes back paused
 const late = restoreLive({ startedAt: t0, accum: 60, lastSeen: t0 + 50000 }, t0 + 50001 + LIVE_GRACE_MS);
 assert.deepEqual(late, { accum: 110, startedAt: null }); // 60 banked + 50s seen running
