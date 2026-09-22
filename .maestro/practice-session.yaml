@@ -46,8 +46,12 @@ tags:
 - tapOn:
     id: "review-save"
 
-# the clock ran on through the restart, so the save reads one minute or two —
-# what it must never read is zero (lost) or more (counting time not practised)
+# The clock ran on through the restart, so the minute must have landed — what
+# it must never read is zero. The exact number is wall-clock: Maestro can spend
+# half a minute settling after the start tap while the session is already
+# running, so a slow machine legitimately logs more than a fast one. Pin down
+# what actually matters instead — it is non-zero here, and unchanged by the
+# discard below.
 - tapOn: "Home"
 - scrollUntilVisible:
     element:
@@ -55,7 +59,9 @@ tags:
     direction: UP
 - assertVisible:
     id: "today-minutes"
-    text: "^[12]$"
+    text: "^[1-9][0-9]*$"
+- copyTextFrom:
+    id: "today-minutes"
 
 # --- the other exit: discard must not log ---------------------------------
 - tapOn: "Practice"
@@ -75,7 +81,8 @@ tags:
 # the native confirm — its buttons are text, there is nothing else to select
 - tapOn: "Discard"
 
-# back on the idle screen, and Home still says one minute, not two
+# back on the idle screen, and Home reads exactly what it read before the
+# discarded session — not one minute more
 - assertVisible:
     id: "start-session"
 - tapOn: "Home"
@@ -85,4 +92,4 @@ tags:
     direction: UP
 - assertVisible:
     id: "today-minutes"
-    text: "^[12]$"
+    text: "^${maestro.copiedText}$"

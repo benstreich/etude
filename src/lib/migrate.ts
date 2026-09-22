@@ -54,6 +54,9 @@ export function migrate<S>(raw: string | null, seedState: S): S {
   if (!Array.isArray(merged.plans)) merged.plans = [];
   // score attachments arrived with #60 — same guard, same reason
   if (!Array.isArray(merged.attachments)) merged.attachments = [];
+  // library folders arrived with #102; an older blob gets none, which renders flat
+  if (!Array.isArray(merged.folders)) merged.folders = [];
+  if (!Array.isArray(merged.collapsedFolders)) merged.collapsedFolders = [];
   // onboarding arrived after launch — anyone with a saved blob has used the app
   if (saved.onboarded === undefined) merged.onboarded = true;
   // all seven days as break days would make the streak unbreakable (and meaningless)

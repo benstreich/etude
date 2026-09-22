@@ -300,6 +300,7 @@ export default function PieceDetail() {
             label={take.recording ? store.t('piece.stopTake') : store.t('piece.recordTake')}
             active={take.recording}
             haptic="thud"
+            testID="piece-record"
             onPress={take.toggle}
           />
           {!take.recording && <ActionChip icon={() => null} label={store.t('piece.importTake')} onPress={importTakes} />}
