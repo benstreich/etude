@@ -21,6 +21,7 @@ exist for the wiring.
 | `appearance.yaml` | theme + sounds persistence, read off the Settings row |
 | `progress-sections.yaml` | a layout switch turns a Home section off, and it stays off |
 | `score-view.yaml` | the full score opens and pages; the staff legend opens |
+| `trim-silence.yaml` | a recorded take saves and reaches the trim sheet with the Trim silence action (the maths is `check:silence`; see the flow header) |
 
 `common/fresh-start.yaml` is a subflow: clear state, grant notifications and
 the microphone, tap through onboarding's welcome screen and skip the rest.

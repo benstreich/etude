@@ -752,6 +752,8 @@
     "share": "Teilen",
     "move": "Zu einem Stück verschieben",
     "clearTrim": "Kürzung zurücksetzen",
+    "trimSilence": "Stille kürzen",
+    "trimSilenceNone": "Keine Stille zum Kürzen",
     "in": "Start",
     "out": "Ende",
     "here": "Hier",
