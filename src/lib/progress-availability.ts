@@ -8,10 +8,11 @@
 // "do you have the data at all", not "is it in this week's view".
 import type { Piece, Recording, Session } from './store';
 
+import { CHALLENGE_FLOOR_DAYS } from './challenge-math.ts';
 import { recordingPair } from './movement-math.ts';
 import { focusDrift, MIN_INSIGHT_DAYS, MIN_RATED, rated } from './stats-math.ts';
 
-export type Reason = 'sessions' | 'pieces' | 'rated' | 'history' | 'recordings' | 'goals' | 'ready';
+export type Reason = 'sessions' | 'pieces' | 'rated' | 'history' | 'recordings' | 'goals' | 'ready' | 'challenge';
 
 /** `have` and `need` fill the counted reasons; both are 0 for the plain ones. */
 export type Unavailable = { reason: Reason; have: number; need: number };
@@ -130,6 +131,13 @@ export function sectionUnavailable(key: string, i: AvailabilityInput): Unavailab
 
     case 'drift':
       return focusDrift(i.sessions, i.today, i.monday) ? null : plain('history');
+
+    // #105: the same floor monthlyChallenge applies — practised days before this month
+    case 'challenge': {
+      const monthStart = i.today.slice(0, 7) + '-01';
+      const have = Object.keys(i.mbd).filter((k) => i.mbd[k] > 0 && k < monthStart).length;
+      return have < CHALLENGE_FLOOR_DAYS ? { reason: 'challenge', have, need: CHALLENGE_FLOOR_DAYS } : null;
+    }
 
     default:
       return null;

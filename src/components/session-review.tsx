@@ -12,6 +12,7 @@ import { FlameIcon } from '@/components/icons';
 import { FermataMark, WaveformIcon } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { ActionChip, ChipRow, EntryRow, Overline, Stars } from '@/components/ui';
+import { challengeJustMet, monthlyChallenge } from '@/lib/challenge-math';
 import { achievements } from '@/lib/growth-math';
 import { cueVoice, primaryOf } from '@/lib/cue-voice';
 import { pieceRatings } from '@/lib/rating-math';
@@ -74,6 +75,15 @@ export function SessionReview({
     playSessionComplete(soundsOn, voice);
   }, [openId, reduceMotion, rise, soundsOn, voice]);
 
+  // #105: did this session carry the monthly challenge over its line? Both
+  // snapshots are pure — the "before" is today's minutes less this session's.
+  const challengeOpts = { todayKey: store.today, dailyGoal: store.dailyGoal, breakDays: store.breakDays, weekStart: store.weekStart };
+  const justMet = session
+    ? challengeJustMet(
+        monthlyChallenge({ ...challengeOpts, minutesByDate: { ...store.minutesByDate, [store.today]: Math.max(0, (store.minutesByDate[store.today] ?? 0) - session.min) } }),
+        monthlyChallenge({ ...challengeOpts, minutesByDate: store.minutesByDate })
+      )
+    : false;
   const chips = session
     ? achievements({
         streak: store.displayStreak,
@@ -81,6 +91,7 @@ export function SessionReview({
         minutesByDate: store.minutesByDate,
         dailyGoal: store.dailyGoal,
         today: store.today,
+        challengeJustMet: justMet,
       })
     : [];
   // "Best week yet" is an earned moment (#68): ask for a review once the chord has
@@ -102,6 +113,7 @@ export function SessionReview({
     'First session': 'sessionReview.firstSession',
     'Best week yet': 'sessionReview.bestWeek',
     'Goal hit 7 days straight': 'sessionReview.goalStraight',
+    'Monthly challenge done': 'sessionReview.challengeDone',
   };
   const chipText = (c: (typeof chips)[number]) =>
     c.kind === 'streak'

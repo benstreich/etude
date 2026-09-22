@@ -4,6 +4,7 @@ import type { SectionKey } from '@/lib/progress-sections';
 
 import { SessionLengthSection, TimeOfDaySection } from './buckets';
 import { CalendarSection } from './calendar';
+import { ChallengeSection } from './challenge';
 import { BarChartSection, LineChartSection } from './chart';
 import { ChangedSection } from './changed';
 import { ConsistencySection } from './consistency';
@@ -22,6 +23,7 @@ import { VolumeSection } from './volume';
 export const SECTIONS: Record<SectionKey, React.FC<SectionProps>> = {
   movement: MovementSection,
   goals: GoalsSection,
+  challenge: ChallengeSection,
   calendar: CalendarSection,
   lineChart: LineChartSection,
   barChart: BarChartSection,

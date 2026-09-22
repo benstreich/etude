@@ -11,6 +11,7 @@ import { captureRef } from 'react-native-view-shot';
 
 import { LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
+import { monthlyChallenge } from '@/lib/challenge-math';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
 import { projection, ratingSummary } from '@/lib/stats-math';
 import { useInstrumentFilter } from '@/components/ui';
@@ -87,8 +88,14 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   // ratings (#54): null below 5 rated sessions in the period, so the rows simply drop out
   const prefix = mode === 'month' ? `${year}-${String(month + 1).padStart(2, '0')}-` : `${year}-`;
   const ratings = ratingSummary(store.sessions.filter((x) => x.date.startsWith(prefix)));
+  // the month's challenge (#105): derived, so it is simply absent below the floor and rows() drops it
+  const challenge = monthlyChallenge({ todayKey: store.today, minutesByDate: store.minutesByDate, dailyGoal: store.dailyGoal, breakDays: store.breakDays, weekStart: store.weekStart });
+  const challengeRow = challenge
+    ? `${challenge.met ? '✓ ' : ''}${store.t(challenge.kind === 'minutes' ? 'recap.challengeMinutes' : 'recap.challengeDays', { done: challenge.done, target: challenge.target })}`
+    : null;
   const monthRows = rows([
     [store.t('recap.daysPracticed'), stats.daysPracticed ? String(stats.daysPracticed) : null],
+    [store.t('recap.challenge'), challengeRow],
     [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
     [store.t('recap.topPiece'), stats.topPiece],
     [store.t('recap.avgRating'), ratings.avgRating !== null ? `★ ${ratings.avgRating.toFixed(1)}` : null],

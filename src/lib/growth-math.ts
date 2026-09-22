@@ -4,7 +4,9 @@
 // explicit .ts so the node check runner (--experimental-strip-types) can resolve it
 import { computeBestStreak, dateKey } from './streak-math.ts';
 
-export type Achievement = { kind: 'streak' | 'milestone'; label: string };
+// labels are English literals, localized at display time (session-review.tsx),
+// so this module and its check script run without the i18n runtime
+export type Achievement = { kind: 'streak' | 'milestone' | 'challenge'; label: string };
 
 const shiftKey = (key: string, days: number) => {
   const [y, m, d] = key.split('-').map(Number);
@@ -25,10 +27,14 @@ export function achievements(opts: {
   minutesByDate: Record<string, number>;
   dailyGoal: number;
   today: string;
+  /** #105: this session carried the monthly challenge over its line (unmet before it, met after). */
+  challengeJustMet?: boolean;
 }): Achievement[] {
-  const { streak, sessionCount, minutesByDate, dailyGoal, today } = opts;
+  const { streak, sessionCount, minutesByDate, dailyGoal, today, challengeJustMet } = opts;
   const out: Achievement[] = [];
   if (streak >= 2) out.push({ kind: 'streak', label: `${streak}-day streak` });
+  // after the streak, before the milestones: it never displaces a streak chip, and the cap below does the rest
+  if (challengeJustMet) out.push({ kind: 'challenge', label: 'Monthly challenge done' });
   if (sessionCount === 1) out.push({ kind: 'milestone', label: 'First session' });
   else {
     // best week: this rolling 7-day window beats every earlier one that had data

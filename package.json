@@ -74,7 +74,7 @@
     "check:heatmap": "node --experimental-strip-types --no-warnings scripts/check-heatmap.ts",
     "check:chart": "node --experimental-strip-types --no-warnings scripts/check-chart.ts",
     "check:tempo": "node --experimental-strip-types --no-warnings scripts/check-tempo.ts",
-    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:chart && npm run check:tempo && npm run check:ladder && npm run check:trim && npm run check:silence && npm run check:wave && npm run check:instrument && npm run check:tuner && npm run check:stage && npm run check:folder && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment && npm run check:review && npm run check:rating && npm run check:movement && npm run check:drone && npm run check:evidence && npm run check:melody && npm run check:engrave && npm run check:reminders && npm run check:icon && npm run check:spot && npm run check:suggest && npm run check:coverage",
+    "check": "npm run check:metronome && npm run check:streak && npm run check:migrate && npm run check:improvements && npm run check:growth && npm run check:session && npm run check:heatmap && npm run check:chart && npm run check:tempo && npm run check:ladder && npm run check:trim && npm run check:silence && npm run check:wave && npm run check:instrument && npm run check:tuner && npm run check:stage && npm run check:folder && npm run check:cue && npm run check:stats && npm run check:goal && npm run check:attachment && npm run check:review && npm run check:rating && npm run check:movement && npm run check:drone && npm run check:evidence && npm run check:melody && npm run check:engrave && npm run check:reminders && npm run check:icon && npm run check:spot && npm run check:suggest && npm run check:challenge && npm run check:coverage",
     "check:ladder": "node --experimental-strip-types --no-warnings scripts/check-ladder.ts",
     "check:trim": "node --experimental-strip-types --no-warnings scripts/check-trim.ts",
     "check:silence": "node --experimental-strip-types --no-warnings scripts/check-silence.ts",
@@ -99,6 +99,7 @@
     "check:icon": "node --experimental-strip-types --no-warnings scripts/check-icon.ts",
     "check:spot": "node --experimental-strip-types --no-warnings scripts/check-spot.ts",
     "check:suggest": "node --experimental-strip-types --no-warnings scripts/check-suggest.ts",
+    "check:challenge": "node --experimental-strip-types --no-warnings scripts/check-challenge.ts",
     "check:coverage": "node --experimental-strip-types --no-warnings scripts/check-coverage.ts",
     "e2e": "maestro test .maestro",
     "e2e:retry": "bash scripts/e2e-retry.sh"

@@ -293,6 +293,14 @@
     "discardTake": "Discard take"
   },
   "progress": {
+    "challengeDays": "Practise on %{target} days in %{month}",
+    "challengeMinutes": "Practise %{time} in %{month}",
+    "challengeGoalDays": "Hit your daily goal on %{target} days in %{month}",
+    "challengeMet": "Done — see it on your recap",
+    "challengeDaysLeft": {
+      "one": "1 day left in the month",
+      "other": "%{count} days left in the month"
+    },
     "insights": "Insights",
     "lengthMin": "%{range} min",
     "weekend": "at the weekend",
@@ -361,6 +369,7 @@
     "hintDismiss": "Got it",
     "ratingSessions": "%{n} rated sessions",
     "section": {
+      "challenge": "Monthly challenge",
       "movement": "Moving",
       "goals": "Goals & deadlines",
       "calendar": "Practice calendar",
@@ -407,6 +416,7 @@
     "changedBpm": "BPM gained",
     "changedStars": "Average stars",
     "sectionDesc": {
+      "challenge": "One quiet challenge a month, set from your own history",
       "movement": "Which pieces are moving, stalled or due",
       "goals": "Period goals and piece deadlines",
       "calendar": "A month of practice days, tap for details",
@@ -430,6 +440,7 @@
     "chartBars": "Bars",
     "chartEmpty": "Nothing logged in this period yet.",
     "unavailable": {
+      "challenge": "Practise a couple of weeks to unlock a monthly challenge.",
       "sessions": "Log a session first.",
       "pieces": "Add a piece to your repertoire first.",
       "rated": "Needs %{need} rated sessions — you have %{have}.",
@@ -732,6 +743,7 @@
     "addedToast": "Added %{min} min · %{day}"
   },
   "sessionReview": {
+    "challengeDone": "Monthly challenge done",
     "title": "Session saved",
     "note": "Note",
     "rateSession": "How did it feel?",
@@ -821,6 +833,9 @@
     "cancelTrim": "Cancel"
   },
   "recap": {
+    "challenge": "Monthly challenge",
+    "challengeDays": "%{done} / %{target} days",
+    "challengeMinutes": "%{done} / %{target} min",
     "onPace": "On pace for",
     "avgRating": "Average rating",
     "bestRated": "Best-rated piece",
