@@ -5,10 +5,12 @@ import { Modal, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
+import { LadderRows } from '@/components/ladder-tally';
 import { MetronomeButton } from '@/components/metronome';
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { tempoDelta } from '@/lib/growth-math';
+import { resolveLadder } from '@/lib/ladder-math';
 import { MAX_BPM } from '@/lib/metronome-math';
 import { maybeRequestReview } from '@/lib/review';
 import { dayLabel, Piece, useStore } from '@/lib/store';
@@ -87,16 +89,26 @@ export function TempoLadder({ piece }: { piece: Piece }) {
 
   if (log.length === 0)
     return (
-      <Pressable testID="tempo-log-open" onPress={openLog}>
-        <Card style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Text style={s.ghostGlyph}>♩=</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={s.ghostTitle}>{store.t('tempoLadder.title')}</Text>
-            <Text style={s.ghostSub}>{store.t('tempoLadder.emptyHint')}</Text>
-          </View>
-        </Card>
+      <View style={{ gap: 12 }}>
+        <Pressable testID="tempo-log-open" onPress={openLog}>
+          <Card style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={s.ghostGlyph}>♩=</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.ghostTitle}>{store.t('tempoLadder.title')}</Text>
+              <Text style={s.ghostSub}>{store.t('tempoLadder.emptyHint')}</Text>
+            </View>
+          </Card>
+        </Pressable>
+        {/* A target with no log yet still needs somewhere to switch auto-advance on:
+            without this the in-session block, which only renders once it is on,
+            could never be reached for such a piece (#90). */}
+        {!!piece.targetBpm && (
+          <Card style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+            <LadderRows cfg={resolveLadder(piece.ladder)} onChange={(patch) => store.updatePiece(piece.id, { ladder: { ...resolveLadder(piece.ladder), ...patch } })} />
+          </Card>
+        )}
         <LogSheet visible={logOpen} draft={draft} setDraft={setDraft} onSave={save} onClose={() => setLogOpen(false)} />
-      </Pressable>
+      </View>
     );
 
   return (
@@ -125,6 +137,20 @@ export function TempoLadder({ piece }: { piece: Piece }) {
             <Text style={s.tintBtnText}>{store.t('tempoLadder.logTodaysTempo')}</Text>
           </Pressable>
           <MetronomeButton compact presetBpm={last.bpm} />
+        </View>
+        {/* The same three numbers the in-session sheet edits (#90) — here so the
+            feature is findable without already being in a session. Without a
+            target tempo there is no ceiling to climb to, so the row says so and
+            stays off; setting one is the row directly above. */}
+        <View style={s.autoRow}>
+          {piece.targetBpm ? (
+            <LadderRows cfg={resolveLadder(piece.ladder)} onChange={(patch) => store.updatePiece(piece.id, { ladder: { ...resolveLadder(piece.ladder), ...patch } })} />
+          ) : (
+            <View style={s.needsTargetRow}>
+              <Text style={s.needsTargetText}>{store.t('tempoLadder.auto')}</Text>
+              <Text style={s.needsTargetHint}>{store.t('tempoLadder.autoNeedsTarget')}</Text>
+            </View>
+          )}
         </View>
       </Card>
 
@@ -205,6 +231,10 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   axisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   axisText: { fontFamily: F.body, fontSize: fs(10.5), color: C.tertiary },
   footRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: C.hairline, paddingTop: 14 },
+  autoRow: { borderTopWidth: 1, borderTopColor: C.hairline, paddingTop: 4 },
+  needsTargetRow: { minHeight: 48, justifyContent: 'center', gap: 2 },
+  needsTargetText: { fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.tertiary },
+  needsTargetHint: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub },
   tintBtn: { flex: 1, height: 42, borderRadius: r(12), backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center' },
   tintBtnText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
   entryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 48 },

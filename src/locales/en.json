@@ -695,6 +695,16 @@
     "delete": "Delete",
     "todaysTempo": "Today’s tempo",
     "logTempo": "Log tempo",
+    "auto": "Auto-advance",
+    "autoHint": "Start the metronome to count passes",
+    "autoNeedsTarget": "Set a target tempo first",
+    "pass": "Clean",
+    "miss": "Again",
+    "passesNeeded": "Clean passes needed",
+    "stepBpm": "Step (BPM)",
+    "advanced": "Up to %{bpm} BPM",
+    "targetReached": "Target tempo reached!",
+    "tallyA11y": "%{n} of %{need} clean passes",
     "axisTarget": "%{target} target"
   },
   "editSession": {

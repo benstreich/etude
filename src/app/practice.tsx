@@ -9,6 +9,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronIcon, PlayIcon } from '@/components/icons';
+import { LadderTally } from '@/components/ladder-tally';
 import { LogPastModal } from '@/components/log-past';
 import { MetronomeSheet } from '@/components/metronome';
 import { LiveWaveform, MetNote, RollingNumber, StaffProgress } from '@/components/motifs';
@@ -39,6 +40,7 @@ function ToolCell({
   live = false,
   divider = false,
   disabled = false,
+  testID,
   onPress,
 }: {
   glyph: (color: string) => React.ReactNode;
@@ -46,6 +48,7 @@ function ToolCell({
   live?: boolean;
   divider?: boolean;
   disabled?: boolean;
+  testID?: string;
   onPress: () => void;
 }) {
   const s = useS();
@@ -60,6 +63,7 @@ function ToolCell({
   return (
     <Pressable
       disabled={disabled}
+      testID={testID}
       onPress={onPress}
       style={[s.toolCell, divider && s.toolCellDivider, disabled && { opacity: 0.4 }]}>
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} />
@@ -338,6 +342,10 @@ export default function Practice() {
               </Pressable>
             </View>
           )}
+          {/* the clean-pass ladder (#90). It renders nothing unless the focus is a
+              piece with a target tempo and auto-advance switched on for it. */}
+          {focusPiece && <LadderTally piece={focusPiece} />}
+
           {/* what the mic is hearing, while it is hearing it */}
           {recording && (
             <View style={{ marginTop: 28 }}>
@@ -356,6 +364,7 @@ export default function Practice() {
             />
             <ToolCell
               divider
+              testID="session-metronome"
               label={`${metronome.bpm} ${tempoTerm(metronome.bpm)}`}
               glyph={(color) => <MetNote size={fs(22)} color={color} />}
               onPress={() => {

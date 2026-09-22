@@ -695,6 +695,16 @@
     "delete": "Löschen",
     "todaysTempo": "Heutiges Tempo",
     "logTempo": "Tempo loggen",
+    "auto": "Automatisch steigern",
+    "autoHint": "Starte das Metronom, um Durchläufe zu zählen",
+    "autoNeedsTarget": "Lege zuerst ein Zieltempo fest",
+    "pass": "Sauber",
+    "miss": "Nochmal",
+    "passesNeeded": "Nötige saubere Durchläufe",
+    "stepBpm": "Schritt (BPM)",
+    "advanced": "Hoch auf %{bpm} BPM",
+    "targetReached": "Zieltempo erreicht!",
+    "tallyA11y": "%{n} von %{need} sauberen Durchläufen",
     "axisTarget": "Ziel %{target}"
   },
   "editSession": {
