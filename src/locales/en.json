@@ -775,6 +775,20 @@
     "trendFlat": "▬ steady",
     "options": "Spot options"
   },
+  "suggest": {
+    "title": "Suggested for today",
+    "start": "Start",
+    "dismiss": "Dismiss for today",
+    "total": "%{n} min total",
+    "minutes": "%{n} min",
+    "reason": {
+        "spotDue": "Trouble spots due for review",
+        "stalled": "No movement in two weeks",
+        "review": "Due for review — it’s been a while",
+        "plateau": "Tempo has plateaued — slow work at %{bpm} BPM",
+        "drift": "Getting less time lately"
+    }
+  },
   "recordings": {
     "namePlaceholder": "Name this take",
     "untitled": "Take",

@@ -30,7 +30,7 @@ import { Text } from '@/components/text';
 import { Toast } from '@/components/toast';
 import { WidgetSync } from '@/components/widget-sync';
 import { MetronomeProvider } from '@/lib/metronome';
-import { useActiveRun } from '@/lib/plan-run-state';
+import { resolvePlan, useActiveRun, useTransientPlan } from '@/lib/plan-run-state';
 import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
 
@@ -140,9 +140,10 @@ function RunPill({ bottom }: { bottom: number }) {
   const { C } = useTheme();
   const { plans, t } = useStore();
   const active = useActiveRun();
+  useTransientPlan(); // the suggested session (#95) is a plan the store never sees
   const pathname = usePathname();
   const router = useRouter();
-  const plan = active && plans.find((p) => p.id === active.planId);
+  const plan = active && resolvePlan(plans, active.planId);
   if (!plan || pathname === '/plan/run') return null;
   return (
     <Pressable

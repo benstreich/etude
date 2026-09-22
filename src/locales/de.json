@@ -775,6 +775,20 @@
     "trendFlat": "▬ stabil",
     "options": "Optionen der Stelle"
   },
+  "suggest": {
+    "title": "Vorschlag für heute",
+    "start": "Starten",
+    "dismiss": "Für heute ausblenden",
+    "total": "%{n} Min. gesamt",
+    "minutes": "%{n} Min.",
+    "reason": {
+        "spotDue": "Problemstellen fällig",
+        "stalled": "Seit zwei Wochen keine Bewegung",
+        "review": "Wieder fällig – schon eine Weile her",
+        "plateau": "Tempo stagniert – langsam üben bei %{bpm} BPM",
+        "drift": "Kam zuletzt zu kurz"
+    }
+  },
   "recordings": {
     "namePlaceholder": "Take benennen",
     "untitled": "Take",

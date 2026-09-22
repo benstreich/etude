@@ -16,6 +16,7 @@ import { LiveWaveform, MetNote, RollingNumber, StaffProgress } from '@/component
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { ScoreViewer, useScores } from '@/components/score';
 import { SessionReview, type ReviewSession } from '@/components/session-review';
+import { SuggestedCard } from '@/components/suggested';
 import { Text } from '@/components/text';
 import { ActionChip, ChipRow, EntryRow, Overline, PulseRing, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { tap, thud } from '@/lib/haptics';
@@ -542,6 +543,8 @@ export default function Practice() {
           placeholder={store.t('practice.searchPlaceholder')}
           style={{ marginTop: 18, marginBottom: 4 }}
         />
+        {/* what the app would practise today, from the signals Progress already has (#95) */}
+        {!q && <SuggestedCard />}
         {pieces.length > 0 && (
           <>
             <Overline style={{ marginTop: 32 }}>{store.t('practice.pieces')}</Overline>
