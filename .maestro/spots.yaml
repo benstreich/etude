@@ -31,6 +31,11 @@ tags:
 # no minutes yet
 - assertVisible: "0 min.*"
 
+# the piece page is a stack screen with no tab bar: back to the list first
+- tapOn:
+    text: "Repertoire"
+    index: 0
+
 # a session on that piece offers the spot as a chip
 - tapOn: "Practice"
 - scrollUntilVisible:
