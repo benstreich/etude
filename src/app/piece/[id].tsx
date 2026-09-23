@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Calendar } from '@/components/calendar';
 import { EditSessionSheet } from '@/components/edit-session';
+import { ReportModal } from '@/components/report-modal';
 import { MetronomeIcon } from '@/components/icons';
 import { LiveWaveform, MeasureBar, NoteTempo, WaveformIcon } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
@@ -54,6 +55,7 @@ export default function PieceDetail() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false); // this piece's practice report (#99)
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [tempoOpen, setTempoOpen] = useState(false);
@@ -366,6 +368,7 @@ export default function PieceDetail() {
       )}
 
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
+      <ReportModal visible={reportOpen} onClose={() => setReportOpen(false)} piece={piece.name} />
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setMenuOpen(false)}>
@@ -379,6 +382,15 @@ export default function PieceDetail() {
                 setRenameOpen(true);
               }}>
               <Text style={s.sheetRowText}>{store.t('piece.rename')}</Text>
+            </Pressable>
+            <Pressable
+              testID="share-piece-report"
+              style={s.sheetRow}
+              onPress={() => {
+                setMenuOpen(false);
+                setReportOpen(true);
+              }}>
+              <Text style={s.sheetRowText}>{store.t('report.sharePieceReport')}</Text>
             </Pressable>
             <Pressable
               style={s.sheetRow}

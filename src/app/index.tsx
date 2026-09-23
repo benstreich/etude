@@ -7,10 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { EditSessionSheet } from '@/components/edit-session';
 import { ProgressBody } from '@/components/progress';
-import { ExpandIcon, FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
+import { ExpandIcon, FlameIcon, GearIcon, LogoMark, ShareIcon, SlidersIcon } from '@/components/icons';
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { LogPastModal } from '@/components/log-past';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
+import { ShareSheet } from '@/components/report-modal';
 import { StaffLegend } from '@/components/staff-legend';
 import { FermataMark, MelodyStaff, RollingNumber } from '@/components/motifs';
 import { success, tap } from '@/lib/haptics';
@@ -40,6 +41,7 @@ export default function Home() {
   const [focusOpen, setFocusOpen] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false); // recap card or practice report (#99)
   const [legendOpen, setLegendOpen] = useState(false);
   const melody = useMelodyPlayer();
   const [resumeAt, setResumeAt] = useState<string | null>(null); // the bar a pause stopped on
@@ -103,6 +105,13 @@ export default function Home() {
         <View style={s.logoRow}>
           <LogoMark size={26} />
           <Text style={[s.wordmark, { flex: 1 }]}>Étude</Text>
+          {/* share (#99): the recap card and the practice report used to live only on the
+              /progress deep-link route, which nothing in the app navigates to */}
+          {(store.totalMin > 0 || store.sessions.length > 0) && (
+            <Pressable testID="progress-share" style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('report.chooserTitle')} onPress={() => setShareOpen(true)}>
+              <ShareIcon size={19} />
+            </Pressable>
+          )}
           {/* which progress sections show below, and in what order — the body used to carry this button itself */}
           <Pressable style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('settings.progressSections')} onPress={() => setLayoutOpen(true)}>
             <SlidersIcon size={18} />
@@ -326,6 +335,7 @@ export default function Home() {
         }}
       />
       <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
+      <ShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} />
       <StaffLegend visible={legendOpen} onClose={() => setLegendOpen(false)} />
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </View>

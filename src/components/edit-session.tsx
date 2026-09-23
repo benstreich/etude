@@ -156,6 +156,7 @@ function Editor({
             <View>
               <Text style={s.label}>{store.t('editSession.note')}</Text>
               <TextInput
+                testID="edit-session-note"
                 style={s.noteInput}
                 value={note}
                 onChangeText={setNote}

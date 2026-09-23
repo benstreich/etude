@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ShareIcon } from '@/components/icons';
 import { ProgressBody } from '@/components/progress';
-import { RecapModal } from '@/components/recap-card';
+import { ShareSheet } from '@/components/report-modal';
 import { ScreenTitle } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import { themed, useC, type T } from '@/lib/theme';
@@ -16,7 +16,7 @@ export default function Progress() {
   const C = useC();
   const store = useStore();
   const insets = useSafeAreaInsets();
-  const [recapOpen, setRecapOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const empty = store.totalMin === 0 && store.sessions.length === 0;
 
   return (
@@ -26,14 +26,15 @@ export default function Progress() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <ScreenTitle>{store.t('tabs.progress')}</ScreenTitle>
             {!empty && (
-              <Pressable style={s.shareBtn} hitSlop={8} onPress={() => setRecapOpen(true)}>
+              <Pressable testID="progress-share" style={s.shareBtn} hitSlop={8} onPress={() => setShareOpen(true)}>
                 <ShareIcon />
               </Pressable>
             )}
           </View>
         }
       />
-      <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
+      {/* recap card or practice report (#99) — the chooser owns both modals */}
+      <ShareSheet visible={shareOpen} onClose={() => setShareOpen(false)} />
     </ScrollView>
   );
 }
