@@ -869,6 +869,42 @@
     "close": "Close",
     "share": "Share"
   },
+  "report": {
+    "chooserTitle": "Share",
+    "recapCard": "Recap card",
+    "recapCardSub": "A brag card for the month or the year",
+    "practiceReport": "Practice report",
+    "practiceReportSub": "Minutes, pieces and notes for your teacher",
+    "title": "Practice report",
+    "week": "Week",
+    "month": "Month",
+    "totalMin": "%{n} min",
+    "days": {
+      "one": "1 day",
+      "other": "%{n} days"
+    },
+    "sessions": {
+      "one": "1 session",
+      "other": "%{n} sessions"
+    },
+    "streak": "%{n}-day streak",
+    "minutesByDay": "Minutes by day",
+    "pieces": "Pieces",
+    "minutes": "Min",
+    "sessionsCol": "Sessions",
+    "tempo": "Tempo",
+    "rating": "Rating",
+    "spotSessions": {
+      "one": "1 session on a trouble spot",
+      "other": "%{n} sessions on trouble spots"
+    },
+    "notes": "Notes",
+    "andMore": "and %{n} more",
+    "empty": "Nothing practiced in this period.",
+    "share": "Share report",
+    "generated": "Generated with étude",
+    "sharePieceReport": "Share practice report"
+  },
   "reminders": {
     "channelName": "Practice reminders",
     "notifTitle": "Time to practice 🎵",

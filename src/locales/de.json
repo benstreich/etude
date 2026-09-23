@@ -869,6 +869,42 @@
     "close": "Schließen",
     "share": "Teilen"
   },
+  "report": {
+    "chooserTitle": "Teilen",
+    "recapCard": "Rückblick-Karte",
+    "recapCardSub": "Eine Karte zum Angeben, für den Monat oder das Jahr",
+    "practiceReport": "Übungsbericht",
+    "practiceReportSub": "Minuten, Stücke und Notizen für deine Lehrperson",
+    "title": "Übungsbericht",
+    "week": "Woche",
+    "month": "Monat",
+    "totalMin": "%{n} Min.",
+    "days": {
+      "one": "1 Tag",
+      "other": "%{n} Tage"
+    },
+    "sessions": {
+      "one": "1 Einheit",
+      "other": "%{n} Einheiten"
+    },
+    "streak": "%{n} Tage in Folge",
+    "minutesByDay": "Minuten pro Tag",
+    "pieces": "Stücke",
+    "minutes": "Min.",
+    "sessionsCol": "Einheiten",
+    "tempo": "Tempo",
+    "rating": "Bewertung",
+    "spotSessions": {
+      "one": "1 Einheit an einer Problemstelle",
+      "other": "%{n} Einheiten an Problemstellen"
+    },
+    "notes": "Notizen",
+    "andMore": "und %{n} weitere",
+    "empty": "In diesem Zeitraum nichts geübt.",
+    "share": "Bericht teilen",
+    "generated": "Erstellt mit étude",
+    "sharePieceReport": "Übungsbericht teilen"
+  },
   "reminders": {
     "channelName": "Übungs-Erinnerungen",
     "notifTitle": "Zeit zum Üben 🎵",

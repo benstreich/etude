@@ -1,0 +1,80 @@
+# Teacher export (#99): a logged session with a note reaches the practice
+# report — the chooser behind the Home share button, the week/month toggle,
+# the preview, and the Share button (the OS share sheet is system UI, so the
+# flow stops at opening it). The piece page's menu produces a single-piece
+# report. The aggregation is check:report.
+appId: com.benstreich.etude
+name: Practice report
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+# a fresh install has nothing to share: no share button yet
+- assertNotVisible:
+    id: "progress-share"
+
+# log a session and give it a note
+- scrollUntilVisible:
+    element:
+      id: "quick-log-15"
+    direction: DOWN
+- tapOn:
+    id: "quick-log-15"
+- scrollUntilVisible:
+    element:
+      id: "session-row-0"
+    direction: DOWN
+- tapOn:
+    id: "session-row-0"
+- tapOn:
+    id: "edit-session-note"
+- inputText: "Slow practice, bars 12-16"
+- hideKeyboard
+- tapOn:
+    id: "edit-session-save"
+
+# the chooser: recap card or practice report
+- scrollUntilVisible:
+    element:
+      id: "progress-share"
+    direction: UP
+- tapOn:
+    id: "progress-share"
+- assertVisible:
+    id: "share-recap"
+- tapOn:
+    id: "share-report"
+
+# the report: preview, the note in it, the period toggle, and Share enabled
+- assertVisible:
+    id: "report-preview"
+- assertVisible: ".*bars 12-16.*"
+- tapOn:
+    id: "report-period-month"
+- assertVisible:
+    id: "report-preview"
+- tapOn:
+    id: "report-period-week"
+- tapOn:
+    id: "report-share"
+# the OS share sheet is up; back out of it and the report
+- back
+- back
+
+# the piece page: the menu makes a report for that piece alone
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+- tapOn:
+    id: "piece-menu"
+- tapOn:
+    id: "share-piece-report"
+- assertVisible:
+    id: "report-preview"
+- assertVisible: ".*Scales & arpeggios.*"
+# nothing practised on it yet: the report says so and Share is inert
+- assertVisible: "Nothing practiced in this period."
