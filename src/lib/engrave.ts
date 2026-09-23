@@ -220,9 +220,13 @@ export type Note = { id: string; min: number; pitch: number; rest?: boolean; acc
  * the whole run takes one direction so the beam has somewhere to sit.
  * `beamEvery`, in eighths, closes a beam at every beat of that length so an
  * imported 4/4 bar beams by the quarter and a 6/8 bar by the dotted quarter;
- * the practice log leaves it open and beams every adjacent run.
+ * the practice log leaves it open and beams every adjacent run. `targetWidth`
+ * (#92) justifies the bar into a wider column: the slack is spread over the
+ * gaps between the notes (and after the last) in proportion to their natural
+ * size, the way a justified system spreads its slack over its bars — the lead
+ * after the barline stays where it is. Narrower than natural is ignored.
  */
-export function layoutBar(notes: Note[], goal: number, S: number, beamEvery = Infinity): BarLayout {
+export function layoutBar(notes: Note[], goal: number, S: number, beamEvery = Infinity, targetWidth?: number): BarLayout {
   const stemLen = STEM_LEN(S);
   const stemW = STEM_W(S);
 
@@ -282,9 +286,21 @@ export function layoutBar(notes: Note[], goal: number, S: number, beamEvery = In
   // neighbour — otherwise a day of one long session drew exactly as wide as a day
   // of one short one, and the bar stopped saying anything about how long it was.
   const lastP = placed[placed.length - 1];
-  const width = lastP
+  let width = lastP
     ? lastP.x + Math.max(advance(lastP.v.f, S), rightExtent(lastP.sh, lastP.v.dotted, lastP.flag, lastP.down, S) + TRAIL(S))
     : LEAD(S) + TRAIL(S);
+  if (targetWidth !== undefined && targetWidth > width && placed.length) {
+    // gaps after each note: between neighbours, and from the last note to the barline
+    const gaps = placed.map((p, i) => (i + 1 < placed.length ? placed[i + 1].x - p.x : width - p.x));
+    const total = gaps.reduce((a, g) => a + g, 0);
+    const slack = targetWidth - width;
+    let shift = 0;
+    placed.forEach((p, i) => {
+      p.x += shift;
+      shift += total > 0 ? (slack * gaps[i]) / total : 0;
+    });
+    width = targetWidth;
+  }
 
   const beams: Beam[] = [];
   for (const r of runs) {

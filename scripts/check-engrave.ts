@@ -375,6 +375,30 @@ assert.equal(BAR_PAD(10), 4);
   assert.equal(odd.notes[2].flag, true);
 }
 {
+  // justifying a bar into a wider column: the slack spreads over the gaps, the lead stays,
+  // order and beams hold, and a narrower target changes nothing
+  const notes = [n('a', 7, 2), n('b', 7, 3), n('c', 15, 4), n('d', 45, 5)]; // two eighths, a quarter, a dotted half
+  const natural = layoutBar(notes, GOAL, S, 2);
+  const wide = layoutBar(notes, GOAL, S, 2, natural.width * 1.5);
+  assert.ok(Math.abs(wide.width - natural.width * 1.5) < 0.001, 'the bar is exactly as wide as asked');
+  assert.equal(wide.notes[0].x, natural.notes[0].x, 'the first note stays put after the barline');
+  for (let i = 1; i < notes.length; i++) assert.ok(wide.notes[i].x > natural.notes[i].x, `note ${i} moved right`);
+  for (let i = 1; i < notes.length; i++) assert.ok(wide.notes[i].x - wide.notes[i - 1].x > natural.notes[i].x - natural.notes[i - 1].x, `gap ${i} grew`);
+  // the trailing room grew in the same proportion as the gaps between notes
+  const ratio = (wide.notes[1].x - wide.notes[0].x) / (natural.notes[1].x - natural.notes[0].x);
+  const trail = (wide.width - wide.notes[3].x) / (natural.width - natural.notes[3].x);
+  assert.ok(Math.abs(ratio - trail) < 0.001, 'every gap stretches by the same factor');
+  // stems and beams followed their notes
+  assert.equal(wide.beams.length, 1);
+  assert.ok(Math.abs(wide.beams[0].x1 - (natural.beams[0].x1 + (wide.notes[0].x - natural.notes[0].x))) < 0.001);
+  assert.ok(Math.abs(wide.beams[0].x2 - (natural.beams[0].x2 + (wide.notes[1].x - natural.notes[1].x))) < 0.001);
+  assert.ok(Math.abs(wide.notes[2].stem!.x - wide.notes[2].x - (natural.notes[2].stem!.x - natural.notes[2].x)) < 0.001, 'a stem keeps its offset from its head');
+  assert.ok(Math.abs(wide.notes[3].dot!.x - wide.notes[3].x - (natural.notes[3].dot!.x - natural.notes[3].x)) < 0.001, 'a dot keeps its offset from its head');
+  assert.deepEqual(layoutBar(notes, GOAL, S, 2, natural.width * 0.5), natural, 'a narrower target is ignored');
+  assert.deepEqual(layoutBar(notes, GOAL, S, 2, undefined), natural);
+  assert.equal(layoutBar([], GOAL, S, 2, 500).width, layoutBar([], GOAL, S).width, 'an empty bar has nothing to spread');
+}
+{
   // meters over any denominator: the column fits the wider digit run — Bravura's 8 is
   // narrower than its 4, so 3/8 is no wider than 3/4; a two-digit denominator widens it
   assert.ok(METER_COL_W(3, S, 8) <= METER_COL_W(3, S));

@@ -71,10 +71,19 @@ export function layoutScore(measures: ScoreMeasure[], width: number, S: number):
   let lineW = 0;
   const cap = () => Math.max(1, width - headerW(lineSig, S));
 
+  const groups: number[] = []; // beam group per measure index, for the justified re-layout
   const close = (isLast: boolean) => {
     if (!line.length) return;
     const j = justifyLine(line, cap(), isLast);
-    systems.push({ bars: j.items, width: j.width, sig: lineSig, headW: headerW(lineSig, S) });
+    // a bar that was widened re-lays its notes into the room it got, so they
+    // spread across the bar instead of bunching at its left
+    const bars = j.items.map((b) => {
+      if (!b.lay) return b;
+      const columns = b.natural - b.lay.width;
+      const inner = b.width - columns;
+      return inner > b.lay.width + 0.01 ? { ...b, lay: layoutBar(barNotes(measures[b.index], b.index), SCORE_GOAL, S, groups[b.index], inner) } : b;
+    });
+    systems.push({ bars, width: j.width, sig: lineSig, headW: headerW(lineSig, S) });
     line = [];
     lineW = 0;
   };
@@ -84,7 +93,8 @@ export function layoutScore(measures: ScoreMeasure[], width: number, S: number):
     const changed = nextSig !== sig || (index === 0 && m.key !== undefined);
     sig = nextSig;
     if (m.meter) meter = m.meter;
-    const lay = m.notes.length ? layoutBar(barNotes(m, index), SCORE_GOAL, S, beamGroupFor(meter)) : null;
+    groups[index] = beamGroupFor(meter);
+    const lay = m.notes.length ? layoutBar(barNotes(m, index), SCORE_GOAL, S, groups[index]) : null;
     const body = BAR_PAD(S) + (m.meter ? METER_COL_W(m.meter.n, S, m.meter.d) : 0) + (lay ? lay.width : REST_COL_W(S));
     const bar = (atStart: boolean): ScoreBar => ({
       index,

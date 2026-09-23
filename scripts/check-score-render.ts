@@ -3,7 +3,7 @@
 // key changes land where they happen. Run: npm run check:score-render
 import assert from 'node:assert/strict';
 
-import { headerW } from '../src/lib/engrave.ts';
+import { BAR_PAD, headerW, KEY_COL_W, METER_COL_W } from '../src/lib/engrave.ts';
 import { parseMusicXml, type ScoreMeasure } from '../src/lib/musicxml.ts';
 import { SAMPLE_MUSICXML } from '../src/lib/sample-score.ts';
 import { barNotes, beamGroupFor, layoutScore, SCORE_GOAL } from '../src/lib/score-render.ts';
@@ -87,6 +87,15 @@ assert.equal(beamGroupFor({ n: 4, d: 16 }), 1, 'nothing shorter than an eighth i
   }
   // full systems are justified to the page; the last stays ragged when mostly empty
   for (const sys of systems.slice(0, -1)) assert.ok(Math.abs(sys.headW + sys.width - width) < 0.001, 'an inner system is justified');
+  // and inside a justified system every bar's notes fill the bar: the layout is as wide as the column left after the meter
+  for (const sys of systems.slice(0, -1))
+    for (const b of sys.bars) {
+      const columns = BAR_PAD(S) + (b.meter ? METER_COL_W(b.meter.n, S, b.meter.d) : 0) + (b.keyChange !== null ? KEY_COL_W(b.keyChange, S) : 0);
+      assert.ok(b.lay && Math.abs(b.lay.width + columns - b.width) < 0.001, `bar ${b.index} leaves ${b.width - columns - (b.lay?.width ?? 0)}px unused`);
+      assert.ok(b.natural <= b.width + 0.001);
+    }
+  // the ragged last system keeps its natural bars
+  for (const b of systems[systems.length - 1].bars) assert.ok(b.lay && Math.abs(b.natural - b.width) < 0.001 ? true : b.lay.width <= b.width);
   // the meter is written on the first bar only
   assert.deepEqual(systems[0].bars[0].meter, { n: 4, d: 4 });
   assert.ok(systems.flatMap((s) => s.bars).slice(1).every((b) => b.meter === null));
