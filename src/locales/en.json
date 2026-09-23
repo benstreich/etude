@@ -951,6 +951,18 @@
     "imported": "Score imported.",
     "simplified": "Imported with simplifications (%{n} elements skipped)."
   },
+  "memory": {
+    "toggle": "Memory test",
+    "done": "Done",
+    "reshuffle": "Reshuffle",
+    "howDidItGo": "How did it go?",
+    "struggled": "Struggled",
+    "ok": "OK",
+    "solid": "Solid",
+    "skip": "Skip",
+    "lastTest": "Last test: %{when} · %{grade}",
+    "peekHint": "Hold a hidden bar to peek."
+  },
   "fullScore": {
     "title": "Your score",
     "log": "Log",

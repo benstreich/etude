@@ -39,6 +39,8 @@ export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' |
 export type Plan = { id: string; name: string; segments: PlanSegment[] };
 export type TempoEntry = { date: string; bpm: number };
 export type StageEntry = { date: string; stage: number };
+/** One self-graded memory test (#94): struggled | ok | solid, and how much of the score was hidden. */
+export type MemoryEntry = { date: string; score: 0 | 1 | 2; fraction: 25 | 50 | 75 };
 // wave: ~60 normalized (0..1) mic levels sampled while recording, for the waveform display
 export type Recording = {
   id: string;
@@ -102,6 +104,7 @@ export type Piece = {
   scoreFile?: string;
   /** What the card can say without opening the file; `at` changes on every re-import so the viewer reloads. */
   scoreInfo?: { bars: number; title?: string; at: number };
+  memoryLog?: MemoryEntry[]; // #94; appended per test, several a day allowed. Small, so it lives in the blob like tempoLog
 };
 
 export type FocusPeriod = '7d' | '30d' | 'all';
@@ -312,6 +315,8 @@ type Store = State & {
   // store keeps the pointer. Removing deletes the file too.
   setPieceScore: (pieceId: string, file: string, info: { bars: number; title?: string }) => void;
   removePieceScore: (pieceId: string) => void;
+  /** #94: appends today's memory-test grade to the piece. */
+  logMemory: (pieceId: string, score: MemoryEntry['score'], fraction: MemoryEntry['fraction']) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
@@ -565,6 +570,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const removeSpot: Store['removeSpot'] = (pieceId, spotId) => {
     withSpots(pieceId, (spots) => spots.filter((sp) => sp.id !== spotId));
+  };
+
+  const logMemory: Store['logMemory'] = (pieceId, score, fraction) => {
+    const entry: MemoryEntry = { date: dateKey(), score, fraction };
+    setState((s) => (s ? { ...s, pieces: s.pieces.map((p) => (p.id === pieceId ? { ...p, memoryLog: [...(p.memoryLog ?? []), entry] } : p)) } : s));
   };
 
   const setPieceScore: Store['setPieceScore'] = (pieceId, file, info) => {
@@ -955,6 +965,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     gradeSpot,
     setPieceScore,
     removePieceScore,
+    logMemory,
     deleteSession,
     setSessionNote,
     updateSession,

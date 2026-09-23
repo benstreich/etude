@@ -10,8 +10,9 @@ import Svg, { Circle, G, Polygon, Rect, Text as SvgText } from 'react-native-svg
 
 import { Pressable } from '@/components/press';
 import { useImportXml } from '@/components/score';
+import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
-import { BackLink } from '@/components/ui';
+import { ActionChip, BackLink, ChipRow, Sheet } from '@/components/ui';
 import {
   BAR_PAD,
   BEAM_T,
@@ -35,11 +36,17 @@ import {
   STEM_W,
   yOf,
 } from '@/lib/engrave';
+import { hiddenMeasures, lastTest, MEMORY_FRACTIONS, memorySeed, recentTests, type MemoryFraction, type MemoryScore } from '@/lib/memory-math';
 import type { ScorePiece } from '@/lib/musicxml';
 import { readScore } from '@/lib/score-file';
 import { layoutScore, type ScoreSystem } from '@/lib/score-render';
-import { useStore } from '@/lib/store';
+import { dayLabel, useStore } from '@/lib/store';
 import { F, themed, useTheme, type T } from '@/lib/theme';
+
+// static keys, so check-i18n can see them
+const GRADE_KEY: Record<MemoryScore, string> = { 0: 'memory.struggled', 1: 'memory.ok', 2: 'memory.solid' };
+const GRADES: MemoryScore[] = [0, 1, 2];
+const NO_HIDDEN = new Set<number>();
 
 // system geometry — SP is the one staff space everything else is a multiple of.
 // The staff sits low enough in its block for two ledger lines and a stem above it.
@@ -86,6 +93,29 @@ export default function PieceScore() {
   const measures = score?.parts[0]?.measures;
   const systems = useMemo(() => (measures ? layoutScore(measures, sysW, SP) : []), [measures, sysW]);
 
+  // Memorization mode (#94): the hidden set is a pure function of piece, day,
+  // reshuffle counter and fraction — no Math.random in render, and the same
+  // bars stay hidden across a restart within the day.
+  const [testing, setTesting] = useState(false);
+  const [fraction, setFraction] = useState<MemoryFraction>(50);
+  const [salt, setSalt] = useState(0);
+  const [peeked, setPeeked] = useState<number | null>(null);
+  const [gradeOpen, setGradeOpen] = useState(false);
+  const count = measures?.length ?? 0;
+  const pieceId = piece?.id ?? '';
+  const today = store.today;
+  // cheap enough to draw every render; the compiler memoizes on its inputs
+  const hidden = testing && count > 0 ? new Set(hiddenMeasures(memorySeed(pieceId, today, salt), count, fraction)) : NO_HIDDEN;
+  const recent = recentTests(piece?.memoryLog);
+  const last = lastTest(piece?.memoryLog);
+  const gradeColor = (g: MemoryScore) => (g === 0 ? C.track : g === 1 ? C.accent : C.success);
+  const finishTest = (g: MemoryScore | null) => {
+    if (g !== null && piece) store.logMemory(piece.id, g, fraction);
+    setGradeOpen(false);
+    setTesting(false);
+    setPeeked(null);
+  };
+
   // hooks above; the piece can go away under an open screen (removed, or its score taken off)
   const xml = useImportXml(piece ?? { id: '', name: '', by: '', stage: 0, pct: 0 });
   if (!piece || !piece.scoreFile) return null;
@@ -126,13 +156,74 @@ export default function PieceScore() {
           {title !== piece.name ? `${piece.name} · ` : ''}
           {store.t('xmlScore.row', { n: bars })}
         </Text>
+
+        {/* the memory test (#94): the way in, and what the last tests said */}
+        {!!score && !testing && (
+          <View style={s.toolRow}>
+            <ChipRow>
+              <ActionChip
+                icon={() => null}
+                label={store.t('memory.toggle')}
+                testID="memory-toggle"
+                onPress={() => {
+                  setSalt(0);
+                  setPeeked(null);
+                  setTesting(true);
+                }}
+              />
+            </ChipRow>
+            {last && recent.length > 0 && (
+              <View testID="memory-history" style={s.historyRow}>
+                <View style={s.dots}>
+                  {recent.map((e, i) => (
+                    <View key={`${e.date}-${i}`} style={[s.dot, { backgroundColor: gradeColor(e.score) }]} />
+                  ))}
+                </View>
+                <Text style={s.historyCaption} numberOfLines={1}>
+                  {store.t('memory.lastTest', { when: dayLabel(last.date, store.today, store.t, store.lang), grade: store.t(GRADE_KEY[last.score]) })}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+        {testing && (
+          <View style={s.toolRow}>
+            <View style={s.controlBar}>
+              <View testID="memory-fraction">
+                <Segmented
+                  options={MEMORY_FRACTIONS.map((f) => ({ key: String(f), label: `${f}%` }))}
+                  value={String(fraction)}
+                  onChange={(k) => setFraction(Number(k) as MemoryFraction)}
+                />
+              </View>
+              <ChipRow>
+                <ActionChip icon={() => null} label={store.t('memory.reshuffle')} testID="memory-reshuffle" onPress={() => setSalt((v) => v + 1)} />
+                <ActionChip icon={() => null} label={store.t('memory.done')} active haptic="thudLight" testID="memory-done" onPress={() => setGradeOpen(true)} />
+              </ChipRow>
+            </View>
+            <Text style={s.hint}>{store.t('memory.peekHint')}</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView testID="piece-score-scroll" contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingTop: 12, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
         {systems.map((sys, i) => (
-          <SystemView key={i} sys={sys} isLast={i === systems.length - 1} />
+          <SystemView key={i} sys={sys} isLast={i === systems.length - 1} hidden={hidden} peeked={peeked} onPeek={setPeeked} />
         ))}
       </ScrollView>
+
+      {/* the self-grade after a test; skipping just closes the test */}
+      <Sheet visible={gradeOpen} onClose={() => setGradeOpen(false)} contentStyle={{ gap: 14 }}>
+        <Text style={s.sheetTitle}>{store.t('memory.howDidItGo')}</Text>
+        <ChipRow>
+          {GRADES.map((g) => (
+            <ActionChip key={g} icon={() => null} label={store.t(GRADE_KEY[g])} testID={`memory-grade-${g}`} onPress={() => finishTest(g)} />
+          ))}
+        </ChipRow>
+        <Pressable testID="memory-skip" style={s.sheetRow} onPress={() => finishTest(null)}>
+          <Text style={[s.sheetRowText, { color: C.sub }]}>{store.t('memory.skip')}</Text>
+        </Pressable>
+      </Sheet>
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={s.backdrop} onPress={() => setMenuOpen(false)}>
@@ -158,8 +249,24 @@ export default function PieceScore() {
   );
 }
 
-/** One system: clef, key signature, then every bar it holds. */
-function SystemView({ sys, isLast }: { sys: ScoreSystem; isLast: boolean }) {
+/**
+ * One system: clef, key signature, then every bar it holds. A bar in `hidden`
+ * keeps its lines, barlines, meter and key but draws a placeholder tint where
+ * its notes would be — unless it is the one being `peeked` (held down).
+ */
+function SystemView({
+  sys,
+  isLast,
+  hidden,
+  peeked,
+  onPeek,
+}: {
+  sys: ScoreSystem;
+  isLast: boolean;
+  hidden: Set<number>;
+  peeked: number | null;
+  onPeek: (index: number | null) => void;
+}) {
   const { C } = useTheme();
   const endX = sys.headW + sys.width;
   return (
@@ -185,6 +292,7 @@ function SystemView({ sys, isLast }: { sys: ScoreSystem; isLast: boolean }) {
           const keyW = b.keyChange !== null ? KEY_COL_W(b.keyChange, SP) : 0;
           const xOff = BAR_PAD(SP) + meterW + keyW;
           const final = isLast && i === sys.bars.length - 1;
+          const blank = hidden.has(b.index) && peeked !== b.index;
           return (
             <G key={b.index} transform={`translate(${barX}, ${STAFF_TOP})`}>
               <Rect x={0} y={0} width={LINE * 1.2} height={4 * SP} fill={C.barline} />
@@ -204,7 +312,10 @@ function SystemView({ sys, isLast }: { sys: ScoreSystem; isLast: boolean }) {
                     {m.sharp ? GLYPH.accidentalSharp : GLYPH.accidentalFlat}
                   </SvgText>
                 ))}
-              <G transform={`translate(${xOff}, 0)`}>
+              {blank && (
+                <Rect x={xOff} y={-0.6 * SP} width={Math.max(0, b.width - xOff - 0.4 * SP)} height={5.2 * SP} rx={4} fill={C.faint} opacity={0.35} />
+              )}
+              <G transform={`translate(${xOff}, 0)`} opacity={blank ? 0 : 1}>
                 {!b.lay && (
                   <SvgText x={REST_X(SP)} y={SP} fontFamily={F.smufl} fontSize={NOTE_FS} fill={C.ink}>
                     {GLYPH.restWhole}
@@ -269,6 +380,18 @@ function SystemView({ sys, isLast }: { sys: ScoreSystem; isLast: boolean }) {
           );
         })}
       </Svg>
+      {/* peek: the bar shows while the finger is down, and only then — no timers */}
+      {sys.bars
+        .filter((b) => hidden.has(b.index))
+        .map((b) => (
+          <Pressable
+            key={`peek${b.index}`}
+            testID={`memory-peek-${b.index}`}
+            style={{ position: 'absolute', left: sys.headW + b.x, width: b.width, top: 0, bottom: 0 }}
+            onPressIn={() => onPeek(b.index)}
+            onPressOut={() => onPeek(null)}
+          />
+        ))}
     </View>
   );
 }
@@ -280,6 +403,13 @@ const useS = themed(({ C, fs, r }: T) =>
     navGlyph: { fontSize: fs(20), color: C.sub, letterSpacing: 2 },
     title: { marginTop: 12, fontFamily: F.head, fontSize: fs(28), lineHeight: fs(32), letterSpacing: -0.4, color: C.ink },
     meta: { marginTop: 4, fontFamily: F.body, fontSize: fs(14), color: C.subStrong },
+    toolRow: { marginTop: 12, gap: 10 },
+    controlBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+    hint: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
+    historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    dots: { flexDirection: 'row', gap: 4 },
+    dot: { width: 7, height: 7, borderRadius: 3.5 },
+    historyCaption: { flex: 1, minWidth: 0, fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong },
     backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.45)', justifyContent: 'flex-end' },
     // the same sheet the piece page's ⋯ menu uses, so the two read as one control
     sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40, gap: 14 },

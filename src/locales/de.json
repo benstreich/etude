@@ -951,6 +951,18 @@
     "imported": "Noten importiert.",
     "simplified": "Mit Vereinfachungen importiert (%{n} Elemente übersprungen)."
   },
+  "memory": {
+    "toggle": "Gedächtnistest",
+    "done": "Fertig",
+    "reshuffle": "Neu mischen",
+    "howDidItGo": "Wie ist es gelaufen?",
+    "struggled": "Schwierig",
+    "ok": "OK",
+    "solid": "Sicher",
+    "skip": "Überspringen",
+    "lastTest": "Letzter Test: %{when} · %{grade}",
+    "peekHint": "Halte einen verdeckten Takt, um zu spicken."
+  },
   "fullScore": {
     "title": "Deine Partitur",
     "log": "Log",
