@@ -41,9 +41,10 @@ public class MetronomeControlsModule: Module {
       self.teardown()
     }
 
-    // Android-only background click loop — iOS JS timers keep firing in the
-    // background, so these are no-ops here.
+    // Android-only beat engine — on iOS the clicks are still timed in JS, and
+    // its timers keep firing in the background, so these are no-ops here.
     Function("startTicking") { (_: TickState) in }
+    Function("updateTicking") { (_: TickState) in }
     Function("stopTicking") {}
 
     OnDestroy {

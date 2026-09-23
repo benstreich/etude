@@ -1,7 +1,7 @@
 // The registry of progress definitions (spec 2026-09-15). Order here is the
 // default order; defaultOn is what a user who never opens the layout sheet sees.
 export type SectionKey =
-  | 'movement' | 'goals' | 'calendar' | 'lineChart' | 'barChart' | 'volume'
+  | 'movement' | 'goals' | 'challenge' | 'calendar' | 'lineChart' | 'barChart' | 'volume'
   | 'hear' | 'pipeline' | 'performable' | 'changed'
   | 'insights' | 'timeByFocus' | 'drift' | 'consistency' | 'rating' | 'timeOfDay' | 'sessionLength';
 
@@ -12,6 +12,10 @@ export type LayoutItem = { key: string; on: boolean };
 export const PROGRESS_SECTIONS: { key: SectionKey; defaultOn: boolean }[] = [
   { key: 'movement', defaultOn: true },
   { key: 'goals', defaultOn: true },
+  // #105. Default on: an existing install's saved layout lacks the key, and
+  // resolveLayout appends every missing registry key with its default, so the
+  // section appears at the end of their order rather than never.
+  { key: 'challenge', defaultOn: true },
   { key: 'calendar', defaultOn: true },
   { key: 'lineChart', defaultOn: false },
   { key: 'barChart', defaultOn: false },

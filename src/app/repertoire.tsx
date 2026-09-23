@@ -617,9 +617,10 @@ export default function Repertoire() {
         </Pressable>
       </Modal>
 
-      <Modal visible={menuPiece !== null} transparent animationType="fade" onRequestClose={closeMenu}>
-        <Pressable style={s.backdrop} onPress={closeMenu}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+      {/* A Sheet, not a bare Modal: the "new folder" field sits at the bottom of
+          this menu, and a bottom-anchored Modal stays put under the keyboard while
+          the Sheet lifts itself clear of it (see useKeyboardLift in ui.tsx). */}
+      <Sheet visible={menuPiece !== null} onClose={closeMenu} style={s.sheet}>
             {menuPiece && (
               <>
                 <Text style={s.sheetTitle}>{menuPiece.name}</Text>
@@ -731,15 +732,13 @@ export default function Repertoire() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </Sheet>
 
       {/* Rename or drop one folder. Delete is the destructive one, so it confirms and
-          says plainly that the pieces survive it — only the grouping goes (#102). */}
-      <Modal visible={folderMenu !== null} transparent animationType="fade" onRequestClose={() => setFolderMenu(null)}>
-        <Pressable style={s.backdrop} onPress={() => setFolderMenu(null)}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+          says plainly that the pieces survive it — only the grouping goes (#102).
+          Same reason as above for the Sheet: the rename field must stay visible
+          while it is being typed into. */}
+      <Sheet visible={folderMenu !== null} onClose={() => setFolderMenu(null)} style={s.sheet}>
             {folderMenu !== null && (
               <>
                 <Text style={s.sheetTitle}>{folderMenu}</Text>
@@ -764,9 +763,7 @@ export default function Repertoire() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </Sheet>
     </ScrollView>
   );
 }

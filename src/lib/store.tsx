@@ -28,7 +28,9 @@ export { dateKey };
 export { resolveRecordingUri, toStoredUri };
 export type { Attachment };
 
-export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string; rating?: number; at?: number; instrument?: string };
+// spot (#91): the TroubleSpot.id this session was logged against; unset = the whole piece.
+// A deleted spot leaves its id behind here — display code treats an unknown id as "no spot".
+export type Session = { id: string; title: string; meta: string; min: number; date: string; note?: string; planId?: string; rating?: number; at?: number; instrument?: string; spot?: string };
 // kind 'Break' (#59): a rest — no focus, never logged, excluded from the saved session total
 export type PlanSegment = { focus: { name: string; kind: 'Piece' | 'Technique' | 'Break' }; note?: string; bpm?: number; min: number };
 export type Plan = { id: string; name: string; segments: PlanSegment[] };
@@ -52,6 +54,19 @@ export type Recording = {
   loop?: boolean;
   rate?: number; // playback speed, 1 = normal; pitch is corrected so it stays in tune
 };
+// A named passage of a piece that needs separate work (#91). Sessions reference
+// it by `id`, so a rename of the label or of the piece never orphans a session.
+export type TroubleSpot = {
+  id: string;
+  label: string;
+  note?: string;
+  addedAt: string; // dateKey
+  resolvedAt?: string; // set when marked solid; deleted again to reopen
+  // reserved: a page of a score attachment to open at. ScoreViewer is keyed by
+  // attachment, not page, so nothing reads this yet — stored so the shape is settled.
+  attachment?: { id: string; page: number };
+};
+
 // stage is an index into settings.stages
 export type Piece = {
   id: string;
@@ -73,6 +88,7 @@ export type Piece = {
   ladder?: LadderConfig; // #90; clean-pass auto-advance. Absent = LADDER_DEFAULTS, never written back
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
   artwork?: string; // album cover URL from the iTunes search that added the piece
+  spots?: TroubleSpot[]; // #91; absent = none. Optional, so older blobs need no migration
 };
 
 export type FocusPeriod = '7d' | '30d' | 'all';
@@ -88,6 +104,7 @@ type Settings = {
   progressLayout: { key: string; on: boolean }[]; // section order + visibility; [] = registry default (spec 2026-09-15)
   progressHintSeen: boolean; // the one-time "this tab is yours" hint under the progress header
   progressChart: 'calendar' | 'line' | 'bars'; // how the heatmap card draws the same minutes
+  suggestDismissed: string; // dateKey of the day the "Suggested for today" card was dismissed (#95); '' = never
   name: string;
   language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
@@ -188,6 +205,7 @@ function seed(): State {
     progressLayout: [],
     progressHintSeen: false,
     progressChart: 'calendar',
+    suggestDismissed: '',
     name: '',
     language: 'system',
     instruments: [],
@@ -255,7 +273,8 @@ type Store = State & {
   week: { day: string; min: number; isToday: boolean; date: string }[];
   toast: string | null;
   showToast: (msg: string) => void;
-  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string) => string;
+  /** `spot` (#91): the TroubleSpot id the minutes went to; omit for the whole piece. */
+  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string, spot?: string) => string;
   addPlan: (name: string) => string;
   updatePlan: (id: string, patch: Partial<Pick<Plan, 'name' | 'segments'>>) => void;
   removePlan: (id: string) => void;
@@ -268,6 +287,12 @@ type Store = State & {
   setLiveSession: (ls: LiveSession | null) => void;
   updateSession: (id: string, patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number }) => void;
   updatePiece: (id: string, patch: Partial<Pick<Piece, 'stage' | 'currentBpm' | 'targetBpm' | 'targetDate' | 'targetRating' | 'instrument' | 'instruments' | 'artwork' | 'ladder'>>) => void;
+  // Trouble spots (#91). Resolve and reopen go through updateSpot by setting or
+  // clearing `resolvedAt`; a patch with `resolvedAt: undefined` deletes the field.
+  addSpot: (pieceId: string, label: string, note?: string) => void;
+  updateSpot: (pieceId: string, spotId: string, patch: Partial<TroubleSpot>) => void;
+  /** Past sessions keep their `spot` id; only the spot itself goes. */
+  removeSpot: (pieceId: string, spotId: string) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
@@ -409,7 +434,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const logMinutes = (min: number, title: string, meta: string, date = dateKey(), planId?: string, instrument?: string) => {
+  const logMinutes: Store['logMinutes'] = (min, title, meta, date = dateKey(), planId, instrument, spot) => {
     const id = uid();
     // wall-clock start only for sessions logged on the day itself; backdated logs have no time of day
     const at = date === dateKey() ? Date.now() : undefined;
@@ -439,7 +464,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // full-history scan so streaks assembled from backdated logs count too
         bestStreak: Math.max(s.bestStreak, computeBestStreak(minutesByDate, s.breakDays, graceFor(s.streakMode))),
         // 0 on equal dates keeps the sort stable, so today's newest stays first
-        sessions: [{ id, title, meta, min, date, planId, at, instrument: on }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
+        // #91: only a spot still open on this piece is logged against — one resolved
+        // or deleted mid-session falls back to the whole piece. Written only when
+        // present, so a whole-piece session serializes exactly as before.
+        sessions: [{ id, title, meta, min, date, planId, at, instrument: on, ...(spot && piece?.spots?.some((sp) => sp.id === spot && !sp.resolvedAt) ? { spot } : {}) }, ...s.sessions].sort((a, b) => b.date.localeCompare(a.date)),
       };
     });
     // two events landing in the same instant read as one long buzz; a streak
@@ -482,6 +510,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         : s
     );
+  };
+
+  // Trouble spots (#91) live on the piece; one helper maps the piece and its list
+  const withSpots = (pieceId: string, f: (spots: TroubleSpot[]) => TroubleSpot[]) =>
+    setState((s) => (s ? { ...s, pieces: s.pieces.map((p) => (p.id === pieceId ? { ...p, spots: f(p.spots ?? []) } : p)) } : s));
+
+  const addSpot: Store['addSpot'] = (pieceId, label, note) => {
+    const clean = label.trim();
+    if (!clean) return;
+    const cleanNote = note?.trim();
+    withSpots(pieceId, (spots) => [...spots, { id: uid(), label: clean, addedAt: dateKey(), ...(cleanNote ? { note: cleanNote } : {}) }]);
+  };
+
+  const updateSpot: Store['updateSpot'] = (pieceId, spotId, patch) => {
+    withSpots(pieceId, (spots) =>
+      spots.map((sp) => {
+        if (sp.id !== spotId) return sp;
+        const next = { ...sp, ...patch };
+        // an explicit undefined means "drop the field" — that is how reopen clears resolvedAt
+        for (const k of Object.keys(patch) as (keyof TroubleSpot)[]) if (patch[k] === undefined) delete next[k];
+        if (typeof next.label === 'string') next.label = next.label.trim() || sp.label;
+        if (typeof next.note === 'string' && !next.note.trim()) delete next.note;
+        return next;
+      })
+    );
+  };
+
+  const removeSpot: Store['removeSpot'] = (pieceId, spotId) => {
+    withSpots(pieceId, (spots) => spots.filter((sp) => sp.id !== spotId));
   };
 
   const deleteTempoEntry: Store['deleteTempoEntry'] = (pieceId, date) => {
@@ -627,6 +684,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // sessions, recordings, plans and the quick-log focus all join on the name, so a
   // rename rewrites every one of them in the same update. False when the name is taken.
+  // Trouble spots (#91) need nothing here on purpose: they live on the piece, and
+  // sessions reference them by spot id, so neither key moves with the name.
   const renamePiece: Store['renamePiece'] = (id, name) => {
     const clean = name.trim();
     if (!clean) return false;
@@ -843,6 +902,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     removePlan,
     logTempo,
     deleteTempoEntry,
+    addSpot,
+    updateSpot,
+    removeSpot,
     deleteSession,
     setSessionNote,
     updateSession,

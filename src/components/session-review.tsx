@@ -12,6 +12,7 @@ import { FlameIcon } from '@/components/icons';
 import { FermataMark, WaveformIcon } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { ActionChip, ChipRow, EntryRow, Overline, Stars } from '@/components/ui';
+import { challengeJustMet, monthlyChallenge } from '@/lib/challenge-math';
 import { achievements } from '@/lib/growth-math';
 import { cueVoice, primaryOf } from '@/lib/cue-voice';
 import { pieceRatings } from '@/lib/rating-math';
@@ -48,6 +49,9 @@ export function SessionReview({
   const voice = cueVoice(primaryOf(store.instruments, store.primaryInstrument));
   // last rating for this focus, so the grade is relative to last time (spec 2026-09-15)
   const lastRating = session ? pieceRatings({ name: session.focusName }, store.sessions.filter((x) => x.id !== session.id)).at(-1)?.rating : undefined;
+  // the trouble spot the saved session went to (#91): session id → spot id → the piece's spot
+  const spotId = session ? store.sessions.find((x) => x.id === session.id)?.spot : undefined;
+  const spotLabel = spotId ? store.allPieces.find((p) => p.name === session?.focusName)?.spots?.find((sp) => sp.id === spotId)?.label : undefined;
 
   // reset the draft whenever a new session opens the review
   const [prevId, setPrevId] = useState<string | null>(null);
@@ -71,6 +75,15 @@ export function SessionReview({
     playSessionComplete(soundsOn, voice);
   }, [openId, reduceMotion, rise, soundsOn, voice]);
 
+  // #105: did this session carry the monthly challenge over its line? Both
+  // snapshots are pure — the "before" is today's minutes less this session's.
+  const challengeOpts = { todayKey: store.today, dailyGoal: store.dailyGoal, breakDays: store.breakDays, weekStart: store.weekStart };
+  const justMet = session
+    ? challengeJustMet(
+        monthlyChallenge({ ...challengeOpts, minutesByDate: { ...store.minutesByDate, [store.today]: Math.max(0, (store.minutesByDate[store.today] ?? 0) - session.min) } }),
+        monthlyChallenge({ ...challengeOpts, minutesByDate: store.minutesByDate })
+      )
+    : false;
   const chips = session
     ? achievements({
         streak: store.displayStreak,
@@ -78,6 +91,7 @@ export function SessionReview({
         minutesByDate: store.minutesByDate,
         dailyGoal: store.dailyGoal,
         today: store.today,
+        challengeJustMet: justMet,
       })
     : [];
   // "Best week yet" is an earned moment (#68): ask for a review once the chord has
@@ -99,6 +113,7 @@ export function SessionReview({
     'First session': 'sessionReview.firstSession',
     'Best week yet': 'sessionReview.bestWeek',
     'Goal hit 7 days straight': 'sessionReview.goalStraight',
+    'Monthly challenge done': 'sessionReview.challengeDone',
   };
   const chipText = (c: (typeof chips)[number]) =>
     c.kind === 'streak'
@@ -144,6 +159,7 @@ export function SessionReview({
               <Text style={s.meta}>
                 {session.focusName} · {time(session.start)} – {time(session.end)}
               </Text>
+              {!!spotLabel && <Text style={s.meta}>{spotLabel}</Text>}
             </View>
             {chips.length > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>

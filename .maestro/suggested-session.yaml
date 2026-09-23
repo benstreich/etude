@@ -1,0 +1,95 @@
+# "Suggested for today" (#95): with a week of practice on two focuses that
+# then sat idle for a fortnight, the Practice picker suggests a session, Start
+# runs it through the routine runner, and dismissing hides the card until
+# tomorrow. The history is seeded through log-past onto seven days 15–21 days
+# back (scripts/stale-days.js), one entry per focus per day.
+appId: com.benstreich.etude
+name: Suggested session
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+- runScript: scripts/stale-days.js
+
+- repeat:
+    times: 7
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "log-past-open"
+          direction: DOWN
+      - tapOn:
+          id: "log-past-open"
+      - runFlow:
+          when:
+            true: ${output.days[output.i].prev == 'yes'}
+          commands:
+            - tapOn:
+                id: "cal-prev"
+      - tapOn:
+          id: "cal-day-${output.days[output.i].key}"
+      - tapOn: "Scales & arpeggios"
+      - tapOn:
+          id: "log-past-minutes"
+      - inputText: "20"
+      - hideKeyboard
+      - tapOn:
+          id: "log-past-add"
+      # the same day again, for the second focus
+      - scrollUntilVisible:
+          element:
+            id: "log-past-open"
+          direction: DOWN
+      - tapOn:
+          id: "log-past-open"
+      - runFlow:
+          when:
+            true: ${output.days[output.i].prev == 'yes'}
+          commands:
+            - tapOn:
+                id: "cal-prev"
+      - tapOn:
+          id: "cal-day-${output.days[output.i].key}"
+      - tapOn: "Sight reading"
+      - tapOn:
+          id: "log-past-minutes"
+      - inputText: "20"
+      - hideKeyboard
+      - tapOn:
+          id: "log-past-add"
+      - evalScript: ${output.i = output.i + 1}
+
+# the card is there, with a Start row
+- tapOn: "Practice"
+- scrollUntilVisible:
+    element:
+      id: "suggest-card"
+    direction: DOWN
+- tapOn:
+    id: "suggest-start"
+
+# the runner opens on the first suggested segment (two seeded techniques, two segments)
+- assertVisible: "Segment 1 of 2"
+
+# leaving the runner keeps the run going: the shell's pill is the way back — it
+# resolves the unsaved plan the same way the runner does — and the card stays
+# hidden while a run is in flight
+- back
+- assertVisible: ".*in progress.*"
+- assertNotVisible:
+    id: "suggest-card"
+- tapOn: ".*in progress.*"
+- assertVisible: "Segment 1 of 2"
+
+# end mid-segment: the native confirm, then the review commits the minute like any routine
+- tapOn:
+    id: "run-end"
+- tapOn: "End"
+- assertVisible: "Session saved"
+- tapOn:
+    id: "review-save"
+
+# Dismiss is not driven here: ending the run logs a minute against one of the
+# two seeded techniques, which takes its signal away, so the card cannot come
+# back within the same seed. The hide condition is pure (suggest-math / the
+# suggestDismissed setting) and the dismiss tap is one updateSettings call.

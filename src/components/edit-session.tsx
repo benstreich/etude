@@ -37,6 +37,9 @@ function Editor({
 }) {
   const [focus, setFocus] = useState({ title: session.title, meta: session.meta });
   const [min, setMin] = useState(session.min);
+  // the minutes as typed, while the field has focus — digits only, and an empty
+  // or zero draft leaves `min` where it was rather than saving nothing
+  const [typing, setTyping] = useState<string | null>(null);
   const [note, setNote] = useState(session.note ?? '');
   const [rating, setRating] = useState<number | undefined>(session.rating);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -47,7 +50,16 @@ function Editor({
     ...store.techniques.map((t) => ({ title: t, meta: 'Technique' })),
   ];
 
-  const step = (d: number) => setMin((m) => Math.max(1, m + d));
+  const step = (d: number) => {
+    setTyping(null); // a button press ends any typing and shows the stepped value
+    setMin((m) => Math.max(1, m + d));
+  };
+  const typeMin = (t: string) => {
+    const digits = t.replace(/\D/g, '').slice(0, 3);
+    setTyping(digits);
+    const n = Number(digits);
+    if (n >= 1) setMin(n);
+  };
   const holdStart = (d: number) => {
     repeat.current = setInterval(() => step(d), 120);
   };
@@ -118,9 +130,20 @@ function Editor({
               <Text style={s.label}>{store.t('editSession.minutes')}</Text>
               <View style={s.stepper}>
                 {stepBtn('−', -5, 'edit-session-minus')}
-                <View style={s.stepValue}>
-                  <Text style={s.stepValueText}>{min}</Text>
-                </View>
+                {/* the number is a field too: tap it and type — the sheet lifts above
+                    the keyboard (useKeyboardLift, ui.tsx), so both stay in view */}
+                <TextInput
+                  testID="edit-session-minutes"
+                  style={[s.stepValue, s.stepValueText]}
+                  value={typing ?? String(min)}
+                  onChangeText={typeMin}
+                  onBlur={() => setTyping(null)}
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                  selectTextOnFocus
+                  maxLength={3}
+                  accessibilityLabel={store.t('editSession.minutes')}
+                />
                 {stepBtn('+', +5, 'edit-session-plus')}
               </View>
             </View>
@@ -169,7 +192,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.staffLine, height: 52 },
   stepBtn: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
   stepGlyph: { fontSize: fs(26), color: C.accent, fontFamily: F.body },
-  stepValue: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  stepValue: { flex: 1, height: 52, padding: 0, textAlign: 'center' },
   stepValueText: { fontFamily: F.head, fontSize: fs(30), color: C.ink, fontVariant: ['tabular-nums'] },
   noteInput: { minHeight: 56, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, paddingVertical: 12, fontFamily: F.body, fontSize: fs(15), lineHeight: fs(21), color: C.ink, textAlignVertical: 'top' },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginTop: 4 },

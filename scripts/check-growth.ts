@@ -49,6 +49,17 @@ assert.deepEqual(
   [],
 );
 
+// --- achievements: the monthly challenge chip (#105) — once, after a streak, never when not just met
+assert.deepEqual(achievements({ ...base, streak: 0, challengeJustMet: true }), [{ kind: 'challenge', label: 'Monthly challenge done' }]);
+assert.deepEqual(
+  achievements({ ...base, streak: 3, sessionCount: 1, challengeJustMet: true }).map((a) => a.kind),
+  ['streak', 'challenge'],
+  'the streak chip keeps its place and the cap drops the milestone',
+);
+assert.equal(achievements({ ...base, streak: 0, challengeJustMet: true }).filter((a) => a.kind === 'challenge').length, 1);
+assert.deepEqual(achievements({ ...base, streak: 0, challengeJustMet: false }), []);
+assert.deepEqual(achievements({ ...base, streak: 0 }), [], 'absent means not met');
+
 // --- tempoDelta: baseline is the last entry before the month
 const log = [
   { date: '2026-07-10', bpm: 80 },

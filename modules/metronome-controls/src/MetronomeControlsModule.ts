@@ -1,12 +1,6 @@
 import { NativeModule, requireOptionalNativeModule } from 'expo';
 
-import type {
-  MetronomeClick,
-  MetronomeControlsEvents,
-  MetronomeControlsState,
-  MetronomeTick,
-  MetronomeTickPos,
-} from './MetronomeControls.types';
+import type { MetronomeClick, MetronomeControlsEvents, MetronomeControlsState, MetronomeTick } from './MetronomeControls.types';
 
 declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEvents> {
   /** Put the controls up (Android: start the foreground service). */
@@ -15,18 +9,19 @@ declare class MetronomeControlsModule extends NativeModule<MetronomeControlsEven
   update(state: MetronomeControlsState): void;
   /** Take them down. */
   hide(): void;
-  /** Android: the service clicks while JS timers are frozen (app backgrounded). No-op elsewhere. */
-  startTicking(tick: MetronomeTick): void;
   /**
-   * Android: hand the click loop back to JS, returning where it got to — null
-   * when it wasn't ticking. Undefined on the platforms that never tick.
+   * Android: start the native beat engine — the one click source whenever the
+   * metronome runs, in the app or with the screen off. It reports every tick
+   * through `onTick`. No-op elsewhere, where JS times the clicks itself.
    */
-  stopTicking(): MetronomeTickPos | null | undefined;
-  /** Android: retune a loop that is already running — tempo, accents, subdivision, sound, volume. */
+  startTicking(tick: MetronomeTick): void;
+  /** Android: stop the engine. No-op elsewhere. */
+  stopTicking(): void;
+  /** Android: retune a running engine — tempo, accents, subdivision, sound, volume. */
   updateTicking(tick: MetronomeTick): void;
-  /** Android: decode every sample set into the SoundPool. Absent on iOS. */
+  /** Android: decode every sample set ahead of the first beat. Absent on iOS. */
   preloadClicks?(): void;
-  /** Android: fire one click from the same SoundPool the background loop uses (#78). Absent on iOS. */
+  /** Android: one click for the sound picker's preview (#78). Absent on iOS. */
   click?(click: MetronomeClick): void;
 }
 

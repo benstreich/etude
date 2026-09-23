@@ -293,6 +293,14 @@
     "discardTake": "Aufnahme verwerfen"
   },
   "progress": {
+    "challengeDays": "Übe an %{target} Tagen im %{month}",
+    "challengeMinutes": "Übe %{time} im %{month}",
+    "challengeGoalDays": "Erreiche dein Tagesziel an %{target} Tagen im %{month}",
+    "challengeMet": "Geschafft – schau auf deinen Rückblick",
+    "challengeDaysLeft": {
+      "one": "Noch 1 Tag im Monat",
+      "other": "Noch %{count} Tage im Monat"
+    },
     "insights": "Einsichten",
     "lengthMin": "%{range} Min",
     "weekend": "am Wochenende",
@@ -361,6 +369,7 @@
     "hintDismiss": "Verstanden",
     "ratingSessions": "%{n} bewertete Sessions",
     "section": {
+      "challenge": "Monatliche Herausforderung",
       "movement": "In Bewegung",
       "goals": "Ziele & Termine",
       "calendar": "Übungskalender",
@@ -407,6 +416,7 @@
     "changedBpm": "BPM gewonnen",
     "changedStars": "Sterne im Schnitt",
     "sectionDesc": {
+      "challenge": "Eine stille Herausforderung im Monat, aus deiner eigenen Übungsgeschichte",
       "movement": "Welche Stücke sich bewegen, stocken oder fällig sind",
       "goals": "Zeitraumziele und Fristen für Stücke",
       "calendar": "Ein Monat Übetage, antippen für Details",
@@ -430,6 +440,7 @@
     "chartBars": "Balken",
     "chartEmpty": "In diesem Zeitraum ist noch nichts erfasst.",
     "unavailable": {
+      "challenge": "Übe ein paar Wochen, um eine monatliche Herausforderung freizuschalten.",
       "sessions": "Erfasse zuerst eine Einheit.",
       "pieces": "Füge zuerst ein Stück zu deinem Repertoire hinzu.",
       "rated": "Braucht %{need} bewertete Einheiten — du hast %{have}.",
@@ -732,6 +743,7 @@
     "addedToast": "%{min} Min hinzugefügt · %{day}"
   },
   "sessionReview": {
+    "challengeDone": "Monatliche Herausforderung geschafft",
     "title": "Einheit gespeichert",
     "note": "Notiz",
     "rateSession": "Wie hat es sich angefühlt?",
@@ -753,6 +765,41 @@
     "goalStraight": "Ziel 7 Tage in Folge erreicht",
     "lastTime": "Letztes Mal: %{n} ★",
     "importTake": "Stattdessen importieren"
+  },
+  "spots": {
+    "title": "Problemstellen",
+    "add": "Stelle hinzufügen",
+    "edit": "Stelle bearbeiten",
+    "labelPlaceholder": "z. B. Takte 12–16",
+    "notePlaceholder": "Notiz (optional)",
+    "empty": "Markiere knifflige Stellen, um sie separat zu verfolgen.",
+    "resolve": "Als sicher markieren",
+    "reopen": "Wieder öffnen",
+    "solidGroup": "Sicher (%{n})",
+    "delete": "Stelle löschen",
+    "deleteBody": "Vergangene Einheiten behalten ihre Minuten – nur die Stelle geht.",
+    "wholePiece": "Ganzes Stück",
+    "workingOn": "Gerade dran",
+    "lastNever": "noch nie",
+    "last": "zuletzt %{date}",
+    "trendUp": "▲ wird besser",
+    "trendDown": "▼ lässt nach",
+    "trendFlat": "▬ stabil",
+    "options": "Optionen der Stelle"
+  },
+  "suggest": {
+    "title": "Vorschlag für heute",
+    "start": "Starten",
+    "dismiss": "Für heute ausblenden",
+    "total": "%{n} Min. gesamt",
+    "minutes": "%{n} Min.",
+    "reason": {
+        "spotDue": "Problemstellen fällig",
+        "stalled": "Seit zwei Wochen keine Bewegung",
+        "review": "Wieder fällig – schon eine Weile her",
+        "plateau": "Tempo stagniert – langsam üben bei %{bpm} BPM",
+        "drift": "Kam zuletzt zu kurz"
+    }
   },
   "recordings": {
     "namePlaceholder": "Take benennen",
@@ -786,6 +833,9 @@
     "cancelTrim": "Abbrechen"
   },
   "recap": {
+    "challenge": "Monats-Herausforderung",
+    "challengeDays": "%{done} / %{target} Tage",
+    "challengeMinutes": "%{done} / %{target} Min.",
     "onPace": "Auf Kurs für",
     "avgRating": "Ø Bewertung",
     "bestRated": "Bestbewertetes Stück",
