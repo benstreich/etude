@@ -1,0 +1,74 @@
+# Memorization mode (#94): inside the imported-score viewer, the memory test
+# blanks a share of the bars, Done asks for a self-grade, and the grade lands in
+# the piece's history strip. The score comes from the bundled example (the OS
+# picker cannot be driven); the draw itself is check:memory.
+appId: com.benstreich.etude
+name: Memory test
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+- scrollUntilVisible:
+    element:
+      id: "score-import-sample"
+    direction: DOWN
+- tapOn:
+    id: "score-import-sample"
+- scrollUntilVisible:
+    element:
+      id: "score-open-xml"
+    direction: DOWN
+- tapOn:
+    id: "score-open-xml"
+- assertVisible:
+    id: "piece-score-scroll"
+
+# no test yet: no history strip
+- assertNotVisible:
+    id: "memory-history"
+
+# enter the test: the control bar with the fraction picker appears, the entry chip goes
+- tapOn:
+    id: "memory-toggle"
+- assertVisible:
+    id: "memory-fraction"
+- assertVisible:
+    id: "memory-reshuffle"
+- assertNotVisible:
+    id: "memory-toggle"
+- tapOn:
+    id: "memory-reshuffle"
+- assertVisible:
+    id: "memory-fraction"
+
+# Done → grade: Solid lands in the log, and the strip shows it
+- tapOn:
+    id: "memory-done"
+- assertVisible:
+    id: "memory-grade-2"
+- tapOn:
+    id: "memory-grade-2"
+- assertVisible:
+    id: "memory-history"
+- assertVisible: ".*Solid"
+- assertVisible:
+    id: "memory-toggle"
+
+# a second round, skipped: nothing added, the strip still shows one test
+- tapOn:
+    id: "memory-toggle"
+- tapOn:
+    id: "memory-done"
+- tapOn:
+    id: "memory-skip"
+- assertVisible:
+    id: "memory-history"
+- assertVisible:
+    id: "memory-toggle"
