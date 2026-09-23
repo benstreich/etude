@@ -785,7 +785,16 @@
     "trendUp": "▲ wird besser",
     "trendDown": "▼ lässt nach",
     "trendFlat": "▬ stabil",
-    "options": "Optionen der Stelle"
+    "options": "Optionen der Stelle",
+    "reviewTitle": "Problemstellen — wie lief es?",
+    "again": "Nochmal",
+    "good": "Gut",
+    "easy": "Leicht",
+    "dueIn": "→ fällig in %{n} Tagen",
+    "dueTomorrow": "→ fällig morgen",
+    "dueToday": "Heute fällig",
+    "dueCount": "%{n} Stellen fällig",
+    "dueCountOne": "1 Stelle fällig"
   },
   "suggest": {
     "title": "Vorschlag für heute",

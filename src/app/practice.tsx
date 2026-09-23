@@ -23,6 +23,7 @@ import { tap, thud } from '@/lib/haptics';
 import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
+import { dueSpots } from '@/lib/repetition-math';
 import { restoreLive } from '@/lib/session-math';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
 import { Piece, useStore } from '@/lib/store';
@@ -251,6 +252,17 @@ export default function Practice() {
       onInstrument(p, inst)
   );
   const plans = store.plans.filter((p) => p.name.toLowerCase().includes(q));
+
+  // Trouble spots due today (#93), folded to one row per piece: name plus how
+  // many. The row picks the piece like the list below does; the grading itself
+  // happens afterwards, in the session review.
+  const duePieces: { piece: Piece; n: number }[] = [];
+  for (const x of dueSpots(store.allPieces, store.today)) {
+    if (!onInstrument(x.piece, inst)) continue;
+    const seen = duePieces.find((d) => d.piece.id === x.piece.id);
+    if (seen) seen.n += 1;
+    else duePieces.push({ piece: x.piece, n: 1 });
+  }
 
   /** Start the clock. `on` is the answer to the instrument question, or null when it never had to be asked. */
   const beginSession = (on: string | null) => {
@@ -567,6 +579,33 @@ export default function Practice() {
         />
         {/* what the app would practise today, from the signals Progress already has (#95) */}
         {!q && <SuggestedCard />}
+        {/* the pieces with trouble spots due today (#93), above the list proper */}
+        {!q && duePieces.length > 0 && (
+          <View testID="spots-due-group">
+            <Overline style={{ marginTop: 32 }}>{store.t('spots.dueToday')}</Overline>
+            <View style={{ marginTop: 6 }}>
+              {duePieces.map(({ piece: p, n }) => {
+                const kind = p.kind === 'Technique' ? 'Technique' : 'Piece';
+                const sel = focus?.name === p.name && focus.kind === kind;
+                return (
+                  <EntryRow
+                    key={p.id}
+                    testID={`spots-due-${p.id}`}
+                    keySize={40}
+                    keyStyle={{ backgroundColor: sel ? C.accent : C.accentTint }}
+                    keyContent={<Text style={[s.dueCount, { color: sel ? C.bg : C.accent }]}>{n}</Text>}
+                    title={p.name}
+                    subline={<Text style={sel ? s.entrySubAccent : s.optionMeta}>{n === 1 ? store.t('spots.dueCountOne') : store.t('spots.dueCount', { n })}</Text>}
+                    right={null}
+                    top={false}
+                    style={{ paddingVertical: 10 }}
+                    onPress={() => setFocus({ name: p.name, kind })}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        )}
         {pieces.length > 0 && (
           <>
             <Overline style={{ marginTop: 32 }}>{store.t('practice.pieces')}</Overline>
@@ -698,6 +737,7 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   planAdd: { height: 44, justifyContent: 'center' },
   planAddText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
   entrySubAccent: { fontFamily: F.accent, fontSize: fs(16), lineHeight: fs(22), color: C.accent },
+  dueCount: { fontFamily: F.bodySemi, fontSize: fs(15), fontVariant: ['tabular-nums'] },
   runPage: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 24 },
   runHeadRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
   runStarted: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },

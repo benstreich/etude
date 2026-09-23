@@ -11,6 +11,7 @@ import { Text } from '@/components/text';
 import { Card, EntryRow, Overline } from '@/components/ui';
 import { tap } from '@/lib/haptics';
 import { setTransientPlan, TRANSIENT_PLAN_ID, useActiveRun } from '@/lib/plan-run-state';
+import { dueSpots } from '@/lib/repetition-math';
 import { suggestSession, type ReasonKey } from '@/lib/suggest-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -35,7 +36,18 @@ export function SuggestedCard() {
   // search box does not recompose the session on every keystroke
   const { allPieces, sessions, minutesByDate, dailyGoal, today, weekStart, stages } = store;
   const suggestion = useMemo(
-    () => suggestSession({ pieces: allPieces, sessions, minutesByDate, dailyGoal, today, monday: weekStart === 'Monday', stages: stages.length }),
+    () =>
+      suggestSession({
+        pieces: allPieces,
+        sessions,
+        minutesByDate,
+        dailyGoal,
+        today,
+        monday: weekStart === 'Monday',
+        stages: stages.length,
+        // the spots due today (#93) feed the composer's first rule
+        spots: dueSpots(allPieces, today).map((x) => ({ pieceName: x.piece.name, label: x.spot.label })),
+      }),
     [allPieces, sessions, minutesByDate, dailyGoal, today, weekStart, stages.length]
   );
 

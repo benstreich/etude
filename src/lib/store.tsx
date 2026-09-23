@@ -18,6 +18,7 @@ import type { RampUnit } from './metronome-math';
 import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
+import { schedule, type SpotGrade } from './repetition-math';
 import { applySessionUpdate, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
@@ -27,6 +28,7 @@ import type { AccentName, RadiusMode, ThemeMode } from './theme';
 export { dateKey };
 export { resolveRecordingUri, toStoredUri };
 export type { Attachment };
+export type { SpotGrade };
 
 // spot (#91): the TroubleSpot.id this session was logged against; unset = the whole piece.
 // A deleted spot leaves its id behind here — display code treats an unknown id as "no spot".
@@ -62,6 +64,11 @@ export type TroubleSpot = {
   note?: string;
   addedAt: string; // dateKey
   resolvedAt?: string; // set when marked solid; deleted again to reopen
+  // Spaced repetition (#93): the Leitner box 0..4 decides the interval, dueAt is
+  // when the spot comes back. Backfilled by migrate for spots that predate it.
+  box: number;
+  dueAt: string; // dateKey
+  gradedAt?: string; // dateKey of the last again/good/easy
   // reserved: a page of a score attachment to open at. ScoreViewer is keyed by
   // attachment, not page, so nothing reads this yet — stored so the shape is settled.
   attachment?: { id: string; page: number };
@@ -293,6 +300,8 @@ type Store = State & {
   updateSpot: (pieceId: string, spotId: string, patch: Partial<TroubleSpot>) => void;
   /** Past sessions keep their `spot` id; only the spot itself goes. */
   removeSpot: (pieceId: string, spotId: string) => void;
+  /** #93: again / good / easy moves the spot's Leitner box and reschedules it from today. */
+  gradeSpot: (pieceId: string, spotId: string, grade: SpotGrade) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
@@ -520,7 +529,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const clean = label.trim();
     if (!clean) return;
     const cleanNote = note?.trim();
-    withSpots(pieceId, (spots) => [...spots, { id: uid(), label: clean, addedAt: dateKey(), ...(cleanNote ? { note: cleanNote } : {}) }]);
+    // a new spot is due at once (#93): the first session on it is the first review
+    const today = dateKey();
+    withSpots(pieceId, (spots) => [...spots, { id: uid(), label: clean, addedAt: today, box: 0, dueAt: today, ...(cleanNote ? { note: cleanNote } : {}) }]);
+  };
+
+  const gradeSpot: Store['gradeSpot'] = (pieceId, spotId, grade) => {
+    const today = dateKey();
+    withSpots(pieceId, (spots) => spots.map((sp) => (sp.id === spotId ? { ...sp, ...schedule(sp.box, grade, today), gradedAt: today } : sp)));
   };
 
   const updateSpot: Store['updateSpot'] = (pieceId, spotId, patch) => {
@@ -905,6 +921,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addSpot,
     updateSpot,
     removeSpot,
+    gradeSpot,
     deleteSession,
     setSessionNote,
     updateSession,

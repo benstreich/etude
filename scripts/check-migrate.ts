@@ -1,7 +1,7 @@
 // Self-check for the saved-state upgrade logic. Run: npm run check:migrate
 import assert from 'node:assert/strict';
 
-import { migrate } from '../src/lib/migrate.ts';
+import { backfillSpots, migrate } from '../src/lib/migrate.ts';
 
 // stand-in for seed() — only the keys migrate touches, plus one to prove merging
 const seed = () => ({
@@ -104,5 +104,26 @@ const tech = migrate(save({ pieces: [{ id: 'p1', name: 'Scales & arpeggios', sta
 assert.deepEqual(tech.pieces.map((p: any) => [p.name, p.kind ?? 'Piece']), [['Scales & arpeggios', 'Piece'], ['Sight reading', 'Technique']]);
 assert.equal(tech.pieces[1].id, 'tech-sight-reading');
 assert.equal('techniques' in tech, false);
+
+// #93: a legacy spot without a box or due date starts in box 0, due on its addedAt
+// (or today when even that is missing); a scheduled spot keeps what it has, a
+// piece without spots gains none, and a spot's other fields survive untouched
+{
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const m = migrate(
+    save({
+      pieces: [
+        { id: 'p', stage: 0, spots: [{ id: 'a', label: 'bars 12-16', addedAt: '2026-09-01', note: 'slow' }, { id: 'b', label: 'coda', addedAt: '2026-09-10', box: 3, dueAt: '2026-09-30', gradedAt: '2026-09-23' }, { id: 'c', label: 'no date' }] },
+        { id: 'q', stage: 0 },
+      ],
+    }),
+    seed(),
+  ) as any;
+  assert.deepEqual(m.pieces[0].spots[0], { id: 'a', label: 'bars 12-16', addedAt: '2026-09-01', note: 'slow', box: 0, dueAt: '2026-09-01' });
+  assert.deepEqual(m.pieces[0].spots[1], { id: 'b', label: 'coda', addedAt: '2026-09-10', box: 3, dueAt: '2026-09-30', gradedAt: '2026-09-23' });
+  assert.deepEqual(m.pieces[0].spots[2], { id: 'c', label: 'no date', box: 0, dueAt: todayKey });
+  assert.equal('spots' in m.pieces[1], false);
+  assert.deepEqual(backfillSpots([{ addedAt: '2026-01-01', box: Number.NaN }], todayKey), [{ addedAt: '2026-01-01', box: 0, dueAt: '2026-01-01' }]);
+}
 
 console.log('check-migrate: all assertions passed');

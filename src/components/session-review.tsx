@@ -15,10 +15,12 @@ import { ActionChip, ChipRow, EntryRow, Overline, Stars } from '@/components/ui'
 import { challengeJustMet, monthlyChallenge } from '@/lib/challenge-math';
 import { achievements } from '@/lib/growth-math';
 import { cueVoice, primaryOf } from '@/lib/cue-voice';
+import { daysUntil } from '@/lib/goal-math';
 import { pieceRatings } from '@/lib/rating-math';
+import { reviewSpots } from '@/lib/repetition-math';
 import { maybeRequestReview } from '@/lib/review';
 import { playSessionComplete } from '@/lib/sounds';
-import { useStore } from '@/lib/store';
+import { useStore, type SpotGrade } from '@/lib/store';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 export type ReviewSession = { id: string; min: number; focusName: string; start: number; end: number };
@@ -51,7 +53,15 @@ export function SessionReview({
   const lastRating = session ? pieceRatings({ name: session.focusName }, store.sessions.filter((x) => x.id !== session.id)).at(-1)?.rating : undefined;
   // the trouble spot the saved session went to (#91): session id → spot id → the piece's spot
   const spotId = session ? store.sessions.find((x) => x.id === session.id)?.spot : undefined;
-  const spotLabel = spotId ? store.allPieces.find((p) => p.name === session?.focusName)?.spots?.find((sp) => sp.id === spotId)?.label : undefined;
+  // sessions join pieces by display name — the same convention as Session.title
+  const piece = session ? store.allPieces.find((p) => p.name === session.focusName) : undefined;
+  const spotLabel = spotId ? piece?.spots?.find((sp) => sp.id === spotId)?.label : undefined;
+
+  // Spaced repetition (#93): which of the piece's spots this review offers for
+  // grading. The ids are fixed when the review opens — grading reschedules a spot,
+  // and re-sorting by the new due date would make the rows jump under the thumb.
+  const [reviewIds, setReviewIds] = useState<string[]>([]);
+  const [graded, setGraded] = useState<string[]>([]);
 
   // reset the draft whenever a new session opens the review
   const [prevId, setPrevId] = useState<string | null>(null);
@@ -59,7 +69,20 @@ export function SessionReview({
     setPrevId(session.id);
     setNote('');
     setRating(undefined);
+    setReviewIds(reviewSpots(piece?.spots).map((sp) => sp.id));
+    setGraded([]);
   }
+  const spotRows = reviewIds.map((id) => piece?.spots?.find((sp) => sp.id === id)).filter((sp) => sp !== undefined);
+
+  const grade = (id: string, g: SpotGrade) => {
+    if (!piece) return;
+    store.gradeSpot(piece.id, id, g);
+    setGraded((list) => [...list, id]);
+  };
+  const dueLine = (dueAt: string) => {
+    const n = daysUntil(dueAt, store.today);
+    return n <= 1 ? store.t('spots.dueTomorrow') : store.t('spots.dueIn', { n });
+  };
 
   // the soul-pass moment: content rises in, the completion cue plays once
   const openId = session?.id ?? null;
@@ -183,6 +206,31 @@ export function SessionReview({
             {lastRating !== undefined && <Text style={s.meta}>{store.t('sessionReview.lastTime', { n: lastRating })}</Text>}
           </View>
 
+          {/* Leitner grading per trouble spot (#93) — optional, so closing without a tap changes nothing */}
+          {piece && spotRows.length > 0 && (
+            <View style={{ gap: 10 }}>
+              <Overline>{store.t('spots.reviewTitle')}</Overline>
+              {spotRows.map((sp) => (
+                <View key={sp.id} testID={`spot-review-${sp.id}`} style={s.spotRow}>
+                  <Text style={s.spotLabel} numberOfLines={1}>
+                    {sp.label}
+                  </Text>
+                  {graded.includes(sp.id) ? (
+                    <Text style={[s.meta, { color: C.accent }]} testID={`spot-graded-${sp.id}`}>
+                      {dueLine(sp.dueAt)}
+                    </Text>
+                  ) : (
+                    <ChipRow>
+                      <ActionChip icon={() => null} label={store.t('spots.again')} testID={`spot-grade-again-${sp.id}`} onPress={() => grade(sp.id, 'again')} />
+                      <ActionChip icon={() => null} label={store.t('spots.good')} testID={`spot-grade-good-${sp.id}`} onPress={() => grade(sp.id, 'good')} />
+                      <ActionChip icon={() => null} label={store.t('spots.easy')} testID={`spot-grade-easy-${sp.id}`} onPress={() => grade(sp.id, 'easy')} />
+                    </ChipRow>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+
           <View style={{ marginTop: 0 }}>
             <Overline>{store.t('sessionReview.note')}</Overline>
             <View style={s.noteCard}>
@@ -245,6 +293,8 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   title: { fontFamily: F.head, fontSize: fs(30), lineHeight: fs(36), color: C.ink, letterSpacing: -0.4, textAlign: 'center' },
   meta: { fontFamily: F.body, fontSize: fs(14), color: C.subStrong },
   chipSep: { color: C.staffLine },
+  spotRow: { gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.hairline },
+  spotLabel: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   noteCard: { marginTop: 4, minHeight: 64, borderTopWidth: 1, borderTopColor: C.staffLine, paddingTop: 8 },
   noteInput: { flex: 1, fontFamily: F.body, fontSize: fs(17), lineHeight: fs(32), color: C.ink, padding: 0, textAlignVertical: 'top' },
 }));

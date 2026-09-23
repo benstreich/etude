@@ -3,9 +3,12 @@
 # emulator's adb link drops under sustained load, and a whole-suite run turns
 # one hiccup into a page of false failures. Exit code decides pass/fail;
 # `maestro test <dir>` output formatting does not.
+# Pass flow files as arguments to run a subset: `bash scripts/e2e-retry.sh .maestro/spots.yaml`.
 cd "$(dirname "$0")/.." || exit 1
+flows=("$@")
+[ ${#flows[@]} -eq 0 ] && flows=(.maestro/*.yaml)
 pass=0; fail=0; failed=()
-for f in .maestro/*.yaml; do
+for f in "${flows[@]}"; do
   name=$(basename "$f")
   if maestro test "$f" >/tmp/e2e-last.log 2>&1; then
     echo "PASS $name"; pass=$((pass+1)); continue

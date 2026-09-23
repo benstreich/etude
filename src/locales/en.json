@@ -785,7 +785,16 @@
     "trendUp": "▲ improving",
     "trendDown": "▼ slipping",
     "trendFlat": "▬ steady",
-    "options": "Spot options"
+    "options": "Spot options",
+    "reviewTitle": "Trouble spots — how did it go?",
+    "again": "Again",
+    "good": "Good",
+    "easy": "Easy",
+    "dueIn": "→ due in %{n} days",
+    "dueTomorrow": "→ due tomorrow",
+    "dueToday": "Due today",
+    "dueCount": "%{n} spots due",
+    "dueCountOne": "1 spot due"
   },
   "suggest": {
     "title": "Suggested for today",
