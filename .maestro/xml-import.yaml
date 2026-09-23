@@ -1,0 +1,68 @@
+# MusicXML import (#92). Maestro cannot drive the OS file picker, so the flow
+# imports the bundled example instead — the same parse → write → store path the
+# picker takes, minus the picking. Checks the card's row, the viewer, and that
+# Remove score puts the import chips back. The parser is check:musicxml, the
+# page layout check:score-render.
+appId: com.benstreich.etude
+name: MusicXML import
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+# a seeded technique is a piece too, with the same page — no network needed
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+
+# before: the two import chips; the example imports without a picker
+- scrollUntilVisible:
+    element:
+      id: "score-import-sample"
+    direction: DOWN
+- assertVisible:
+    id: "score-import-xml"
+- tapOn:
+    id: "score-import-sample"
+
+# after: the row names the score and its length, and opens the engraved page
+- scrollUntilVisible:
+    element:
+      id: "score-open-xml"
+    direction: DOWN
+- assertVisible: "A little minuet"
+- assertVisible: ".*8 bars"
+- tapOn:
+    id: "score-open-xml"
+- assertVisible:
+    id: "piece-score-scroll"
+- assertVisible: "A little minuet"
+
+# the row survives leaving and coming back — the pointer is in the store, the score in a file
+- back
+- scrollUntilVisible:
+    element:
+      id: "score-open-xml"
+    direction: DOWN
+- tapOn:
+    id: "score-open-xml"
+- assertVisible:
+    id: "piece-score-scroll"
+
+# remove: the confirm, then the piece page shows the import chips again
+- tapOn:
+    id: "piece-score-menu"
+- tapOn:
+    id: "piece-score-remove"
+- tapOn: "Remove score"
+- scrollUntilVisible:
+    element:
+      id: "score-import-sample"
+    direction: DOWN
+- assertVisible:
+    id: "score-import-xml"
+- assertNotVisible:
+    id: "score-open-xml"

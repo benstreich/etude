@@ -38,6 +38,7 @@ list, `package-lock.json` the exact versions.
 - **react-native-safe-area-context**, **react-native-screens**,
   **react-native-gesture-handler**, **react-native-reanimated**,
   **react-native-svg**, **react-native-view-shot**
+- **fast-xml-parser** — Amit Kumar Gupta; reads imported MusicXML files
 - **i18n-js**
 - **@react-native-async-storage/async-storage**
 

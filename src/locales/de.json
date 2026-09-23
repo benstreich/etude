@@ -938,6 +938,19 @@
     "importFailed": "Datei konnte nicht hinzugefügt werden.",
     "more": "Umbenennen oder löschen"
   },
+  "xmlScore": {
+    "import": "MusicXML importieren",
+    "sample": "Beispiel ausprobieren",
+    "row": "Noten · %{n} Takte",
+    "remove": "Noten entfernen",
+    "removeBody": "Die importierten Noten werden gelöscht. Fotos und PDFs deiner Noten bleiben.",
+    "replace": "Andere MusicXML-Datei importieren",
+    "options": "Optionen der Noten",
+    "mxl": "Komprimiertes MusicXML (.mxl) wird noch nicht unterstützt — bitte als unkomprimiertes .musicxml exportieren.",
+    "failed": "Diese Datei konnte nicht als MusicXML gelesen werden.",
+    "imported": "Noten importiert.",
+    "simplified": "Mit Vereinfachungen importiert (%{n} Elemente übersprungen)."
+  },
   "fullScore": {
     "title": "Deine Partitur",
     "log": "Log",

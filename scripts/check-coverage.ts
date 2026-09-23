@@ -27,6 +27,7 @@ const EXEMPT: Record<string, string> = {
   'reminders.ts': 'expo-notifications scheduling; the parsing is in reminder-time.ts',
   'session-notice.ts': 'two calls into the practice-session foreground service; the restore logic is in session-math.ts',
   'review.ts': 'expo-store-review call; the logic is in review-math.ts',
+  'score-file.ts': 'expo-document-picker and expo-file-system I/O; the parsing is in musicxml.ts',
   'sounds.ts': 'expo-audio playback',
   'store.tsx': 'React context over AsyncStorage; the logic lives in the -math modules',
   'theme.ts': 'React hooks over useColorScheme',

@@ -290,7 +290,7 @@ export default function PieceDetail() {
 
       <TempoLadder piece={piece} />
 
-      <ScoreCard piece={piece.name} />
+      <ScoreCard piece={piece} />
 
       {/* the header always shows so a take recorded elsewhere can be imported before the first in-app one */}
       <View style={{ gap: 12 }}>

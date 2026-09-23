@@ -13,11 +13,17 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useRouter } from 'expo-router';
+
+import { ChevronIcon } from '@/components/icons';
 import { Text } from '@/components/text';
-import { Card, Overline } from '@/components/ui';
+import { ActionChip, Card, ChipRow, Overline } from '@/components/ui';
 import { forPiece, type Attachment } from '@/lib/attachment-math';
 import { NoPdfRendererError, pickAttachments, UnsupportedFileError } from '@/lib/attachments';
-import { resolveRecordingUri, useStore } from '@/lib/store';
+import { MusicXmlError, parseMusicXml } from '@/lib/musicxml';
+import { SAMPLE_MUSICXML } from '@/lib/sample-score';
+import { CompressedMusicXmlError, pickMusicXml, writeScore } from '@/lib/score-file';
+import { resolveRecordingUri, useStore, type Piece } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 const MAX_ZOOM = 5;
@@ -48,13 +54,54 @@ function useAddScore(piece: string) {
   return { add, busy };
 }
 
-/** "Score" card for the piece page: thumbnails, an add tile, long-press to edit. */
-export function ScoreCard({ piece }: { piece: string }) {
+/**
+ * MusicXML import (#92): pick a file (or take the bundled example), parse it,
+ * write the JSON, point the piece at it. Every failure is a toast; nothing is
+ * stored unless the parse succeeded. Shared by the card and the viewer's menu.
+ */
+export function useImportXml(piece: Piece) {
+  const store = useStore();
+  const [busy, setBusy] = useState(false);
+  const commit = (xml: string) => {
+    const score = parseMusicXml(xml);
+    const file = writeScore(piece.id, score);
+    store.setPieceScore(piece.id, file, { bars: score.parts[0].measures.length, ...(score.title ? { title: score.title } : {}) });
+    store.showToast(score.skipped > 0 ? store.t('xmlScore.simplified', { n: score.skipped }) : store.t('xmlScore.imported'));
+  };
+  const importFile = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const picked = await pickMusicXml();
+      if (picked) commit(picked.xml);
+    } catch (e) {
+      if (e instanceof CompressedMusicXmlError) store.showToast(store.t('xmlScore.mxl'));
+      else if (e instanceof MusicXmlError) store.showToast(store.t('xmlScore.failed'));
+      else store.showToast(store.t('score.importFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const importSample = () => {
+    try {
+      commit(SAMPLE_MUSICXML);
+    } catch {
+      store.showToast(store.t('xmlScore.failed'));
+    }
+  };
+  return { importFile, importSample, busy };
+}
+
+/** "Score" card for the piece page: thumbnails, an add tile, long-press to edit — and the imported MusicXML score (#92). */
+export function ScoreCard({ piece: p }: { piece: Piece }) {
   const s = useS();
   const C = useC();
   const store = useStore();
+  const router = useRouter();
+  const piece = p.name;
   const scores = useScores(piece);
   const { add, busy } = useAddScore(piece);
+  const xml = useImportXml(p);
   const [open, setOpen] = useState<Attachment | null>(null);
   const [editing, setEditing] = useState<Attachment | null>(null);
   const [draft, setDraft] = useState('');
@@ -73,6 +120,23 @@ export function ScoreCard({ piece }: { piece: string }) {
           </Text>
         )}
       </View>
+      {/* the engraved score (#92): one row once imported, the ways to get one before */}
+      {p.scoreFile && p.scoreInfo ? (
+        <Pressable testID="score-open-xml" style={s.xmlRow} onPress={() => router.push({ pathname: '/piece-score', params: { id: p.id } })}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.xmlTitle} numberOfLines={1}>
+              {p.scoreInfo.title ?? p.name}
+            </Text>
+            <Text style={s.xmlSub}>{store.t('xmlScore.row', { n: p.scoreInfo.bars })}</Text>
+          </View>
+          <ChevronIcon color={C.barline} size={14} />
+        </Pressable>
+      ) : (
+        <ChipRow>
+          <ActionChip icon={() => null} label={store.t('xmlScore.import')} disabled={xml.busy} testID="score-import-xml" onPress={xml.importFile} />
+          <ActionChip icon={() => null} label={store.t('xmlScore.sample')} disabled={xml.busy} testID="score-import-sample" onPress={xml.importSample} />
+        </ChipRow>
+      )}
       <Card style={{ padding: 12 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
           {scores.map((a) => (
@@ -315,6 +379,9 @@ function ZoomablePage({ uri, width, height }: { uri: string; width: number; heig
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   headCount: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
+  xmlRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  xmlTitle: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
+  xmlSub: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong, marginTop: 1 },
   thumb: { width: 92, borderRadius: r(10), overflow: 'hidden', backgroundColor: C.track },
   thumbImg: { width: 92, height: 108, backgroundColor: '#fff' },
   thumbFoot: { paddingHorizontal: 6, paddingVertical: 5 },

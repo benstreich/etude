@@ -15,10 +15,17 @@ import {
   headGlyph,
   headOrigin,
   headRx,
+  justifyLine,
+  KEY_COL_W,
   layoutBar,
   layoutSystems,
+  LEDGER_EXT,
+  ledgerLines,
   LINE_W,
   METER_COL_W,
+  restGlyph,
+  restY,
+  signatureMarksAt,
   noteTop,
   PAD_COL_W,
   PAD_REST_X,
@@ -286,6 +293,142 @@ assert.equal(BAR_PAD(10), 4);
   assert.ok(narrowedFirst[0].bars.length < uniform[0].bars.length, 'a narrower first system should hold fewer bars');
   assert.ok(narrowedFirst[0].width <= 160.01, 'the first system should not exceed the narrower capacity it was given');
   assert.ok(narrowedFirst[1].width <= LINE_CAP + 0.01, 'a later system is unaffected by the first system’s narrower capacity');
+}
+
+// --- imported scores (#92): ledger lines, rests, accidentals, beat-grouped beams ---
+{
+  // E4…F5 sit on the staff; C4 needs one line, A5 one, C6 two, A3 two
+  for (const p of [0, 1, 2, 3, 4, 5, 6, 7, 8]) assert.deepEqual(ledgerLines(p, S), [], `pitch ${p} is on the staff`);
+  assert.deepEqual(ledgerLines(-1, S), [], 'D4 hangs below the staff without a line of its own');
+  assert.deepEqual(ledgerLines(-2, S), [yOf(-2, S)], 'C4: one line, a space below the bottom line');
+  assert.deepEqual(ledgerLines(-3, S), [yOf(-2, S)], 'B3 sits under the C4 line');
+  assert.deepEqual(ledgerLines(-4, S), [yOf(-2, S), yOf(-4, S)]);
+  assert.deepEqual(ledgerLines(9, S), [], 'G5 sits above the top line without a line');
+  assert.deepEqual(ledgerLines(10, S), [yOf(10, S)], 'A5: one line above');
+  assert.deepEqual(ledgerLines(12, S), [yOf(10, S), yOf(12, S)], 'C6: two');
+  assert.equal(yOf(-2, S), 5 * S, 'the first ledger line below is a full space under the staff');
+  assert.equal(yOf(10, S), -S);
+  // the placed note carries its lines, and a ledgered note is spaced wider than a staff note
+  const low = layoutBar([n('a', 15, -2), n('b', 15, -2)], GOAL, S);
+  assert.deepEqual(low.notes[0].ledger, [yOf(-2, S)]);
+  const plain = layoutBar([n('a', 15, 2), n('b', 15, 2)], GOAL, S);
+  assert.deepEqual(plain.notes[0].ledger, []);
+  assert.ok(low.notes[1].x - low.notes[0].x >= plain.notes[1].x - plain.notes[0].x, 'ledger lines earn their overhang');
+  assert.ok(LEDGER_EXT > 0);
+  // stems still follow the ordinary rule far off the staff
+  assert.equal(layoutBar([n('a', 15, -4)], GOAL, S).notes[0].down, false);
+  assert.equal(layoutBar([n('a', 15, 12)], GOAL, S).notes[0].down, true);
+}
+{
+  // rests: no stem, no flag, no beam, the right glyph and origin for the value
+  const bar = layoutBar([n('a', 7, 0), { ...n('r', 15, 0), rest: true }, n('b', 7, 0)], GOAL, S);
+  assert.equal(bar.notes[1].rest, true);
+  assert.equal(bar.notes[1].stem, null);
+  assert.equal(bar.notes[1].flag, false);
+  assert.equal(bar.beams.length, 0, 'a rest breaks a beam run');
+  assert.equal(bar.notes[0].flag, true);
+  assert.equal(bar.notes[1].y, restY('quarter', S));
+  assert.equal(restY('whole', S), S, 'the whole rest hangs from the second line');
+  assert.equal(restY('half', S), 2 * S, 'the half rest sits on the middle line');
+  assert.equal(restY('eighth', S), 2 * S);
+  assert.equal(restGlyph('quarter'), GLYPH.restQuarter);
+  assert.equal(restGlyph('eighth'), GLYPH.restEighth);
+  assert.equal(restGlyph('whole'), GLYPH.restWhole);
+  assert.notEqual(restGlyph('half'), restGlyph('whole'));
+  assert.equal(restGlyph('breve'), GLYPH.restDoubleWhole);
+  // a dotted rest keeps its dot, above the middle line
+  const dotted = layoutBar([{ ...n('r', 45, 0), rest: true }], GOAL, S).notes[0];
+  assert.ok(dotted.dot && dotted.dot.y === 1.5 * S);
+  assert.ok(dotted.dot.x > dotted.x);
+  // rests still take their value's room, so the bar breathes the same way
+  assert.ok(layoutBar([{ ...n('r', 60, 0), rest: true }], GOAL, S).width > layoutBar([{ ...n('r', 7, 0), rest: true }], GOAL, S).width);
+}
+{
+  // accidentals stand before the head, and push the notes apart
+  const bar = layoutBar([n('a', 15, 3), { ...n('b', 15, 5), acc: 'sharp' }], GOAL, S);
+  assert.equal(bar.notes[0].acc, null);
+  const acc = bar.notes[1].acc!;
+  assert.equal(acc.glyph, GLYPH.accidentalSharp);
+  assert.equal(acc.y, bar.notes[1].y, 'an accidental sits at the head’s own height');
+  assert.ok(acc.x + 0.996 * S <= bar.notes[1].x - headRx('quarter', S) + 0.001, 'the sharp ends before the head begins');
+  assert.ok(acc.x > bar.notes[0].x + headRx('quarter', S), 'and starts after the note before');
+  const bare = layoutBar([n('a', 15, 3), n('b', 15, 5)], GOAL, S);
+  assert.ok(bar.notes[1].x > bare.notes[1].x, 'the accidental costs width');
+  assert.equal(layoutBar([{ ...n('a', 15, 3), acc: 'flat' }], GOAL, S).notes[0].acc!.glyph, GLYPH.accidentalFlat);
+  assert.equal(layoutBar([{ ...n('a', 15, 3), acc: 'natural' }], GOAL, S).notes[0].acc!.glyph, GLYPH.accidentalNatural);
+  // a first note's accidental has room before it too
+  assert.ok(layoutBar([{ ...n('a', 15, 3), acc: 'flat' }], GOAL, S).notes[0].acc!.x > 0);
+  // a rest never carries one
+  assert.equal(layoutBar([{ ...n('r', 15, 3), rest: true, acc: 'flat' }], GOAL, S).notes[0].acc, null);
+}
+{
+  // beams close at the beat: four eighths in a 2-eighth group beam in pairs; without a group, all together
+  const eighths = [n('a', 7, 2), n('b', 7, 2), n('c', 7, 2), n('d', 7, 2)];
+  assert.equal(layoutBar(eighths, GOAL, S).beams.length, 1);
+  assert.equal(layoutBar(eighths, GOAL, S, 2).beams.length, 2);
+  assert.equal(layoutBar(eighths, GOAL, S, 4).beams.length, 1);
+  // three eighths grouped in threes after a quarter: the quarter fills the first group, the eighths beam as one
+  assert.equal(layoutBar([n('q', 15, 2), n('a', 7, 2), n('b', 7, 2), n('c', 7, 2)], GOAL, S, 3).beams.length, 1);
+  // a single eighth left at a boundary keeps its flag
+  const odd = layoutBar([n('a', 7, 2), n('b', 7, 2), n('c', 7, 2)], GOAL, S, 2);
+  assert.equal(odd.beams.length, 1);
+  assert.equal(odd.notes[2].flag, true);
+}
+{
+  // justifying a bar into a wider column: the slack spreads over the gaps, the lead stays,
+  // order and beams hold, and a narrower target changes nothing
+  const notes = [n('a', 7, 2), n('b', 7, 3), n('c', 15, 4), n('d', 45, 5)]; // two eighths, a quarter, a dotted half
+  const natural = layoutBar(notes, GOAL, S, 2);
+  const wide = layoutBar(notes, GOAL, S, 2, natural.width * 1.5);
+  assert.ok(Math.abs(wide.width - natural.width * 1.5) < 0.001, 'the bar is exactly as wide as asked');
+  assert.equal(wide.notes[0].x, natural.notes[0].x, 'the first note stays put after the barline');
+  for (let i = 1; i < notes.length; i++) assert.ok(wide.notes[i].x > natural.notes[i].x, `note ${i} moved right`);
+  for (let i = 1; i < notes.length; i++) assert.ok(wide.notes[i].x - wide.notes[i - 1].x > natural.notes[i].x - natural.notes[i - 1].x, `gap ${i} grew`);
+  // the trailing room grew in the same proportion as the gaps between notes
+  const ratio = (wide.notes[1].x - wide.notes[0].x) / (natural.notes[1].x - natural.notes[0].x);
+  const trail = (wide.width - wide.notes[3].x) / (natural.width - natural.notes[3].x);
+  assert.ok(Math.abs(ratio - trail) < 0.001, 'every gap stretches by the same factor');
+  // stems and beams followed their notes
+  assert.equal(wide.beams.length, 1);
+  assert.ok(Math.abs(wide.beams[0].x1 - (natural.beams[0].x1 + (wide.notes[0].x - natural.notes[0].x))) < 0.001);
+  assert.ok(Math.abs(wide.beams[0].x2 - (natural.beams[0].x2 + (wide.notes[1].x - natural.notes[1].x))) < 0.001);
+  assert.ok(Math.abs(wide.notes[2].stem!.x - wide.notes[2].x - (natural.notes[2].stem!.x - natural.notes[2].x)) < 0.001, 'a stem keeps its offset from its head');
+  assert.ok(Math.abs(wide.notes[3].dot!.x - wide.notes[3].x - (natural.notes[3].dot!.x - natural.notes[3].x)) < 0.001, 'a dot keeps its offset from its head');
+  assert.deepEqual(layoutBar(notes, GOAL, S, 2, natural.width * 0.5), natural, 'a narrower target is ignored');
+  assert.deepEqual(layoutBar(notes, GOAL, S, 2, undefined), natural);
+  assert.equal(layoutBar([], GOAL, S, 2, 500).width, layoutBar([], GOAL, S).width, 'an empty bar has nothing to spread');
+}
+{
+  // meters over any denominator: the column fits the wider digit run — Bravura's 8 is
+  // narrower than its 4, so 3/8 is no wider than 3/4; a two-digit denominator widens it
+  assert.ok(METER_COL_W(3, S, 8) <= METER_COL_W(3, S));
+  assert.ok(METER_COL_W(2, S, 16) > METER_COL_W(2, S, 4), 'a two-digit denominator widens the column');
+  assert.equal(METER_COL_W(12, S, 8), METER_COL_W(12, S, 4), 'two digits above beat one below either way');
+  assert.equal(METER_COL_W(4, S, 4), METER_COL_W(4, S), 'the default denominator is the practice log’s 4');
+}
+{
+  // a key change written mid-system: the same marks as the header, from any x
+  const marks = signatureMarksAt(2, 100, S);
+  assert.equal(marks.length, 2);
+  assert.equal(marks[0].x, 100);
+  assert.ok(marks[1].x > marks[0].x);
+  assert.deepEqual(signatureMarksAt(-1, 40, S).map((m) => [m.sharp, m.y]), [[false, yOf(4, S)]]);
+  assert.ok(KEY_COL_W(2, S) > marks[1].x - marks[0].x, 'the column holds both accidentals and their air');
+  assert.equal(KEY_COL_W(0, S), 0, 'C major writes nothing');
+  assert.ok(KEY_COL_W(6, S) > KEY_COL_W(1, S));
+}
+{
+  // justifyLine: slack is spread in proportion, an inner line fills its capacity, a thin last line stays ragged
+  const line = [{ natural: 100, tag: 'a' }, { natural: 300, tag: 'b' }];
+  const full = justifyLine(line, 800, false);
+  assert.equal(full.width, 800);
+  assert.deepEqual(full.items.map((i) => [i.tag, i.x, i.width]), [['a', 0, 200], ['b', 200, 600]]);
+  const last = justifyLine(line, 800, true);
+  assert.equal(last.width, 400, 'half-empty last line is not stretched');
+  assert.deepEqual(last.items.map((i) => i.width), [100, 300]);
+  const nearlyFull = justifyLine(line, 500, true);
+  assert.equal(nearlyFull.width, 500, 'a last line over 60% full is justified like the rest');
+  assert.deepEqual(justifyLine([], 500, false), { items: [], width: 500 });
 }
 
 console.log('check-engrave ok');

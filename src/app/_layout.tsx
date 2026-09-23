@@ -214,6 +214,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="compare" options={{ href: null }} />
             <Tabs.Screen name="tuner" options={{ href: null }} />
             <Tabs.Screen name="score" options={{ href: null }} />
+            <Tabs.Screen name="piece-score" options={{ href: null }} />
           </Tabs>
           <RunPill bottom={NAV_H + insets.bottom + 12} />
           <Toast />
