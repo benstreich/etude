@@ -24,6 +24,7 @@ exist for the wiring.
 | `trim-silence.yaml` | a recorded take saves and reaches the trim sheet with the Trim silence action (the maths is `check:silence`; see the flow header) |
 | `tempo-ladder.yaml` | ladder config persisted on the piece, the in-session tally, and the advance reaching both the metronome and the tempo log |
 | `spots.yaml` | a trouble spot added on the piece page, offered as a chip in a running session, and its minutes on the stats line afterwards (the maths is `check:spot`) |
+| `suggested-session.yaml` | history seeded via log-past (`scripts/stale-days.js`) makes the Practice picker suggest a session; Start reaches the runner, leaving it shows the RunPill and hides the card, the pill returns to the run, End commits through the review (the composer is `check:suggest`; dismiss is not driven — see the flow header) |
 
 `common/fresh-start.yaml` is a subflow: clear state, grant notifications and
 the microphone, tap through onboarding's welcome screen and skip the rest.

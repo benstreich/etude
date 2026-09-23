@@ -16,7 +16,7 @@ import { Text } from '@/components/text';
 import { EntryRow, Overline, PulseRing, useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
-import { getActiveRun, setActiveRun } from '@/lib/plan-run-state';
+import { getActiveRun, resolvePlan, setActiveRun, setTransientPlan, useTransientPlan } from '@/lib/plan-run-state';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -36,7 +36,13 @@ function Runner({ id }: { id: string }) {
   const insets = useSafeAreaInsets();
   const metro = useMetronome();
 
-  const plan = store.plans.find((p) => p.id === id);
+  // a saved routine, or the unsaved "Suggested for today" plan (#95), which lives
+  // in plan-run-state rather than the store and is dropped once the run is over
+  useTransientPlan();
+  const plan = resolvePlan(store.plans, id);
+  useEffect(() => () => {
+    if (!getActiveRun()) setTransientPlan(null); // leaving with no run in flight: nothing to come back to
+  }, []);
   // resume the run-in-progress if this screen was unmounted mid-run (tab switch)
   const [resumed] = useState(() => {
     const r = getActiveRun();
@@ -50,7 +56,7 @@ function Runner({ id }: { id: string }) {
   const [askInst, setAskInst] = useState(
     () =>
       !resumed &&
-      (store.plans.find((p) => p.id === id)?.segments ?? []).some(
+      (resolvePlan(store.plans, id)?.segments ?? []).some(
         (sg) => sg.focus.kind !== 'Break' && instrumentChoices(store.allPieces.find((p) => p.name === sg.focus.name), inst).length > 0
       )
   );

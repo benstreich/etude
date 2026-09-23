@@ -104,6 +104,7 @@ type Settings = {
   progressLayout: { key: string; on: boolean }[]; // section order + visibility; [] = registry default (spec 2026-09-15)
   progressHintSeen: boolean; // the one-time "this tab is yours" hint under the progress header
   progressChart: 'calendar' | 'line' | 'bars'; // how the heatmap card draws the same minutes
+  suggestDismissed: string; // dateKey of the day the "Suggested for today" card was dismissed (#95); '' = never
   name: string;
   language: LanguageSetting; // 'system' follows the device locale
   instruments: string[];
@@ -204,6 +205,7 @@ function seed(): State {
     progressLayout: [],
     progressHintSeen: false,
     progressChart: 'calendar',
+    suggestDismissed: '',
     name: '',
     language: 'system',
     instruments: [],

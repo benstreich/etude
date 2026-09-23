@@ -3,6 +3,8 @@
 // Not persisted: an app kill ends the run, same as the practice timer.
 import { useSyncExternalStore } from 'react';
 
+import type { Plan } from './store';
+
 export type ActiveRun = {
   planId: string;
   idx: number;
@@ -29,3 +31,22 @@ export const setActiveRun = (next: ActiveRun | null) => {
   listeners.forEach((l) => l());
 };
 export const useActiveRun = () => useSyncExternalStore(subscribe, getActiveRun, getActiveRun);
+
+// A plan that is run without ever being saved (#95: "Suggested for today").
+// It lives here, beside the run, so the runner and the RunPill resolve it the
+// same way from any screen; it is never persisted, and renamePiece never has to
+// rewrite it because it is dropped the moment it is not mid-run.
+export const TRANSIENT_PLAN_ID = 'suggested';
+let transient: Plan | null = null;
+export const getTransientPlan = () => transient;
+export const setTransientPlan = (next: Plan | null) => {
+  transient = next;
+  listeners.forEach((l) => l());
+};
+export const useTransientPlan = () => useSyncExternalStore(subscribe, getTransientPlan, getTransientPlan);
+/** The plan for an id: the store's, or the transient one when the id is TRANSIENT_PLAN_ID. */
+export const resolvePlan = (plans: Plan[], id: string | undefined): Plan | undefined => {
+  const t = getTransientPlan();
+  if (id === TRANSIENT_PLAN_ID && t) return t;
+  return plans.find((p) => p.id === id);
+};
