@@ -19,6 +19,7 @@ import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
 import { schedule, type SpotGrade } from './repetition-math';
+import { deleteScoreFile } from './score-file';
 import { applySessionUpdate, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
@@ -96,6 +97,11 @@ export type Piece = {
   kind?: 'Piece' | 'Technique'; // #83: unset = Piece. A technique is a piece too — same page, stages, tempo, recordings
   artwork?: string; // album cover URL from the iTunes search that added the piece
   spots?: TroubleSpot[]; // #91; absent = none. Optional, so older blobs need no migration
+  // #92: the imported MusicXML score, parsed, lives in a file — only its documents-relative
+  // path is here. Keyed by piece id via the filename, so a rename never moves it.
+  scoreFile?: string;
+  /** What the card can say without opening the file; `at` changes on every re-import so the viewer reloads. */
+  scoreInfo?: { bars: number; title?: string; at: number };
 };
 
 export type FocusPeriod = '7d' | '30d' | 'all';
@@ -302,6 +308,10 @@ type Store = State & {
   removeSpot: (pieceId: string, spotId: string) => void;
   /** #93: again / good / easy moves the spot's Leitner box and reschedules it from today. */
   gradeSpot: (pieceId: string, spotId: string, grade: SpotGrade) => void;
+  // Imported scores (#92). The file is written by the caller (lib/score-file.ts); the
+  // store keeps the pointer. Removing deletes the file too.
+  setPieceScore: (pieceId: string, file: string, info: { bars: number; title?: string }) => void;
+  removePieceScore: (pieceId: string) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
   restoreBackup: (stateObj: object) => void;
   /** The persisted state only — what a backup file should contain. */
@@ -557,6 +567,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     withSpots(pieceId, (spots) => spots.filter((sp) => sp.id !== spotId));
   };
 
+  const setPieceScore: Store['setPieceScore'] = (pieceId, file, info) => {
+    const at = Date.now();
+    setState((s) => (s ? { ...s, pieces: s.pieces.map((p) => (p.id === pieceId ? { ...p, scoreFile: file, scoreInfo: { ...info, at } } : p)) } : s));
+  };
+
+  const removePieceScore: Store['removePieceScore'] = (pieceId) => {
+    deleteScoreFile(pieceId);
+    setState((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        pieces: s.pieces.map((p) => {
+          if (p.id !== pieceId) return p;
+          const { scoreFile: _f, scoreInfo: _i, ...rest } = p;
+          return rest;
+        }),
+      };
+    });
+  };
+
   const deleteTempoEntry: Store['deleteTempoEntry'] = (pieceId, date) => {
     setState((s) =>
       s
@@ -730,6 +760,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removePiece = (id: string) => {
+    deleteScoreFile(id); // the imported score (#92) is keyed by id — gone with the piece
     setState((s) => {
       if (!s) return s;
       const gone = s.pieces.find((p) => p.id === id);
@@ -922,6 +953,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateSpot,
     removeSpot,
     gradeSpot,
+    setPieceScore,
+    removePieceScore,
     deleteSession,
     setSessionNote,
     updateSession,

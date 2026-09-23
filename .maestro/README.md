@@ -25,6 +25,7 @@ exist for the wiring.
 | `tempo-ladder.yaml` | ladder config persisted on the piece, the in-session tally, and the advance reaching both the metronome and the tempo log |
 | `spots.yaml` | a trouble spot added on the piece page, offered as a chip in a running session, and its minutes on the stats line afterwards (the maths is `check:spot`) |
 | `spot-repetition.yaml` | a fresh trouble spot is due at once: the Repertoire badge, the "Due today" group in the Practice picker, the grade chips in the review, and the badge gone after *Easy* reschedules it (the maths is `check:repetition`) |
+| `xml-import.yaml` | the bundled example MusicXML imports from the piece page (the OS picker cannot be driven), the card's row opens the engraved viewer, the score survives leaving the page, and *Remove score* brings the import chips back (the parser is `check:musicxml`, the layout `check:score-render`) |
 | `suggested-session.yaml` | history seeded via log-past (`scripts/stale-days.js`) makes the Practice picker suggest a session; Start reaches the runner, leaving it shows the RunPill and hides the card, the pill returns to the run, End commits through the review (the composer is `check:suggest`; dismiss is not driven — see the flow header) |
 
 `common/fresh-start.yaml` is a subflow: clear state, grant notifications and

@@ -938,6 +938,19 @@
     "importFailed": "Could not add that file.",
     "more": "Rename or delete"
   },
+  "xmlScore": {
+    "import": "Import MusicXML",
+    "sample": "Try an example",
+    "row": "Score · %{n} bars",
+    "remove": "Remove score",
+    "removeBody": "The imported score is deleted. Photos and PDFs of your sheet music stay.",
+    "replace": "Import another MusicXML file",
+    "options": "Score options",
+    "mxl": "Compressed MusicXML (.mxl) isn't supported yet — export as uncompressed .musicxml.",
+    "failed": "Couldn't read this file as MusicXML.",
+    "imported": "Score imported.",
+    "simplified": "Imported with simplifications (%{n} elements skipped)."
+  },
   "fullScore": {
     "title": "Your score",
     "log": "Log",
