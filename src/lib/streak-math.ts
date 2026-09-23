@@ -8,6 +8,12 @@ export const graceFor = (mode: StreakMode) => (mode === 'relaxed' ? 1 : 0);
 export const dateKey = (d: Date = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+/** `key` moved by `days` (negative for the past) in local calendar days — months and years roll over. */
+export const shiftKey = (key: string, days: number) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d + days));
+};
+
 const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const dayName = (d: Date) => NAMES[d.getDay()];
 

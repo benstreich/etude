@@ -1,0 +1,84 @@
+# Spaced repetition for trouble spots (#93): a fresh spot is due at once, so it
+# shows as a badge in Repertoire and as a "Due today" row in the Practice picker;
+# the session review offers again / good / easy, and grading reschedules it —
+# the badge is gone afterwards. The maths is check:repetition.
+appId: com.benstreich.etude
+name: Spot repetition
+tags:
+  - regression
+---
+- runFlow: common/fresh-start.yaml
+
+# a seeded technique is a piece too, with the same page — no network needed
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- tapOn: "Scales & arpeggios"
+
+- scrollUntilVisible:
+    element:
+      id: "spot-add"
+    direction: DOWN
+- tapOn:
+    id: "spot-add"
+- tapOn:
+    id: "spot-label-input"
+- inputText: "bars 12-16"
+- hideKeyboard
+- tapOn:
+    id: "spot-save"
+- assertVisible: "bars 12-16"
+
+# the piece page is a stack screen with no tab bar: back to the list first,
+# where the technique row now carries the due count
+- tapOn:
+    text: "Repertoire"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "spots-badge-tech-scales"
+    direction: DOWN
+- assertVisible:
+    id: "spots-badge-tech-scales"
+
+# the Practice picker groups the piece under "Due today"; its row picks the piece
+- tapOn: "Practice"
+- scrollUntilVisible:
+    element:
+      id: "spots-due-group"
+    direction: DOWN
+- assertVisible:
+    id: "spots-due-group"
+- tapOn:
+    id: "spots-due-tech-scales"
+- tapOn:
+    id: "start-session"
+- assertVisible:
+    id: "spot-chip-whole"
+- tapOn:
+    id: "practice-end"
+
+# the review offers the grade chips; Easy from box 0 lands in box 1 = 2 days
+- assertVisible:
+    id: "spot-grade-easy-.*"
+- tapOn:
+    id: "spot-grade-easy-.*"
+- assertVisible: ".*due in 2 days"
+- assertNotVisible:
+    id: "spot-grade-again-.*"
+- tapOn:
+    id: "review-save"
+
+# rescheduled: nothing due today any more, so the badge and the group are gone
+- tapOn: "Repertoire"
+- scrollUntilVisible:
+    element:
+      text: "Scales & arpeggios"
+    direction: DOWN
+- assertNotVisible:
+    id: "spots-badge-tech-scales"
+- tapOn: "Practice"
+- assertNotVisible:
+    id: "spots-due-group"

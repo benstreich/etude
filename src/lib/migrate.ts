@@ -11,6 +11,20 @@ export function backfillStageLog(p: { stage: number; stageLog?: StageEntry[]; ad
   return [{ date, stage: p.stage }];
 }
 
+type SpotLike = { addedAt?: string; box?: unknown; dueAt?: unknown };
+/**
+ * #93: every trouble spot carries a Leitner box and a due date. A spot from
+ * before scheduling starts in box 0, due the day it was added (so it is due
+ * now — spots that predate the feature have waited long enough) or today.
+ */
+export function backfillSpots<Sp extends SpotLike>(spots: Sp[], todayKey: string): (Sp & { box: number; dueAt: string })[] {
+  return spots.map((sp) => ({
+    ...sp,
+    box: typeof sp.box === 'number' && Number.isFinite(sp.box) ? sp.box : 0,
+    dueAt: typeof sp.dueAt === 'string' && sp.dueAt ? sp.dueAt : typeof sp.addedAt === 'string' && sp.addedAt ? sp.addedAt : todayKey,
+  }));
+}
+
 export function migrate<S>(raw: string | null, seedState: S): S {
   if (!raw) return seedState;
   let saved: any;
@@ -37,6 +51,8 @@ export function migrate<S>(raw: string | null, seedState: S): S {
   {
     const todayKey = new Date().toISOString().slice(0, 10);
     merged.pieces = merged.pieces.map((p: { stage: number; stageLog?: { date: string; stage: number }[]; addedAt?: number }) => ({ ...p, stageLog: backfillStageLog(p, todayKey) }));
+    // #93: spots saved before spaced repetition get a box and a due date
+    merged.pieces = merged.pieces.map((p: { spots?: unknown }) => (Array.isArray(p.spots) ? { ...p, spots: backfillSpots(p.spots as SpotLike[], todayKey) } : p));
   }
   // #83: techniques used to be bare names next to the pieces; they are pieces of
   // kind 'Technique' now. A name that already exists as a piece is not doubled.

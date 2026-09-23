@@ -13,6 +13,7 @@ import { Text } from '@/components/text';
 import { Card, Overline, SearchField, SectionHead, Sheet, stageColor, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { groupByFolder, MAX_FOLDER_NAME, MAX_FOLDERS } from '@/lib/folder-math';
 import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
+import { dueCount } from '@/lib/repetition-math';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -155,6 +156,15 @@ export default function Repertoire() {
   };
   const stats = (p: Piece) => investedIn(p.name);
   const stale = (p: Piece) => staleness(store.sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today);
+  // trouble spots due today (#93): a count next to the stage word, nothing when zero
+  const dueBadge = (p: Piece) => {
+    const n = dueCount(p, store.today);
+    return n > 0 ? (
+      <View testID={`spots-badge-${p.id}`} style={s.dueBadge}>
+        <Text style={s.dueBadgeText}>{n}</Text>
+      </View>
+    ) : null;
+  };
 
   // song/artist suggestions from the iTunes Search API (public, no key)
   useEffect(() => {
@@ -248,7 +258,10 @@ export default function Repertoire() {
             </View>
             {p.stage >= 0 && (
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[s.tag, { color: stageColor(C, p.stage, n) }]}>{store.stages[Math.min(p.stage, n - 1)]}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {dueBadge(p)}
+                  <Text style={[s.tag, { color: stageColor(C, p.stage, n) }]}>{store.stages[Math.min(p.stage, n - 1)]}</Text>
+                </View>
                 <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
                   {store.stages.map((_, k) => (
                     <View key={k} style={[s.dot, { backgroundColor: k <= p.stage ? stageColor(C, p.stage, n) : C.track }]} />
@@ -414,6 +427,7 @@ export default function Repertoire() {
                         : store.t('repertoire.notPractisedYet')}
                     </Text>
                   </View>
+                  {dueBadge(p)}
                   {p.stage >= 0 && <Text style={[s.stageWord, { color: stageColor(C, p.stage, store.stages.length) }]}>{store.stages[Math.min(p.stage, store.stages.length - 1)]}</Text>}
                 </Pressable>
               ))}
@@ -794,6 +808,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stageWord: { fontFamily: F.body, fontSize: fs(15) },
   composer: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(20), color: C.subStrong, marginTop: 1 },
   tag: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(22) },
+  dueBadge: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  dueBadgeText: { fontFamily: F.bodySemi, fontSize: fs(12), lineHeight: fs(14), color: C.bg, fontVariant: ['tabular-nums'] },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
   rowMeta: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
   metaText: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },

@@ -6,7 +6,7 @@
 // across a piece rename, a name is not), so both keys come in as arguments.
 
 // explicit .ts so the node check runner (--experimental-strip-types) can resolve it
-import { dateKey } from './streak-math.ts';
+import { shiftKey } from './streak-math.ts';
 
 export type SpotStats = { min: number; last: string | null; trend: 'up' | 'down' | 'flat' };
 
@@ -15,11 +15,6 @@ export const TREND_WINDOW_DAYS = 14;
 /** Up from 1.25× the previous window's minutes, down from 0.75× (inclusive at both ends). */
 export const TREND_UP = 1.25;
 export const TREND_DOWN = 0.75;
-
-const shiftKey = (key: string, days: number) => {
-  const [y, m, d] = key.split('-').map(Number);
-  return dateKey(new Date(y, m - 1, d + days));
-};
 
 /**
  * Stats for one spot of one piece. `trend` compares the last 14 days against the
