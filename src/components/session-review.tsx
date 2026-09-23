@@ -48,6 +48,9 @@ export function SessionReview({
   const voice = cueVoice(primaryOf(store.instruments, store.primaryInstrument));
   // last rating for this focus, so the grade is relative to last time (spec 2026-09-15)
   const lastRating = session ? pieceRatings({ name: session.focusName }, store.sessions.filter((x) => x.id !== session.id)).at(-1)?.rating : undefined;
+  // the trouble spot the saved session went to (#91): session id → spot id → the piece's spot
+  const spotId = session ? store.sessions.find((x) => x.id === session.id)?.spot : undefined;
+  const spotLabel = spotId ? store.allPieces.find((p) => p.name === session?.focusName)?.spots?.find((sp) => sp.id === spotId)?.label : undefined;
 
   // reset the draft whenever a new session opens the review
   const [prevId, setPrevId] = useState<string | null>(null);
@@ -144,6 +147,7 @@ export function SessionReview({
               <Text style={s.meta}>
                 {session.focusName} · {time(session.start)} – {time(session.end)}
               </Text>
+              {!!spotLabel && <Text style={s.meta}>{spotLabel}</Text>}
             </View>
             {chips.length > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>

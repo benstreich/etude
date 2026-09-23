@@ -20,6 +20,7 @@ import { recordingPair } from '@/lib/movement-math';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
+import { TroubleSpots } from '@/components/trouble-spots';
 import { ActionChip, BackLink, Card, ChipRow, Overline, RuledStats, Sheet, stageColor, Stars } from '@/components/ui';
 import { deadlineStatus } from '@/lib/goal-math';
 import { tap } from '@/lib/haptics';
@@ -284,6 +285,9 @@ export default function PieceDetail() {
       )}
       {piece.targetDate && !!laggingNote && <Text style={[s.tempoTarget, { color: C.accent }]}>{laggingNote}</Text>}
 
+      {/* the passages that need separate work, with their own minutes (#91) */}
+      <TroubleSpots piece={piece} sessions={sessions} />
+
       <TempoLadder piece={piece} />
 
       <ScoreCard piece={piece.name} />
@@ -349,8 +353,9 @@ export default function PieceDetail() {
             {sessions.map((sess) => (
               <Pressable key={sess.id} style={s.histRow} onPress={() => setEditSess(sess)}>
                 <Text style={s.histDay}>{dayLabel(sess.date, store.today, store.t, store.lang)}</Text>
+                {/* the spot the minutes went to, if any (#91); an id whose spot was deleted shows nothing */}
                 <Text style={s.histNote} numberOfLines={1}>
-                  {sess.note ?? ''}
+                  {[sess.note, sess.spot ? piece.spots?.find((sp) => sp.id === sess.spot)?.label : undefined].filter(Boolean).join(' · ')}
                 </Text>
                 {!!sess.rating && <Text style={s.histRating}>★ {sess.rating}</Text>}
                 <Text style={s.histMin}>{store.t('piece.min', { count: sess.min })}</Text>

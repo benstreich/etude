@@ -754,6 +754,27 @@
     "lastTime": "Last time: %{n} ★",
     "importTake": "Import instead"
   },
+  "spots": {
+    "title": "Trouble spots",
+    "add": "Add spot",
+    "edit": "Edit spot",
+    "labelPlaceholder": "e.g. bars 12–16",
+    "notePlaceholder": "Note (optional)",
+    "empty": "Mark tricky passages to track them separately.",
+    "resolve": "Mark as solid",
+    "reopen": "Reopen",
+    "solidGroup": "Solid (%{n})",
+    "delete": "Delete spot",
+    "deleteBody": "Past sessions keep their minutes — only the spot goes.",
+    "wholePiece": "Whole piece",
+    "workingOn": "Working on",
+    "lastNever": "not yet",
+    "last": "last %{date}",
+    "trendUp": "▲ improving",
+    "trendDown": "▼ slipping",
+    "trendFlat": "▬ steady",
+    "options": "Spot options"
+  },
   "recordings": {
     "namePlaceholder": "Name this take",
     "untitled": "Take",
