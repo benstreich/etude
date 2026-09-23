@@ -17,6 +17,7 @@ import { EntryRow, Overline, PulseRing, useInstrumentFilter } from '@/components
 import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, resolvePlan, setActiveRun, setTransientPlan, useTransientPlan } from '@/lib/plan-run-state';
+import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -84,6 +85,18 @@ function Runner({ id }: { id: string }) {
     setActiveRun({ planId: plan.id, idx, startedAt, accum, runStart });
   }, [plan, idx, startedAt, accum, runStart, review]);
 
+  // the run's foreground service (Android), so the routine survives the screen
+  // going off; the segment's own clock ticks in the notification. Taken down
+  // with the run — in finish() and the early exit — not on unmount, since a tab
+  // switch unmounts this screen while the run goes on.
+  const segName = seg ? (seg.focus.kind === 'Break' ? store.t('planRun.break') : seg.focus.name) : '';
+  const pausedWord = store.t('practice.paused');
+  useEffect(() => {
+    if (!plan || !seg || review) return;
+    const elapsedMs = accum * 1000 + (startedAt !== null ? Date.now() - startedAt : 0);
+    showSessionNotice({ title: plan.name, subtitle: startedAt !== null ? segName : `${segName} · ${pausedWord}`, running: startedAt !== null, elapsedMs });
+  }, [plan, seg, segName, pausedWord, startedAt, accum, review]);
+
   useEffect(() => {
     if (startedAt === null || review) return;
     const tick = () => setSeconds(accum + Math.floor((Date.now() - startedAt) / 1000));
@@ -119,6 +132,7 @@ function Runner({ id }: { id: string }) {
     if (!plan) return;
     if (metro.running) metro.toggle();
     setActiveRun(null);
+    hideSessionNotice();
     // break segments don't count as practice (#59)
     const total = plan.segments.slice(0, idx).reduce((a, x) => a + (x.focus.kind === 'Break' ? 0 : x.min), 0) + (isBreak ? 0 : Math.round(seconds / 60));
     setStartedAt(null);
@@ -154,6 +168,7 @@ function Runner({ id }: { id: string }) {
       else {
         if (metro.running) metro.toggle();
         setActiveRun(null);
+        hideSessionNotice();
         router.back();
       }
     };
