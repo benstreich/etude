@@ -219,7 +219,7 @@ function ReportPage({ data, kind, piece }: { data: ReportData | null; kind: Kind
 
           <Text style={p.section}>{store.t('report.pieces')}</Text>
           <View style={[p.row, p.rowHead]}>
-            <Text style={[p.cellName, p.th]}>{store.t('report.pieces')}</Text>
+            <Text style={[p.cellName, p.th]}>{store.t('report.pieceCol')}</Text>
             <Text style={[p.cell, p.th]}>{store.t('report.minutes')}</Text>
             <Text style={[p.cell, p.th]}>{store.t('report.sessionsCol')}</Text>
             <Text style={[p.cell, p.th]}>{store.t('report.tempo')}</Text>

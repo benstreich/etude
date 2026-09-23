@@ -890,6 +890,7 @@
     "streak": "%{n}-day streak",
     "minutesByDay": "Minutes by day",
     "pieces": "Pieces",
+    "pieceCol": "Piece",
     "minutes": "Min",
     "sessionsCol": "Sessions",
     "tempo": "Tempo",

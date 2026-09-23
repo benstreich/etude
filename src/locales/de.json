@@ -890,6 +890,7 @@
     "streak": "%{n} Tage in Folge",
     "minutesByDay": "Minuten pro Tag",
     "pieces": "Stücke",
+    "pieceCol": "Stück",
     "minutes": "Min.",
     "sessionsCol": "Einheiten",
     "tempo": "Tempo",
