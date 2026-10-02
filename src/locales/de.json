@@ -429,7 +429,7 @@
     "sinceLastMonth": "Seit letztem Monat",
     "changedDay": "Tag 1–%{day} vs. letzter Monat",
     "changedPieces": "Stücke hinzugefügt",
-    "changedPromoted": "Stufenaufstiege",
+    "changedPromoted": "Phasenaufstiege",
     "changedHours": "Stunden",
     "changedBpm": "BPM gewonnen",
     "changedStars": "Sterne im Schnitt",
@@ -442,7 +442,7 @@
       "barChart": "Minuten im gewählten Zeitraum, als Balken",
       "volume": "Diese Woche, Schnitt, gesamt, beste Serie",
       "hear": "Erste vs. neueste Aufnahme eines Stücks",
-      "pipeline": "Stücke pro Stufe und der Zufluss zur letzten",
+      "pipeline": "Stücke pro Phase und der Zufluss zur letzten",
       "performable": "Fertige Stücke und wie frisch sie sind",
       "changed": "Dieser Monat gegen dieselben Tage des Vormonats",
       "insights": "Sätze darüber, wann und wie du am besten übst",
@@ -466,7 +466,7 @@
       "history": "Braucht %{need} Tage Übung — du hast %{have}.",
       "recordings": "Braucht ein Stück mit zwei Aufnahmen.",
       "goals": "Setze zuerst ein Tagesziel oder eine Frist für ein Stück.",
-      "ready": "Braucht ein Stück auf der letzten Stufe."
+      "ready": "Braucht ein Stück in der letzten Phase."
     }
   },
   "repertoire": {
@@ -499,7 +499,7 @@
       "one": "1 Aufnahme",
       "other": "%{count} Aufnahmen"
     },
-    "tapHint": "Tippe auf ein Stück für Details, Statistiken & Aufnahmen",
+    "tapHint": "Tippe auf ein Stück für Details · lange drücken, um es in einen Ordner zu legen",
     "techniqueRecordings": "Weitere Aufnahmen",
     "techniques": "Techniken",
     "notPractisedYet": "Noch nicht geübt",
@@ -520,7 +520,19 @@
     "searchList": "Repertoire durchsuchen",
     "noMatchesTitle": "Keine Treffer",
     "noMatchesText": "Kein Stück und keine Technik passt zu Suche und Instrument.",
-    "clearFilters": "Filter zurücksetzen"
+    "clearFilters": "Filter zurücksetzen",
+    "removeTitle": "„%{name}“ entfernen?",
+    "removeBody": "Phasen, Tempo-Log, Problemstellen und Notenseiten werden endgültig gelöscht. Archiviere es stattdessen, um sie zu behalten.",
+    "preset": {
+      "scales": "Tonleitern & Arpeggien",
+      "sightReading": "Blattspiel",
+      "earTraining": "Gehörbildung",
+      "improvisation": "Improvisation",
+      "rhythm": "Rhythmus & Metronom",
+      "chords": "Akkorde & Voicings",
+      "fingerExercises": "Fingerübungen",
+      "theory": "Musiktheorie"
+    }
   },
   "instrumentAsk": {
     "title": "Welches Instrument?",
@@ -599,7 +611,7 @@
     "lagging": "im Rückstand bei %{list}",
     "ratingWord": "Bewertung",
     "tempoWord": "Tempo",
-    "stageWord": "Stufe",
+    "stageWord": "Phase",
     "recordTake": "Take aufnehmen",
     "stopTake": "Stopp",
     "instruments": "Instrumente",
@@ -682,7 +694,7 @@
     "tourSubline": "Das ist die ganze App. Alles andere steckt dahinter.",
     "tour_home": "Die Minuten von heute, ein Schnelleintrag für Üben ohne Timer und dein Fortschritt.",
     "tour_practice": "Eine Einheit mit Timer starten – mit Metronom, Aufnahmen und deinen Noten.",
-    "tour_repertoire": "Deine Stücke und Techniken, jeweils mit Stufen und Tempo-Leiter.",
+    "tour_repertoire": "Deine Stücke und Techniken, jeweils mit Phasen und Tempo-Leiter.",
     "tour_tools": "Metronom, Stimmgerät und Drone einzeln, wann immer du eins brauchst.",
     "letsGo": "Los geht’s"
   },
@@ -744,7 +756,8 @@
     "advanced": "Hoch auf %{bpm} BPM",
     "targetReached": "Zieltempo erreicht!",
     "tallyA11y": "%{n} von %{need} sauberen Durchläufen",
-    "axisTarget": "Ziel %{target}"
+    "axisTarget": "Ziel %{target}",
+    "deleteConfirm": "%{bpm} BPM (%{day}) löschen?"
   },
   "editSession": {
     "rating": "Bewertung",

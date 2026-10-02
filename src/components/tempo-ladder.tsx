@@ -1,7 +1,7 @@
 // Tempo ladder (#17) — per-piece BPM log with a small line chart, a delta
 // chip for the month, and a stepper sheet to log today's tempo.
 import React, { useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
@@ -86,6 +86,20 @@ export function TempoLadder({ piece }: { piece: Piece }) {
     if (reached) setTimeout(() => maybeRequestReview(store), 1500);
   };
   const delta = tempoDelta(log, store.today);
+  // a small Delete sits in a scrolling page; one stray touch shouldn't drop a history point
+  const confirmDeleteEntry = (e: { date: string; bpm: number }) => {
+    const title = store.t('tempoLadder.deleteConfirm', { bpm: e.bpm, day: dayLabel(e.date, store.today, store.t, store.lang) });
+    const doDelete = () => store.deleteTempoEntry(piece.id, e.date);
+    // ponytail: Alert.alert is a no-op on web; window.confirm covers it
+    if (Platform.OS === 'web') {
+      if (window.confirm(title)) doDelete();
+      return;
+    }
+    Alert.alert(title, undefined, [
+      { text: store.t('editSession.cancel'), style: 'cancel' },
+      { text: store.t('tempoLadder.delete'), style: 'destructive', onPress: doDelete },
+    ]);
+  };
 
   if (log.length === 0)
     return (
@@ -154,19 +168,18 @@ export function TempoLadder({ piece }: { piece: Piece }) {
         </View>
       </Card>
 
-      {log.length > 1 && (
-        <Card style={{ paddingVertical: 4, paddingHorizontal: 16 }}>
-          {[...log].reverse().slice(0, 5).map((e, i) => (
-            <View key={e.date} style={[s.entryRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
-              <Text style={s.entryDate}>{dayLabel(e.date, store.today, store.t, store.lang)}</Text>
-              <Text style={s.entryBpm}>{e.bpm} BPM</Text>
-              <Pressable hitSlop={8} onPress={() => store.deleteTempoEntry(piece.id, e.date)}>
-                <Text style={s.entryDelete}>{store.t('tempoLadder.delete')}</Text>
-              </Pressable>
-            </View>
-          ))}
-        </Card>
-      )}
+      {/* even a single entry: a lone wrong tempo must still be deletable */}
+      <Card style={{ paddingVertical: 4, paddingHorizontal: 16 }}>
+        {[...log].reverse().slice(0, 5).map((e, i) => (
+          <View key={e.date} style={[s.entryRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
+            <Text style={s.entryDate}>{dayLabel(e.date, store.today, store.t, store.lang)}</Text>
+            <Text style={s.entryBpm}>{e.bpm} BPM</Text>
+            <Pressable hitSlop={8} onPress={() => confirmDeleteEntry(e)}>
+              <Text style={s.entryDelete}>{store.t('tempoLadder.delete')}</Text>
+            </Pressable>
+          </View>
+        ))}
+      </Card>
 
       <LogSheet visible={logOpen} draft={draft} setDraft={setDraft} onSave={save} onClose={() => setLogOpen(false)} />
     </View>

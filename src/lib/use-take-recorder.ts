@@ -130,6 +130,22 @@ export function useTakeRecorder(pieceName: () => string | null) {
     };
   });
 
+  // Backstop: unmounted mid-take, end() never runs (the recorder is already released,
+  // so the take can't be banked) — but the record-mode flags must still go, or Android
+  // stays in communication routing for the rest of the session (see end).
+  const recordingRef = useRef(false);
+  useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
+  useEffect(
+    () => () => {
+      if (!recordingRef.current) return;
+      setRecordingFlags({});
+      applyAudioMode({ playsInSilentMode: true });
+    },
+    []
+  );
+
   // `recording` only turns true several awaits into a start, so a quick second
   // tap would prepare the recorder again — and its failure would tear down the
   // audio mode under the take the first tap is already recording
