@@ -138,13 +138,16 @@ export default function RootLayout() {
 // no tab, so without this the run looks lost the moment you switch away
 function RunPill({ bottom }: { bottom: number }) {
   const { C } = useTheme();
-  const { plans, t } = useStore();
+  const { plans, liveSession, t } = useStore();
   const active = useActiveRun();
   useTransientPlan(); // the suggested session (#95) is a plan the store never sees
   const pathname = usePathname();
   const router = useRouter();
   const plan = active && resolvePlan(plans, active.planId);
-  if (!plan || pathname === '/plan/run') return null;
+  // a free session counts too: one left with Android back, or revived after a
+  // restart before Practice was ever opened, had no way back but the tab
+  const session = !plan && liveSession && pathname !== '/practice' ? liveSession : null;
+  if (!session && (!plan || pathname === '/plan/run')) return null;
   return (
     <Pressable
       style={{
@@ -159,9 +162,10 @@ function RunPill({ bottom }: { bottom: number }) {
         paddingVertical: 10,
         paddingHorizontal: 18,
       }}
-      onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
+      accessibilityRole="button"
+      onPress={() => (plan ? router.push({ pathname: '/plan/run', params: { id: plan.id } }) : router.push('/practice'))}>
       <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg }}>
-        ▶ {t('planRun.inProgress', { name: plan.name })}
+        ▶ {t('planRun.inProgress', { name: plan ? plan.name : (session?.name ?? '') })}
       </Text>
     </Pressable>
   );

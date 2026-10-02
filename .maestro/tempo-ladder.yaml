@@ -130,7 +130,7 @@ tags:
 # 2.4s (store.tsx), so asserting one is a race against the wait above. The
 # running session's tool strip carries the live metronome tempo, and the
 # metronome starts at the app default of 90, so +4 lands on 94.
-- assertVisible: "94 Moderato"
+- assertVisible: "94 BPM"
 
 - tapOn:
     id: "practice-end"

@@ -123,8 +123,21 @@ export function useTakeRecorder(pieceName: () => string | null) {
     };
   });
 
+  // `recording` only turns true several awaits into a start, so a quick second
+  // tap would prepare the recorder again — and its failure would tear down the
+  // audio mode under the take the first tap is already recording
+  const starting = useRef(false);
   const toggle = async () => {
     if (recording) return end(true);
+    if (starting.current) return;
+    starting.current = true;
+    try {
+      await start();
+    } finally {
+      starting.current = false;
+    }
+  };
+  const start = async () => {
     const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) return store.showToast(store.t('practice.micPermissionNeeded'));
     try {

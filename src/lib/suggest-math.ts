@@ -113,10 +113,15 @@ export function suggestSession(input: SuggestInput): { segments: Suggestion[] } 
   return segments ? { segments } : null;
 }
 
-/** The minutes to fill: the daily goal, or the calibrated suggestion when that is lower (#72). */
+/**
+ * The minutes to fill: the daily goal, or the calibrated suggestion when that is
+ * lower (#72) — less whatever has already been practised today, so 25 of 30 done
+ * does not get a fresh 30-minute session.
+ */
 export function budgetFor(o: { minutesByDate: Record<string, number>; today: string; dailyGoal: number }): number {
   const cal = goalCalibration({ minutesByDate: o.minutesByDate, today: o.today, dailyGoal: o.dailyGoal, weeklyGoal: 0 }).daily;
-  return cal ? Math.min(o.dailyGoal, cal.suggested) : o.dailyGoal;
+  const day = cal ? Math.min(o.dailyGoal, cal.suggested) : o.dailyGoal;
+  return Math.max(0, day - (o.minutesByDate[o.today] ?? 0));
 }
 
 /**

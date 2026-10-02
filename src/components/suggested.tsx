@@ -11,6 +11,7 @@ import { Text } from '@/components/text';
 import { Card, EntryRow, Overline } from '@/components/ui';
 import { tap } from '@/lib/haptics';
 import { setTransientPlan, TRANSIENT_PLAN_ID, useActiveRun } from '@/lib/plan-run-state';
+import { dueSpots } from '@/lib/spot-math';
 import { suggestSession, type ReasonKey } from '@/lib/suggest-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -35,7 +36,8 @@ export function SuggestedCard() {
   // search box does not recompose the session on every keystroke
   const { allPieces, sessions, minutesByDate, dailyGoal, today, weekStart, stages } = store;
   const suggestion = useMemo(
-    () => suggestSession({ pieces: allPieces, sessions, minutesByDate, dailyGoal, today, monday: weekStart === 'Monday', stages: stages.length }),
+    // the trouble-spot rule (#91) only runs when it is handed the spots that are due
+    () => suggestSession({ pieces: allPieces, sessions, minutesByDate, dailyGoal, today, monday: weekStart === 'Monday', stages: stages.length, spots: dueSpots(allPieces, sessions, today) }),
     [allPieces, sessions, minutesByDate, dailyGoal, today, weekStart, stages.length]
   );
 

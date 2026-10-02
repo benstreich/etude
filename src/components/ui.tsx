@@ -238,9 +238,14 @@ export const InstrumentFilter = ({ style }: { style?: ViewProps['style'] }) => {
   if (store.instruments.length < 2) return null;
   const sel = store.instruments.includes(store.instrumentFilter) ? store.instrumentFilter : '';
   return (
-    <View style={[s.segTrack, style]}>
+    <View style={[s.segTrack, style]} accessibilityRole="tablist">
       {['', ...store.instruments].map((inst) => (
-        <Pressable key={inst} style={[s.segBtn, sel === inst && s.segBtnSel]} onPress={() => store.updateSettings({ instrumentFilter: inst })}>
+        <Pressable
+          key={inst}
+          style={[s.segBtn, sel === inst && s.segBtnSel]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: sel === inst }}
+          onPress={() => store.updateSettings({ instrumentFilter: inst })}>
           <Text style={[s.segText, sel === inst && { color: C.ink }]} numberOfLines={1}>
             {inst || store.t('common.all')}
           </Text>
@@ -292,7 +297,7 @@ export function SectionHead({ label, open, onToggle, testID }: { label: string; 
   const s = useS();
   const C = useC();
   return (
-    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle} testID={testID}>
+    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle} testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }}>
       <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
         <ChevronIcon color={C.tertiary} size={10} />
       </View>
@@ -364,6 +369,7 @@ export function EntryRow({
       testID={testID}
       disabled={disabled || !onPress}
       onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [
         s.entryRow,
         top && s.entryRowTop,
@@ -455,12 +461,14 @@ export function UnderlineTabs<K extends string>({
   const ruleStyle = useAnimatedStyle(() => ({ left: left.value, width: width.value }));
 
   return (
-    <View style={[s.tabsRow, { gap }]}>
+    <View style={[s.tabsRow, { gap }]} accessibilityRole="tablist">
       {options.map((o) => {
         const active = o.key === value;
         return (
           <Pressable
             key={o.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             onPress={() => {
               if (!active) tap();
               onChange(o.key);

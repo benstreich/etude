@@ -53,3 +53,29 @@ export function spotStats(
   }
   return { min, last, trend };
 }
+
+/** A spot counts as due for "Suggested for today" once it has gone this many days untouched. */
+export const SPOT_DUE_DAYS = 7;
+
+/**
+ * The open spots due for work: never practised, or last practised SPOT_DUE_DAYS
+ * or more days before `today`. Shaped for suggestSession's `spots` input.
+ */
+export function dueSpots(
+  pieces: { name: string; archived?: boolean; spots?: { id: string; label: string; resolvedAt?: string }[] }[],
+  sessions: { title: string; date: string; min: number; spot?: string }[],
+  today: string,
+): { pieceName: string; label: string }[] {
+  const cutoff = shiftKey(today, -SPOT_DUE_DAYS);
+  return pieces.flatMap((p) =>
+    p.archived
+      ? []
+      : (p.spots ?? [])
+          .filter((sp) => !sp.resolvedAt)
+          .filter((sp) => {
+            const last = spotStats(sessions, p.name, sp.id, today).last;
+            return last === null || last <= cutoff;
+          })
+          .map((sp) => ({ pieceName: p.name, label: sp.label })),
+  );
+}

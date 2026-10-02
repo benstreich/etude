@@ -29,12 +29,14 @@ export function onInstrument(p: Instrumented, inst: string): boolean {
  * taking the first of the set is a coin toss, and half the time the minutes land on
  * the wrong instrument's total. Only the player knows which one today was.
  *
- * Empty means there is nothing to ask — the tab in view already names an instrument,
- * the piece carries at most one, or it is untagged and so counts under every one.
+ * Empty means there is nothing to ask — the tab in view names an instrument the
+ * piece is on, the piece carries at most one, or it is untagged and so counts
+ * under every one. A tab the piece is not on answers nothing: the filter is shared
+ * and may have been changed elsewhere after the piece was picked.
  */
 export function instrumentChoices(p: Instrumented | undefined, filter: string): string[] {
-  if (filter) return [];
-  const list = p ? pieceInstruments(p) : [];
+  if (!p || (filter && onInstrument(p, filter))) return [];
+  const list = pieceInstruments(p);
   return list.length > 1 ? list : [];
 }
 
