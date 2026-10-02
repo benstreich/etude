@@ -140,7 +140,7 @@ export default function PlanBuilder() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <KeyboardAwareScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]} keyboardShouldPersistTaps="handled" bottomOffset={16}>
         <View style={s.navRow}>
-          <Pressable style={s.navBtn} onPress={back} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('plan.back')}>
+          <Pressable style={s.navBtn} onPress={back} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.back')}>
             <Text style={s.navGlyph}>‹</Text>
           </Pressable>
           <Pressable hitSlop={10} onPress={back}>
@@ -184,7 +184,12 @@ export default function PlanBuilder() {
               </Pressable>
             );
           })}
-          <Pressable testID="plan-add-segment" style={[s.addRow, { marginTop: 14 }]} onPress={() => openEdit(-1)}>
+          <Pressable
+            testID="plan-add-segment"
+            style={[s.addRow, { marginTop: 14 }]}
+            accessibilityRole="button"
+            accessibilityLabel={store.t('plan.addSegment')}
+            onPress={() => openEdit(-1)}>
             <Text style={s.addPlus}>+</Text>
             <Text style={s.addText}>{store.t('plan.addSegment')}</Text>
           </Pressable>

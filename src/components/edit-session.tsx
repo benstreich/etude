@@ -87,7 +87,14 @@ function Editor({
     ]);
 
   const stepBtn = (label: string, d: number, testID?: string) => (
-    <Pressable testID={testID} style={s.stepBtn} onPress={() => step(d)} onLongPress={() => holdStart(d)} onPressOut={holdEnd}>
+    <Pressable
+      testID={testID}
+      style={s.stepBtn}
+      accessibilityRole="button"
+      accessibilityLabel={store.t(d < 0 ? 'editSession.minutesLess' : 'editSession.minutesMore', { n: Math.abs(d) })}
+      onPress={() => step(d)}
+      onLongPress={() => holdStart(d)}
+      onPressOut={holdEnd}>
       <Text style={s.stepGlyph}>{label}</Text>
     </Pressable>
   );

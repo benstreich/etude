@@ -137,7 +137,7 @@ export default function Appearance() {
           <Text style={s.switchLabel}>{store.t('appearance.reduceMotion')}</Text>
           <Text style={s.switchHint}>{store.t('appearance.reduceMotionHint')}</Text>
         </View>
-        <Switch testID="appearance-reduce-motion" value={store.reduceMotion} onChange={(v) => store.updateSettings({ reduceMotion: v })} />
+        <Switch testID="appearance-reduce-motion" accessibilityLabel={store.t('appearance.reduceMotion')} value={store.reduceMotion} onChange={(v) => store.updateSettings({ reduceMotion: v })} />
       </View>
 
       <View style={s.switchRow}>
@@ -145,7 +145,7 @@ export default function Appearance() {
           <Text style={s.switchLabel}>{store.t('appearance.sounds')}</Text>
           <Text style={s.switchHint}>{store.t('appearance.soundsHint')}</Text>
         </View>
-        <Switch testID="appearance-sounds" value={store.sounds} onChange={(v) => store.updateSettings({ sounds: v })} />
+        <Switch testID="appearance-sounds" accessibilityLabel={store.t('appearance.sounds')} value={store.sounds} onChange={(v) => store.updateSettings({ sounds: v })} />
       </View>
     </ScrollView>
   );

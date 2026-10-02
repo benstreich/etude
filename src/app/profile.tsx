@@ -17,6 +17,7 @@ import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } f
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
+import { instrumentName } from '@/lib/instrument-math';
 import { keyDisplayName, KEYS } from '@/lib/melody';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
@@ -33,17 +34,6 @@ const REMINDERS = ['Off', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM'];
 const STREAK_KEYS: Record<StreakMode, string> = { off: 'settings.streakOff', strict: 'settings.streakStrict', relaxed: 'settings.streakRelaxed' };
 
 const AUTO_BACKUP_KEYS: Record<number, string> = { 0: 'settings.off', 7: 'settings.weekly', 30: 'settings.monthly' };
-
-const INSTRUMENT_KEYS: Record<string, string> = {
-  Piano: 'settings.instPiano',
-  Guitar: 'settings.instGuitar',
-  Violin: 'settings.instViolin',
-  Cello: 'settings.instCello',
-  Flute: 'settings.instFlute',
-  Voice: 'settings.instVoice',
-  Drums: 'settings.instDrums',
-  Bass: 'settings.instBass',
-};
 
 const REPO = 'https://github.com/benstreich/etude';
 // hosted as a gist because the app has no website to put it on
@@ -109,7 +99,7 @@ export default function Profile() {
   const [query, setQuery] = useState<string | null>(null); // null = full instrument list collapsed
 
   // persisted value → localized label (stored values stay English)
-  const instLabel = (v: string) => (INSTRUMENT_KEYS[v] ? store.t(INSTRUMENT_KEYS[v]) : v);
+  const instLabel = (v: string) => instrumentName(v, store.t);
   const dayName = (v: string) => (DAY_KEYS[v] ? store.t(DAY_KEYS[v]) : v);
 
   const open = (key: EditKey) => {
@@ -318,8 +308,8 @@ export default function Profile() {
 
       <RuledStats
         items={[
-          { label: store.t('settings.totalPractice'), value: <Text>{totalHours} <Text style={s.statUnit}>{store.t('settings.hoursUnit')}</Text></Text> },
-          { label: store.t('settings.bestStreak'), value: <Text>{store.bestStreak} <Text style={s.statUnit}>{store.t('settings.daysUnit')}</Text></Text> },
+          { label: store.t('settings.totalPractice'), value: <Text>{totalHours} <Text style={s.statUnit}>{store.t('settings.hoursUnit', { count: totalHours })}</Text></Text> },
+          { label: store.t('settings.bestStreak'), value: <Text>{store.bestStreak} <Text style={s.statUnit}>{store.t('settings.daysUnit', { count: store.bestStreak })}</Text></Text> },
         ]}
       />
 

@@ -6,7 +6,12 @@
     "yesterday": "Gestern",
     "dayLetters": "SMDMDFS",
     "previousMonth": "Vorheriger Monat",
-    "nextMonth": "Nächster Monat"
+    "nextMonth": "Nächster Monat",
+    "back": "Zurück",
+    "starsOf": "%{n} von 5 Sternen",
+    "decreaseBy": "Um %{n} verringern",
+    "increaseBy": "Um %{n} erhöhen",
+    "clearSearch": "Suche löschen"
   },
   "tabs": {
     "home": "Start",
@@ -149,9 +154,15 @@
     "setInstruments": "Lege unten deine Instrumente fest",
     "practice": "Üben",
     "totalPractice": "Übezeit gesamt",
-    "hoursUnit": "Stunden",
+    "hoursUnit": {
+      "one": "Stunde",
+      "other": "Stunden"
+    },
     "bestStreak": "Beste Serie",
-    "daysUnit": "Tage",
+    "daysUnit": {
+      "one": "Tag",
+      "other": "Tage"
+    },
     "yourData": "Deine Daten",
     "backupEverything": "Alles sichern",
     "backupEverythingSub": "Eine Datei: Einheiten, Stücke, Einstellungen",
@@ -236,7 +247,10 @@
     "landsOnDay": "Landet am %{day}",
     "min": "%{min} Min.",
     "addedMinFocus": "%{min} Min. hinzugefügt · %{name}",
-    "addedMinutes": "%{min} Minuten hinzugefügt",
+    "addedMinutes": {
+      "one": "1 Minute hinzugefügt",
+      "other": "%{min} Minuten hinzugefügt"
+    },
     "addedMinDay": "%{min} Min. hinzugefügt · %{name} · %{day}",
     "addedMinutesDay": "%{min} Min. hinzugefügt · %{day}",
     "firstSession": "Deine erste Einheit",
@@ -246,7 +260,8 @@
     "guide3Pre": "Ohne Handy geübt? Trage es unten per ",
     "guide3Post": " ein",
     "quickLogFocus": "Fokus für Schnelleintrag",
-    "nothingSpecific": "Nichts Bestimmtes"
+    "nothingSpecific": "Nichts Bestimmtes",
+    "deleteSession": "„%{title}“ löschen"
   },
   "practice": {
     "session": "Einheit",
@@ -334,7 +349,10 @@
     "drift": "Schwerpunkt-Verlauf",
     "other": "Andere",
     "consistency": "Regelmäßigkeit",
-    "avgDaysPerWeek": "Ø %{n} Tage / Woche",
+    "avgDaysPerWeek": {
+      "one": "Ø %{n} Tag / Woche",
+      "other": "Ø %{n} Tage / Woche"
+    },
     "daysThisWeek": "%{n} von 7 Tagen diese Woche",
     "ratingOverTime": "Bewertung im Verlauf",
     "last12Weeks": "letzte 12 Wochen",
@@ -371,7 +389,10 @@
     "emptyTitle": "Deine Woche erscheint hier",
     "emptyText": "Trag deine erste Einheit ein und das Diagramm füllt sich.",
     "startPracticing": "Jetzt üben",
-    "daysPracticed": "%{practiced} von %{days} Tagen",
+    "daysPracticed": {
+      "one": "%{practiced} von 1 Tag",
+      "other": "%{practiced} von %{days} Tagen"
+    },
     "less": "weniger",
     "more": "mehr",
     "noSessionDetails": "Keine Einheiten an diesem Tag",
@@ -417,10 +438,16 @@
     "calNotSpeed": "Tempo stimmt, Sterne nicht – am Tempo liegt es nicht.",
     "calHardDays": "Auch zähe Einheiten haben dieses Stück vorangebracht.",
     "hearTitle": "Hör den Unterschied",
-    "hearDays": "%{days} Tage dazwischen",
+    "hearDays": {
+      "one": "1 Tag dazwischen",
+      "other": "%{count} Tage dazwischen"
+    },
     "pipelineTitle": "Repertoire-Pipeline",
     "pipelineReady": "%{n} diesen Monat auf %{stage} · %{m} letzten Monat",
-    "pipelineTotal": "%{n} Stücke",
+    "pipelineTotal": {
+      "one": "1 Stück",
+      "other": "%{count} Stücke"
+    },
     "performable": "Heute spielbar",
     "performableCount": "%{n} von %{m} frisch",
     "lastPlayed": "vor %{days} T.",
@@ -532,7 +559,8 @@
       "chords": "Akkorde & Voicings",
       "fingerExercises": "Fingerübungen",
       "theory": "Musiktheorie"
-    }
+    },
+    "addTechnique": "Technik hinzufügen"
   },
   "instrumentAsk": {
     "title": "Welches Instrument?",
@@ -617,7 +645,8 @@
     "instruments": "Instrumente",
     "instrumentsHint": "Wird darauf geübt. Wähle mehrere, wenn du es auf mehreren spielst.",
     "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
-    "importing": "Wird importiert …"
+    "importing": "Wird importiert …",
+    "more": "Weitere Optionen"
   },
   "plan": {
     "break": "Pause",
@@ -784,7 +813,9 @@
     "deleteTitle": "Diese Einheit löschen?",
     "deleteMessage": "Die Minuten werden von deinen Summen abgezogen.",
     "cancel": "Abbrechen",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "minutesLess": "%{n} Minuten weniger",
+    "minutesMore": "%{n} Minuten mehr"
   },
   "logPast": {
     "title": "Vergangenes Üben eintragen",
@@ -895,7 +926,9 @@
     "outLater": "Endpunkt 0,1 s später setzen",
     "inHere": "Startpunkt auf die Wiedergabeposition setzen",
     "outHere": "Endpunkt auf die Wiedergabeposition setzen",
-    "shareFailed": "Diese Aufnahme ließ sich nicht teilen"
+    "shareFailed": "Diese Aufnahme ließ sich nicht teilen",
+    "nudgeEarlier": "%{label} 0,1 s früher",
+    "nudgeLater": "%{label} 0,1 s später"
   },
   "recap": {
     "challenge": "Monats-Herausforderung",
@@ -1050,7 +1083,10 @@
     "free": "Frei lesbar",
     "yours": "In deinen Daten",
     "statInterleaving": "Ein Übetag von dir berührt im Schnitt %{n} Schwerpunkte.",
-    "statSpacing": "Du übst in einer typischen Woche an %{n} Tagen.",
+    "statSpacing": {
+      "one": "Du übst in einer typischen Woche an %{n} Tag.",
+      "other": "Du übst in einer typischen Woche an %{n} Tagen."
+    },
     "statSessionLength": "Deine Einheit dauert im Schnitt %{n} Minuten.",
     "e": {
       "deliberatePractice": {

@@ -20,7 +20,7 @@ import { SuggestedCard } from '@/components/suggested';
 import { Text } from '@/components/text';
 import { ActionChip, ChipRow, EntryRow, Overline, PulseRing, SearchField, SectionHead, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { tap, thud } from '@/lib/haptics';
-import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
+import { instrumentChoices, instrumentLabel, instrumentName, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun } from '@/lib/plan-run-state';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
@@ -644,7 +644,7 @@ export default function Practice() {
         {store.instruments.length > 1 && (
           <View style={s.filterRow}>
             <UnderlineTabs
-              options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
+              options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: instrumentName(i, store.t) }))]}
               value={inst}
               onChange={(v) => store.updateSettings({ instrumentFilter: v })}
             />
@@ -671,7 +671,7 @@ export default function Practice() {
                   // on "All" the instrument is the only thing telling two rows of the
                   // same piece apart, so it joins the subline; inside one instrument
                   // it would just repeat the filter and is left off
-                  meta: [p.by, !inst && store.instruments.length > 1 ? instrumentLabel(p) : '', store.stages[p.stage]].filter(Boolean).join(' · '),
+                  meta: [p.by, !inst && store.instruments.length > 1 ? instrumentLabel(p, (v) => instrumentName(v, store.t)) : '', store.stages[p.stage]].filter(Boolean).join(' · '),
                 })
               ))}
             </View>
@@ -698,7 +698,7 @@ export default function Practice() {
                   height: 52,
                   // same as the piece rows: on "All" the instrument is the only
                   // thing distinguishing two techniques of the same name
-                    meta: !inst && store.instruments.length > 1 ? instrumentLabel(t) : undefined,
+                    meta: !inst && store.instruments.length > 1 ? instrumentLabel(t, (v) => instrumentName(v, store.t)) : undefined,
                   })
                 ))}
             </View>

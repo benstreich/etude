@@ -782,6 +782,7 @@ function Bound({
   a11y: { earlier: string; later: string; here: string };
 }) {
   const s = useS();
+  const { t } = useStore();
   const nudge = (steps: number, glyph: string, key: string) => (
     <Pressable
       key={key}

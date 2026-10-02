@@ -6,7 +6,12 @@
     "yesterday": "Yesterday",
     "dayLetters": "SMTWTFS",
     "previousMonth": "Previous month",
-    "nextMonth": "Next month"
+    "nextMonth": "Next month",
+    "back": "Back",
+    "starsOf": "%{n} of 5 stars",
+    "decreaseBy": "Decrease by %{n}",
+    "increaseBy": "Increase by %{n}",
+    "clearSearch": "Clear search"
   },
   "tabs": {
     "home": "Home",
@@ -149,9 +154,15 @@
     "setInstruments": "Set your instruments below",
     "practice": "Practice",
     "totalPractice": "Total practice",
-    "hoursUnit": "hours",
+    "hoursUnit": {
+      "one": "hour",
+      "other": "hours"
+    },
     "bestStreak": "Best streak",
-    "daysUnit": "days",
+    "daysUnit": {
+      "one": "day",
+      "other": "days"
+    },
     "yourData": "Your data",
     "backupEverything": "Back up everything",
     "backupEverythingSub": "One file: sessions, pieces, settings",
@@ -236,7 +247,10 @@
     "landsOnDay": "Lands on %{day}",
     "min": "%{min} min",
     "addedMinFocus": "Added %{min} min · %{name}",
-    "addedMinutes": "Added %{min} minutes",
+    "addedMinutes": {
+      "one": "Added 1 minute",
+      "other": "Added %{min} minutes"
+    },
     "addedMinDay": "Added %{min} min · %{name} · %{day}",
     "addedMinutesDay": "Added %{min} min · %{day}",
     "firstSession": "Your first session",
@@ -246,7 +260,8 @@
     "guide3Pre": "Practiced away from your phone? ",
     "guide3Post": " it below",
     "quickLogFocus": "Quick log focus",
-    "nothingSpecific": "Nothing specific"
+    "nothingSpecific": "Nothing specific",
+    "deleteSession": "Delete “%{title}”"
   },
   "practice": {
     "session": "Session",
@@ -334,7 +349,10 @@
     "drift": "Focus drift",
     "other": "Other",
     "consistency": "Consistency",
-    "avgDaysPerWeek": "avg %{n} days / week",
+    "avgDaysPerWeek": {
+      "one": "avg %{n} day / week",
+      "other": "avg %{n} days / week"
+    },
     "daysThisWeek": "%{n} of 7 days this week",
     "ratingOverTime": "Rating over time",
     "last12Weeks": "last 12 weeks",
@@ -371,7 +389,10 @@
     "emptyTitle": "Your week will show up here",
     "emptyText": "Log your first session and this chart starts filling in.",
     "startPracticing": "Start practicing",
-    "daysPracticed": "%{practiced} of %{days} days",
+    "daysPracticed": {
+      "one": "%{practiced} of 1 day",
+      "other": "%{practiced} of %{days} days"
+    },
     "less": "less",
     "more": "more",
     "noSessionDetails": "No session details for this day",
@@ -417,10 +438,16 @@
     "calNotSpeed": "Tempo is there, stars aren't — it's not speed.",
     "calHardDays": "Hard-feeling sessions still moved this piece.",
     "hearTitle": "Hear the difference",
-    "hearDays": "%{days} days apart",
+    "hearDays": {
+      "one": "1 day apart",
+      "other": "%{count} days apart"
+    },
     "pipelineTitle": "Repertoire pipeline",
     "pipelineReady": "%{n} reached %{stage} this month · %{m} last month",
-    "pipelineTotal": "%{n} pieces",
+    "pipelineTotal": {
+      "one": "1 piece",
+      "other": "%{count} pieces"
+    },
     "performable": "Performable today",
     "performableCount": "%{n} of %{m} fresh",
     "lastPlayed": "%{days} d ago",
@@ -532,7 +559,8 @@
     "searchList": "Search your repertoire",
     "noMatchesTitle": "Nothing matches",
     "noMatchesText": "No piece or technique here fits that search and instrument.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "addTechnique": "Add technique"
   },
   "instrumentAsk": {
     "title": "Which instrument?",
@@ -617,7 +645,8 @@
     "instruments": "Instruments",
     "instrumentsHint": "Practised on these. Pick more than one if you play it on several.",
     "instrumentsAll": "No instrument picked — it shows under all of them.",
-    "importing": "Importing…"
+    "importing": "Importing…",
+    "more": "More options"
   },
   "plan": {
     "break": "Break",
@@ -784,7 +813,9 @@
     "deleteTitle": "Delete this session?",
     "deleteMessage": "Its minutes come off your totals.",
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete",
+    "minutesLess": "%{n} minutes less",
+    "minutesMore": "%{n} minutes more"
   },
   "logPast": {
     "title": "Log past practice",
@@ -895,7 +926,9 @@
     "outLater": "Move the out point 0.1 s later",
     "inHere": "Set the in point to where playback is",
     "outHere": "Set the out point to where playback is",
-    "shareFailed": "Couldn’t share this take"
+    "shareFailed": "Couldn’t share this take",
+    "nudgeEarlier": "%{label} 0.1 s earlier",
+    "nudgeLater": "%{label} 0.1 s later"
   },
   "recap": {
     "challenge": "Monthly challenge",
@@ -1050,7 +1083,10 @@
     "free": "Free to read",
     "yours": "In your data",
     "statInterleaving": "A practice day of yours touches %{n} focuses on average.",
-    "statSpacing": "You practise on %{n} days in a typical week.",
+    "statSpacing": {
+      "one": "You practise on %{n} day in a typical week.",
+      "other": "You practise on %{n} days in a typical week."
+    },
     "statSessionLength": "Your average session runs %{n} minutes.",
     "e": {
       "deliberatePractice": {

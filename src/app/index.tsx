@@ -83,7 +83,7 @@ export default function Home() {
       store.showToast(name ? store.t('home.addedMinDay', { min, name, day: when }) : store.t('home.addedMinutesDay', { min, day: when }));
       return;
     }
-    store.showToast(name ? store.t('home.addedMinFocus', { min, name }) : store.t('home.addedMinutes', { min }));
+    store.showToast(name ? store.t('home.addedMinFocus', { min, name }) : store.t('home.addedMinutes', { min, count: min }));
   };
 
   // the gauge follows the day picked on the staff, so tapping a note replays that day's arc
@@ -323,18 +323,17 @@ export default function Home() {
               const title = sessionTitle(l, store.t);
               return (
                 <View key={l.id} style={s.logRowWrap}>
-                  {/* the full session editor — focus, minutes, rating, note — same as on the piece page */}
+                  {/* the full session editor — focus, minutes, rating, note — same as on the piece page.
+                      The delete button is a sibling, not a child: nested inside, a screen reader
+                      merged it into the row and could never reach it on its own. */}
                   <Pressable
                     testID={`session-row-${i}`}
                     style={s.logRow}
                     accessibilityRole="button"
                     accessibilityLabel={`${title}, ${fmtTime(l.min, store.t)}`}
-                    // the row is one focus stop for a screen reader, so the × inside it is offered as an action
-                    accessibilityActions={[{ name: 'delete', label: store.t('editSession.deleteSession') }]}
-                    onAccessibilityAction={(e) => e.nativeEvent.actionName === 'delete' && confirmDelete(l.id)}
                     onPress={() => setEditSess(l)}>
                     {/* backdated logs carry no time of day (store.logMinutes), so the column collapses rather than gaping */}
-                    {!!l.at && <Text style={s.logTime}>{new Date(l.at).toLocaleTimeString(store.lang, { hour: '2-digit', minute: '2-digit', hour12: false })}</Text>}
+                    {!!l.at && <Text style={s.logTime}>{new Date(l.at).toLocaleTimeString(store.lang, { hour: 'numeric', minute: '2-digit' })}</Text>}
                     <Text style={s.logTitle} numberOfLines={1}>
                       {title}
                     </Text>
@@ -342,15 +341,15 @@ export default function Home() {
                       {l.min}
                       <Text style={s.logMinUnit}> {store.t('home.minWord')}</Text>
                     </Text>
-                    <Pressable
-                      testID={`session-delete-${i}`}
-                      hitSlop={8}
-                      style={s.logDelete}
-                      accessibilityRole="button"
-                      accessibilityLabel={store.t('editSession.deleteSession')}
-                      onPress={() => confirmDelete(l.id)}>
-                      <Text style={s.logDeleteText}>×</Text>
-                    </Pressable>
+                  </Pressable>
+                  <Pressable
+                    testID={`session-delete-${i}`}
+                    hitSlop={8}
+                    style={s.logDelete}
+                    accessibilityRole="button"
+                    accessibilityLabel={store.t('home.deleteSession', { title })}
+                    onPress={() => confirmDelete(l.id)}>
+                    <Text style={s.logDeleteText}>×</Text>
                   </Pressable>
                 </View>
               );
@@ -420,9 +419,10 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   landTag: { height: 36, paddingHorizontal: 10, borderRadius: 8, backgroundColor: C.accentTint, alignItems: 'center', justifyContent: 'center' },
   landTagText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.accent },
   tapHint: { fontFamily: F.body, fontSize: fs(13), color: C.tertiary },
-  logRowWrap: { borderBottomWidth: 1, borderBottomColor: C.hairline },
-  logRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 52 },
-  logTime: { width: 40, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, fontVariant: ['tabular-nums'] },
+  logRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  logRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, height: 52 },
+  // fits "12:30 PM" as well as "18:30"
+  logTime: { minWidth: 40, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary, fontVariant: ['tabular-nums'] },
   logTitle: { flex: 1, minWidth: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },
   logMin: { fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink, fontVariant: ['tabular-nums'] },
   logMinUnit: { fontFamily: F.body, fontWeight: '400', color: C.sub },

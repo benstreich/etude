@@ -109,7 +109,7 @@ export default function Compare() {
     return (
       <View style={[s.page, { flex: 1, backgroundColor: C.bg, paddingTop: insets.top + 16 }]}>
         <View style={s.navRow}>
-          <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('compare.back')}>
+          <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.back')}>
             <Text style={s.navGlyph}>‹</Text>
           </Pressable>
         </View>
@@ -177,7 +177,7 @@ export default function Compare() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
-        <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('compare.back')}>
+        <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.back')}>
           <Text style={s.navGlyph}>‹</Text>
         </Pressable>
         <Pressable hitSlop={10} accessibilityRole="button" onPress={() => setPickOpen(true)}>

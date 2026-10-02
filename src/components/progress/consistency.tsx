@@ -22,7 +22,7 @@ export function ConsistencySection({ sessions, mbd, monday }: SectionProps) {
     <Card>
       <View style={s.focusHead}>
         <Overline>{store.t('progress.consistency')}</Overline>
-        <Text style={s.skillLevel}>{store.t('progress.avgDaysPerWeek', { n: fmtNum(cons.average, 1, store.lang, 0) })}</Text>
+        <Text style={s.skillLevel}>{store.t('progress.avgDaysPerWeek', { n: fmtNum(cons.average, 1, store.lang, 0), count: cons.average })}</Text>
       </View>
       <View style={[s.chart, { height: 56 }]}>
         {cons.perWeek.map((d, i) => (
