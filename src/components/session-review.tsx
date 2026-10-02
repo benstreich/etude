@@ -95,6 +95,7 @@ export function SessionReview({
         dailyGoal: store.dailyGoal,
         today: store.today,
         challengeJustMet: justMet,
+        breakDays: store.breakDays,
       })
     : [];
   // "Best week yet" is an earned moment (#68): ask for a review once the chord has

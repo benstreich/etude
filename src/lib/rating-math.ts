@@ -1,6 +1,7 @@
 // Stars are the grade. A piece's rating log is derived from the sessions that
 // name it (session.title === piece.name) — nothing new is captured.
 import type { TempoEntry } from './store';
+import { dateKey } from './streak-math.ts';
 
 export type RatingEntry = { date: string; rating: number };
 export type Calibration = 'grading-feel' | 'not-speed' | 'hard-days-count';
@@ -8,7 +9,8 @@ export type Calibration = 'grading-feel' | 'not-speed' | 'hard-days-count';
 export const addDays = (key: string, n: number) => {
   const d = new Date(key + 'T12:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  // local calendar day: toISOString on local noon is the previous day in UTC+13/+14
+  return dateKey(d);
 };
 const dayNum = (key: string) => Math.round(new Date(key + 'T12:00:00').getTime() / 86_400_000);
 

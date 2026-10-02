@@ -32,7 +32,7 @@ const base = { todayKey: '2026-09-16', minutesByDate: mins, dailyGoal: 30, break
 const w = goalProgress({ ...base, period: 'week', goal: 0 });
 assert.equal(w.target, 180);
 assert.equal(w.done, 50); // Mon 30 + Wed 20; Sunday the 13th belongs to last week
-assert.equal(w.pace, 90); // 3 practice days elapsed of 6
+assert.equal(w.pace, 60); // 2 practice days elapsed of 6 — today isn't over yet
 assert.equal(w.onTrack, false);
 assert.equal(w.left, 130);
 assert.equal(w.pct, 28);
@@ -54,7 +54,12 @@ assert.equal(none.target, 0);
 assert.equal(none.pct, 0);
 assert.equal(none.onTrack, true);
 
-// pace never exceeds the target, on the period's last day it equals it
+// first morning of the week, nothing logged yet: not behind pace
+const monday = goalProgress({ ...base, period: 'week', goal: 0, todayKey: '2026-09-14', minutesByDate: {} });
+assert.equal(monday.pace, 0);
+assert.equal(monday.onTrack, true);
+
+// pace never exceeds the target; by the last day (a break day here) it equals it
 const last = goalProgress({ ...base, period: 'week', goal: 180, todayKey: '2026-09-20' });
 assert.equal(last.pace, 180);
 
@@ -98,6 +103,9 @@ const ratingSoon = deadlineStatus({ ...dl, stage: 1, targetRating: 4.5, ratingAv
 assert.ok(!ratingSoon.lagging.includes('rating'), 'forecast before the deadline is on pace');
 assert.deepEqual(deadlineStatus({ ...dl, stage: 0 }).lagging, ['stage']);
 assert.deepEqual(deadlineStatus({ ...dl, stage: 1, targetBpm: 120, tempoReachDate: '2026-12-01' }).lagging, ['tempo']);
+// a tempo already at its target has no forecast date, and that is not lagging
+assert.deepEqual(deadlineStatus({ ...dl, stage: 1, targetBpm: 120, currentBpm: 124, tempoReachDate: null }).lagging, []);
+assert.deepEqual(deadlineStatus({ ...dl, stage: 1, targetBpm: 120, currentBpm: 100, tempoReachDate: null }).lagging, ['tempo']);
 assert.deepEqual(deadlineStatus({ ...dl, stage: 2, targetRating: 5, ratingAvg: 2, ratingReachDate: null }).lagging, ['rating'], 'done stage still lags on rating');
 
 console.log('goal ok');

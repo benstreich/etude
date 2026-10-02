@@ -116,6 +116,7 @@ function PieceBody({ id }: { id: string }) {
         stage,
         stages: n,
         targetBpm: piece.targetBpm,
+        currentBpm: piece.currentBpm ?? piece.tempoLog?.at(-1)?.bpm,
         tempoReachDate: piece.targetBpm ? (forecast?.reachDate ?? null) : undefined,
         targetRating: piece.targetRating,
         ratingAvg,

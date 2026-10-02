@@ -64,5 +64,9 @@ assert.equal(addDays('2026-11-01', 1), '2026-11-02', 'US DST fall back');
 assert.equal(addDays('2026-09-14', 30), '2026-10-14');
 // walking n days forward then n back returns to the start, for a whole year
 for (let n = 1; n <= 365; n++) assert.equal(addDays(addDays('2026-01-01', n), -n), '2026-01-01', `round-trip ${n}`);
+// local noon is still yesterday in UTC (NZ daylight time is UTC+13); the answer must stay local
+process.env.TZ = 'Pacific/Auckland';
+assert.equal(addDays('2026-12-14', 1), '2026-12-15', 'UTC+13');
+assert.equal(addDays('2026-12-14', 0), '2026-12-14', 'UTC+13, no shift');
 
 console.log('check-rating ok');

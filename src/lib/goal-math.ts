@@ -67,10 +67,13 @@ export type GoalOpts = {
 export function goalProgress(o: GoalOpts) {
   const { from, to } = periodRange(o.period, o.todayKey, o.weekStart);
   const total = practiceDays(from, to, o.breakDays);
-  const elapsed = practiceDays(from, o.todayKey < to ? o.todayKey : to, o.breakDays);
+  // pace counts days through yesterday: today isn't over, so a fresh morning isn't "behind"
+  const t = parse(o.todayKey);
+  const yesterday = key(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1));
+  const elapsed = practiceDays(from, yesterday < to ? yesterday : to, o.breakDays);
   const target = o.goal > 0 ? o.goal : Math.max(0, Math.round(o.dailyGoal) * total);
   const done = periodMinutes(o.minutesByDate, from, o.todayKey < to ? o.todayKey : to);
-  // pace = what a straight line through the period would have you at by today
+  // pace = what a straight line through the period would have you at by the end of yesterday
   const pace = total > 0 ? Math.round((target * elapsed) / total) : target;
   return {
     from,
@@ -99,6 +102,8 @@ export type DeadlineOpts = {
   /** tempo target, with the forecast date the tempo reaches it (null = no forecast) */
   targetBpm?: number;
   tempoReachDate?: string | null;
+  /** latest tempo; a piece already at its target BPM never lags on tempo */
+  currentBpm?: number;
   /** rolling-average rating target (spec 2026-09-15) and its forecast date */
   targetRating?: number;
   ratingAvg?: number | null;
@@ -123,7 +128,7 @@ export function deadlineStatus(o: DeadlineOpts) {
   // every signal with a target has to be on pace; a forecast after the deadline (or none) lags
   const lagging: LaggingSignal[] = [];
   if (!done && actual < expected) lagging.push('stage');
-  if (o.targetBpm && o.tempoReachDate !== undefined && (o.tempoReachDate === null || o.tempoReachDate > o.targetDate)) lagging.push('tempo');
+  if (o.targetBpm && (o.currentBpm ?? 0) < o.targetBpm && o.tempoReachDate !== undefined && (o.tempoReachDate === null || o.tempoReachDate > o.targetDate)) lagging.push('tempo');
   if (o.targetRating && (o.ratingAvg ?? 0) < o.targetRating && (!o.ratingReachDate || o.ratingReachDate > o.targetDate)) lagging.push('rating');
   return {
     days,

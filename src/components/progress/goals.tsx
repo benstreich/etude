@@ -53,6 +53,7 @@ export function GoalsSection({ pieces, sessions }: SectionProps) {
           stage: p.stage,
           stages: store.stages.length,
           targetBpm: p.targetBpm,
+          currentBpm: p.currentBpm ?? p.tempoLog?.at(-1)?.bpm,
           tempoReachDate: p.targetBpm ? (tf?.reachDate ?? null) : undefined,
           targetRating: p.targetRating,
           ratingAvg: rollingAvg(ratings),

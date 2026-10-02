@@ -19,6 +19,7 @@ import { fmtNum } from '@/lib/i18n';
 import { projection, ratingSummary } from '@/lib/stats-math';
 import { maybeRequestReview } from '@/lib/review';
 import { useStore } from '@/lib/store';
+import { graceFor } from '@/lib/streak-math';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 const CREAM = '#FAF7F2';
@@ -76,6 +77,7 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     sessions: store.sessions,
     minutesByDate: store.minutesByDate,
     breakDays: store.breakDays,
+    graceDays: graceFor(store.streakMode),
     year,
     month: mode === 'month' ? month : undefined,
   });

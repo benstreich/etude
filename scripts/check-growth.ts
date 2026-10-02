@@ -31,6 +31,14 @@ assert.deepEqual(
   achievements({ streak: 0, sessionCount: 9, minutesByDate: { ...goalWeek, '2026-08-18': 44 }, dailyGoal: 45, today: '2026-08-21' }),
   [],
 );
+// a Sunday break day (Aug 16) is skipped, not a miss: 7 practice days reach back to Aug 14
+const goalNoSunday: Record<string, number> = { ...goalWeek, '2026-08-14': 45 };
+delete goalNoSunday['2026-08-16'];
+assert.deepEqual(
+  achievements({ streak: 0, sessionCount: 9, minutesByDate: goalNoSunday, dailyGoal: 45, today: '2026-08-21', breakDays: ['Sunday'] }).map((a) => a.label),
+  ['Goal hit 7 days straight'],
+);
+assert.deepEqual(achievements({ streak: 0, sessionCount: 9, minutesByDate: goalNoSunday, dailyGoal: 45, today: '2026-08-21' }), [], 'without the break day it is a miss');
 
 // --- achievements: 'Best week yet' only when history exists and this window beats it
 const history = { '2026-07-01': 60, '2026-08-20': 40, '2026-08-21': 30 };
@@ -41,6 +49,11 @@ assert.deepEqual(
 // prior week was bigger → no brag
 assert.deepEqual(
   achievements({ streak: 0, sessionCount: 9, minutesByDate: { ...history, '2026-07-01': 600 }, dailyGoal: 0, today: '2026-08-21' }),
+  [],
+);
+// an overlapping earlier window was bigger (50 + 40 ending Aug 18 vs. 40 + 20 now) → no brag
+assert.deepEqual(
+  achievements({ streak: 0, sessionCount: 9, minutesByDate: { '2026-08-14': 50, '2026-08-18': 40, '2026-08-21': 20 }, dailyGoal: 0, today: '2026-08-21' }),
   [],
 );
 // no history at all → not "best" yet
@@ -107,6 +120,10 @@ assert.equal(recapStats({ sessions: [], minutesByDate: {}, breakDays: [], year: 
 // a month of focus-less quick logs outweighs every piece, but is not one
 const quickHeavy = recapStats({ sessions: [...sessions, { title: 'Quick log', meta: 'Logged', min: 300, date: '2026-08-04' }], minutesByDate: {}, breakDays: [], year: 2026, month: 7 });
 assert.equal(quickHeavy.topPiece, 'Clair de Lune');
+// relaxed mode: one skipped day doesn't split the longest streak, same as the app's streak
+const gappy = { '2026-08-01': 30, '2026-08-02': 30, '2026-08-04': 30, '2026-08-05': 30 };
+assert.equal(recapStats({ sessions: [], minutesByDate: gappy, breakDays: [], year: 2026, month: 7 }).longestStreak, 2);
+assert.equal(recapStats({ sessions: [], minutesByDate: gappy, breakDays: [], graceDays: 1, year: 2026, month: 7 }).longestStreak, 4);
 
 // --- migrate: old blobs get an empty plans array; junk plans values are reset
 assert.deepEqual((migrate(JSON.stringify({ totalMin: 5 }), { plans: [] as unknown[] }) as { plans: unknown[] }).plans, []);

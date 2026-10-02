@@ -7,7 +7,10 @@ import { appendStageLog } from '../src/lib/movement-math.ts';
 
 // --- stage log ------------------------------------------------------------
 assert.deepEqual(appendStageLog(undefined, '2026-09-01', 1), [{ date: '2026-09-01', stage: 1 }]);
-assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 1 }], '2026-09-01', 2), [{ date: '2026-09-01', stage: 2 }], 'same day: last write wins');
+assert.deepEqual(appendStageLog([{ date: '2026-08-01', stage: 0 }, { date: '2026-09-01', stage: 1 }], '2026-09-01', 2), [{ date: '2026-08-01', stage: 0 }, { date: '2026-09-01', stage: 2 }], 'same day: last write wins');
+// a piece added this run (no log) or today (only its add-day backfill) keeps the stage it started on
+assert.deepEqual(appendStageLog(undefined, '2026-09-01', 1, 0), [{ date: '0000-00-00', stage: 0 }, { date: '2026-09-01', stage: 1 }], 'empty log: baseline seeded');
+assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 0 }], '2026-09-01', 1, 0), [{ date: '0000-00-00', stage: 0 }, { date: '2026-09-01', stage: 1 }], 'add-day backfill becomes the baseline');
 assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 1 }], '2026-09-03', 1), [{ date: '2026-09-01', stage: 1 }], 'same stage: no-op');
 assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 0 }], '2026-09-03', 1), [{ date: '2026-09-01', stage: 0 }, { date: '2026-09-03', stage: 1 }]);
 assert.deepEqual(backfillStageLog({ stage: 2, addedAt: Date.parse('2026-05-04T10:00:00Z') }, '2026-09-14'), [{ date: '2026-05-04', stage: 2 }]);
@@ -41,6 +44,12 @@ assert.equal(pieceMovement(ratingUp, cs, today, stages).move.kind, 'rating');
 assert.deepEqual(pieceMovement(P('D'), [S('D', '2026-08-20')], today, stages).move, { kind: 'stalled', days: 25 });
 assert.deepEqual(pieceMovement(P('E', { stage: 2 }), [S('E', '2026-08-20')], today, stages).move, { kind: 'due', days: 25 }, 'ready + unplayed 21d beats stalled');
 assert.deepEqual(pieceMovement(P('F'), [], today, stages).move, { kind: 'new' });
+// played recently, nothing changed: a long-held piece is steady, a just-added one is new
+assert.deepEqual(pieceMovement(P('K', { addedAt: new Date(2025, 8, 1).getTime() }), [S('K', '2026-09-13')], today, stages).move, { kind: 'steady' });
+assert.deepEqual(pieceMovement(P('K', { addedAt: new Date(2026, 8, 1).getTime() }), [S('K', '2026-09-13')], today, stages).move, { kind: 'new' });
+// the first promotion of a piece added this run counts as a stage move
+const fresh = P('L', { stage: 1, stageLog: appendStageLog(undefined, '2026-09-10', 1, 0) });
+assert.deepEqual(pieceMovement(fresh, [S('L', '2026-09-10')], today, stages).move, { kind: 'stage', from: 0, to: 1 });
 assert.equal(pieceMovement(tempoUp, [S('B', '2026-09-10', 35), S('B', '2026-07-01', 99)], today, stages).minutes, 35, 'minutes inside window only');
 assert.deepEqual(pieceMovement(tempoUp, [S('B', '2026-09-10')], today, stages).spark, [100, 112], 'sparkline = tempo log in window');
 
@@ -64,11 +73,16 @@ const md = monthDiff([P('A', { addedAt: Date.parse('2026-09-02T00:00:00Z') })], 
 assert.deepEqual(md.pieces, [1, 0]);
 assert.deepEqual(md.hours, [1, 0.5]);
 assert.deepEqual(md.stars, [4, 3]);
+// addedAt buckets by the local calendar day, not the UTC one
+const localMidnight = monthDiff([P('A', { addedAt: new Date(2026, 8, 1, 0, 30).getTime() })], [], today);
+assert.deepEqual(localMidnight.pieces, [1, 0]);
 
 const R = (id: string, date: string, starred?: boolean) => ({ id, piece: 'A', date, uri: '', sec: 10, starred }) as any;
 assert.equal(recordingPair([R('1', '2026-01-01')]), null);
 assert.deepEqual(recordingPair([R('2', '2026-02-01'), R('1', '2026-01-01'), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '3']);
 assert.deepEqual(recordingPair([R('1', '2026-01-01'), R('2', '2026-02-01', true), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '2'], 'a starred newer one wins the "latest" slot');
+assert.deepEqual(recordingPair([R('1', '2026-01-01', true), R('2', '2026-02-01'), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '3'], 'a starred oldest one pairs with the newest');
+assert.deepEqual(recordingPair([R('1', '2026-01-01'), R('2', '2026-02-01', true), R('3', '2026-03-01', true)])!.map((r) => r.id), ['2', '3'], 'two stars: first and last starred');
 // --- lastPlayed -----------------------------------------------------------
 // the newest session whose title is the piece's name; null when never played
 import { lastPlayed } from '../src/lib/movement-math.ts';
