@@ -56,8 +56,12 @@ private fun openAppIntent(ctx: Context): PendingIntent? {
   return PendingIntent.getActivity(ctx, 0, launch, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 }
 
-private fun deepLinkIntent(ctx: Context, url: String): PendingIntent {
-  val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply { setPackage(ctx.packageName) }
+private fun deepLinkIntent(ctx: Context, url: String): PendingIntent? {
+  // aimed at whichever launcher alias is enabled: an accent icon (#80) disables
+  // .MainActivity, the only component with the etude:// filter, so an implicit
+  // VIEW intent would resolve to nothing
+  val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: return null
+  val intent = Intent(launch).setAction(Intent.ACTION_VIEW).setData(Uri.parse(url))
   return PendingIntent.getActivity(ctx, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 }
 
@@ -125,6 +129,7 @@ class EtudeSmallWidget : AppWidgetProvider() {
         setTextViewText(R.id.streak, if (d.streak > 0) "🔥 ${d.streak}" else "")
         setTextColor(R.id.streak, accent[0])
         setTextViewText(R.id.minutes, "${d.today} / ${d.goal}")
+        d.labels["minutesToday"]?.let { setTextViewText(R.id.minutes_today, it) }
         openAppIntent(ctx)?.let { setOnClickPendingIntent(R.id.root, it) }
       }
       mgr.updateAppWidget(id, views)
@@ -138,9 +143,10 @@ class EtudeMediumWidget : AppWidgetProvider() {
     val accent = accentColors(ctx, d)
     for (id in ids) {
       val views = RemoteViews(ctx.packageName, R.layout.etude_widget_medium).apply {
-        setTextViewText(R.id.minutes, "${d.today} / ${d.goal} min")
-        val streakPart = if (d.streak > 0) "${d.streak}-day streak" else null
-        val nextPart = d.nextFocus?.let { "$it next" }
+        setTextViewText(R.id.minutes, "${d.today} / ${d.goal} ${d.labels["min"] ?: "min"}")
+        // `streak` arrives formatted for the pushed count; a rolled-over snapshot keeps it whole or zeroes it
+        val streakPart = if (d.streak > 0) d.labels["streak"] ?: "${d.streak}-day streak" else null
+        val nextPart = d.nextFocus?.let { d.labels["next"]?.takeIf { l -> l.isNotEmpty() } ?: "$it next" }
         setTextViewText(R.id.sub, listOfNotNull(streakPart, nextPart).joinToString(" · "))
         setImageViewBitmap(R.id.bars, barsBitmap(ctx, d.week, 130f, 62f, accent))
         // the pill keeps its shape drawable; tinting it needs API 31 — older phones keep terracotta
@@ -148,7 +154,8 @@ class EtudeMediumWidget : AppWidgetProvider() {
           setColorStateList(R.id.practice, "setBackgroundTintList", ColorStateList.valueOf(accent[0]))
         }
         openAppIntent(ctx)?.let { setOnClickPendingIntent(R.id.root, it) }
-        setOnClickPendingIntent(R.id.practice, deepLinkIntent(ctx, "etude://practice"))
+        d.labels["practice"]?.let { setTextViewText(R.id.practice, it) }
+        deepLinkIntent(ctx, "etude://practice")?.let { setOnClickPendingIntent(R.id.practice, it) }
       }
       mgr.updateAppWidget(id, views)
     }

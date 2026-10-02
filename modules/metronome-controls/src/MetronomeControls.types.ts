@@ -1,5 +1,5 @@
-/** What the lock-screen / notification buttons mean. The step size is the caller's business. */
-export type MetronomeCommand = 'inc' | 'dec' | 'toggle';
+/** What the lock-screen / notification buttons mean. The step size is the caller's business. `play`/`pause` are iOS-only. */
+export type MetronomeCommand = 'inc' | 'dec' | 'toggle' | 'play' | 'pause';
 
 /** One tick the native engine has just placed (Android only): the tick played, and the one after it. */
 export type MetronomeTickEvent = {
@@ -23,6 +23,8 @@ export type MetronomeControlsState = {
   running: boolean;
   /** Second line — the piece being practiced, when there is one. */
   subtitle?: string;
+  /** Android: channel name and button labels, already localized; English when absent. */
+  labels?: { channel: string; slower: string; play: string; pause: string; faster: string };
 };
 
 /** One click through the native SoundPool (Android only) — the sound picker's preview. */

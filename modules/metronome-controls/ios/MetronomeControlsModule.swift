@@ -59,8 +59,8 @@ public class MetronomeControlsModule: Module {
       (center.nextTrackCommand, "inc"),
       (center.previousTrackCommand, "dec"),
       (center.togglePlayPauseCommand, "toggle"),
-      (center.playCommand, "toggle"),
-      (center.pauseCommand, "toggle"),
+      (center.playCommand, "play"),
+      (center.pauseCommand, "pause"),
     ]
     for (command, name) in map {
       command.isEnabled = true

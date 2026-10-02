@@ -256,6 +256,7 @@
     "onBreak": "Pause",
     "breakOver": "Pause vorbei",
     "breakChannel": "Pausen",
+    "sessionChannel": "Übungs-Session",
     "breakOverTitle": "Pause vorbei",
     "breakOverBody": "Weiter üben?",
     "micPermissionNeeded": "Mikrofonberechtigung erforderlich",
@@ -674,6 +675,10 @@
   },
   "metronome": {
     "metronome": "Metronom",
+    "slower": "Langsamer",
+    "play": "Start",
+    "pause": "Pause",
+    "faster": "Schneller",
     "bars": "Takte",
     "seconds": "Sekunden",
     "tapTempo": "Tempo tippen",
@@ -883,6 +888,11 @@
     "channelName": "Übungs-Erinnerungen",
     "notifTitle": "Zeit zum Üben 🎵",
     "notifBody": "Ein paar Minuten heute halten deine Serie am Leben."
+  },
+  "widget": {
+    "minutesToday": "Minuten heute",
+    "min": "Min.",
+    "next": "Als Nächstes: %{name}"
   },
   "addFocus": {
     "new": "+ Neu",

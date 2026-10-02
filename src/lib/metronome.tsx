@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 
 import Controls from '../../modules/metronome-controls';
 import { applyAudioMode } from './audio-mode';
+import { tr } from './i18n';
 import {
   accentLevel,
   advanceTick,
@@ -31,6 +32,20 @@ import {
   type TimeSig,
 } from './metronome-math';
 import { useStore } from './store';
+
+// What the notification / lock screen show, in the in-app language (native falls back to English)
+const controls = (bpm: number, running: boolean) => ({
+  bpm,
+  running,
+  subtitle: tr('metronome.metronome'),
+  labels: {
+    channel: tr('metronome.metronome'),
+    slower: tr('metronome.slower'),
+    play: tr('metronome.play'),
+    pause: tr('metronome.pause'),
+    faster: tr('metronome.faster'),
+  },
+});
 
 // The four samples of a set, in the order both the JS pool and the Kotlin
 // SoundPool index them: plain, group start, downbeat, subdivision.
@@ -288,7 +303,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     run.current = { startedAt: now, baseBpm: startBpm, baseBeats: 0, beats: 0, sub: 0, nextAt: now, timer: null };
     metroRunning = true;
     setRunning(true);
-    Controls?.show({ bpm: startBpm, running: true });
+    Controls?.show(controls(startBpm, true));
     // Android: the native engine clicks from the first beat, in the app and with
     // the screen off alike; it reports each tick through onTick (below). It does
     // not wait for the foreground service, so this holds from the lock screen too.
@@ -299,7 +314,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       requestNotificationPermissionsAsync()
         .then(() => {
           // Android 13+: a notification posted before the grant was silently dropped — repaint
-          if (run.current) Controls?.update({ bpm: latest.current.bpm, running: true });
+          if (run.current) Controls?.update(controls(latest.current.bpm, true));
         })
         .catch(() => {});
   }, [tick, tickConfig]);
@@ -326,7 +341,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     setRunning(false);
     emitBeat(-1);
     Controls?.stopTicking();
-    Controls?.update({ bpm: latest.current.bpm, running: false });
+    Controls?.update(controls(latest.current.bpm, false));
   }, []);
 
   const setBpm = useCallback(
@@ -410,7 +425,12 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     const sub = Controls?.addListener('onCommand', ({ command }) => {
       if (command === 'inc') nudge(LOCK_SCREEN_STEP);
       else if (command === 'dec') nudge(-LOCK_SCREEN_STEP);
-      else if (run.current) pause();
+      // iOS sends a headset's play and pause as such: each only ever goes one way
+      else if (command === 'play') {
+        if (!run.current) start();
+      } else if (command === 'pause') {
+        if (run.current) pause();
+      } else if (run.current) pause();
       else start();
     });
     return () => sub?.remove();
@@ -438,7 +458,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
 
   // the notification and the engine both follow the live tempo, the ramp's included
   useEffect(() => {
-    if (running) Controls?.update({ bpm, running: true });
+    if (running) Controls?.update(controls(bpm, true));
   }, [bpm, running]);
 
   // edits made in the sheet (or from a widget) reach the running engine at once
