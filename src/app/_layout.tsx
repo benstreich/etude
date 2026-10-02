@@ -161,7 +161,7 @@ function RunPill({ bottom }: { bottom: number }) {
       }}
       onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
       <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg }}>
-        ▶ {t('planRun.inProgress', { name: plan.name })}
+        ▶ {t('planRun.inProgress', { name: plan.name.trim() || t('practice.defaultPlanName') })}
       </Text>
     </Pressable>
   );

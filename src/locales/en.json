@@ -597,6 +597,17 @@
     "addFocusFirst": "Add a piece or technique first",
     "addSegment": "Add segment",
     "deletePlan": "Delete routine",
+    "deletePlanTitle": "Delete “%{name}”?",
+    "deletePlanBody": "The routine and its segments are removed. Sessions you already logged stay.",
+    "cancel": "Cancel",
+    "otherRunningTitle": "Another routine is running",
+    "otherRunningBody": "Finish or end it before starting this one.",
+    "goToCurrent": "Go to current routine",
+    "back": "Back",
+    "minutesLabel": {
+      "one": "1 minute",
+      "other": "%{count} minutes"
+    },
     "startPlan": "Start routine",
     "newSegment": "New segment",
     "editSegment": "Edit segment",
@@ -620,7 +631,9 @@
     "metronomeBpm": "Metronome · %{bpm} BPM",
     "next": "Next",
     "finish": "Finish",
-    "inProgress": "%{name} in progress — tap to return"
+    "inProgress": "%{name} in progress — tap to return",
+    "timerLabel": "%{min} min %{sec} s",
+    "timerLabelBreak": "%{min} min %{sec} s remaining"
   },
   "onboarding": {
     "skip": "Skip",

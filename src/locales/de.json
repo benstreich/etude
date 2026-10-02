@@ -597,6 +597,17 @@
     "addFocusFirst": "Füge zuerst ein Stück oder eine Technik hinzu",
     "addSegment": "Segment hinzufügen",
     "deletePlan": "Routine löschen",
+    "deletePlanTitle": "„%{name}“ löschen?",
+    "deletePlanBody": "Die Routine und ihre Segmente werden entfernt. Bereits gespeicherte Einheiten bleiben erhalten.",
+    "cancel": "Abbrechen",
+    "otherRunningTitle": "Eine andere Routine läuft",
+    "otherRunningBody": "Schließe oder beende sie, bevor du diese startest.",
+    "goToCurrent": "Zur laufenden Routine",
+    "back": "Zurück",
+    "minutesLabel": {
+      "one": "1 Minute",
+      "other": "%{count} Minuten"
+    },
     "startPlan": "Routine starten",
     "newSegment": "Neues Segment",
     "editSegment": "Segment bearbeiten",
@@ -620,7 +631,9 @@
     "metronomeBpm": "Metronom · %{bpm} BPM",
     "next": "Weiter",
     "finish": "Fertig",
-    "inProgress": "%{name} läuft — tippen zum Fortsetzen"
+    "inProgress": "%{name} läuft — tippen zum Fortsetzen",
+    "timerLabel": "%{min} Min. %{sec} Sek.",
+    "timerLabelBreak": "noch %{min} Min. %{sec} Sek."
   },
   "onboarding": {
     "skip": "Überspringen",
