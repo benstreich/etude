@@ -157,6 +157,7 @@ function RunPill({ bottom }: { bottom: number }) {
   // restart before Practice was ever opened, had no way back but the tab
   const session = !plan && liveSession && pathname !== '/practice' ? liveSession : null;
   if (!session && (!plan || pathname === '/plan/run')) return null;
+  const pillLabel = t('planRun.inProgress', { name: plan ? plan.name.trim() || t('practice.defaultPlanName') : (session?.name ?? '') });
   return (
     <Pressable
       style={{

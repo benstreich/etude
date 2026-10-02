@@ -593,7 +593,6 @@
     "pickHint": "Tippe auf A oder B, um einen Take auf diesen Platz zu legen. Wählst du den Take vom anderen Platz, werden die beiden getauscht.",
     "goneTitle": "Diese Aufnahme gibt es nicht mehr",
     "goneText": "Eine der beiden Aufnahmen wurde gelöscht — es bleibt nichts zum Vergleichen.",
-    "back": "Zurück",
     "playTake": "Take %{which} abspielen",
     "pauseTake": "Take %{which} pausieren",
     "putInSlot": "%{name} auf Platz %{which} legen"
@@ -676,7 +675,6 @@
     "otherRunningTitle": "Eine andere Routine läuft",
     "otherRunningBody": "Schließe oder beende sie, bevor du diese startest.",
     "goToCurrent": "Zur laufenden Routine",
-    "back": "Zurück",
     "minutesLabel": {
       "one": "1 Minute",
       "other": "%{count} Minuten"
@@ -941,9 +939,7 @@
     "outLater": "Endpunkt 0,1 s später setzen",
     "inHere": "Startpunkt auf die Wiedergabeposition setzen",
     "outHere": "Endpunkt auf die Wiedergabeposition setzen",
-    "shareFailed": "Diese Aufnahme ließ sich nicht teilen",
-    "nudgeEarlier": "%{label} 0,1 s früher",
-    "nudgeLater": "%{label} 0,1 s später"
+    "shareFailed": "Diese Aufnahme ließ sich nicht teilen"
   },
   "recap": {
     "challenge": "Monats-Herausforderung",

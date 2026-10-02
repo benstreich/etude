@@ -593,7 +593,6 @@
     "pickHint": "Tap A or B to put a take in that slot. Picking the take from the other slot swaps them.",
     "goneTitle": "That take is gone",
     "goneText": "One of the two recordings was deleted, so there is nothing left to compare.",
-    "back": "Back",
     "playTake": "Play take %{which}",
     "pauseTake": "Pause take %{which}",
     "putInSlot": "Put %{name} in slot %{which}"
@@ -676,7 +675,6 @@
     "otherRunningTitle": "Another routine is running",
     "otherRunningBody": "Finish or end it before starting this one.",
     "goToCurrent": "Go to current routine",
-    "back": "Back",
     "minutesLabel": {
       "one": "1 minute",
       "other": "%{count} minutes"
@@ -941,9 +939,7 @@
     "outLater": "Move the out point 0.1 s later",
     "inHere": "Set the in point to where playback is",
     "outHere": "Set the out point to where playback is",
-    "shareFailed": "Couldn’t share this take",
-    "nudgeEarlier": "%{label} 0.1 s earlier",
-    "nudgeLater": "%{label} 0.1 s later"
+    "shareFailed": "Couldn’t share this take"
   },
   "recap": {
     "challenge": "Monthly challenge",
