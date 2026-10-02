@@ -37,8 +37,10 @@ public class PdfPagesModule: Module {
     for i in 0..<doc.pageCount {
       guard let page = doc.page(at: i) else { continue }
       let box = page.bounds(for: .mediaBox)
-      // scale the longest edge down to maxWidth; never scale a small page up
-      let scale = min(1.0, maxWidth / max(box.width, box.height))
+      // the box is in PDF points (1/72 in), so an A4 page is only 842 tall:
+      // scale the longest edge up to maxWidth pixels, capped so a tiny page
+      // can't ask for a huge image
+      let scale = min(4.0, maxWidth / max(box.width, box.height))
       let size = CGSize(width: max(1, box.width * scale), height: max(1, box.height * scale))
 
       let format = UIGraphicsImageRendererFormat()

@@ -213,7 +213,7 @@
       "rest": "Ein Tag ohne Eintrag ist eine Pause.",
       "fermata": "Übertriffst du das Ziel, bekommt die letzte Note des Tages eine Fermate — so lang gehalten, wie du magst.",
       "meterHead": "Die Taktart",
-      "meter": "Jeder Takt hat seine eigene. 4/4 ist ein Tag, der das Ziel erreicht hat; 6/4 ein Tag, der halb so lang noch einmal war. Das ist Absicht — ein Takt ist ein Tag, keine feste Taktart, und dauert genau so lang wie der Tag. Geschrieben wird sie nur dort, wo sie wechselt. Endet ein Tag zwischen zwei Schlägen, schliesst der Takt mit einer kurzen Pause, damit er genau das ergibt, was seine Taktart verspricht.",
+      "meter": "Jeder Takt hat seine eigene. 4/4 ist ungefähr ein Tag, der das Ziel erreicht hat; 6/4 ein Tag, der halb so lang noch einmal war. Jede Einheit wird auf den nächsten Notenwert gerundet, darum kann ein Tag aus mehreren Einheiten etwa einen Schlag länger ausfallen. Das ist Absicht — ein Takt ist ein Tag, keine feste Taktart, und dauert genau so lang wie der Tag. Geschrieben wird sie nur dort, wo sie wechselt. Endet ein Tag zwischen zwei Schlägen, schliesst der Takt mit einer kurzen Pause, damit er genau das ergibt, was seine Taktart verspricht.",
       "key": "Die ganze Notenzeile wird in %{key} gelesen und gespielt. Ändern kannst du das in den Einstellungen."
     },
     "staffHint": "Tag antippen zeigt sein Protokoll — Schnelleinträge landen dort",
@@ -927,7 +927,10 @@
     "unsupported": "Diese Datei ist kein PDF und kein Bild.",
     "noPdfRenderer": "PDFs brauchen den vollen App-Build. Fotos funktionieren überall.",
     "importFailed": "Datei konnte nicht hinzugefügt werden.",
-    "more": "Umbenennen oder löschen"
+    "more": "Umbenennen oder löschen",
+    "importing": "Wird hinzugefügt…",
+    "deleteTitle": "Diese Noten löschen?",
+    "deleteBody": "„%{name}“ und alle Seiten werden von diesem Gerät entfernt. Das lässt sich nicht rückgängig machen."
   },
   "fullScore": {
     "title": "Deine Partitur",
@@ -935,11 +938,12 @@
     "goalBeats": "%{min} Min. = 4 Schläge",
     "earlier": "Früher",
     "startOfLog": "Anfang des Logs",
+    "limitReached": "Die letzten %{count} Wochen",
     "showingWeeks": {
       "one": "zeigt 1 Woche",
       "other": "zeigt %{count} Wochen"
     },
-    "later": "Später",
+    "later": "Weniger Wochen",
     "thisIsToday": "Das ist heute",
     "rest": "Eine Pause — nichts eingetragen"
   },

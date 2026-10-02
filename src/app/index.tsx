@@ -14,7 +14,7 @@ import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { StaffLegend } from '@/components/staff-legend';
 import { FermataMark, MelodyStaff, RollingNumber } from '@/components/motifs';
 import { success, tap } from '@/lib/haptics';
-import { barsFor } from '@/lib/melody';
+import { barsFor, keyDisplayName } from '@/lib/melody';
 import { useMelodyPlayer } from '@/lib/melody-play';
 import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
@@ -143,7 +143,7 @@ export default function Home() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {/* the key lives in Settings; shown here so the accidentals on the staff have a reason */}
               <Pressable hitSlop={8} onPress={() => router.push('/profile')}>
-                <Text style={[s.overlineMeta, { color: C.tertiary }]}>{store.t('settings.majorKey', { key: store.melodyKey })}</Text>
+                <Text style={[s.overlineMeta, { color: C.tertiary }]}>{store.t('settings.majorKey', { key: keyDisplayName(store.melodyKey, store.lang) })}</Text>
               </Pressable>
               <Text style={s.overlineMeta}>{fmtTime(weekTotal, store.t)}</Text>
               {/* plays from the selected bar to today; pause remembers the bar it stopped on, a tap on a bar restarts there */}
@@ -187,6 +187,7 @@ export default function Home() {
                 setResumeAt(null);
                 if (melody.playing) playFrom(d);
               }}
+              describe={(d, min) => `${dayLabel(d, store.today, store.t, store.lang)}, ${fmtTime(min, store.t)}`}
             />
           </View>
           <Text style={[s.tapHint, { marginTop: 10, textAlign: 'center' }]}>{store.t('home.staffHint')}</Text>

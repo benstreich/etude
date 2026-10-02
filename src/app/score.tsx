@@ -6,12 +6,13 @@
 // either in real engraving, they are always drawn). lib/engrave.ts's per-bar
 // layout is unchanged, extended here with system wrapping.
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
+import { NoteGlyph } from '@/components/motifs';
 import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
@@ -39,8 +40,9 @@ import {
   type System,
 } from '@/lib/engrave';
 import { tap } from '@/lib/haptics';
-import { barsFor, SIGNATURE, valueFor, type MelodyKey } from '@/lib/melody';
+import { barsFor, keyDisplayName, SIGNATURE, valueFor, type MelodyKey } from '@/lib/melody';
 import { useMelodyPlayer } from '@/lib/melody-play';
+import { type Lang } from '@/lib/i18n';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { F, themed, useTheme, type T } from '@/lib/theme';
 
@@ -82,10 +84,13 @@ export default function Score() {
   const insets = useSafeAreaInsets();
   const melody = useMelodyPlayer();
   const { width: winW } = useWindowDimensions();
+  const scroll = useRef<ScrollView>(null);
+  const jumped = useRef(false);
 
   const [weeksShown, setWeeksShown] = useState(WEEKS_DEFAULT);
   const [selectedBack, setSelectedBack] = useState(0); // 0 = today
   const [panelOpen, setPanelOpen] = useState(true);
+  const [panelH, setPanelH] = useState(0);
 
   const melodyKey: MelodyKey = store.melodyKey;
   const sig = SIGNATURE[melodyKey] ?? 0;
@@ -115,8 +120,12 @@ export default function Score() {
 
   const systems = useMemo(() => layoutSystems(bars, store.dailyGoal, sysW, SP, sysW - headW), [bars, store.dailyGoal, sysW, headW]);
   const atStart = weeksShown >= WEEKS_MAX;
+  // the cap is the screen's, not the log's: older practice past it is still there
+  const hasOlder = atStart && Object.entries(store.minutesByDate).some(([k, m]) => m > 0 && k < dateKeys[0]);
 
-  const selectedDate = dateKeys[Math.max(0, dateKeys.length - 1 - selectedBack)] ?? store.today;
+  // a selection that "Show fewer weeks" pushed out of range falls back to today
+  const back = selectedBack < days ? selectedBack : 0;
+  const selectedDate = dateKeys[dateKeys.length - 1 - back] ?? store.today;
   const selectedTotal = store.minutesByDate[selectedDate] ?? 0;
   const selectedSessions = store.sessions.filter((x) => x.date === selectedDate).sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
 
@@ -143,11 +152,19 @@ export default function Score() {
         <View style={s.headRow}>
           <BackLink label={store.t('tabs.home')} onPress={() => router.back()} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable style={[s.headBtn, { backgroundColor: C.track }]} onPress={togglePlay}>
+            <Pressable
+              style={[s.headBtn, { backgroundColor: C.track }]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={store.t(melody.playing ? 'metronome.stop' : 'home.playMelody')}
+              onPress={togglePlay}>
               <Text style={[s.headBtnText, { color: C.accent }]}>{melody.playing ? '❚❚' : '▶'}</Text>
             </Pressable>
             <Pressable
               style={[s.headBtn, panelOpen ? { backgroundColor: C.accentTint } : { backgroundColor: C.track }]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityState={{ selected: panelOpen }}
               onPress={() => setPanelOpen((v) => !v)}>
               <Text style={[s.headBtnText, { color: panelOpen ? C.accent : C.ink }]}>{store.t('fullScore.log')}</Text>
             </Pressable>
@@ -157,13 +174,26 @@ export default function Score() {
         <Text style={s.meta} numberOfLines={1}>
           {rehearsalLabel(dateKeys[0], dateKeys[dateKeys.length - 1], store.lang)}
           <Text style={s.metaDivider}> {'│'} </Text>
-          <Text onPress={() => router.push('/profile')}>{store.t('settings.majorKey', { key: melodyKey })}</Text>
+          <Text style={{ color: C.accent }} accessibilityRole="link" onPress={() => router.push('/profile')}>
+            {store.t('settings.majorKey', { key: keyDisplayName(melodyKey, store.lang) })}
+          </Text>
           <Text style={s.metaDivider}> {'│'} </Text>
           {store.t('fullScore.goalBeats', { min: store.dailyGoal })}
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingBottom: 84, paddingTop: 8 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scroll}
+        // opens on today, as Home's staff does; once, so "Earlier" doesn't yank the view back
+        // down — and only after the panel is measured, whose padding still grows the content
+        onContentSizeChange={() => {
+          if (jumped.current || !panelH) return;
+          jumped.current = true;
+          scroll.current?.scrollToEnd({ animated: false });
+        }}
+        // room for the floating panel, however many sessions it lists
+        contentContainerStyle={{ paddingHorizontal: PAGE_PAD, paddingBottom: Math.max(84, panelH + 42) + insets.bottom, paddingTop: 8 }}
+        showsVerticalScrollIndicator={false}>
         <Pressable
           testID="score-earlier"
           style={[s.edgeRow, atStart && { opacity: 0.35 }]}
@@ -173,8 +203,14 @@ export default function Score() {
             // functional update: two quick taps must not both read the same stale value
             setWeeksShown((w) => Math.min(WEEKS_MAX, w + 1));
           }}>
-          <Text style={[s.edgeGlyph, { transform: [{ scaleY: -1 }] }]}>{'›'}</Text>
-          <Text style={s.edgeText}>{atStart ? store.t('fullScore.startOfLog') : store.t('fullScore.earlier')}</Text>
+          <Text style={[s.edgeGlyph, { transform: [{ rotate: '-90deg' }] }]}>{'›'}</Text>
+          <Text style={s.edgeText}>
+            {!atStart
+              ? store.t('fullScore.earlier')
+              : hasOlder
+                ? store.t('fullScore.limitReached', { count: WEEKS_MAX })
+                : store.t('fullScore.startOfLog')}
+          </Text>
           <Text style={s.edgeSub}>{store.t('fullScore.showingWeeks', { count: weeksShown })}</Text>
         </Pressable>
 
@@ -185,12 +221,14 @@ export default function Score() {
             index={i}
             isLast={i === systems.length - 1}
             headW={i === 0 ? headW : 0}
+            lineW={sysW}
             sig={sig}
             goal={store.dailyGoal}
             bars={bars}
             selectedDate={selectedDate}
             sounding={melody.playing ?? undefined}
             lang={store.lang}
+            today={store.today}
             t={store.t}
             onSelect={selectDate}
           />
@@ -203,9 +241,12 @@ export default function Score() {
           onPress={() => {
             tap();
             setWeeksShown((w) => Math.max(1, w - 1));
+            // the dropped week took the selection with it: back to today, not to
+            // whichever day now happens to sit at the top
+            setSelectedBack((b) => (b >= Math.max(1, weeksShown - 1) * 7 ? 0 : b));
           }}>
           <Text style={s.edgeText}>{weeksShown <= 1 ? store.t('fullScore.thisIsToday') : store.t('fullScore.later')}</Text>
-          <Text style={s.edgeGlyph}>{'›'}</Text>
+          <Text style={[s.edgeGlyph, { transform: [{ rotate: '90deg' }] }]}>{'›'}</Text>
         </Pressable>
       </ScrollView>
 
@@ -217,6 +258,8 @@ export default function Score() {
         total={selectedTotal}
         goal={store.dailyGoal}
         sessions={selectedSessions}
+        bottom={insets.bottom}
+        onHeight={setPanelH}
         t={store.t}
       />
     </View>
@@ -229,12 +272,14 @@ function SystemRow({
   index,
   isLast,
   headW,
+  lineW,
   sig,
   goal,
   bars,
   selectedDate,
   sounding,
   lang,
+  today,
   t,
   onSelect,
 }: {
@@ -242,12 +287,15 @@ function SystemRow({
   index: number;
   isLast: boolean;
   headW: number;
+  /** the page's line length; a system past it (one very long day) scrolls sideways */
+  lineW: number;
   sig: number;
   goal: number;
   bars: { date: string; day: string; isToday: boolean; notes: { id: string; min: number; pitch: number }[] }[];
   selectedDate: string;
   sounding: string | undefined;
-  lang: string;
+  lang: Lang;
+  today: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
   onSelect: (date: string) => void;
 }) {
@@ -257,6 +305,7 @@ function SystemRow({
   const last = sys.bars.at(-1)?.date;
   const total = sys.bars.reduce((a, b) => a + (bars.find((x) => x.date === b.date)?.notes.reduce((m, n) => m + n.min, 0) ?? 0), 0);
   const endX = headW + (sys.bars.at(-1) ? sys.bars.at(-1)!.x + sys.bars.at(-1)!.width : 0) + 1.5;
+  const tooWide = headW + sys.width > lineW + 0.5;
 
   return (
     <View style={{ marginBottom: SYS_GAP }}>
@@ -268,7 +317,8 @@ function SystemRow({
           <Text style={s.rehearsalTotal}>{fmtTime(total, t)}</Text>
         </View>
       )}
-      <View style={{ height: BLOCK_H }}>
+      <Wrap tooWide={tooWide}>
+      <View style={{ height: BLOCK_H, width: headW + sys.width }}>
         <Svg width={headW + sys.width} height={BLOCK_H}>
           {RULES.map((y) => (
             <Rect key={y} x={0} y={y} width={endX} height={LINE} fill={C.staffLine} />
@@ -360,15 +410,33 @@ function SystemRow({
         {sys.bars.map((b) => {
           const bar = bars.find((x) => x.date === b.date);
           const on = b.date === selectedDate;
+          const min = bar?.notes.reduce((a, n) => a + n.min, 0) ?? 0;
           return (
-            <Pressable key={b.date} style={{ position: 'absolute', left: headW + b.x, width: b.width, bottom: 0, top: 0 }} onPress={() => onSelect(b.date)}>
+            <Pressable
+              key={b.date}
+              style={{ position: 'absolute', left: headW + b.x, width: b.width, bottom: 0, top: 0 }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`${dayLabel(b.date, today, t, lang)}, ${fmtTime(min, t)}`}
+              onPress={() => onSelect(b.date)}>
               <Text style={[s.dayLetter, { color: on || bar?.isToday ? C.accent : C.tertiary }]}>{bar?.day ?? ''}</Text>
               {on && <View style={s.dayUnderline} />}
             </Pressable>
           );
         })}
       </View>
+      </Wrap>
     </View>
+  );
+}
+
+/** Lets a system wider than the page scroll sideways instead of being clipped. */
+function Wrap({ tooWide, children }: { tooWide: boolean; children: React.ReactNode }) {
+  if (!tooWide) return <>{children}</>;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      {children}
+    </ScrollView>
   );
 }
 
@@ -382,6 +450,8 @@ function DayPanel({
   total,
   goal,
   sessions,
+  bottom,
+  onHeight,
   t,
 }: {
   open: boolean;
@@ -391,19 +461,30 @@ function DayPanel({
   total: number;
   goal: number;
   sessions: { id: string; title: string; min: number }[];
+  /** the bottom safe-area inset, so the card clears the home indicator */
+  bottom: number;
+  /** reports the card's height, so the score can keep its last bars clear of it */
+  onHeight: (h: number) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const s = useS();
-  const { C, reduceMotion } = useTheme();
+  const { C, fs, reduceMotion } = useTheme();
+  const { height: winH } = useWindowDimensions();
   const v = useSharedValue(1);
   React.useEffect(() => {
-    v.value = reduceMotion ? 1 : withTiming(1, { duration: 220, easing: Easing.bezier(0.33, 1, 0.68, 1) });
+    // from 0 each time, or it animated from 1 to 1 and never showed
+    if (reduceMotion || !open) {
+      v.value = 1;
+      return;
+    }
+    v.value = 0;
+    v.value = withTiming(1, { duration: 220, easing: Easing.bezier(0.33, 1, 0.68, 1) });
   }, [open, dateLabel, reduceMotion, v]);
   const style = useAnimatedStyle(() => ({ opacity: v.value, transform: [{ translateY: (1 - v.value) * 22 }] }));
 
   if (!open) {
     return (
-      <Pressable style={s.chip} onPress={onReopen}>
+      <Pressable style={[s.chip, { bottom: 30 + bottom }]} onPress={onReopen} onLayout={(e) => onHeight(e.nativeEvent.layout.height)}>
         <Text style={s.chipText}>
           {dateLabel} {'·'} {fmtTime(total, t)}
         </Text>
@@ -414,28 +495,38 @@ function DayPanel({
   const totalColor = total === 0 ? C.tertiary : total >= goal ? C.success : C.ink;
 
   return (
-    <Animated.View style={[s.panel, style]}>
+    <Animated.View style={[s.panel, { bottom: 26 + bottom }, style]} onLayout={(e) => onHeight(e.nativeEvent.layout.height)}>
       <View style={s.panelHeadRow}>
         <Text style={s.panelTitle} numberOfLines={1}>
           {dateLabel}
         </Text>
         <Text style={[s.panelTotal, { color: totalColor }]}>{fmtTime(total, t)}</Text>
-        <Pressable style={s.panelClose} hitSlop={6} onPress={onClose}>
+        <Pressable style={s.panelClose} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('recap.close')} onPress={onClose}>
           <Text style={s.panelCloseText}>{'✕'}</Text>
         </Pressable>
       </View>
-      {sessions.length === 0 ? (
+      {total === 0 ? (
         <Text style={s.panelRest}>{t('fullScore.rest')}</Text>
       ) : (
-        sessions.map((sess) => (
-          <View key={sess.id} style={s.panelRow}>
-            <Text style={s.panelGlyph}>{valueFor(sess.min, goal).glyph}</Text>
-            <Text style={s.panelName} numberOfLines={1}>
-              {sess.title}
-            </Text>
-            <Text style={s.panelMin}>{sess.min}</Text>
-          </View>
-        ))
+        // a long day scrolls inside the card rather than growing it over the score
+        <ScrollView style={{ maxHeight: winH * 0.35 }} bounces={false}>
+          {/* a day logged before sessions were kept has minutes but no rows: the staff
+              draws it as one note for the total, so the panel does too */}
+          {(sessions.length ? sessions : [{ id: 'total', title: '', min: total }]).map((sess) => {
+            const val = valueFor(sess.min, goal);
+            return (
+              <View key={sess.id} style={s.panelRow}>
+                <View style={s.panelGlyph}>
+                  <NoteGlyph head={val.head} dotted={val.dotted} size={fs(18)} color={C.accent} />
+                </View>
+                <Text style={s.panelName} numberOfLines={1}>
+                  {sess.title}
+                </Text>
+                <Text style={s.panelMin}>{fmtTime(sess.min, t)}</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
       )}
     </Animated.View>
   );
@@ -445,20 +536,20 @@ const useS = themed(({ C, fs, r }: T) =>
   StyleSheet.create({
     header: { paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.hairline },
     headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    headBtn: { height: 30, borderRadius: r(8), paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center' },
+    headBtn: { minHeight: 30, paddingVertical: 4, borderRadius: r(8), paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center' },
     headBtnText: { fontFamily: F.bodySemi, fontSize: fs(13) },
     title: { marginTop: 12, fontFamily: F.head, fontSize: fs(28), lineHeight: fs(32), letterSpacing: -0.4, color: C.ink },
     meta: { marginTop: 4, fontFamily: F.body, fontSize: fs(14), color: C.subStrong },
     metaDivider: { color: C.staffLine },
 
-    edgeRow: { height: 52, alignItems: 'center', justifyContent: 'center' },
+    edgeRow: { minHeight: 52, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
     edgeGlyph: { fontSize: fs(16), color: C.accent },
     edgeText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
     edgeSub: { marginTop: 2, fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
 
     rehearsalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 },
-    rehearsal: { fontFamily: F.bodySemi, fontSize: fs(10), letterSpacing: 1.2, textTransform: 'uppercase', color: C.tertiary },
-    rehearsalTotal: { fontFamily: F.body, fontSize: fs(10), color: C.faint },
+    rehearsal: { fontFamily: F.bodySemi, fontSize: fs(10), letterSpacing: 1.2, textTransform: 'uppercase', color: C.subStrong },
+    rehearsalTotal: { fontFamily: F.body, fontSize: fs(10), color: C.subStrong },
 
     dayLetter: { position: 'absolute', bottom: 0, left: 0, right: 0, textAlign: 'center', fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 0.5 },
     dayUnderline: { position: 'absolute', bottom: -6, left: '50%', marginLeft: -8, width: 16, height: 1.5, backgroundColor: C.accent },
@@ -467,10 +558,14 @@ const useS = themed(({ C, fs, r }: T) =>
       position: 'absolute',
       bottom: 30,
       alignSelf: 'center',
-      height: 34,
+      minHeight: 34,
+      paddingVertical: 6,
       paddingHorizontal: 16,
       borderRadius: r(999),
       backgroundColor: 'rgba(28,26,23,0.9)',
+      // a hairline so the dark chip still has an edge on the dark theme
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(255,255,255,0.22)',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -499,9 +594,9 @@ const useS = themed(({ C, fs, r }: T) =>
     panelTotal: { fontFamily: F.bodySemi, fontSize: fs(15) },
     panelClose: { width: 30, height: 30, borderRadius: r(15), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
     panelCloseText: { fontSize: fs(13), color: C.sub },
-    panelRest: { height: 30, textAlignVertical: 'center', fontFamily: F.body, fontSize: fs(14), color: C.tertiary },
-    panelRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 30 },
-    panelGlyph: { width: 20, textAlign: 'center', fontFamily: F.notation, fontSize: fs(17), color: C.accent },
+    panelRest: { minHeight: 30, paddingVertical: 4, textAlignVertical: 'center', fontFamily: F.body, fontSize: fs(14), color: C.tertiary },
+    panelRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30, paddingVertical: 3 },
+    panelGlyph: { width: 20, alignItems: 'center' },
     panelName: { flex: 1, minWidth: 0, fontFamily: F.bodyMed, fontSize: fs(14.5), color: C.ink },
     panelMin: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.subStrong, fontVariant: ['tabular-nums'] },
   })

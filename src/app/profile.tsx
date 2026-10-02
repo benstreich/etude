@@ -17,7 +17,7 @@ import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } f
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
-import { KEYS } from '@/lib/melody';
+import { keyDisplayName, KEYS } from '@/lib/melody';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
 import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
 import { availabilityFrom, countOnSections } from '@/lib/progress-availability';
@@ -277,7 +277,7 @@ export default function Profile() {
     { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : store.reminder },
     { key: 'weekStart', label: store.t('settings.weekStart'), value: dayName(store.weekStart) },
     { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
-    { key: 'melodyKey', label: store.t('settings.melodyKey'), value: store.t('settings.majorKey', { key: store.melodyKey }) },
+    { key: 'melodyKey', label: store.t('settings.melodyKey'), value: store.t('settings.majorKey', { key: keyDisplayName(store.melodyKey, store.lang) }) },
     { key: 'progressSections', label: store.t('settings.progressSections'), value: store.t('settings.nOfM', { n: layoutOn, m: layoutTotal }) },
     // language is not a look-and-feel knob; it was buried in Appearance and nobody found it
     { key: 'language', label: store.t('appearance.language'), value: LANG_LABEL(store)[store.language] },
@@ -521,7 +521,7 @@ export default function Profile() {
               <>
                 <View style={s.chipWrap}>
                   {KEYS.map((k) => (
-                    <Chip key={k} label={store.t('settings.majorKey', { key: k })} selected={store.melodyKey === k} onPress={() => pick({ melodyKey: k })} />
+                    <Chip key={k} label={store.t('settings.majorKey', { key: keyDisplayName(k, store.lang) })} selected={store.melodyKey === k} onPress={() => pick({ melodyKey: k })} />
                   ))}
                 </View>
                 <Text style={s.editorHint}>{store.t('settings.melodyKeyHint')}</Text>

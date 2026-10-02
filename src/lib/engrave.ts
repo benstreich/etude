@@ -59,8 +59,13 @@ export const GLYPH = {
   fermataAbove: '\u{E4C0}',
   accidentalSharp: '\u{E262}',
   accidentalFlat: '\u{E260}',
-  /** The metronome-mark quarter note — sized for inline text, not for a staff. */
+  /** The metronome-mark notes — head, stem and flag in one, sized for inline text, not for a staff. */
+  metNoteDoubleWhole: '\u{ECA0}',
+  metNoteWhole: '\u{ECA2}',
+  metNoteHalfUp: '\u{ECA3}',
   metNoteQuarterUp: '\u{ECA5}',
+  metNote8thUp: '\u{ECA7}',
+  metAugmentationDot: '\u{ECB7}',
   /** A whole number as a run of Bravura digit glyphs — a day can run past 9 beats. */
   timeSig: (n: number) =>
     [...String(Math.max(0, Math.round(n)))].map((d) => String.fromCodePoint(0xe080 + Number(d))).join(''),
@@ -375,7 +380,9 @@ export function layoutSystems(bars: LogBar[], goal: number, capacity: number, S:
       x += width;
       return bar;
     });
-    return { bars: out, width: justify ? cap : naturalTotal };
+    // a lone bar wider than the line keeps its natural width, so say so — the
+    // screen sizes the staff from this and would otherwise clip the bar
+    return { bars: out, width: justify ? Math.max(cap, naturalTotal) : naturalTotal };
   };
 
   const systems: System[] = [];

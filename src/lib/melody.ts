@@ -19,6 +19,11 @@ const FLAT_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
 // key → number of sharps (positive) or flats (negative)
 export const SIGNATURE: Record<MelodyKey, number> = { C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, Db: -5, Ab: -4, Eb: -3, Bb: -2, F: -1 };
 
+// German spells keys its own way: B is H, B flat is B, sharps add -is, flats -es
+const DE_KEY_NAME: Partial<Record<MelodyKey, string>> = { B: 'H', 'F#': 'Fis', Db: 'Des', Ab: 'As', Eb: 'Es', Bb: 'B' };
+/** A key's tonic as a musician reading `lang` names it — the stored id is the English spelling. */
+export const keyDisplayName = (key: MelodyKey, lang: string) => (lang === 'de' ? (DE_KEY_NAME[key] ?? key) : key);
+
 /** -1, 0 or +1: how the key signature bends a staff position. */
 export function alterationFor(pitch: number, key: MelodyKey): -1 | 0 | 1 {
   const letter = PITCHES[pitch];
