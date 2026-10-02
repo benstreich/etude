@@ -322,7 +322,10 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     // not wait for the foreground service, so this holds from the lock screen too.
     if (nativeEngine) Controls!.startTicking(tickConfig());
     else tick();
-    applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' });
+    // Android: the native engine holds audio focus itself (and pauses when it loses it).
+    // Left at doNotMix, a melody played over the click took transient focus through
+    // expo-audio and paused the metronome it meant to play along with.
+    applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: nativeEngine ? 'mixWithOthers' : 'doNotMix' });
     if (Platform.OS === 'android')
       requestNotificationPermissionsAsync()
         .then(() => {

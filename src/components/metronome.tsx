@@ -305,7 +305,12 @@ function VolumeSlider({ value, onChange, label }: { value: number; onChange: (pc
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderTerminationRequest={() => false}
-      onResponderGrant={(e) => at(e.nativeEvent.locationX)}
+      onResponderGrant={(e) => {
+        at(e.nativeEvent.locationX);
+        // true blocks the native responder: on Android the scroll view otherwise
+        // intercepts past touch slop, whatever onResponderTerminationRequest says
+        return true;
+      }}
       onResponderMove={(e) => at(e.nativeEvent.locationX)}>
       <View style={[s.volTrack, { pointerEvents: 'none' }]}>
         <View style={[s.volFill, { width: `${value}%` }]} />
