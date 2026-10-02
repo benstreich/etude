@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { ENTRIES, GROUPS, type Entry, type EvidenceGroup, type StatHook } from '@/lib/evidence';
+import { fmtNum } from '@/lib/i18n';
 import { consistency, interleaving } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -33,11 +34,11 @@ export default function Learn() {
     if (store.sessions.length === 0) return null;
     if (hook === 'interleaving') {
       const inter = interleaving(store.sessions, store.today, monday);
-      return inter ? store.t('learn.statInterleaving', { n: inter.perDay }) : null;
+      return inter ? store.t('learn.statInterleaving', { n: fmtNum(inter.perDay, 1, store.lang, 0) }) : null;
     }
     if (hook === 'spacing') {
       const cons = consistency(store.minutesByDate, store.today, monday);
-      return cons.average > 0 ? store.t('learn.statSpacing', { n: cons.average }) : null;
+      return cons.average > 0 ? store.t('learn.statSpacing', { n: fmtNum(cons.average, 1, store.lang, 0) }) : null;
     }
     const total = store.sessions.reduce((a, x) => a + x.min, 0);
     const avg = Math.round(total / store.sessions.length);

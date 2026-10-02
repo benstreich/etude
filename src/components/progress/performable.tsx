@@ -43,7 +43,7 @@ export function PerformableSection({ pieces, sessions }: SectionProps) {
             <Text style={s.goalLabel} numberOfLines={1}>
               {p.name}
             </Text>
-            <Text style={s.goalNote}>{played ? store.t('progress.lastPlayed', { days: daysSince(played, store.today) }) : store.t('progress.neverPlayed')}</Text>
+            <Text style={s.goalNote}>{!played ? store.t('progress.neverPlayed') : played >= store.today ? store.t('progress.playedToday') : store.t('progress.lastPlayed', { days: daysSince(played, store.today) })}</Text>
           </View>
           <Bar pct={fresh * 100} color={fresh > 0.5 ? C.success : C.accent} height={6} />
         </Pressable>

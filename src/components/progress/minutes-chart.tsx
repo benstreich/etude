@@ -69,7 +69,7 @@ export function MinutesChart({
         <View style={s.gutter}>
           {[top, top / 2, 0].map((v) => (
             <Text key={v} style={s.yLabel}>
-              {fmtAxis(v)}
+              {fmtAxis(v, lang)}
             </Text>
           ))}
         </View>

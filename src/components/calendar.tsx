@@ -7,7 +7,7 @@ import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
 import { tap } from '@/lib/haptics';
-import { dateKey, useStore } from '@/lib/store';
+import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export function Calendar({
@@ -55,6 +55,9 @@ export function Calendar({
           style={[s.calNav, backStop && { opacity: 0.25 }]}
           hitSlop={8}
           disabled={backStop}
+          accessibilityRole="button"
+          accessibilityLabel={store.t('common.previousMonth')}
+          accessibilityState={{ disabled: backStop }}
           onPress={() => shiftMonth(-1)}>
           <Text style={s.calNavText}>‹</Text>
         </Pressable>
@@ -64,6 +67,9 @@ export function Calendar({
           style={[s.calNav, fwdStop && { opacity: 0.25 }]}
           hitSlop={8}
           disabled={fwdStop}
+          accessibilityRole="button"
+          accessibilityLabel={store.t('common.nextMonth')}
+          accessibilityState={{ disabled: fwdStop }}
           onPress={() => shiftMonth(1)}>
           <Text style={s.calNavText}>›</Text>
         </Pressable>
@@ -86,6 +92,10 @@ export function Calendar({
               testID={`cal-day-${k}`}
               style={s.calCell}
               disabled={disabled}
+              accessibilityRole="button"
+              // the cell itself only says "14"; the month lives in the header a reader has moved past
+              accessibilityLabel={dayLabel(k, todayKey, store.t, store.lang)}
+              accessibilityState={{ selected: sel, disabled }}
               onPress={() => {
                 tap();
                 onPick(k);

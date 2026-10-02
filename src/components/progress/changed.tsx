@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
+import { fmtNum } from '@/lib/i18n';
 import { monthDiff } from '@/lib/movement-math';
 import { useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -10,12 +11,12 @@ import { useC } from '@/lib/theme';
 import { useS } from './styles';
 import type { SectionProps } from './types';
 
-const fmt = (v: number | null, digits = 0) => (v === null ? '—' : v.toFixed(digits));
-const delta = (cur: number | null, prev: number | null, digits = 0) => {
+const fmt = (v: number | null, lang: string, digits = 0) => (v === null ? '—' : fmtNum(v, digits, lang));
+const delta = (cur: number | null, prev: number | null, lang: string, digits = 0) => {
   if (cur === null || prev === null) return '';
   const d = cur - prev;
   if (Math.abs(d) < 10 ** -digits / 2) return '±0';
-  return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(digits)}`;
+  return `${d > 0 ? '+' : '−'}${fmtNum(Math.abs(d), digits, lang)}`;
 };
 
 /** Since last month: release notes for your playing — this month to date against the same days last month. */
@@ -26,12 +27,13 @@ export function ChangedSection({ pieces, sessions }: SectionProps) {
   if (sessions.length === 0 && pieces.length === 0) return null;
 
   const d = monthDiff(pieces, sessions, store.today);
+  const L = store.lang;
   const rows: [string, string, string][] = [
-    [store.t('progress.changedPieces'), fmt(d.pieces[0]), delta(d.pieces[0], d.pieces[1])],
-    [store.t('progress.changedPromoted'), fmt(d.promoted[0]), delta(d.promoted[0], d.promoted[1])],
-    [store.t('progress.changedHours'), fmt(d.hours[0], 1), delta(d.hours[0], d.hours[1], 1)],
-    [store.t('progress.changedBpm'), fmt(d.bpm[0]), delta(d.bpm[0], d.bpm[1])],
-    [store.t('progress.changedStars'), fmt(d.stars[0], 1), delta(d.stars[0], d.stars[1], 1)],
+    [store.t('progress.changedPieces'), fmt(d.pieces[0], L), delta(d.pieces[0], d.pieces[1], L)],
+    [store.t('progress.changedPromoted'), fmt(d.promoted[0], L), delta(d.promoted[0], d.promoted[1], L)],
+    [store.t('progress.changedHours'), fmt(d.hours[0], L, 1), delta(d.hours[0], d.hours[1], L, 1)],
+    [store.t('progress.changedBpm'), fmt(d.bpm[0], L), delta(d.bpm[0], d.bpm[1], L)],
+    [store.t('progress.changedStars'), fmt(d.stars[0], L, 1), delta(d.stars[0], d.stars[1], L, 1)],
   ];
 
   return (

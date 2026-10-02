@@ -3,17 +3,24 @@ import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 
 import { Calendar } from '@/components/calendar';
+import { InstrumentAsk } from '@/components/instrument-ask';
 import { Text } from '@/components/text';
 import { Sheet, useInstrumentFilter } from '@/components/ui';
+import { instrumentChoices } from '@/lib/instrument-math';
+import { QUICK_META, QUICK_TITLE } from '@/lib/session-math';
 import { dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
-export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+/** `defaultDate`: the day already picked where the sheet was opened from, so Add works without picking it again. */
+export function LogPastModal({ visible, onClose, defaultDate }: { visible: boolean; onClose: () => void; defaultDate?: string }) {
   const s = useS();
   const C = useC();
   const store = useStore();
   const inst = useInstrumentFilter();
-  const [pastDate, setPastDate] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const pastDate = picked ?? defaultDate ?? null;
+  // a multi-instrument piece asks which one, one piece at a time; `picks` holds the answers so far
+  const [asking, setAsking] = useState<{ name: string; choices: string[]; picks: Record<string, string> } | null>(null);
   const [pastMin, setPastMin] = useState('');
   const [pastFoci, setPastFoci] = useState<{ name: string; kind: 'Piece' | 'Technique' }[]>([]);
   const [addMore, setAddMore] = useState(false);
@@ -28,33 +35,42 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
   const toggleFocus = (f: { name: string; kind: 'Piece' | 'Technique' }) =>
     setPastFoci((cur) => (cur.some((x) => sameFocus(x, f)) ? cur.filter((x) => !sameFocus(x, f)) : [...cur, f]));
 
-  const logPast = () => {
+  const close = () => {
+    setPicked(null);
+    onClose();
+  };
+
+  const canAdd = !!pastDate && !!Number(pastMin);
+  const logPast = (picks: Record<string, string> = {}) => {
     const min = Number(pastMin);
     if (!min || !pastDate) return;
+    // #58: the same question every other logging path asks — never file a two-instrument piece under its first
+    for (const f of pastFoci) {
+      const choices = picks[f.name] ? [] : instrumentChoices(store.allPieces.find((p) => p.name === f.name), inst);
+      if (choices.length) return setAsking({ name: f.name, choices, picks });
+    }
     if (pastFoci.length === 0) {
-      store.logMinutes(min, 'Quick log', 'Logged', pastDate, undefined, inst || undefined);
+      store.logMinutes(min, QUICK_TITLE, QUICK_META, pastDate, undefined, inst || undefined);
     } else {
       // split the minutes evenly across selections; first one takes the remainder
       const per = Math.floor(min / pastFoci.length);
       pastFoci.forEach((f, i) => {
         const m = i === 0 ? min - per * (pastFoci.length - 1) : per;
-        if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate, undefined, inst || undefined);
+        if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate, undefined, picks[f.name] || inst || undefined);
       });
     }
     store.showToast(store.t('logPast.addedToast', { min, day: dayLabel(pastDate, store.today, store.t, store.lang) }));
     setPastMin('');
     setPastFoci([]);
-    if (!addMore) {
-      onClose();
-      setPastDate(null);
-    }
+    if (!addMore) close();
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} grabber style={s.sheet} contentStyle={{ gap: 16 }}>
+    <>
+    <Sheet visible={visible} onClose={close} grabber style={s.sheet} contentStyle={{ gap: 16 }}>
             <Text style={s.sheetTitle}>{store.t('logPast.title')}</Text>
 
-            <Calendar value={pastDate} onPick={setPastDate} direction="past" />
+            <Calendar value={pastDate} onPick={setPicked} direction="past" />
 
             {focusOptions.length > 0 && (
               <View>
@@ -99,7 +115,7 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
               placeholder={store.t('logPast.minutesPlaceholder')}
               placeholderTextColor={C.tertiary}
               keyboardType="number-pad"
-              onSubmitEditing={logPast}
+              onSubmitEditing={() => logPast()}
             />
             <Pressable style={s.checkRow} hitSlop={8} onPress={() => setAddMore((v) => !v)}>
               <View style={[s.checkbox, addMore && { backgroundColor: C.accent, borderColor: C.accent }]}>
@@ -107,10 +123,28 @@ export function LogPastModal({ visible, onClose }: { visible: boolean; onClose: 
               </View>
               <Text style={s.checkLabel}>{store.t('logPast.addMoreAfterSaving')}</Text>
             </Pressable>
-            <Pressable testID="log-past-add" style={[s.saveBtn, (!pastDate || !Number(pastMin)) && { opacity: 0.4 }]} onPress={logPast}>
+            <Pressable
+              testID="log-past-add"
+              style={[s.saveBtn, !canAdd && { opacity: 0.4 }]}
+              disabled={!canAdd}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canAdd }}
+              onPress={() => logPast()}>
               <Text style={s.saveBtnText}>{store.t('logPast.add')}</Text>
             </Pressable>
     </Sheet>
+    <InstrumentAsk
+      visible={asking !== null}
+      name={asking?.name ?? ''}
+      choices={asking?.choices ?? []}
+      onClose={() => setAsking(null)}
+      onPick={(on) => {
+        const picks = { ...asking?.picks, [asking?.name ?? '']: on };
+        setAsking(null);
+        logPast(picks);
+      }}
+    />
+    </>
   );
 }
 

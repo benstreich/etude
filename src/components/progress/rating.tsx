@@ -36,7 +36,7 @@ export function RatingSection({ pieces, sessions }: SectionProps) {
     <Card>
       <View style={s.focusHead}>
         <Overline>{store.t('progress.ratingOverTime')}</Overline>
-        <Text style={[s.skillLevel, { color: C.accent }]}>{stars(rollingAvg(cur.r))}</Text>
+        <Text style={[s.skillLevel, { color: C.accent }]}>{stars(rollingAvg(cur.r), store.lang)}</Text>
       </View>
       <View style={s.chipRow}>
         {rated.map(({ p }) => (

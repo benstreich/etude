@@ -53,6 +53,9 @@ assert.deepEqual(consistency({}, '2026-09-10', true, 2), { perWeek: [0, 0], curr
 // --- ratingSummary: hidden below 5 rated, best piece needs 3 rated sessions
 assert.deepEqual(ratingSummary(sessions.slice(0, 4)), { avgRating: null, bestPiece: null });
 assert.deepEqual(ratingSummary(sessions), { avgRating: 3.2, bestPiece: 'Nocturne' });
+// three five-star quick logs count towards the average but never become the best-rated piece
+const quick = [1, 2, 3].map((d) => ({ title: 'Quick log', meta: 'Logged', min: 10, date: `2026-09-0${d}`, rating: 5 }));
+assert.equal(ratingSummary([...sessions, ...quick]).bestPiece, 'Nocturne');
 
 // --- minPerBpm: minutes since the first entry over BPM gained
 const log = [{ date: '2026-09-01', bpm: 80 }, { date: '2026-09-10', bpm: 90 }];
@@ -73,6 +76,9 @@ assert.equal(fc.reachDate, '2026-09-01'); // 102 → 122 at 2/day = 10 days afte
 assert.equal(fc.plateau, false);
 assert.equal(tempoForecast(tlog.slice(0, 3), 122, '2026-08-23', []), null);
 assert.equal(tempoForecast(tlog, 90, '2026-08-23', [])!.reachDate, null); // already past the target
+// 1 BPM a month towards a target 100 BPM away is years out: no date rather than a fantasy one
+const slow = ['2026-01-01', '2026-01-31', '2026-03-02', '2026-04-01'].map((date, i) => ({ date, bpm: 60 + i }));
+assert.equal(tempoForecast(slow, 160, '2026-04-02', [])!.reachDate, null);
 // plateau: plenty of recent minutes, nothing above the pre-window best
 const flat = [{ date: '2026-07-01', bpm: 80 }, { date: '2026-07-10', bpm: 84 }, { date: '2026-08-20', bpm: 84 }, { date: '2026-09-01', bpm: 83 }];
 assert.equal(tempoForecast(flat, 120, '2026-09-05', [{ min: 70, date: '2026-08-30' }])!.plateau, true);

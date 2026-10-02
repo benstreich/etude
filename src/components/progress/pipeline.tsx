@@ -32,7 +32,8 @@ export function PipelineSection({ pieces }: SectionProps) {
       </View>
       <View style={s.pipeLegend}>
         {store.stages.map((label, i) => (
-          <View key={label} style={s.pipeItem}>
+          // by position: two stages may share a name
+          <View key={i} style={s.pipeItem}>
             <View style={[s.legendSwatch, { backgroundColor: colors[i] }]} />
             <Text style={s.legendText} numberOfLines={1}>
               {label} · {perStage[i]}

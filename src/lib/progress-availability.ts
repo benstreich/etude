@@ -10,9 +10,10 @@ import type { Piece, Recording, Session } from './store';
 
 import { CHALLENGE_FLOOR_DAYS } from './challenge-math.ts';
 import { recordingPair } from './movement-math.ts';
+import { pieceRatings } from './rating-math.ts';
 import { focusDrift, MIN_INSIGHT_DAYS, MIN_RATED, rated } from './stats-math.ts';
 
-export type Reason = 'sessions' | 'pieces' | 'rated' | 'history' | 'recordings' | 'goals' | 'ready' | 'challenge';
+export type Reason = 'sessions' | 'pieces' | 'rated' | 'ratedPiece' | 'history' | 'recordings' | 'goals' | 'ready' | 'challenge';
 
 /** `have` and `need` fill the counted reasons; both are 0 for the plain ones. */
 export type Unavailable = { reason: Reason; have: number; need: number };
@@ -113,9 +114,10 @@ export function sectionUnavailable(key: string, i: AvailabilityInput): Unavailab
     case 'performable':
       return i.pieces.some((p) => p.stage >= i.lastStage) ? null : plain('ready');
 
+    // the chart draws one piece's line, so it needs two ratings on the same piece
     case 'rating': {
-      const have = rated(i.sessions).length;
-      return have === 0 ? { reason: 'rated', have, need: 1 } : null;
+      const have = Math.max(0, ...i.pieces.map((p) => pieceRatings(p, i.sessions).length));
+      return have < 2 ? { reason: 'ratedPiece', have, need: 2 } : null;
     }
 
     case 'timeOfDay':

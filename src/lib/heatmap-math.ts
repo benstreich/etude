@@ -1,5 +1,8 @@
 // Pure month-heatmap logic for the Progress screen, node-runnable.
 
+// explicit .ts so the node check runner (--experimental-strip-types) can resolve it
+import { dateKey } from './streak-math.ts';
+
 /** Mix two #RRGGBB colors; t=0 → a, t=1 → b. */
 export const mix = (a: string, b: string, t: number) => {
   const ch = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16);
@@ -36,7 +39,8 @@ export function chartSeries(mbd: Record<string, number>, today: string, period: 
   const day = (offset: number) => {
     const d = new Date(today + 'T12:00:00');
     d.setDate(d.getDate() + offset);
-    return d.toISOString().slice(0, 10);
+    // local key: toISOString is UTC, which reads local noon as yesterday east of UTC+12
+    return dateKey(d);
   };
 
   if (period !== 'all') {

@@ -58,3 +58,11 @@ export function computeBestStreak(
   }
   return best;
 }
+
+/**
+ * The stored best streak after an edit or delete. It only ever rose, so a best
+ * built on a session that is now gone stayed forever. It may fall now — but only
+ * when the history still explains it (stored === what the history said before);
+ * a stored best above that came from data no longer here to recount, and stays.
+ */
+export const nextBestStreak = (stored: number, before: number, after: number) => (stored === before ? after : Math.max(stored, after));

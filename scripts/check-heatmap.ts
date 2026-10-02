@@ -53,4 +53,11 @@ assert.equal(all[2].min, 95, 'this week: 30 + 20 + 45');
 assert.equal(all[0].min, 10, 'oldest bucket holds the lone August session');
 assert.equal(chartSeries({}, '2026-09-14', 'all').length, 0, 'no practice, no series');
 assert.ok(chartSeries({ '2020-01-01': 5, '2026-09-14': 5 }, '2026-09-14', 'all').length <= 52, 'long histories are capped');
+// UTC+14: local noon is the previous day in UTC, so a UTC key slid every point back a day
+const tz = process.env.TZ;
+process.env.TZ = 'Pacific/Kiritimati';
+assert.equal(chartSeries(mbd, '2026-09-14', '7d')[6].label, '2026-09-14', 'today stays today east of UTC+12');
+assert.equal(chartSeries(mbd, '2026-09-14', '7d')[6].min, 30);
+if (tz === undefined) delete process.env.TZ;
+else process.env.TZ = tz;
 console.log('check-heatmap: chart series passed');

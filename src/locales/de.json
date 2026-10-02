@@ -4,7 +4,9 @@
     "dayNames": "Sonntag,Montag,Dienstag,Mittwoch,Donnerstag,Freitag,Samstag",
     "today": "Heute",
     "yesterday": "Gestern",
-    "dayLetters": "SMDMDFS"
+    "dayLetters": "SMDMDFS",
+    "previousMonth": "Vorheriger Monat",
+    "nextMonth": "Nächster Monat"
   },
   "tabs": {
     "home": "Start",
@@ -182,7 +184,11 @@
     "resetDefault": "Auf Standard zurücksetzen",
     "nOfM": "%{n} von %{m}",
     "progressSectionsHelp": "Bereiche ein- und ausschalten. Griff halten und ziehen, um die Reihenfolge zu ändern.",
-    "dragToReorder": "Ziehen zum Umsortieren"
+    "dragToReorder": "Ziehen zum Umsortieren",
+    "resetLayoutTitle": "Bereiche zurücksetzen?",
+    "resetLayoutBody": "Schalter und Reihenfolge gehen auf den Standard zurück.",
+    "resetLayoutConfirm": "Zurücksetzen",
+    "errStagesDuplicate": "Gib jeder Stufe einen eigenen Namen"
   },
   "home": {
     "goodMorning": "Guten Morgen",
@@ -340,6 +346,7 @@
     "goalBehind": "%{min} min hinter Plan",
     "deadlines": "Steht an",
     "daysLeft": {
+      "zero": "heute",
       "one": "morgen",
       "other": "in %{count} Tagen"
     },
@@ -364,8 +371,9 @@
     "period30d": "30T",
     "periodAll": "Alle",
     "nothingInPeriod": "In diesem Zeitraum nichts eingetragen",
+    "notEnoughRatedInPeriod": "Zu wenige bewertete Einheiten in diesem Zeitraum für einen Vergleich.",
     "customise": "Anpassen",
-    "customHint": "Dieser Tab gehört dir – schalte Bereiche ein und aus und ordne sie, wie du willst.",
+    "customHint": "Diese Bereiche gehören dir – schalte sie ein und aus und ordne sie, wie du willst.",
     "hintDismiss": "Verstanden",
     "ratingSessions": "%{n} bewertete Sessions",
     "section": {
@@ -407,6 +415,7 @@
     "performable": "Heute spielbar",
     "performableCount": "%{n} von %{m} frisch",
     "lastPlayed": "vor %{days} T.",
+    "playedToday": "heute gespielt",
     "neverPlayed": "nie gespielt",
     "sinceLastMonth": "Seit letztem Monat",
     "changedDay": "Tag 1–%{day} vs. letzter Monat",
@@ -444,6 +453,7 @@
       "sessions": "Erfasse zuerst eine Einheit.",
       "pieces": "Füge zuerst ein Stück zu deinem Repertoire hinzu.",
       "rated": "Braucht %{need} bewertete Einheiten — du hast %{have}.",
+      "ratedPiece": "Braucht %{need} bewertete Einheiten eines Stücks — du hast %{have}.",
       "history": "Braucht %{need} Tage Übung — du hast %{have}.",
       "recordings": "Braucht ein Stück mit zwei Aufnahmen.",
       "goals": "Setze zuerst ein Tagesziel oder eine Frist für ein Stück.",

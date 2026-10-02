@@ -28,8 +28,9 @@ import { pickRecordings } from '@/lib/import-recording';
 import { useTakeRecorder } from '@/lib/use-take-recorder';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { MAX_BPM } from '@/lib/metronome-math';
+import { fmtDay } from '@/lib/i18n';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
-import { dayLabel, Session, useStore } from '@/lib/store';
+import { dateKey, dayLabel, Session, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
@@ -83,7 +84,7 @@ export default function PieceDetail() {
   const n = store.stages.length;
   const stage = Math.min(piece.stage, n - 1);
   const added = piece.addedAt
-    ? new Date(piece.addedAt).toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })
+    ? fmtDay(dateKey(new Date(piece.addedAt)), store.today, store.lang)
     : null;
 
   // "mastered by" deadline (#56): days left plus whether the stage kept pace
@@ -253,7 +254,7 @@ export default function PieceDetail() {
           {/* #61 §1: straight-line forecast to the target, and a plateau nudge */}
           {forecast?.reachDate && (
             <Text style={[s.tempoTarget, { marginTop: 8, color: C.success, fontFamily: F.body }]}>
-              {store.t('piece.forecast', { target: piece.targetBpm, date: new Date(forecast.reachDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })}
+              {store.t('piece.forecast', { target: piece.targetBpm, date: fmtDay(forecast.reachDate, store.today, store.lang) })}
             </Text>
           )}
           {forecast?.plateau && <Text style={[s.tempoTarget, { marginTop: 8, color: C.accent }]}>{store.t('piece.plateau')}</Text>}
@@ -270,7 +271,7 @@ export default function PieceDetail() {
           <View>
             <Overline>{store.t('piece.masterBy')}</Overline>
             <Text style={s.masterByDate}>
-              {new Date(piece.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })}
+              {fmtDay(piece.targetDate, store.today, store.lang)}
               <Text style={s.tempoTarget}> · {deadlineNote}</Text>
             </Text>
           </View>

@@ -4,9 +4,10 @@
 // MIN_RATED rated sessions — noise is worse than nothing.
 
 // explicit .ts so the node check runner (--experimental-strip-types) can resolve it
+import { isQuickLog } from './session-math.ts';
 import { dateKey } from './streak-math.ts';
 
-export type RatedSession = { title: string; min: number; date: string; rating?: number; at?: number };
+export type RatedSession = { title: string; meta?: string; min: number; date: string; rating?: number; at?: number };
 
 /** Fewer rated sessions than this and a rating card stays hidden. */
 export const MIN_RATED = 5;
@@ -118,7 +119,8 @@ export type RatingSummary = { avgRating: number | null; bestPiece: string | null
 export function ratingSummary(sessions: RatedSession[]): RatingSummary {
   const r = rated(sessions);
   if (r.length < MIN_RATED) return { avgRating: null, bestPiece: null };
-  const best = ratingByFocus(r)
+  // the average counts quick logs; "best-rated piece" cannot name one
+  const best = ratingByFocus(r.filter((s) => !isQuickLog(s)))
     .filter((f) => f.avgRating !== null)
     .sort((a, b) => b.avgRating! - a.avgRating! || b.min - a.min)[0];
   return { avgRating: avg(r.map((s) => s.rating!)), bestPiece: best?.title ?? null };
@@ -157,6 +159,8 @@ export type TempoForecast = { bpmPerWeek: number; reachDate: string | null; plat
  * already met, unset, or the trend is flat/negative. `plateau`: at least 60 min
  * of sessions in the last 3 weeks and no BPM above the pre-window best.
  */
+const MAX_FORECAST_DAYS = 730;
+
 export function tempoForecast(
   log: { date: string; bpm: number }[],
   target: number | undefined,
@@ -172,7 +176,9 @@ export function tempoForecast(
   const slope = sxx ? xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / sxx : 0;
   const last = ys[ys.length - 1];
   let reachDate: string | null = null;
-  if (target && slope > 0 && last < target) reachDate = shiftKey(log[log.length - 1].date, Math.ceil((target - last) / slope));
+  // past two years a straight line says nothing worth printing as a date
+  const days = slope > 0 && target ? Math.ceil((target - last) / slope) : Infinity;
+  if (target && last < target && days <= MAX_FORECAST_DAYS) reachDate = shiftKey(log[log.length - 1].date, days);
   const windowStart = shiftKey(today, -21);
   const before = log.filter((e) => e.date < windowStart);
   const recentBest = Math.max(0, ...log.filter((e) => e.date >= windowStart).map((e) => e.bpm));

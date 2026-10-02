@@ -1,10 +1,10 @@
-// Shareable recap cards (#17) — rendered on-screen at 340×425 (4:5) and
+// Shareable recap cards (#17) — laid out at 340×425 (4:5), shown scaled to fit, and
 // captured at ~1080×1350 via react-native-view-shot, shared as a pure image.
 // The monthly card keeps the brand cream/terracotta regardless of theme, like
 // the LogoMark; hence the literal hex here and nowhere else.
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Platform, ScrollView, StyleSheet, useWindowDimensions, View, type TextProps } from 'react-native';
 import { Pressable } from '@/components/press';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
@@ -13,8 +13,9 @@ import { LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
 import { monthlyChallenge } from '@/lib/challenge-math';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
+import { mix } from '@/lib/heatmap-math';
+import { fmtNum } from '@/lib/i18n';
 import { projection, ratingSummary } from '@/lib/stats-math';
-import { useInstrumentFilter } from '@/components/ui';
 import { maybeRequestReview } from '@/lib/review';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -38,6 +39,10 @@ function Fermata({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
+// the card is a fixed 340×425 picture: text that grew with the OS font size
+// overflowed it and made the shared image differ from phone to phone
+const CardText = (p: TextProps) => <Text maxFontSizeMultiplier={1} {...p} />;
+
 // stat rows: max 4, empties omitted, zeros never shown as brags
 type Row = [string, string | null];
 const rows = (list: Row[]) =>
@@ -47,9 +52,13 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   const s = useS();
   const C = useC();
   const store = useStore();
-  const inst = useInstrumentFilter();
   const [mode, setMode] = useState<'month' | 'year'>('month');
   const shotRef = useRef<View>(null);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false); // the state lags a fast double tap; the ref does not
+  // backdrop (20) and sheet (20) padding on both sides; a narrow phone shows the card scaled down, never clipped
+  const { width } = useWindowDimensions();
+  const scale = Math.min(1, (width - 80) / W);
   // opening the recap is an earned moment (#68); the once-guard in maybeRequestReview does the rest
   useEffect(() => {
     if (!visible) return;
@@ -71,12 +80,19 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   });
 
   const share = async () => {
+    // a second tap while the share sheet is coming up started a second capture that could report a false failure
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
     try {
       const uri = await captureRef(shotRef, { format: 'png', quality: 1, result: 'tmpfile', width: W * 3.18, height: H * 3.18 });
       if (Platform.OS !== 'web' && (await Sharing.isAvailableAsync())) await Sharing.shareAsync(`file://${uri.replace(/^file:\/\//, '')}`);
       else store.showToast(store.t('recap.sharingUnavailable'));
     } catch {
       store.showToast(store.t('recap.imageFailed'));
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   };
 
@@ -98,13 +114,19 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
     [store.t('recap.challenge'), challengeRow],
     [store.t('recap.longestStreak'), stats.longestStreak > 1 ? store.t('recap.daysCount', { count: stats.longestStreak }) : null],
     [store.t('recap.topPiece'), stats.topPiece],
-    [store.t('recap.avgRating'), ratings.avgRating !== null ? `★ ${ratings.avgRating.toFixed(1)}` : null],
+    [store.t('recap.avgRating'), ratings.avgRating !== null ? `★ ${fmtNum(ratings.avgRating, 1, store.lang)}` : null],
     [store.t('recap.tempoGained'), tempoGained > 0 ? store.t('recap.bpmGained', { n: tempoGained }) : null],
   ]);
 
   const proj = projection(store.minutesByDate, store.totalMin, store.today);
   // year extras
-  const finished = store.pieces.filter((p) => !p.archived && p.stage >= store.stages.length - 1).length;
+  // finished this year: the stage-log entry that put it on the last stage is dated this year
+  const last = store.stages.length - 1;
+  const finished = store.pieces.filter((p) => {
+    if (p.archived || p.stage < last) return false;
+    const entry = [...(p.stageLog ?? [])].reverse().find((e) => e.stage >= last);
+    return !!entry && entry.date.startsWith(`${year}-`);
+  }).length;
   const bestMonth = stats.monthlyMinutes.some((m) => m > 0)
     ? monthName(year, stats.monthlyMinutes.indexOf(Math.max(...stats.monthlyMinutes)), store.lang)
     : null;
@@ -117,9 +139,10 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   ]);
 
   const barMax = Math.max(...stats.monthlyMinutes, 1);
-  const barColor = (v: number) => (v > barMax * 0.66 ? C.accent : v > barMax * 0.33 ? '#DE8A66' : '#F2CDBB');
-  // ponytail: the card names the filtered instrument but the numbers stay global — one card per instrument when someone asks
-  const instrument = inst || store.instruments[0];
+  // shades of the chosen accent, the same ramp as the calendar heatmap
+  const barColor = (v: number) => (v > barMax * 0.66 ? C.accent : v > barMax * 0.33 ? mix(C.accent, C.bg, 0.35) : mix(C.accent, C.bg, 0.65));
+  // the numbers are every instrument's, so the line names one only when there is only one
+  const instrument = store.instruments.length === 1 ? store.instruments[0] : undefined;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -139,84 +162,88 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
               ))}
             </View>
 
-            <View ref={shotRef} collapsable={false}>
-              {mode === 'month' ? (
-                <View style={[s.card, { backgroundColor: C.accent }]}>
-                  <View style={s.brandRow}>
-                    <Fermata color={CREAM} />
-                    <Text style={[s.wordmark, { color: CREAM }]}>Étude</Text>
-                  </View>
-                  <Text style={s.monthOverline}>
-                    {monthName(year, month, store.lang).toUpperCase()} {year}
-                  </Text>
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <Text style={[s.hero, { color: CREAM }]} numberOfLines={1} adjustsFontSizeToFit>
-                      {fmtHero(stats.totalMin)}
-                    </Text>
-                    <Text style={[s.heroSub, { color: DOT }]}>{store.t('recap.ofPracticeThisMonth')}</Text>
-                  </View>
-                  <View>
-                    {monthRows.map(([label, value]) => (
-                      <View key={label} style={s.statRowCream}>
-                        <Text style={s.statLabelCream}>{label}</Text>
-                        <Text style={s.statValueCream} numberOfLines={1}>
-                          {value}
-                        </Text>
+            <View style={{ width: W * scale, height: H * scale }}>
+              <View style={{ width: W, height: H, transform: [{ translateX: (W * scale - W) / 2 }, { translateY: (H * scale - H) / 2 }, { scale }] }}>
+                <View ref={shotRef} collapsable={false}>
+                  {mode === 'month' ? (
+                    <View style={[s.card, { backgroundColor: C.accent }]}>
+                      <View style={s.brandRow}>
+                        <Fermata color={CREAM} />
+                        <CardText style={[s.wordmark, { color: CREAM }]}>Étude</CardText>
                       </View>
-                    ))}
-                  </View>
+                      <CardText style={s.monthOverline}>
+                        {monthName(year, month, store.lang).toUpperCase()} {year}
+                      </CardText>
+                      <View style={{ flex: 1, justifyContent: 'center' }}>
+                        <CardText style={[s.hero, { color: CREAM }]} numberOfLines={1} adjustsFontSizeToFit>
+                          {fmtHero(stats.totalMin)}
+                        </CardText>
+                        <CardText style={[s.heroSub, { color: DOT }]}>{store.t('recap.ofPracticeThisMonth')}</CardText>
+                      </View>
+                      <View>
+                        {monthRows.map(([label, value]) => (
+                          <View key={label} style={s.statRowCream}>
+                            <CardText style={s.statLabelCream}>{label}</CardText>
+                            <CardText style={s.statValueCream} numberOfLines={1}>
+                              {value}
+                            </CardText>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={[s.card, { backgroundColor: C.bg, borderWidth: 1, borderColor: C.cardBorder }]}>
+                      <View style={s.brandRow}>
+                        <LogoMark size={24} />
+                        <CardText style={[s.wordmark, { color: C.ink }]}>Étude</CardText>
+                      </View>
+                      <CardText style={s.yearOverline}>{store.t('recap.yearSoFarOverline', { year })}</CardText>
+                      <View style={s.barsRow}>
+                        {stats.monthlyMinutes.slice(0, month + 1).map((v, i) => (
+                          <View key={i} style={{ flex: 1, height: 54, justifyContent: 'flex-end' }}>
+                            <View
+                              style={{
+                                height: Math.max(4, (v / barMax) * 54),
+                                borderRadius: 3,
+                                backgroundColor: v > 0 ? barColor(v) : C.track,
+                              }}
+                            />
+                          </View>
+                        ))}
+                      </View>
+                      <View style={{ flex: 1, justifyContent: 'center' }}>
+                        <CardText style={[s.hero, { color: C.ink, fontSize: 66 }]} numberOfLines={1} adjustsFontSizeToFit>
+                          {stats.totalMin >= 60
+                            ? store.t('recap.hoursCount', { count: Math.floor(stats.totalMin / 60) })
+                            : store.t('recap.minCount', { count: stats.totalMin })}
+                        </CardText>
+                        <CardText style={[s.heroSub, { color: C.accent }]}>
+                          {instrument
+                            ? store.t('recap.atInstrumentSinceJanuary', { instrument: store.lang === 'de' ? instrument : instrument.toLowerCase() })
+                            : store.t('recap.ofPracticeSinceJanuary')}
+                        </CardText>
+                      </View>
+                      <View>
+                        {yearRows.map(([label, value]) => (
+                          <View key={label} style={[s.statRowCream, { borderTopColor: C.hairline }]}>
+                            <CardText style={[s.statLabelCream, { color: C.sub }]}>{label}</CardText>
+                            <CardText style={[s.statValueCream, { color: C.ink }]} numberOfLines={1}>
+                              {value}
+                            </CardText>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                 </View>
-              ) : (
-                <View style={[s.card, { backgroundColor: C.bg, borderWidth: 1, borderColor: C.cardBorder }]}>
-                  <View style={s.brandRow}>
-                    <LogoMark size={24} />
-                    <Text style={[s.wordmark, { color: C.ink }]}>Étude</Text>
-                  </View>
-                  <Text style={s.yearOverline}>{store.t('recap.yearSoFarOverline', { year })}</Text>
-                  <View style={s.barsRow}>
-                    {stats.monthlyMinutes.slice(0, month + 1).map((v, i) => (
-                      <View key={i} style={{ flex: 1, height: 54, justifyContent: 'flex-end' }}>
-                        <View
-                          style={{
-                            height: Math.max(4, (v / barMax) * 54),
-                            borderRadius: 3,
-                            backgroundColor: v > 0 ? barColor(v) : C.track,
-                          }}
-                        />
-                      </View>
-                    ))}
-                  </View>
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <Text style={[s.hero, { color: C.ink, fontSize: 66 }]} numberOfLines={1} adjustsFontSizeToFit>
-                      {stats.totalMin >= 60
-                        ? store.t('recap.hoursCount', { count: Math.floor(stats.totalMin / 60) })
-                        : store.t('recap.minCount', { count: stats.totalMin })}
-                    </Text>
-                    <Text style={[s.heroSub, { color: C.accent }]}>
-                      {instrument
-                        ? store.t('recap.atInstrumentSinceJanuary', { instrument: store.lang === 'de' ? instrument : instrument.toLowerCase() })
-                        : store.t('recap.ofPracticeSinceJanuary')}
-                    </Text>
-                  </View>
-                  <View>
-                    {yearRows.map(([label, value]) => (
-                      <View key={label} style={[s.statRowCream, { borderTopColor: C.hairline }]}>
-                        <Text style={[s.statLabelCream, { color: C.sub }]}>{label}</Text>
-                        <Text style={[s.statValueCream, { color: C.ink }]} numberOfLines={1}>
-                          {value}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
+              </View>
             </View>
 
             <View style={{ flexDirection: 'row', gap: 12, alignSelf: 'stretch' }}>
               <Pressable style={s.closeBtn} onPress={onClose}>
                 <Text style={s.closeText}>{store.t('recap.close')}</Text>
               </Pressable>
-              <Pressable style={s.shareBtn} onPress={share}>
+              <Pressable style={[s.shareBtn, busy && { opacity: 0.5 }]} disabled={busy} accessibilityRole="button" accessibilityState={{ busy, disabled: busy }} onPress={share}>
                 <Text style={s.shareText}>{store.t('recap.share')}</Text>
               </Pressable>
             </View>

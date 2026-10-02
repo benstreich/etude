@@ -170,13 +170,16 @@ export default function Profile() {
       else error = store.t('settings.errBreakDays');
     }
     if (editing === 'quickLog') {
-      const nums = list.map(Number).filter((n) => n > 0 && n < 1000);
+      // a repeated preset is just a second identical chip
+      const nums = [...new Set(list.map(Number).filter((n) => n > 0 && n < 1000))];
       if (nums.length) store.updateSettings({ quickLog: nums });
       else error = store.t('settings.errPresets');
     }
     if (editing === 'stages') {
       const names = list.map((t) => t.trim()).filter(Boolean);
-      if (names.length >= 2) store.updateSettings({ stages: names });
+      // refused rather than merged: pieces hold a stage by position, and dropping a twin would move them
+      if (new Set(names).size < names.length) error = store.t('settings.errStagesDuplicate');
+      else if (names.length >= 2) store.updateSettings({ stages: names });
       else error = store.t('settings.errStages');
     }
     if (error) return store.showToast(error);

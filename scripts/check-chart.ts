@@ -22,6 +22,7 @@ assert.equal(fmtAxis(60), '1h');
 assert.equal(fmtAxis(90), '1.5h');
 assert.equal(fmtAxis(120), '2h');
 assert.equal(fmtAxis(100), '1.7h'); // rounded, not truncated with trailing digits
+assert.equal(fmtAxis(90, 'de'), '1,5h', 'German writes a decimal comma');
 
 // tickIndices: a week labels every day; longer ranges get CHART_TICKS labels,
 // first and last always among them, strictly increasing (no doubled label)
