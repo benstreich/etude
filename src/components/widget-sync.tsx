@@ -7,12 +7,23 @@ import EtudeWidgets from '../../modules/etude-widgets';
 import { applyAccentIcon } from '@/lib/app-icon';
 import { mix } from '@/lib/heatmap-math';
 import { useStore } from '@/lib/store';
+import { computeStreak, graceFor } from '@/lib/streak-math';
 import { ACCENTS } from '@/lib/theme';
 
 // widget paper per scheme (modules/etude-widgets res/values(-night)/colors.xml); the
 // mid and soft steps are the app's heatmap mix of accent into paper
 const PAPER = { light: '#FAF7F2', dark: '#1F1B17' };
 const triple = (accent: string, paper: string) => [accent, mix(accent, paper, 0.35), mix(accent, paper, 0.65)];
+
+// How many days after `today` (a dateKey) the streak still stands if nothing more
+// is logged, up to a week. The widget zeroes a rolled-over streak beyond that, so
+// grace days, break days and a not-yet-practised today all count as in the app.
+function streakDaysLeft(minutesByDate: Record<string, number>, breakDays: string[], grace: number, today: string) {
+  const [y, m, d] = today.split('-').map(Number);
+  let k = 0;
+  while (k < 7 && computeStreak(minutesByDate, breakDays, grace, new Date(y, m - 1, d + k + 1)) > 0) k++;
+  return k;
+}
 
 export function WidgetSync() {
   const store = useStore();
@@ -29,6 +40,7 @@ export function WidgetSync() {
     today: store.todayMin,
     goal: store.dailyGoal,
     streak,
+    streakDays: streak > 0 ? streakDaysLeft(store.minutesByDate, store.breakDays, graceFor(store.streakMode), store.today) : 0,
     week: store.week.map((w) => w.min),
     nextFocus,
     // #80: widgets follow the accent, in both schemes, since the launcher picks the scheme

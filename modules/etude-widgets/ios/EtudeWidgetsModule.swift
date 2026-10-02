@@ -12,6 +12,8 @@ struct WidgetData: Record {
   @Field var today: Int = 0
   @Field var goal: Int = 45
   @Field var streak: Int = 0
+  // days after `day` the streak survives with no more practice; -1 = an old snapshot
+  @Field var streakDays: Int = -1
   @Field var week: [Int] = []
   @Field var nextFocus: String?
   // #80: [accent, mid, soft] hex per scheme; empty = brand terracotta
@@ -34,6 +36,7 @@ public class EtudeWidgetsModule: Module {
       defaults.set(data.today, forKey: "today")
       defaults.set(data.goal, forKey: "goal")
       defaults.set(data.streak, forKey: "streak")
+      defaults.set(data.streakDays, forKey: "streakDays")
       defaults.set(data.week, forKey: "week")
       defaults.set(data.nextFocus, forKey: "nextFocus")
       defaults.set(data.accentLight, forKey: "accentLight")

@@ -15,6 +15,8 @@ class WidgetData(
   @Field val today: Int = 0,
   @Field val goal: Int = 45,
   @Field val streak: Int = 0,
+  // days after `day` the streak survives with no more practice; -1 = an old snapshot
+  @Field val streakDays: Int = -1,
   @Field val week: List<Int> = emptyList(),
   @Field val nextFocus: String? = null,
   // #80: [accent, mid, soft] hex per scheme; empty = the brand terracotta from colors.xml
@@ -34,6 +36,7 @@ object WidgetStore {
       .putInt("today", data.today)
       .putInt("goal", data.goal)
       .putInt("streak", data.streak)
+      .putInt("streakDays", data.streakDays)
       .putString("week", data.week.joinToString(","))
       .putString("nextFocus", data.nextFocus)
       .putString("accentLight", data.accentLight.joinToString(","))
@@ -51,6 +54,7 @@ object WidgetStore {
       today = p.getInt("today", 0),
       goal = p.getInt("goal", 45),
       streak = p.getInt("streak", 0),
+      streakDays = p.getInt("streakDays", -1),
       week = week,
       nextFocus = p.getString("nextFocus", null),
       accentLight = p.getString("accentLight", "")!!.split(',').filter { it.isNotBlank() },
@@ -62,7 +66,8 @@ object WidgetStore {
   /**
    * Only the running app writes the snapshot, so after midnight it still holds
    * yesterday: today's minutes become 0, the week slides along with zeros, and
-   * a streak with a whole missed day in the gap is over. The app's next push
+   * the streak is over once the gap outruns the days the app said it would last
+   * (grace and break days included). The app's next push
    * replaces all of it with the real numbers.
    */
   private fun rollOver(d: WidgetData): WidgetData {
@@ -77,7 +82,8 @@ object WidgetStore {
       day = d.day,
       today = 0,
       goal = d.goal,
-      streak = if (gap > 1) 0 else d.streak,
+      streak = if (gap > (if (d.streakDays >= 0) d.streakDays else 1)) 0 else d.streak,
+      streakDays = d.streakDays,
       week = week,
       nextFocus = d.nextFocus,
       accentLight = d.accentLight,

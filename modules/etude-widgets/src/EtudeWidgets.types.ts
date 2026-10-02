@@ -5,6 +5,7 @@ export type WidgetData = {
   today: number; // minutes practiced today
   goal: number; // daily goal in minutes
   streak: number; // current display streak (days)
+  streakDays: number; // days after `day` the streak survives with no more practice (0-7)
   week: number[]; // last 7 days of minutes, oldest first, today last
   nextFocus: string | null; // suggested next piece/technique, if any
   /** #80: the in-app accent as [accent, mid, soft] hex, one triple per scheme; empty = brand terracotta */

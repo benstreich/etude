@@ -40,6 +40,7 @@ struct Snapshot {
   var today = 0
   var goal = 45
   var streak = 0
+  var streakDays = -1 // days after `day` the streak survives; -1 = an old snapshot
   var week: [Int] = Array(repeating: 0, count: 7)
   var nextFocus: String?
   // #80: the in-app accent per scheme; the brand terracotta until the app has pushed one
@@ -63,6 +64,7 @@ struct Snapshot {
     s.today = d.integer(forKey: "today")
     s.goal = max(1, d.integer(forKey: "goal"))
     s.streak = d.integer(forKey: "streak")
+    s.streakDays = (d.object(forKey: "streakDays") as? Int) ?? -1
     s.week = (d.array(forKey: "week") as? [Int]) ?? s.week
     s.nextFocus = d.string(forKey: "nextFocus")
     s.accentLight = (d.array(forKey: "accentLight") as? [String])?.first
@@ -73,8 +75,8 @@ struct Snapshot {
   }
 
   /// Only the running app writes the snapshot, so after midnight it still holds
-  /// yesterday: today becomes 0, the week slides along with zeros, and a streak
-  /// with a whole missed day in the gap is over. The app's next push replaces it.
+  /// yesterday: today becomes 0, the week slides along with zeros, and the streak
+  /// is over once the gap outruns `streakDays`. The app's next push replaces it.
   mutating func rollOver(from day: String?) {
     let fmt = DateFormatter()
     fmt.calendar = Calendar(identifier: .gregorian)
@@ -86,7 +88,7 @@ struct Snapshot {
     guard gap > 0 else { return }
     today = 0
     week = gap >= 7 ? Array(repeating: 0, count: 7) : Array(week.dropFirst(gap)) + Array(repeating: 0, count: gap)
-    if gap > 1 { streak = 0 }
+    if gap > (streakDays >= 0 ? streakDays : 1) { streak = 0 }
   }
 
   var frac: Double { min(1, Double(today) / Double(goal)) }
