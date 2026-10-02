@@ -41,6 +41,17 @@ export function instrumentChoices(p: Instrumented | undefined, filter: string): 
 }
 
 /**
+ * The instrument a session is filed under: the player's answer to the question
+ * above, else the tab in view — but only when the piece is on that tab. A piece
+ * the filter doesn't cover keeps its own tags (undefined) rather than landing on
+ * an instrument it is never played on; no piece record (a quick log) takes the tab.
+ */
+export function sessionInstrument(p: Instrumented | undefined, filter: string, picked?: string): string | undefined {
+  if (picked) return picked;
+  return p && !onInstrument(p, filter) ? undefined : filter || undefined;
+}
+
+/**
  * Stored instrument ids stay English; the common eight have translations
  * (settings.inst*), the long tail shows the id itself.
  */

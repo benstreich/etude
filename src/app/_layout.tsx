@@ -13,7 +13,7 @@ import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
 import { usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -35,7 +35,6 @@ import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
 
 const NAV_H = 74;
-const TAB_PATHS = ['/', '/practice', '/repertoire', '/tools'];
 
 SplashScreen.preventAutoHideAsync();
 
@@ -74,13 +73,16 @@ function NavItem({ icon, label, active, onPress }: { icon: React.ReactNode; labe
  * ponytail: doesn't replicate tabBarHideOnKeyboard — the one screen that needs it
  * (Practice's search field) already hides this bar for its own reason once running.
  */
-function StaffNav({ state, navigation, descriptors, insets }: BottomTabBarProps) {
+function StaffNav({ state, navigation, descriptors, insets, onShown }: BottomTabBarProps & { onShown: (shown: boolean) => void }) {
   const { C } = useTheme();
   const store = useStore();
   const route = state.routes[state.index];
   const tabBarStyle = descriptors[route.key]?.options.tabBarStyle as { display?: string } | undefined;
-  if (tabBarStyle?.display === 'none') return null;
-  if (!['index', 'repertoire', 'tools', 'practice'].includes(route.name)) return null;
+  const shown = tabBarStyle?.display !== 'none' && ['index', 'repertoire', 'tools', 'practice'].includes(route.name);
+  // the shell lifts the toast and RunPill by the nav's height only while it is
+  // really on screen — a running Practice session hides it on a tab path
+  useEffect(() => onShown(shown), [shown, onShown]);
+  if (!shown) return null;
   const color = (name: string) => (route.name === name ? C.accent : C.sub);
   const items: { name: string; label: string; icon: React.ReactNode }[] = [
     {
@@ -186,10 +188,11 @@ function RunPill({ bottom }: { bottom: number }) {
 function Shell({ insets }: { insets: { bottom: number } }) {
   const { C, dark, reduceMotion } = useTheme();
   const { onboarded, t } = useStore();
-  // the staff nav only exists on the four tab screens; elsewhere the pill and
-  // toast sit on the home indicator instead of floating a nav's height up
-  const pathname = usePathname();
-  const navH = TAB_PATHS.includes(pathname) ? NAV_H : 0;
+  // the staff nav only shows on the four tab screens (and not under a running
+  // Practice session); elsewhere the pill and toast sit on the home indicator
+  // instead of floating a nav's height up. StaffNav reports what it renders.
+  const [navShown, setNavShown] = useState(false);
+  const navH = navShown ? NAV_H : 0;
   // Shell only mounts once fonts AND the store are ready (StoreProvider renders
   // null until hydration) — hiding here avoids a bare-window flash on cold start
   useEffect(() => {
@@ -210,7 +213,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
           <Tabs
             // back goes to the previous screen, not to Home (#85)
             backBehavior="history"
-            tabBar={(p) => <StaffNav {...p} />}
+            tabBar={(p) => <StaffNav {...p} onShown={setNavShown} />}
             screenOptions={{
               headerShown: false,
               animation: reduceMotion ? 'none' : 'shift',

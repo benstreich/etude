@@ -155,7 +155,11 @@ export function Sheet({
               style={fill ? s.scrollFill : s.scroll}
               keyboardShouldPersistTaps="handled"
               scrollEnabled={scrollEnabled}
-              showsVerticalScrollIndicator={false}
+              // a long sheet has to look scrollable: a list that happens to end on a
+              // row edge read as complete. The bar only draws when the content
+              // overflows; on Android it stays up (thin, grey) instead of fading out.
+              showsVerticalScrollIndicator
+              persistentScrollbar
               contentContainerStyle={[align === 'bottom' && s.contentBottom, contentStyle]}>
               {children}
             </KeyboardAwareScrollView>

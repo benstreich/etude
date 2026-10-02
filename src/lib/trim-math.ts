@@ -49,3 +49,20 @@ export const nudgeTrim = (c: Clip, handle: Handle, steps: number) =>
 export const setFromPlayhead = (c: Clip, handle: Handle, t: number) => setHandle(c, handle, t);
 
 export const clearTrim = () => ({ start: undefined, end: undefined });
+
+/** How far short of the file's real end an out point must sit to count as a cut. */
+export const END_SLACK = 0.05;
+
+/**
+ * Does playback have to stop at this clip's out point? Only an end the user set
+ * counts, and only when it falls short of where the file really ends — measured
+ * against the loaded file's `duration`, not the stored length, which is whole
+ * seconds on older takes: an out handle dragged to that stored length still sits
+ * up to half a second before the real end and must hold. Unknown duration (0/NaN)
+ * falls back to the stored length.
+ */
+export function cutsEnd(c: Clip, duration: number): c is Clip & { end: number } {
+  if (c.end === undefined) return false;
+  const fileEnd = Number.isFinite(duration) && duration > 0 ? duration : c.sec;
+  return c.end < fileEnd - END_SLACK;
+}

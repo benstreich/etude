@@ -1,7 +1,7 @@
 // A piece can be played on several instruments; untagged means all of them.
 import assert from 'node:assert';
 
-import { instrumentChoices, instrumentLabel, instrumentName, keepInstruments, onInstrument, pieceInstruments, toggleInstrument } from '../src/lib/instrument-math.ts';
+import { instrumentChoices, instrumentLabel, instrumentName, keepInstruments, onInstrument, pieceInstruments, sessionInstrument, toggleInstrument } from '../src/lib/instrument-math.ts';
 
 // reading the set, old field and new
 assert.deepEqual(pieceInstruments({}), []);
@@ -57,6 +57,14 @@ assert.deepEqual(instrumentChoices(undefined, ''), []); // a focus with no piece
 assert.deepEqual(instrumentChoices({ instruments: ['Cello', 'Bass', 'Violin'] }, ''), ['Cello', 'Bass', 'Violin']);
 // the old single field reads the same as a one-entry set
 assert.deepEqual(instrumentChoices({ instrument: 'Guitar', instruments: ['Guitar', 'Violin'] }, ''), ['Guitar', 'Violin']);
+
+// where a session is filed: the answer, else the tab — only when the piece is on it
+assert.equal(sessionInstrument(both, 'Cello', 'Violin'), 'Violin'); // the player's answer wins
+assert.equal(sessionInstrument(both, 'Guitar'), 'Guitar'); // the tab in view, piece is on it
+assert.equal(sessionInstrument({ instrument: 'Piano' }, 'Violin'), undefined); // piano piece on the violin tab keeps its own tag
+assert.equal(sessionInstrument({}, 'Violin'), 'Violin'); // untagged counts everywhere
+assert.equal(sessionInstrument(undefined, 'Violin'), 'Violin'); // a quick log with no piece takes the tab
+assert.equal(sessionInstrument(both, ''), undefined); // the All tab names nothing
 
 // removing an instrument in settings drops its tag; the last one gone reads as untagged
 assert.deepEqual(keepInstruments({ instruments: ['Guitar', 'Violin'] }, ['Guitar', 'Violin']), {});

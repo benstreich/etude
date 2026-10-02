@@ -13,7 +13,7 @@ import { Tempo } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Sheet, Stepper } from '@/components/ui';
 import { useMetronome } from '@/lib/metronome';
-import { getActiveRun, setActiveRun, useActiveRun } from '@/lib/plan-run-state';
+import { getActiveRun, newRunToken, setActiveRun, useActiveRun } from '@/lib/plan-run-state';
 import { hideSessionNotice } from '@/lib/session-notice';
 import { PlanSegment, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -128,7 +128,9 @@ export default function PlanBuilder() {
       return;
     }
     fixName();
-    router.push({ pathname: '/plan/run', params: { id: plan.id } });
+    // a fresh run gets a fresh token (run.tsx keys on it); this routine already
+    // running is a resume, which passes none
+    router.push({ pathname: '/plan/run', params: { id: plan.id, ...(active ? {} : { run: newRunToken() }) } });
   };
 
   const back = () => {

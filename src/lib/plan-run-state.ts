@@ -36,6 +36,12 @@ export const setActiveRun = (next: ActiveRun | null) => {
 };
 export const useActiveRun = () => useSyncExternalStore(subscribe, getActiveRun, getActiveRun);
 
+// Passed as the runner's `run` param by every fresh start (never by a resume):
+// the runner tab stays mounted, and keying on this is what gives a second start
+// of the same routine a clean run instead of the finished one's leftover state.
+let runSeq = 0;
+export const newRunToken = () => String(++runSeq);
+
 // A plan that is run without ever being saved (#95: "Suggested for today").
 // It lives here, beside the run, so the runner and the RunPill resolve it the
 // same way from any screen; it is never persisted, and renamePiece never has to

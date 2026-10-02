@@ -11,9 +11,9 @@ import type { Piece, Recording, Session } from './store';
 import { CHALLENGE_FLOOR_DAYS } from './challenge-math.ts';
 import { recordingPair } from './movement-math.ts';
 import { pieceRatings } from './rating-math.ts';
-import { focusDrift, MIN_INSIGHT_DAYS, MIN_RATED, rated } from './stats-math.ts';
+import { DRIFT_MIN_FOCI, DRIFT_MIN_WEEKS, driftFloor, focusDrift, MIN_INSIGHT_DAYS, MIN_RATED, rated } from './stats-math.ts';
 
-export type Reason = 'sessions' | 'pieces' | 'rated' | 'ratedPiece' | 'history' | 'recordings' | 'goals' | 'ready' | 'challenge';
+export type Reason = 'sessions' | 'pieces' | 'rated' | 'ratedPiece' | 'history' | 'driftWeeks' | 'driftFoci' | 'recordings' | 'goals' | 'ready' | 'challenge';
 
 /** `have` and `need` fill the counted reasons; both are 0 for the plain ones. */
 export type Unavailable = { reason: Reason; have: number; need: number };
@@ -131,8 +131,14 @@ export function sectionUnavailable(key: string, i: AvailabilityInput): Unavailab
       return have < MIN_INSIGHT_DAYS ? { reason: 'history', have, need: MIN_INSIGHT_DAYS } : null;
     }
 
-    case 'drift':
-      return focusDrift(i.sessions, i.today, i.monday) ? null : plain('history');
+    // focusDrift's own floor: practice in 4 of the last 12 weeks, on 2+ focuses.
+    // Weeks first — they take longest to come; then the second focus.
+    case 'drift': {
+      if (focusDrift(i.sessions, i.today, i.monday)) return null;
+      const f = driftFloor(i.sessions, i.today, i.monday);
+      if (f.weeks < DRIFT_MIN_WEEKS) return { reason: 'driftWeeks', have: f.weeks, need: DRIFT_MIN_WEEKS };
+      return { reason: 'driftFoci', have: f.foci, need: DRIFT_MIN_FOCI };
+    }
 
     // #105: the same floor monthlyChallenge applies — practised days before this month
     case 'challenge': {

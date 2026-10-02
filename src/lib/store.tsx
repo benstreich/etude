@@ -275,7 +275,8 @@ type Store = State & {
   toast: string | null;
   showToast: (msg: string) => void;
   /** `spot` (#91): the TroubleSpot id the minutes went to; omit for the whole piece. */
-  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string, spot?: string) => string;
+  /** `start`: the session's real wall-clock start, so one filed to the day it began keeps its time of day across midnight. */
+  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string, spot?: string, start?: number) => string;
   addPlan: (name: string) => string;
   updatePlan: (id: string, patch: Partial<Pick<Plan, 'name' | 'segments'>>) => void;
   removePlan: (id: string) => void;
@@ -457,10 +458,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const logMinutes: Store['logMinutes'] = (min, title, meta, date = dateKey(), planId, instrument, spot) => {
+  const logMinutes: Store['logMinutes'] = (min, title, meta, date = dateKey(), planId, instrument, spot, start) => {
     const id = uid();
-    // wall-clock start only for sessions logged on the day itself; backdated logs have no time of day
-    const at = date === dateKey() ? Date.now() : undefined;
+    // wall-clock time of day: a timed session's real start (it is filed to the day it
+    // began, so one crossing midnight keeps its evening time), else now for a log made
+    // on the day itself; backdated logs have no time of day
+    const at = start !== undefined && dateKey(new Date(start)) === date ? start : date === dateKey() ? Date.now() : undefined;
     // read off the live state before the update: a goal crossing or a streak
     // growing are read-only questions about what this log is about to change,
     // not part of computing the next state itself
@@ -608,8 +611,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => {
       if (!s) return s;
       const next = applySessionUpdate(s, id, patch);
-      if (next === s || patch.min === undefined) return next;
-      // an edited day can complete a streak, or (minutes cut to 0) break the one that made the best
+      // any change to the day totals — minutes edited, or a session moved to another
+      // date — can complete a streak or break the run that made the best
+      if (next === s || next.minutesByDate === s.minutesByDate) return next;
       const best = (m: Record<string, number>) => computeBestStreak(m, s.breakDays, graceFor(s.streakMode));
       return { ...next, bestStreak: nextBestStreak(s.bestStreak, best(s.minutesByDate), best(next.minutesByDate)) };
     });

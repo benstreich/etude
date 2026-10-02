@@ -20,7 +20,7 @@ import { useMelodyPlayer } from '@/lib/melody-play';
 import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
 import { useInstrumentFilter } from '@/components/ui';
-import { instrumentChoices } from '@/lib/instrument-math';
+import { instrumentChoices, sessionInstrument } from '@/lib/instrument-math';
 import { QUICK_META, QUICK_TITLE, sessionTitle } from '@/lib/session-math';
 import { dateKey, dayLabel, useStore, type Session } from '@/lib/store';
 import { F, themed, useTheme, type T } from '@/lib/theme';
@@ -76,7 +76,8 @@ export default function Home() {
       return;
     }
     success();
-    store.logMinutes(min, f?.name ?? QUICK_TITLE, f?.kind ?? QUICK_META, day, undefined, on || inst || undefined);
+    // the tab in view only applies to a piece that is on it, same as Practice
+    store.logMinutes(min, f?.name ?? QUICK_TITLE, f?.kind ?? QUICK_META, day, undefined, sessionInstrument(store.allPieces.find((p) => p.name === f?.name), inst, on));
     const name = f?.name;
     if (day !== store.today) {
       const when = dayLabel(day, store.today, store.t, store.lang);

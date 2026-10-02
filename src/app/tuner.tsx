@@ -223,9 +223,18 @@ export default function Tuner() {
         const mine = ++gen;
         const stale = () => mine !== gen;
         begin(stale).then((result) => {
-          if (stale()) return;
+          if (stale()) return; // blurred (or restarted) meanwhile — the cleanup's stop() already ran
           last = result;
-          if (result === 'ok') timer = setInterval(() => tickRef.current(), POLL_MS);
+          if (result !== 'ok') return;
+          // backgrounded while the start was in flight with permission already
+          // granted: the background handler saw no running mic and left it, so the
+          // mic just opened behind the user's back — close it, reopen on return
+          if (AppState.currentState !== 'active') {
+            stop();
+            resume = true;
+            return;
+          }
+          timer = setInterval(() => tickRef.current(), POLL_MS);
         });
       };
       const stop = () => {

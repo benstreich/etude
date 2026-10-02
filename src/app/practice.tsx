@@ -330,7 +330,7 @@ export default function Practice() {
       const on = sessionInst || (focusPiece && !onInstrument(focusPiece, inst) ? undefined : inst) || undefined;
       // filed under the day it began, so a session across midnight doesn't empty the evening.
       // The store drops a spot that was resolved or deleted mid-session (#91).
-      const id = store.logMinutes(min, focus.name, focus.kind, dateKey(new Date(sessionStart.current)), undefined, on, spotId ?? undefined);
+      const id = store.logMinutes(min, focus.name, focus.kind, dateKey(new Date(sessionStart.current)), undefined, on, spotId ?? undefined, sessionStart.current);
       store.setLiveSession(null);
       setSpotId(null);
       setRunning(false);

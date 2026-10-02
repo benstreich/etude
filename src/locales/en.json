@@ -499,6 +499,8 @@
       "rated": "Needs %{need} rated sessions — you have %{have}.",
       "ratedPiece": "Needs %{need} rated sessions of one piece — you have %{have}.",
       "history": "Needs %{need} days of practice — you have %{have}.",
+      "driftWeeks": "Needs practice in %{need} of the last 12 weeks — you have %{have}.",
+      "driftFoci": "Needs %{need} different pieces or techniques in the last 12 weeks — you have %{have}.",
       "recordings": "Needs a piece with two recordings.",
       "goals": "Set a daily goal or a piece deadline first.",
       "ready": "Needs a piece at the final stage."

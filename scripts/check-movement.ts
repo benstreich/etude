@@ -116,6 +116,15 @@ assert.deepEqual(sectionUnavailable('performable', emptyInput), { reason: 'ready
 assert.deepEqual(sectionUnavailable('rating', emptyInput), { reason: 'ratedPiece', have: 0, need: 2 });
 assert.deepEqual(sectionUnavailable('timeOfDay', emptyInput), { reason: 'rated', have: 0, need: 5 });
 assert.deepEqual(sectionUnavailable('insights', emptyInput), { reason: 'history', have: 0, need: 7 });
+// focus drift states its own floor — never "needs 0 days"
+assert.deepEqual(sectionUnavailable('drift', emptyInput), { reason: 'driftWeeks', have: 0, need: 4 });
+const oneFocus = {
+  ...emptyInput,
+  sessions: ['2026-08-18', '2026-08-25', '2026-09-01', '2026-09-08'].map((date, n) => ({ id: `d${n}`, title: 'Asturias', meta: '', min: 20, date })),
+} as unknown as AvailabilityInput;
+assert.deepEqual(sectionUnavailable('drift', oneFocus), { reason: 'driftFoci', have: 1, need: 2 });
+const twoFoci = { ...oneFocus, sessions: [...oneFocus.sessions, { id: 'd9', title: 'Study', meta: '', min: 5, date: '2026-09-08' }] } as unknown as AvailabilityInput;
+assert.equal(sectionUnavailable('drift', twoFoci), null);
 
 const withData = {
   ...emptyInput,
@@ -157,7 +166,7 @@ console.log('check-movement: availability passed');
 import de from '../src/locales/de.json' with { type: 'json' };
 import en from '../src/locales/en.json' with { type: 'json' };
 
-const REASONS = ['sessions', 'pieces', 'rated', 'ratedPiece', 'history', 'recordings', 'goals', 'ready'];
+const REASONS = ['sessions', 'pieces', 'rated', 'ratedPiece', 'history', 'driftWeeks', 'driftFoci', 'recordings', 'goals', 'ready', 'challenge'];
 for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   const prog = (dict as Record<string, any>).progress;
   for (const r of REASONS) {
@@ -166,7 +175,7 @@ for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   for (const key of ['chartCalendar', 'chartLine', 'chartBars', 'chartEmpty']) {
     assert.ok(typeof prog[key] === 'string' && prog[key].length > 0, `${lang}: progress.${key} missing`);
   }
-  for (const k of ['rated', 'ratedPiece', 'history']) {
+  for (const k of ['rated', 'ratedPiece', 'history', 'driftWeeks', 'driftFoci']) {
     assert.ok(prog.unavailable[k].includes('%{have}') && prog.unavailable[k].includes('%{need}'), `${lang}: ${k} must name both counts`);
   }
 }

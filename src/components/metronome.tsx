@@ -228,7 +228,8 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
             </View>
 
             <View style={{ gap: 12 }}>
-              {/* the row is the switch for a screen reader: it groups the inner Switch away */}
+              {/* the row is the switch for a screen reader; the inner Switch is hidden from
+                  it (still tappable) so TalkBack/VoiceOver announce one element, not two */}
               <Pressable
                 style={s.switchRow}
                 accessibilityRole="switch"
@@ -242,7 +243,9 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
                   <Text style={s.label}>{t('metronome.tempoRamp')}</Text>
                   <Text style={s.hint}>{summary ?? t(ramp.on ? 'metronome.rampSameTarget' : 'metronome.rampOffHint')}</Text>
                 </View>
-                <Switch accessibilityLabel={t('metronome.tempoRamp')} value={ramp.on} onChange={(on) => setRamp({ on })} />
+                <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                  <Switch value={ramp.on} onChange={(on) => setRamp({ on })} />
+                </View>
               </Pressable>
 
               {ramp.on && (

@@ -66,7 +66,7 @@ assert.equal(minPerBpm([{ date: '2026-09-01', bpm: 90 }, { date: '2026-09-10', b
 console.log('check-stats: all assertions passed');
 
 // ---- #61 insights
-import { concentration, focusDrift, goalCalibration, interleaving, projection, qualityDrivers, rollingMean, staleness, streakSurvival, tempoForecast, weeklyTotals } from '../src/lib/stats-math.ts';
+import { concentration, driftFloor, focusDrift, goalCalibration, interleaving, projection, qualityDrivers, rollingMean, staleness, streakSurvival, tempoForecast, weeklyTotals } from '../src/lib/stats-math.ts';
 
 // --- tempoForecast: 2 BPM/day → 122 reached 10 days after the last entry; too short a log → null
 const tlog = [0, 7, 14, 21].map((d) => ({ date: `2026-08-${String(1 + d).padStart(2, '0')}`, bpm: 60 + 2 * d }));
@@ -176,6 +176,10 @@ assert.deepEqual(drift.series.map((x) => x.title), ['b', 'a', 'c', 'd', '']); //
 assert.deepEqual(drift.series[1].share, [0.75, 0.5, 0.25, 0]);
 assert.ok(Math.abs(drift.series[4].share[3] - 10 / 60) < 1e-9);
 assert.equal(focusDrift([{ title: 'a', min: 30, date: '2026-09-01' }], '2026-09-01', true), null);
+// the floor it counts, for the locked row's sentence: same window, same weeks
+assert.deepEqual(driftFloor([], '2026-09-01', true), { weeks: 0, foci: 0 });
+assert.deepEqual(driftFloor([{ title: 'a', min: 30, date: '2026-09-01' }, { title: 'a', min: 5, date: '2026-09-02' }], '2026-09-01', true), { weeks: 1, foci: 1 });
+assert.deepEqual(driftFloor([{ title: 'a', min: 30, date: '2025-01-01' }], '2026-09-01', true), { weeks: 0, foci: 0 }); // outside the 12 weeks
 
 // --- weeklyTotals + rollingMean
 const wt = weeklyTotals({ '2026-08-11': 30, '2026-08-13': 30, '2026-08-25': 15, '2026-09-01': 45 }, '2026-09-01', true, 4);

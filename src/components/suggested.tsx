@@ -10,7 +10,7 @@ import { PlayIcon } from '@/components/icons';
 import { Text } from '@/components/text';
 import { Card, EntryRow, Overline } from '@/components/ui';
 import { tap } from '@/lib/haptics';
-import { setTransientPlan, TRANSIENT_PLAN_ID, useActiveRun } from '@/lib/plan-run-state';
+import { newRunToken, setTransientPlan, TRANSIENT_PLAN_ID, useActiveRun } from '@/lib/plan-run-state';
 import { dueSpots } from '@/lib/spot-math';
 import { suggestSession, type ReasonKey } from '@/lib/suggest-math';
 import { useStore } from '@/lib/store';
@@ -52,7 +52,7 @@ export function SuggestedCard() {
       name: store.t('suggest.title'),
       segments: suggestion.segments.map((x) => ({ focus: { name: x.focusName, kind: x.kind }, min: x.min, ...(x.bpm ? { bpm: x.bpm } : {}) })),
     });
-    router.push({ pathname: '/plan/run', params: { id: TRANSIENT_PLAN_ID } });
+    router.push({ pathname: '/plan/run', params: { id: TRANSIENT_PLAN_ID, run: newRunToken() } });
   };
 
   return (

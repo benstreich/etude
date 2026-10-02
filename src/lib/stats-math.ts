@@ -379,7 +379,31 @@ export type FocusDrift = { weeks: string[]; series: { title: string; share: numb
  * caller labels it "Other"). Shares within a week sum to 1; an empty week is all
  * zeros. null under 2 focuses or 4 weeks with practice — no drift to show yet.
  */
-export function focusDrift(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = 12, top = 4): FocusDrift | null {
+export const DRIFT_MIN_WEEKS = 4; // weeks with practice in the window
+export const DRIFT_MIN_FOCI = 2; // different pieces/techniques in the window
+export const DRIFT_WEEKS = 12;
+
+export function focusDrift(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = DRIFT_WEEKS, top = 4): FocusDrift | null {
+  const { keys, byTitle, totals } = driftTally(sessions, today, mondayStart, weeks);
+  const titles = Object.keys(byTitle).sort((a, b) => byTitle[b].reduce((x, y) => x + y, 0) - byTitle[a].reduce((x, y) => x + y, 0));
+  if (titles.length < DRIFT_MIN_FOCI || totals.filter((t) => t > 0).length < DRIFT_MIN_WEEKS) return null;
+  const keep = titles.slice(0, top);
+  const rest = titles.slice(top);
+  const series = keep.map((title) => ({ title, share: byTitle[title].map((m, w) => (totals[w] ? m / totals[w] : 0)) }));
+  if (rest.length) series.push({ title: '', share: keys.map((_, w) => (totals[w] ? rest.reduce((a, t) => a + byTitle[t][w], 0) / totals[w] : 0)) });
+  return { weeks: keys, series };
+}
+
+/**
+ * What focusDrift's floor counts — weeks with practice and different focuses in
+ * its window — so a locked Focus drift row can say what is still missing.
+ */
+export function driftFloor(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = DRIFT_WEEKS): { weeks: number; foci: number } {
+  const { byTitle, totals } = driftTally(sessions, today, mondayStart, weeks);
+  return { weeks: totals.filter((t) => t > 0).length, foci: Object.keys(byTitle).length };
+}
+
+function driftTally(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks: number) {
   const first = weekKey(today, mondayStart);
   const keys: string[] = [];
   for (let i = weeks - 1; i >= 0; i--) keys.push(shiftKey(first, -7 * i));
@@ -392,13 +416,7 @@ export function focusDrift(sessions: { title: string; min: number; date: string 
     (byTitle[s.title] ??= keys.map(() => 0))[w] += s.min;
     totals[w] += s.min;
   }
-  const titles = Object.keys(byTitle).sort((a, b) => byTitle[b].reduce((x, y) => x + y, 0) - byTitle[a].reduce((x, y) => x + y, 0));
-  if (titles.length < 2 || totals.filter((t) => t > 0).length < 4) return null;
-  const keep = titles.slice(0, top);
-  const rest = titles.slice(top);
-  const series = keep.map((title) => ({ title, share: byTitle[title].map((m, w) => (totals[w] ? m / totals[w] : 0)) }));
-  if (rest.length) series.push({ title: '', share: keys.map((_, w) => (totals[w] ? rest.reduce((a, t) => a + byTitle[t][w], 0) / totals[w] : 0)) });
-  return { weeks: keys, series };
+  return { keys, byTitle, totals };
 }
 
 /** Minutes per calendar week for the last `weeks` weeks, oldest first, the current week last. */

@@ -119,9 +119,11 @@ class PitchInputModule : Module() {
     }
 
     val alive = AtomicBoolean(true)
-    session = alive
-    recorder = rec
-    running = true
+    synchronized(lock) {
+      session = alive
+      recorder = rec
+      running = true
+    }
 
     val t = HandlerThread("pitch-input").also { it.start() }
     Handler(t.looper).post {
@@ -141,8 +143,18 @@ class PitchInputModule : Module() {
           }
         }
       }
-      // A dead recorder must not leave a stale window that reads as a held note.
-      synchronized(lock) { if (session === alive) filled = false }
+      // Still this session: the loop died on a read error, not on stop(). Drop
+      // the session so the next start() opens a fresh recorder instead of
+      // returning early on a `running` that nothing is behind any more; and a
+      // dead recorder must not leave a stale window that reads as a held note.
+      synchronized(lock) {
+        if (session === alive) {
+          filled = false
+          running = false
+          session = null
+          recorder = null
+        }
+      }
       // The thread owns the teardown, so release() can never race a read().
       runCatching { rec.stop() }
       rec.release()
@@ -151,12 +163,14 @@ class PitchInputModule : Module() {
   }
 
   private fun stop() {
-    if (!running) return
-    running = false
-    session?.set(false)
-    session = null
+    val rec = synchronized(lock) {
+      if (!running) return
+      running = false
+      session?.set(false)
+      session = null
+      recorder.also { recorder = null }
+    }
     // Unblocks a read in progress; the capture thread then releases the recorder.
-    recorder?.let { runCatching { it.stop() } }
-    recorder = null
+    rec?.let { runCatching { it.stop() } }
   }
 }

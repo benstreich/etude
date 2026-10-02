@@ -28,6 +28,7 @@ import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store'
 import { F, themed, useC, type T } from '@/lib/theme';
 import {
   clearTrim,
+  cutsEnd,
   dragHandle,
   inPoint,
   isTrimmed,
@@ -120,13 +121,17 @@ export function RecordingsList({
   const grabbed = useRef<TrimHandle>('start'); // handle claimed on touch-down, held for the whole drag
   const [loopDraft, setLoopDraft] = useState(false); // the trim sheet's Loop, saved with the trim
   const [dragging, setDragging] = useState(false); // a trim handle is held: the sheet must not scroll
-  // Set by `replace` until the new file reports: until then the status is still the
-  // old take's, and its position (say 0:45) read as "past the out point" of a short
-  // new take, which paused it the moment it started.
-  const switching = useRef(false);
+  // the draft's out point only counts once the user has set it (or the take was
+  // saved with one): an untouched handle sits at the stored whole-second length,
+  // which is not where the file really ends
+  const [endSet, setEndSet] = useState(false);
+  const editTrim = (next: { start: number; end: number }) => {
+    if (next.end !== trim?.end) setEndSet(true);
+    setTrim(next);
+  };
 
   // while trimming, `clip` is the draft (bounds and loop); everywhere else the take's own
-  const clipOf = (r: Recording) => (trimId === r.id && trim ? { ...r, ...trim, loop: loopDraft } : r);
+  const clipOf = (r: Recording) => (trimId === r.id && trim ? { ...r, ...trim, end: endSet ? trim.end : undefined, loop: loopDraft } : r);
 
   // adjust-state-during-render pattern (react.dev "you might not need an effect").
   // A looping take restarts instead of clearing: running to the end of the file is
@@ -154,15 +159,16 @@ export function RecordingsList({
   const currentClip = current ? clipOf(current) : undefined;
   useEffect(() => {
     if (!currentClip || !status.playing) return;
-    if (switching.current) {
-      if (status.currentTime > inPoint(currentClip) + 1) return; // still the previous file's status
-      switching.current = false;
-    }
     // Only a real out point is enforced. An untrimmed take ends with its file, which
     // didJustFinish handles: the stored length is approximate (whole seconds on older
     // takes, 0 for an import whose length couldn't be read) and cut the tail short.
-    if (currentClip.end === undefined || currentClip.end >= currentClip.sec) return;
-    if (status.currentTime < currentClip.end) return;
+    // The loaded file's own duration decides whether a set end is short of that.
+    if (!cutsEnd(currentClip, player.duration)) return;
+    // The player's live position, never the status's: the status only ticks every
+    // 100ms and, right after a switch, still carries the previous take's position —
+    // which read as "past the out point" of a new take trimmed short and paused it
+    // the moment it started.
+    if (player.currentTime < currentClip.end) return;
     player.seekTo(inPoint(currentClip));
     if (!currentClip.loop) player.pause(); // parked at the in point, so the next tap replays the clip
   }, [currentClip, status.currentTime, status.playing, player]);
@@ -210,7 +216,6 @@ export function RecordingsList({
     }
     applyAudioMode({ playsInSilentMode: true, allowsRecording: false });
     player.replace(resolveRecordingUri(r.uri));
-    switching.current = true;
     // expo-audio exposes this as a native setter, not hook state — same exemption
     // as drone.tsx. Pitch correction keeps a half-speed take in tune.
     // eslint-disable-next-line react-hooks/immutability
@@ -279,6 +284,7 @@ export function RecordingsList({
   const openTrim = (r: Recording) => {
     setTrimId(r.id);
     setTrim({ start: inPoint(r), end: outPoint(r) });
+    setEndSet(r.end !== undefined);
     setLoopDraft(!!r.loop);
   };
   const closeTrim = () => {
@@ -287,8 +293,13 @@ export function RecordingsList({
     setDragging(false);
   };
   const saveTrim = (r: Recording) => {
-    // a draft spanning the whole file is "no trim", not a trim that happens to fit
-    if (trim) store.updateRecording(r.id, { ...(trim.start <= 0 && trim.end >= r.sec ? clearTrim() : trim), loop: loopDraft });
+    // a draft spanning the whole file is "no trim", not a trim that happens to fit;
+    // an out point the user never moved is saved as none, so the take still plays
+    // to its real end rather than the stored whole-second length
+    if (trim) {
+      const end = endSet ? trim.end : undefined;
+      store.updateRecording(r.id, { ...(trim.start <= 0 && end === undefined ? clearTrim() : { start: trim.start, end }), loop: loopDraft });
+    }
     closeTrim();
   };
 
@@ -303,9 +314,9 @@ export function RecordingsList({
     setDragging(true);
     const c = clipOf(r);
     grabbed.current = nearestHandle(c, x, sheetWaveW);
-    setTrim(dragHandle(c, grabbed.current, x, sheetWaveW));
+    editTrim(dragHandle(c, grabbed.current, x, sheetWaveW));
   };
-  const onTrimMove = (r: Recording, x: number) => setTrim(dragHandle(clipOf(r), grabbed.current, x, sheetWaveW));
+  const onTrimMove = (r: Recording, x: number) => editTrim(dragHandle(clipOf(r), grabbed.current, x, sheetWaveW));
 
   // starred ("my reference take") float to the top — the same takes Compare and
   // the Progress "hear the difference" section reach for, so the order matches.
@@ -496,17 +507,21 @@ export function RecordingsList({
         onMove={(x) => trimRec && onTrimMove(trimRec, x)}
         onRelease={() => setDragging(false)}
         dragging={dragging}
-        onNudge={(handle, steps) => trimClip && setTrim(nudgeTrim(trimClip, handle, steps))}
+        onNudge={(handle, steps) => trimClip && editTrim(nudgeTrim(trimClip, handle, steps))}
         // the player's own position, not the last (up to 100ms old) status tick
-        onHere={currentId === trimId && trimClip ? (handle) => setTrim(setFromPlayhead(trimClip, handle, player.currentTime)) : undefined}
+        onHere={currentId === trimId && trimClip ? (handle) => editTrim(setFromPlayhead(trimClip, handle, player.currentTime)) : undefined}
         playing={currentId === trimId && status.playing}
         // the native-setter exemption toggle already carries (shouldCorrectPitch)
         // eslint-disable-next-line react-hooks/immutability
         onTogglePlay={() => trimRec && toggle(trimRec)}
         loop={loopDraft}
         onToggleLoop={() => setLoopDraft((l) => !l)}
-        onTrimSilence={(t) => trimClip && setTrim(snapTo(trimClip, t))}
-        onClear={() => trimRec && setTrim({ start: 0, end: trimRec.sec })}
+        onTrimSilence={(t) => trimClip && editTrim(snapTo(trimClip, t))}
+        onClear={() => {
+          if (!trimRec) return;
+          setTrim({ start: 0, end: trimRec.sec });
+          setEndSet(false);
+        }}
         onShare={() => trimRec && share(trimRec)}
         onCancel={closeTrim}
         onSave={() => trimRec && saveTrim(trimRec)}

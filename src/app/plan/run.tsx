@@ -22,10 +22,15 @@ import { dateKey, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function PlanRunner() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  // tab screens stay mounted — key-remount resets the run state when a
-  // different plan is started, else the old run's segment index leaks in
-  return <Runner key={id} id={id} />;
+  // `run`: a token every fresh start passes (resuming passes none). Tab screens
+  // stay mounted, so the key-remount is what gives each start a clean run —
+  // without it a second start of the same routine reopened the finished one's
+  // review / ended state. The last token is kept so a resume (no token) never
+  // remounts the run in flight.
+  const { id, run } = useLocalSearchParams<{ id: string; run?: string }>();
+  const [token, setToken] = useState(run ?? '');
+  if (run && run !== token) setToken(run);
+  return <Runner key={`${id}:${run || token}`} id={id} />;
 }
 
 function Runner({ id }: { id: string }) {
@@ -148,7 +153,8 @@ function Runner({ id }: { id: string }) {
     // …and the tab in view only applies to a piece that is on it, same as Practice
     const on = runInst && onInstrument(segPiece ?? {}, runInst) ? runInst : segPiece && !onInstrument(segPiece, inst) ? undefined : inst || undefined;
     // filed under the day the segment began, so a run across midnight doesn't empty the evening
-    const sessId = store.logMinutes(min, seg.focus.name, seg.focus.kind, dateKey(new Date(Date.now() - sec * 1000)), plan.id, on);
+    const segStart = Date.now() - sec * 1000;
+    const sessId = store.logMinutes(min, seg.focus.name, seg.focus.kind, dateKey(new Date(segStart)), plan.id, on, undefined, segStart);
     logged.current = { min: logged.current.min + min, lastId: sessId };
     return sessId;
   };

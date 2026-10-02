@@ -6,7 +6,7 @@ import { Calendar } from '@/components/calendar';
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { Text } from '@/components/text';
 import { Sheet, useInstrumentFilter } from '@/components/ui';
-import { instrumentChoices } from '@/lib/instrument-math';
+import { instrumentChoices, sessionInstrument } from '@/lib/instrument-math';
 import { QUICK_META, QUICK_TITLE } from '@/lib/session-math';
 import { dayLabel, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -56,7 +56,8 @@ export function LogPastModal({ visible, onClose, defaultDate }: { visible: boole
       const per = Math.floor(min / pastFoci.length);
       pastFoci.forEach((f, i) => {
         const m = i === 0 ? min - per * (pastFoci.length - 1) : per;
-        if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate, undefined, picks[f.name] || inst || undefined);
+        // the tab in view only applies to a piece that is on it, same as Practice
+        if (m > 0) store.logMinutes(m, f.name, f.kind, pastDate, undefined, sessionInstrument(store.allPieces.find((p) => p.name === f.name), inst, picks[f.name]));
       });
     }
     store.showToast(store.t('logPast.addedToast', { min, day: dayLabel(pastDate, store.today, store.t, store.lang) }));
