@@ -466,7 +466,8 @@ export function TickDot({ bpm, on, color }: { bpm: number; on: boolean; color: s
 
 /** Quietest bar we draw — silence still reads as a line, not as nothing. */
 export const LEVEL_FLOOR = 0.05;
-const SAMPLE_MS = 90;
+/** Level sample spacing — use-take-recorder checks a take's samples cover its length. */
+export const SAMPLE_MS = 90;
 /**
  * ~1.8s of floor from the very first sample before we stop believing the mic.
  * Counted only until the mic proves itself once: a rest, a soft passage or a

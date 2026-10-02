@@ -36,7 +36,9 @@ function useAddScore(piece: string) {
     if (busy) return;
     setBusy(true);
     try {
-      store.addAttachments(await pickAttachments(piece));
+      const { added, error } = await pickAttachments(piece);
+      store.addAttachments(added);
+      if (error) throw error; // the files that did import are kept
     } catch (e) {
       if (e instanceof NoPdfRendererError) store.showToast(store.t('score.noPdfRenderer'));
       else if (e instanceof UnsupportedFileError) store.showToast(store.t('score.unsupported'));

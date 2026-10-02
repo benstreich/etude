@@ -613,6 +613,7 @@ export function ActionChip({
     <Pressable
       hitSlop={5}
       disabled={disabled}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       testID={testID}

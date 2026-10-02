@@ -180,9 +180,20 @@ export default function Practice() {
 
   // a take recorded elsewhere — phone voice memo, interface, another app — filed
   // under the same focus the session is about
+  // under the same guard and toasts as the piece page's import
+  const [importing, setImporting] = useState(false);
   const importTakes = async () => {
-    if (!focus) return;
-    for (const t of await pickRecordings()) store.addRecording(focus.name, t.uri, t.sec, undefined, t.name);
+    if (!focus || importing) return;
+    setImporting(true);
+    try {
+      const { added, error } = await pickRecordings();
+      for (const t of added) store.addRecording(focus.name, t.uri, t.sec, undefined, t.name);
+      if (error) store.showToast(store.t('piece.importFailed'));
+    } catch {
+      store.showToast(store.t('piece.importFailed'));
+    } finally {
+      setImporting(false);
+    }
   };
 
   useEffect(() => {
@@ -678,7 +689,7 @@ export default function Practice() {
         }}
       />
       <MetronomeSheet visible={metroOpen} onClose={() => setMetroOpen(false)} />
-      <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} onImportTake={importTakes} recording={recording} />
+      <SessionReview session={review} onClose={closeReview} onToggleTake={toggleRec} onImportTake={importTakes} importing={importing} recording={recording} />
     </View>
   );
 }

@@ -4,7 +4,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
@@ -62,6 +62,7 @@ export default function PieceDetail() {
   const [targetStars, setTargetStars] = useState<number | undefined>();
   const [editSess, setEditSess] = useState<Session | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const piece = store.allPieces.find((p) => p.id === id); // techniques live here too (#83)
   // recording without a session running: the same recorder the practice screen
@@ -121,12 +122,33 @@ export default function PieceDetail() {
     setTempoOpen(true);
   };
   // takes recorded outside the app: pick, copy in, list them like any other recording
+  // copying can take seconds a file; the guard stops a second tap importing them twice
   const importTakes = async () => {
+    if (importing) return;
+    setImporting(true);
     try {
-      for (const t of await pickRecordings()) store.addRecording(piece.name, t.uri, t.sec, undefined, t.name);
+      const { added, error } = await pickRecordings();
+      for (const t of added) store.addRecording(piece.name, t.uri, t.sec, undefined, t.name);
+      if (error) store.showToast(store.t('piece.importFailed'));
     } catch {
       store.showToast(store.t('piece.importFailed'));
+    } finally {
+      setImporting(false);
     }
+  };
+  // Discard sits a thumb's width from Pause and deletes the audio outright — ask first
+  const confirmDiscard = () => {
+    const title = store.t('practice.discardTakeTitle');
+    const body = store.t('practice.discardTakeMessage');
+    // ponytail: Alert.alert is a no-op on web; window.confirm covers it (see practice.tsx)
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title} ${body}`)) take.discard();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: store.t('practice.keepRecording'), style: 'cancel' },
+      { text: store.t('practice.discardTake'), style: 'destructive', onPress: take.discard },
+    ]);
   };
   const saveTempo = () => {
     const parse = (t: string) => {
@@ -307,7 +329,14 @@ export default function PieceDetail() {
             testID="piece-record"
             onPress={take.toggle}
           />
-          {!take.recording && <ActionChip icon={() => null} label={store.t('piece.importTake')} onPress={importTakes} />}
+          {!take.recording && (
+            <ActionChip
+              icon={() => null}
+              label={store.t(importing ? 'piece.importing' : 'piece.importTake')}
+              disabled={importing}
+              onPress={importTakes}
+            />
+          )}
           {recordings.length >= 2 && !take.recording && (
             <ActionChip
               icon={() => null}
@@ -331,7 +360,7 @@ export default function PieceDetail() {
               <Pressable hitSlop={8} onPress={take.pauseResume}>
                 <Text style={s.compareLink}>{take.paused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}</Text>
               </Pressable>
-              <Pressable hitSlop={8} onPress={take.discard}>
+              <Pressable hitSlop={8} onPress={confirmDiscard}>
                 <Text style={[s.compareLink, { color: C.sub }]}>{store.t('practice.discardTake')}</Text>
               </Pressable>
             </View>
