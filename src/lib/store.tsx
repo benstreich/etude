@@ -9,7 +9,7 @@ import { removeFolderIn, renameFolderIn, validFolderName } from './folder-math';
 import type { LadderConfig } from './ladder-math';
 import { keepInstruments, pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
-import { runAutoBackup } from './backup';
+import { missingFiles, runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
 import { success } from './haptics';
 import { resolveRecordingUri, toStoredUri } from './doc-path';
@@ -297,7 +297,8 @@ type Store = State & {
   /** Past sessions keep their `spot` id; only the spot itself goes. */
   removeSpot: (pieceId: string, spotId: string) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
-  restoreBackup: (stateObj: object) => void;
+  /** Replaces the state; returns how many recordings and scores were dropped because their files are gone. */
+  restoreBackup: (stateObj: object) => number;
   /** The persisted state only — what a backup file should contain. */
   backupState: () => State;
   addPiece: (name: string, by?: string, instrument?: string, artwork?: string) => void;
@@ -341,6 +342,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // false until the saved blob was actually read: after a failed read the seed
+  // on screen must never be written over the user's real data
+  const canPersist = useRef(false);
   // Reactive clock: without it, render-body dates freeze (react-compiler caches
   // zero-dep expressions) and the whole UI shows yesterday after midnight.
   const [now, setNow] = useState(() => Date.now());
@@ -385,7 +389,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           raw = await legacy.getItem(KEY);
         } catch {}
       }
-      const next = migrate(raw, seed());
+      const fresh = seed();
+      const next = migrate(raw, fresh);
+      // migrate hands back the seed itself for an unreadable blob — keep a copy
+      // aside before the first save replaces it, so it can still be rescued
+      if (raw && next === fresh) await Storage.setItem(`${KEY}.corrupt-${Date.now()}`, raw).catch(() => {});
+      canPersist.current = true;
       // first hydration stamps the install; upgrades from before the field count from the upgrade
       setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });
     };
@@ -394,10 +403,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (state)
-      Storage.setItem(KEY, JSON.stringify(state)).catch(() =>
-        setToast(tr('toast.saveFailed'))
-      );
+    if (state && canPersist.current)
+      Storage.setItem(KEY, JSON.stringify(state)).catch(() => {
+        setToast(tr('toast.saveFailed'));
+        clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(null), 2400);
+      });
   }, [state]);
 
   // keep the scheduled daily notification in sync with the setting; also runs
@@ -425,7 +436,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
   useEffect(() => {
-    if (stateRef.current && autoBackupDays > 0)
+    // a seed shown after a failed read would overwrite today's real auto backup
+    if (stateRef.current && canPersist.current && autoBackupDays > 0)
       runAutoBackup(stateRef.current, autoBackupDays, dateKey(new Date(now)));
   }, [hydrated, autoBackupDays, now]);
 
@@ -949,7 +961,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSessionNote,
     updateSession,
     updatePiece,
-    restoreBackup: (stateObj: object) => setState(migrate(JSON.stringify(stateObj), seed())),
+    restoreBackup: (stateObj: object) => {
+      // a session in flight when the backup was taken is long over — reviving it
+      // would log its minutes under today
+      const next = { ...migrate(JSON.stringify(stateObj), seed()), liveSession: null };
+      // an auto backup carries no files, and anything deleted since is gone from
+      // disk: entries pointing at nothing would only show blank players and pages
+      const gone = missingFiles([...next.recordings.map((r) => r.uri), ...next.attachments.flatMap((a) => a.files)]);
+      const recordings = next.recordings.filter((r) => !gone.has(r.uri));
+      const attachments = next.attachments.filter((a) => !a.files.some((f) => gone.has(f)));
+      // an explicit restore is the user's data now, even if the launch read failed
+      canPersist.current = true;
+      setState({ ...next, recordings, attachments });
+      return next.recordings.length - recordings.length + next.attachments.length - attachments.length;
+    },
     backupState: () => state,
     addPiece,
     addTechnique,
