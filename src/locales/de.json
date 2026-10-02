@@ -12,8 +12,6 @@
     "nextMonth": "Nächster Monat",
     "back": "Zurück",
     "starsOf": "%{n} von 5 Sternen",
-    "decreaseBy": "Um %{n} verringern",
-    "increaseBy": "Um %{n} erhöhen",
     "clearSearch": "Suche löschen"
   },
   "tabs": {
@@ -47,7 +45,6 @@
     "recordingMoved": "Nach %{piece} verschoben"
   },
   "appearance": {
-    "backToSettings": "‹ Einstellungen",
     "title": "Darstellung",
     "theme": "Design",
     "system": "System",
@@ -74,7 +71,7 @@
     "accentOcean": "Ozean",
     "accentPlum": "Pflaume",
     "accentSlate": "Schiefer",
-    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Auf manchen Android-Geräten schließt sich die App kurz, wenn sich das Symbol ändert.",
+    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Das Symbol wechselt, sobald du die App verlässt; auf manchen Android-Geräten dauert das einen Moment.",
     "previewSample": "So wird sich Étude lesen."
   },
   "settings": {
@@ -189,7 +186,7 @@
     "moveDown": "Nach unten",
     "stagesHint": "In Reihenfolge, von der ersten bis zur letzten. Leere ein Feld, um es zu entfernen; mindestens zwei Phasen.",
     "streaksHint": "Streng beendet die Serie nach einem verpassten Tag; Entspannt verzeiht einen einzelnen verpassten Tag. Pausentage zählen nie dagegen, und das Nachtragen eines vergangenen Tages belebt die Serie in beiden Fällen wieder.",
-    "notifBlocked": "Mitteilungen für Etude sind aus — tippen, um die Systemeinstellungen zu öffnen.",
+    "notifBlocked": "Mitteilungen für Étude sind aus — tippen, um die Systemeinstellungen zu öffnen.",
     "autoBackupHint": "Speichert deine Einheiten, Stücke und Einstellungen im Speicher der App und behält die letzten drei. Aufnahmen und Notenseiten sind nicht enthalten — „Alles sichern“ deckt sie beim Handywechsel ab.",
     "save": "Speichern",
     "about": "Über Étude",
@@ -208,7 +205,8 @@
     "resetLayoutTitle": "Bereiche zurücksetzen?",
     "resetLayoutBody": "Schalter und Reihenfolge gehen auf den Standard zurück.",
     "resetLayoutConfirm": "Zurücksetzen",
-    "errStagesDuplicate": "Gib jeder Stufe einen eigenen Namen"
+    "errStagesDuplicate": "Gib jeder Stufe einen eigenen Namen",
+    "remindAt": "Erinnern um %{time}"
   },
   "home": {
     "goodMorning": "Guten Morgen",
@@ -1091,7 +1089,6 @@
   },
   "learn": {
     "title": "Übewissen",
-    "back": "‹ Werkzeuge",
     "intro": "Was die Forschung wirklich über das Üben sagt — auch dort, wo die populäre Fassung übertreibt. Jede Aussage verlinkt ihre Quelle.",
     "groupPractice": "Wie man übt",
     "groupLearning": "Wie Lernen funktioniert",

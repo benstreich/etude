@@ -333,7 +333,8 @@ type Store = State & {
   addAttachments: (list: Attachment[]) => void;
   renameAttachment: (id: string, name: string) => void;
   deleteAttachment: (id: string) => void;
-  updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
+  /** stageMap: old stage index → new one, from stageRemap, when the stage list loses an entry */
+  updateSettings: (patch: Partial<Settings & { dailyGoal: number }>, stageMap?: number[]) => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -413,19 +414,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // keep the scheduled daily notification in sync with the setting; also runs
   // on app start, so a permission granted later in system settings self-heals
+  // lang is a dep so the notification text and channel name follow a language
+  // switch (this runs after the locale effect above). Only a changed reminder
+  // or sound toasts on denial — not the launch resync, not a language switch.
   const reminder = state?.reminder;
   const reminderSound = state?.sounds ?? true;
+  const reminderSynced = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (reminder === undefined) return;
+    const key = `${reminder}|${reminderSound}`;
+    const changed = reminderSynced.current !== undefined && reminderSynced.current !== key;
+    reminderSynced.current = key;
     syncReminder(reminder, reminderSound)
       .then((ok) => {
-        if (ok) return;
+        if (ok || !changed) return;
         setToast(tr('toast.enableNotifications'));
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(null), 2400);
       })
       .catch(() => {});
-  }, [reminder, reminderSound]);
+  }, [reminder, reminderSound, lang]);
 
   // auto backup, checked once per hydration / foreground / midnight / setting
   // change — not per state change, so it's not a sync dir scan on every edit
@@ -899,26 +907,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t('toast.scoreDeleted'));
   };
 
-  const updateSettings: Store['updateSettings'] = (patch) => {
+  const updateSettings: Store['updateSettings'] = (patch, stageMap) => {
     setState((s) => {
       if (!s) return s;
       const next = { ...s, ...patch };
-      // stages changed → clamp the index so none dangles, and rescale pct with it,
-      // otherwise the bar keeps the old scale while the label moves (e.g. 3→4
-      // stages left a "Polishing" piece showing 100%)
       // a removed instrument must not linger as a piece tag: it would hide the piece
       // from every remaining tab with no chip left to untick it
       if (patch.instruments) {
         const kept = patch.instruments;
         next.pieces = next.pieces.map((p) => ({ ...p, ...keepInstruments(p, kept) }));
       }
+      // stages changed → clamp the index so none dangles, and rescale pct with it,
+      // otherwise the bar keeps the old scale while the label moves (e.g. 3→4
+      // stages left a "Polishing" piece showing 100%). A removed stage remaps
+      // later pieces down with it, or they'd silently jump a stage ahead.
       if (patch.stages) {
         const n = patch.stages.length;
         next.pieces = next.pieces.map((p) => {
-          const stage = Math.min(p.stage, n - 1);
+          const stage = Math.min(stageMap?.[p.stage] ?? p.stage, n - 1);
           return { ...p, stage, pct: stagePct(stage, n), stageLog: stage === p.stage ? p.stageLog : appendStageLog(p.stageLog, dateKey(), stage, p.stage) };
         });
       }
+      // looser streak rules can lengthen past runs; best must never trail the current streak
+      if (patch.breakDays || patch.streakMode)
+        next.bestStreak = Math.max(s.bestStreak, computeBestStreak(next.minutesByDate, next.breakDays, graceFor(next.streakMode)));
       return next;
     });
   };

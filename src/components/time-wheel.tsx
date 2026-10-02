@@ -10,6 +10,7 @@ import { F, themed, useC, type T } from '@/lib/theme';
 const ROW = 40;
 const VISIBLE = 3; // rows shown; the wheel is padded by one row top and bottom
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 
 function Wheel({ items, value, onPick, fmt }: { items: number[]; value: number; onPick: (v: number) => void; fmt: (v: number) => string }) {
@@ -44,7 +45,8 @@ function Wheel({ items, value, onPick, fmt }: { items: number[]; value: number; 
   );
 }
 
-export function TimeWheel({ value, onChange }: { value: { hour: number; minute: number }; onChange: (v: { hour: number; minute: number }) => void }) {
+/** h24: a 0–23 hour wheel with no AM/PM, for locales that read the 24-hour clock. */
+export function TimeWheel({ value, onChange, h24 = false }: { value: { hour: number; minute: number }; onChange: (v: { hour: number; minute: number }) => void; h24?: boolean }) {
   const s = useS();
   const C = useC();
   const pm = value.hour >= 12;
@@ -55,16 +57,22 @@ export function TimeWheel({ value, onChange }: { value: { hour: number; minute: 
   return (
     <View style={s.wrap}>
       <View style={[s.selection, { borderColor: C.inputBorder }]} pointerEvents="none" />
-      <Wheel items={HOURS} value={h12} onPick={setH12} fmt={(v) => String(v)} />
+      {h24 ? (
+        <Wheel items={HOURS_24} value={value.hour} onPick={(h) => onChange({ ...value, hour: h })} fmt={(v) => String(v).padStart(2, '0')} />
+      ) : (
+        <Wheel items={HOURS} value={h12} onPick={setH12} fmt={(v) => String(v)} />
+      )}
       <Text style={s.colon}>:</Text>
       <Wheel items={MINUTES} value={value.minute} onPick={(m) => onChange({ ...value, minute: m })} fmt={(v) => String(v).padStart(2, '0')} />
-      <View style={s.ampm}>
-        {[false, true].map((v) => (
-          <Pressable key={String(v)} style={[s.ampmBtn, pm === v && { backgroundColor: C.ink }]} onPress={() => setPm(v)}>
-            <Text style={[s.ampmText, pm === v && { color: C.bg }]}>{v ? 'PM' : 'AM'}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {!h24 && (
+        <View style={s.ampm}>
+          {[false, true].map((v) => (
+            <Pressable key={String(v)} accessibilityRole="button" accessibilityState={{ selected: pm === v }} style={[s.ampmBtn, pm === v && { backgroundColor: C.ink }]} onPress={() => setPm(v)}>
+              <Text style={[s.ampmText, pm === v && { color: C.bg }]}>{v ? 'PM' : 'AM'}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

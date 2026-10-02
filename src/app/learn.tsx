@@ -8,7 +8,7 @@ import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { Card, Overline } from '@/components/ui';
+import { BackLink, Card, Overline } from '@/components/ui';
 import { ENTRIES, GROUPS, type Entry, type EvidenceGroup, type StatHook } from '@/lib/evidence';
 import { fmtNum } from '@/lib/i18n';
 import { consistency, interleaving } from '@/lib/stats-math';
@@ -91,9 +91,7 @@ export default function Learn() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <Pressable hitSlop={8} onPress={() => router.back()}>
-        <Text style={s.back}>{store.t('learn.back')}</Text>
-      </Pressable>
+      <BackLink label={store.t('tabs.tools')} onPress={() => router.back()} />
       <Text style={s.title}>{store.t('learn.title')}</Text>
       <Text style={s.intro}>{store.t('learn.intro')}</Text>
       {GROUPS.map((g) => (
@@ -108,8 +106,7 @@ export default function Learn() {
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 48 },
-  back: { fontFamily: F.body, fontSize: fs(15), color: C.sub, marginBottom: 12 },
-  title: { fontFamily: F.head, fontSize: fs(30), color: C.ink, lineHeight: fs(37) },
+  title: { marginTop: 12, fontFamily: F.head, fontSize: fs(30), color: C.ink, lineHeight: fs(37) },
   intro: { fontFamily: F.body, fontSize: fs(14), color: C.subStrong, lineHeight: fs(21), marginTop: 8, marginBottom: 8 },
   group: { marginTop: 24, gap: 12 },
   entry: { padding: 18, gap: 8 },
@@ -125,5 +122,5 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sources: { gap: 10, marginTop: 2 },
   source: { gap: 2 },
   srcTitle: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.accent, lineHeight: fs(19) },
-  srcMeta: { fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary, lineHeight: fs(17) },
+  srcMeta: { fontFamily: F.body, fontSize: fs(11.5), color: C.subStrong, lineHeight: fs(17) },
 }));

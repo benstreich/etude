@@ -24,7 +24,7 @@ try {
 
 // parseReminderTime/reminderLabel live in their own react-native-free file so
 // scripts/check-reminders.ts can import them; re-exported here for callers.
-export { parseReminderTime, reminderLabel } from './reminder-time';
+export { parseReminderTime, reminderDisplay, reminderLabel } from './reminder-time';
 
 // Re-syncs the daily reminder to match the setting. Runs on every app start and
 // on every change, so a permission granted later in system settings self-heals.
@@ -33,27 +33,44 @@ export { parseReminderTime, reminderLabel } from './reminder-time';
 // by base filename, which is all the plugin exposes. `undefined` falls back to
 // the system sound when the user has turned the app's cues off.
 const PING = 'cue_reminder.wav';
+const REMINDER_ID = 'daily-reminder';
 
 export async function syncReminder(reminder: string, sounds = true): Promise<boolean> {
   if (Platform.OS === 'web' || !Notifications) return true; // ponytail: no web notifications — mobile-first app; null in Expo Go Android
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // cancel only the daily reminder — a pending break-over notification (a
+  // time-interval trigger) must survive. Cancelling every non-interval request
+  // also clears reminders scheduled before they had a fixed identifier.
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter((r) => (r.trigger as { type?: string } | null)?.type !== 'timeInterval')
+      .map((r) => Notifications!.cancelScheduledNotificationAsync(r.identifier))
+  );
   const time = parseReminderTime(reminder);
   if (reminder === 'Off' || !time) return true;
   const { granted } = await Notifications.requestPermissionsAsync();
   if (!granted) return false;
-  if (Platform.OS === 'android')
-    await Notifications.setNotificationChannelAsync('reminders', {
+  // Android fixes a channel's sound once it exists, so each sound gets its own
+  // channel; the unused one and the legacy 'reminders' channel are removed
+  const channelId = sounds ? 'reminders-cue' : 'reminders-default';
+  if (Platform.OS === 'android') {
+    await Promise.all(
+      ['reminders', sounds ? 'reminders-default' : 'reminders-cue'].map((id) => Notifications!.deleteNotificationChannelAsync(id))
+    );
+    await Notifications.setNotificationChannelAsync(channelId, {
       name: tr('reminders.channelName'),
       importance: Notifications.AndroidImportance.DEFAULT,
       sound: sounds ? PING : 'default',
     });
+  }
   await Notifications.scheduleNotificationAsync({
+    identifier: REMINDER_ID,
     content: { title: tr('reminders.notifTitle'), body: tr('reminders.notifBody'), sound: sounds ? PING : 'default' },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: time.hour,
       minute: time.minute,
-      channelId: Platform.OS === 'android' ? 'reminders' : undefined,
+      channelId: Platform.OS === 'android' ? channelId : undefined,
     },
   });
   return true;

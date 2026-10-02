@@ -6,7 +6,7 @@ import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, w
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/text';
-import { Bar, Card, Overline, ScreenTitle, Switch } from '@/components/ui';
+import { BackLink, Bar, Card, Overline, ScreenTitle, Switch } from '@/components/ui';
 import { useStore } from '@/lib/store';
 import {
   ACCENTS,
@@ -14,6 +14,7 @@ import {
   FONT_SCALES,
   themed,
   useC,
+  useTheme,
   type AccentName,
   type RadiusMode,
   type T,
@@ -34,7 +35,7 @@ function Chip({ label, selected, onPress, testID }: { label: string; selected: b
   const s = useS();
   const C = useC();
   return (
-    <Pressable testID={testID} style={[s.chip, selected && s.chipSel]} onPress={onPress}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ selected }} style={[s.chip, selected && s.chipSel]} onPress={onPress}>
       <Text style={[s.chipText, selected && { color: C.accent }]}>{label}</Text>
     </Pressable>
   );
@@ -45,10 +46,14 @@ const SWATCH_EASE = Easing.bezier(0.2, 1.3, 0.4, 1);
 /** An accent swatch. The selected ring draws in and the dot dips to 0.88 and settles, both on the tap. */
 function AccentSwatch({ color, selected, label, onPress }: { color: string; selected: boolean; label: string; onPress: () => void }) {
   const s = useS();
-  const C = useC();
+  const { C, reduceMotion } = useTheme();
   const ring = useSharedValue(selected ? 1 : 0);
   const dip = useSharedValue(1);
   useEffect(() => {
+    if (reduceMotion) {
+      ring.value = selected ? 1 : 0;
+      return;
+    }
     ring.value = withTiming(selected ? 1 : 0, { duration: 200, easing: SWATCH_EASE });
     if (selected) dip.value = withSequence(withTiming(0.88, { duration: 90 }), withTiming(1, { duration: 110, easing: SWATCH_EASE }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,7 +61,7 @@ function AccentSwatch({ color, selected, label, onPress }: { color: string; sele
   const ringStyle = useAnimatedStyle(() => ({ borderColor: interpolateColor(ring.value, [0, 1], ['transparent', C.ink]) }));
   const dotStyle = useAnimatedStyle(() => ({ transform: [{ scale: dip.value }] }));
   return (
-    <Pressable accessibilityLabel={label} onPress={onPress}>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress}>
       <Animated.View style={[s.dotRing, ringStyle]}>
         <Animated.View style={[s.dot, { backgroundColor: color }, dotStyle]} />
       </Animated.View>
@@ -73,9 +78,7 @@ export default function Appearance() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
-      <Pressable hitSlop={8} onPress={() => router.back()}>
-        <Text style={s.back}>{store.t('appearance.backToSettings')}</Text>
-      </Pressable>
+      <BackLink label={store.t('tabs.settings')} onPress={() => router.back()} />
       <ScreenTitle>{store.t('appearance.title')}</ScreenTitle>
 
       {/* A specimen of the knobs below — accent, corners, text size — rather than a
@@ -153,7 +156,6 @@ export default function Appearance() {
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40, gap: 22 },
-  back: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.accent },
   sectionLabel: { marginBottom: 10 },
   previewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   previewGreeting: { fontFamily: F.head, fontSize: fs(24), color: C.ink },

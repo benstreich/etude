@@ -432,7 +432,7 @@ export function BackLink({ label, onPress }: { label: string; onPress: () => voi
   const s = useS();
   const C = useC();
   return (
-    <Pressable hitSlop={8} onPress={onPress} style={s.backLink}>
+    <Pressable hitSlop={8} accessibilityRole="button" onPress={onPress} style={s.backLink}>
       <View style={{ transform: [{ scaleX: -1 }] }}>
         <ChevronIcon color={C.accent} size={12} />
       </View>

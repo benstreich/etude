@@ -62,12 +62,18 @@ export function Onboarding() {
     return () => sub.remove();
   }, [step]);
 
+  // the field only clamps on blur, so Continue/Skip with the keyboard up must clamp too
+  const clampGoal = (g: number) => Math.min(300, Math.max(1, g || store.dailyGoal));
+
   const finish = (reminder: string) => {
-    const list = [...instruments, ...(other?.trim() ? [other.trim()] : [])];
+    const extra = other?.trim();
+    // "Other…" naming a chip already picked would duplicate the entry (and its key)
+    const dup = !!extra && instruments.some((x) => x.toLowerCase() === extra.toLowerCase());
+    const list = [...instruments, ...(extra && !dup ? [extra] : [])];
     store.updateSettings({
       onboarded: true,
       instruments: list,
-      dailyGoal: Math.max(1, goal),
+      dailyGoal: clampGoal(goal),
       reminder,
       ...(name.trim() ? { name: name.trim() } : {}),
     });
@@ -80,7 +86,7 @@ export function Onboarding() {
           <ProgressDot key={i} active={i === step} />
         ))}
       </View>
-      <Pressable testID="onboarding-skip" hitSlop={10} onPress={() => finish('Off')}>
+      <Pressable testID="onboarding-skip" hitSlop={10} accessibilityRole="button" onPress={() => finish(reminder)}>
         <Text style={s.skip}>{store.t('onboarding.skip')}</Text>
       </Pressable>
     </View>
@@ -129,13 +135,15 @@ export function Onboarding() {
                     <Pressable
                       key={inst}
                       testID={`onboarding-inst-${inst}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: sel }}
                       style={[s.chip, sel && s.chipSel]}
                       onPress={() => setInstruments((l) => (sel ? l.filter((x) => x !== inst) : [...l, inst]))}>
                       <Text style={[s.chipText, sel && s.chipTextSel]}>{store.t(`onboarding.inst${inst}`)}</Text>
                     </Pressable>
                   );
                 })}
-                <Pressable style={[s.chip, other !== null && s.chipSel]} onPress={() => setOther(other === null ? '' : null)}>
+                <Pressable accessibilityRole="button" accessibilityState={{ selected: other !== null }} style={[s.chip, other !== null && s.chipSel]} onPress={() => setOther(other === null ? '' : null)}>
                   <Text style={[s.chipText, other !== null && s.chipTextSel]}>{store.t('onboarding.other')}</Text>
                 </Pressable>
               </View>
@@ -191,7 +199,7 @@ export function Onboarding() {
                 {GOALS.map((g) => {
                   const sel = goal === g;
                   return (
-                    <Pressable testID={`onboarding-goal-${g}`} key={g} style={[s.chip, sel && s.chipSel]} onPress={() => setGoal(g)}>
+                    <Pressable testID={`onboarding-goal-${g}`} key={g} accessibilityRole="button" accessibilityState={{ selected: sel }} style={[s.chip, sel && s.chipSel]} onPress={() => setGoal(g)}>
                       <Text style={[s.chipText, sel && s.chipTextSel]}>{g}</Text>
                     </Pressable>
                   );
@@ -213,7 +221,7 @@ export function Onboarding() {
                   {TIMES.map((tm) => {
                     const sel = time === tm;
                     return (
-                      <Pressable key={tm} style={[s.chip, sel && s.chipSel]} onPress={() => setTime(tm)}>
+                      <Pressable key={tm} accessibilityRole="button" accessibilityState={{ selected: sel }} style={[s.chip, sel && s.chipSel]} onPress={() => setTime(tm)}>
                         <Text style={[s.chipText, sel && s.chipTextSel]}>{store.t(`onboarding.${TIME_KEYS[tm]}`)}</Text>
                       </Pressable>
                     );
@@ -264,7 +272,10 @@ export function Onboarding() {
         ) : step === 4 ? (
           primary(store.t('onboarding.letsGo'), () => finish(reminder), 'onboarding-done')
         ) : (
-          primary(store.t('onboarding.continue'), () => go(step + 1), 'onboarding-continue')
+          primary(store.t('onboarding.continue'), () => {
+            if (step === 2) setGoal(clampGoal(goal));
+            go(step + 1);
+          }, 'onboarding-continue')
         )}
       </View>
     </View>
@@ -327,11 +338,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 40 },
   dotsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { height: 5, borderRadius: r(999) },
-  skip: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.tertiary },
+  skip: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.subStrong },
   wordmark: { fontFamily: F.head, fontSize: fs(34), letterSpacing: -0.5, color: C.ink },
   tagline: { fontFamily: F.body, fontSize: fs(16), lineHeight: fs(24), color: C.sub, maxWidth: 280, textAlign: 'center' },
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 14 },
-  lockText: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, textAlign: 'center' },
+  lockText: { fontFamily: F.body, fontSize: fs(12.5), color: C.subStrong, textAlign: 'center' },
   headerBlock: { paddingTop: 16, paddingBottom: 28, gap: 8 },
   title: { fontFamily: F.head, fontSize: fs(30), letterSpacing: -0.4, color: C.ink },
   subline: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(22.5), color: C.sub },

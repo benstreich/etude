@@ -12,8 +12,6 @@
     "nextMonth": "Next month",
     "back": "Back",
     "starsOf": "%{n} of 5 stars",
-    "decreaseBy": "Decrease by %{n}",
-    "increaseBy": "Increase by %{n}",
     "clearSearch": "Clear search"
   },
   "tabs": {
@@ -47,7 +45,6 @@
     "recordingMoved": "Moved to %{piece}"
   },
   "appearance": {
-    "backToSettings": "‹ Settings",
     "title": "Appearance",
     "theme": "Theme",
     "system": "System",
@@ -74,7 +71,7 @@
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
     "accentSlate": "Slate",
-    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes.",
+    "accentHint": "The app icon and the home-screen widgets follow the accent. The icon changes when you leave the app; on some Android phones that takes a moment.",
     "previewSample": "This is how Étude will read."
   },
   "settings": {
@@ -189,7 +186,7 @@
     "moveDown": "Move down",
     "stagesHint": "In order, first to last. Clear a field to remove it; at least two stages.",
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
-    "notifBlocked": "Notifications are turned off for Etude — tap to open system settings.",
+    "notifBlocked": "Notifications are turned off for Étude — tap to open system settings.",
     "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings and score pages aren’t included — “Back up everything” covers those when switching phones.",
     "save": "Save",
     "about": "About",
@@ -208,7 +205,8 @@
     "resetLayoutTitle": "Reset the sections?",
     "resetLayoutBody": "Your switches and order go back to the default.",
     "resetLayoutConfirm": "Reset",
-    "errStagesDuplicate": "Give each stage its own name"
+    "errStagesDuplicate": "Give each stage its own name",
+    "remindAt": "Remind me at %{time}"
   },
   "home": {
     "goodMorning": "Good morning",
@@ -1091,7 +1089,6 @@
   },
   "learn": {
     "title": "Practice science",
-    "back": "‹ Tools",
     "intro": "What the research actually says about practising — including where the popular version overstates it. Every claim links to its source.",
     "groupPractice": "How to practise",
     "groupLearning": "How learning works",
