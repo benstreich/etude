@@ -437,10 +437,9 @@ export default function Tuner() {
         <Animated.View style={[s.halo, haloStyle]} pointerEvents="none" />
         {heard && (
           <Animated.View style={noteStyle}>
-            <View style={s.noteRow}>
-              <Text style={s.noteName} accessibilityLabel={`${spoken(note.name)} ${note.octave}`}>
-                {note.name.replace('#', '♯')}
-              </Text>
+            {/* one element: labelling the name alone left the octave to be read a second time */}
+            <View style={s.noteRow} accessible accessibilityLabel={`${spoken(note.name)} ${note.octave}`}>
+              <Text style={s.noteName}>{note.name.replace('#', '♯')}</Text>
               <Text style={s.noteOctave}>{note.octave}</Text>
             </View>
           </Animated.View>
