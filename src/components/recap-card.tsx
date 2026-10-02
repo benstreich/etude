@@ -16,6 +16,7 @@ import { monthlyChallenge } from '@/lib/challenge-math';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
 import { mix } from '@/lib/heatmap-math';
 import { fmtNum } from '@/lib/i18n';
+import { instrumentName } from '@/lib/instrument-math';
 import { projection, ratingSummary } from '@/lib/stats-math';
 import { maybeRequestReview } from '@/lib/review';
 import { useStore } from '@/lib/store';
@@ -145,7 +146,7 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
   // shades of the chosen accent, the same ramp as the calendar heatmap
   const barColor = (v: number) => (v > barMax * 0.66 ? C.accent : v > barMax * 0.33 ? mix(C.accent, C.bg, 0.35) : mix(C.accent, C.bg, 0.65));
   // the numbers are every instrument's, so the line names one only when there is only one
-  const instrument = store.instruments.length === 1 ? store.instruments[0] : undefined;
+  const instrument = store.instruments.length === 1 ? instrumentName(store.instruments[0], store.t) : undefined;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
