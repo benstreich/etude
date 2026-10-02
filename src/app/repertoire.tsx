@@ -12,7 +12,7 @@ import { RecordingsList } from '@/components/recordings';
 import { Text } from '@/components/text';
 import { Card, Overline, SearchField, SectionHead, Sheet, stageColor, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { groupByFolder, MAX_FOLDER_NAME, MAX_FOLDERS } from '@/lib/folder-math';
-import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
+import { instrumentName, onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -283,7 +283,7 @@ export default function Repertoire() {
       </View>
       <View style={s.titleRow}>
         <Text style={s.title}>{store.t('tabs.repertoire')}</Text>
-        <Pressable testID="repertoire-add" style={s.fabBtn} onPress={() => setAddOpen(true)}>
+        <Pressable testID="repertoire-add" style={s.fabBtn} accessibilityRole="button" accessibilityLabel={store.t('repertoire.addToRepertoire')} onPress={() => setAddOpen(true)}>
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
@@ -291,7 +291,7 @@ export default function Repertoire() {
       {store.instruments.length > 1 && (
         <View style={s.filterRow}>
           <UnderlineTabs
-            options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
+            options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: instrumentName(i, store.t) }))]}
             value={inst}
             onChange={(v) => store.updateSettings({ instrumentFilter: v })}
           />
@@ -477,7 +477,7 @@ export default function Repertoire() {
                     returnKeyType="done"
                   />
                   {name.length > 0 && (
-                    <Pressable hitSlop={8} onPress={() => setName('')}>
+                    <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.clearSearch')} onPress={() => setName('')}>
                       <Text style={s.clearText}>×</Text>
                     </Pressable>
                   )}
@@ -523,7 +523,7 @@ export default function Repertoire() {
                       const sel = (addInst ?? inst ?? '') === i || (!addInst && !inst && i === store.instruments[0]);
                       return (
                         <Pressable key={i} style={[s.chip, sel && s.chipSel]} onPress={() => setAddInst(i)}>
-                          <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                          <Text style={[s.chipText, sel && { color: C.accent }]}>{instrumentName(i, store.t)}</Text>
                         </Pressable>
                       );
                     })}
@@ -540,7 +540,12 @@ export default function Repertoire() {
                     onSubmitEditing={() => add(creating, artist.trim())}
                     returnKeyType="done"
                   />
-                  <Pressable testID="add-confirm" style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
+                  <Pressable
+                    testID="add-confirm"
+                    style={s.plusBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={store.t('repertoire.addToRepertoire')}
+                    onPress={() => add(creating, artist.trim())}>
                     <Text style={s.plusText}>+</Text>
                   </Pressable>
                 </View>
@@ -574,6 +579,8 @@ export default function Repertoire() {
               />
               <Pressable
                 style={s.plusBtn}
+                accessibilityRole="button"
+                accessibilityLabel={store.t('repertoire.addTechnique')}
                 onPress={() => {
                   addTech(customTech);
                   setCustomTech('');
@@ -642,7 +649,7 @@ export default function Repertoire() {
                               store.updatePiece(menuPiece.id, patch);
                               setMenuPiece({ ...menuPiece, ...patch });
                             }}>
-                            <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                            <Text style={[s.chipText, sel && { color: C.accent }]}>{instrumentName(i, store.t)}</Text>
                           </Pressable>
                         );
                       })}

@@ -4,7 +4,12 @@
     "dayNames": "Sonntag,Montag,Dienstag,Mittwoch,Donnerstag,Freitag,Samstag",
     "today": "Heute",
     "yesterday": "Gestern",
-    "dayLetters": "SMDMDFS"
+    "dayLetters": "SMDMDFS",
+    "back": "Zurück",
+    "starsOf": "%{n} von 5 Sternen",
+    "decreaseBy": "Um %{n} verringern",
+    "increaseBy": "Um %{n} erhöhen",
+    "clearSearch": "Suche löschen"
   },
   "tabs": {
     "home": "Start",
@@ -147,9 +152,15 @@
     "setInstruments": "Lege unten deine Instrumente fest",
     "practice": "Üben",
     "totalPractice": "Übezeit gesamt",
-    "hoursUnit": "Stunden",
+    "hoursUnit": {
+      "one": "Stunde",
+      "other": "Stunden"
+    },
     "bestStreak": "Beste Serie",
-    "daysUnit": "Tage",
+    "daysUnit": {
+      "one": "Tag",
+      "other": "Tage"
+    },
     "yourData": "Deine Daten",
     "backupEverything": "Alles sichern",
     "backupEverythingSub": "Eine Datei: Einheiten, Stücke, Einstellungen",
@@ -230,7 +241,10 @@
     "landsOnDay": "Landet am %{day}",
     "min": "%{min} Min.",
     "addedMinFocus": "%{min} Min. hinzugefügt · %{name}",
-    "addedMinutes": "%{min} Minuten hinzugefügt",
+    "addedMinutes": {
+      "one": "1 Minute hinzugefügt",
+      "other": "%{min} Minuten hinzugefügt"
+    },
     "addedMinDay": "%{min} Min. hinzugefügt · %{name} · %{day}",
     "addedMinutesDay": "%{min} Min. hinzugefügt · %{day}",
     "firstSession": "Deine erste Einheit",
@@ -240,7 +254,8 @@
     "guide3Pre": "Ohne Handy geübt? Trage es unten per ",
     "guide3Post": " ein",
     "quickLogFocus": "Fokus für Schnelleintrag",
-    "nothingSpecific": "Nichts Bestimmtes"
+    "nothingSpecific": "Nichts Bestimmtes",
+    "deleteSession": "„%{title}“ löschen"
   },
   "practice": {
     "session": "Session",
@@ -319,7 +334,10 @@
     "drift": "Schwerpunkt-Verlauf",
     "other": "Andere",
     "consistency": "Regelmäßigkeit",
-    "avgDaysPerWeek": "Ø %{n} Tage / Woche",
+    "avgDaysPerWeek": {
+      "one": "Ø %{n} Tag / Woche",
+      "other": "Ø %{n} Tage / Woche"
+    },
     "daysThisWeek": "%{n} von 7 Tagen diese Woche",
     "ratingOverTime": "Bewertung im Verlauf",
     "last12Weeks": "letzte 12 Wochen",
@@ -355,7 +373,10 @@
     "emptyTitle": "Deine Woche erscheint hier",
     "emptyText": "Trag deine erste Einheit ein und das Diagramm füllt sich.",
     "startPracticing": "Jetzt üben",
-    "daysPracticed": "%{practiced} von %{days} Tagen",
+    "daysPracticed": {
+      "one": "%{practiced} von 1 Tag",
+      "other": "%{practiced} von %{days} Tagen"
+    },
     "less": "weniger",
     "more": "mehr",
     "noSessionDetails": "Keine Einheiten an diesem Tag",
@@ -400,10 +421,16 @@
     "calNotSpeed": "Tempo stimmt, Sterne nicht – am Tempo liegt es nicht.",
     "calHardDays": "Auch zähe Sessions haben dieses Stück vorangebracht.",
     "hearTitle": "Hör den Unterschied",
-    "hearDays": "%{days} Tage dazwischen",
+    "hearDays": {
+      "one": "1 Tag dazwischen",
+      "other": "%{count} Tage dazwischen"
+    },
     "pipelineTitle": "Repertoire-Pipeline",
     "pipelineReady": "%{n} diesen Monat auf %{stage} · %{m} letzten Monat",
-    "pipelineTotal": "%{n} Stücke",
+    "pipelineTotal": {
+      "one": "1 Stück",
+      "other": "%{count} Stücke"
+    },
     "performable": "Heute spielbar",
     "performableCount": "%{n} von %{m} frisch",
     "lastPlayed": "vor %{days} T.",
@@ -501,7 +528,8 @@
     "searchList": "Repertoire durchsuchen",
     "noMatchesTitle": "Keine Treffer",
     "noMatchesText": "Kein Stück und keine Technik passt zu Suche und Instrument.",
-    "clearFilters": "Filter zurücksetzen"
+    "clearFilters": "Filter zurücksetzen",
+    "addTechnique": "Technik hinzufügen"
   },
   "instrumentAsk": {
     "title": "Welches Instrument?",
@@ -581,7 +609,8 @@
     "stopTake": "Stopp",
     "instruments": "Instrumente",
     "instrumentsHint": "Wird darauf geübt. Wähle mehrere, wenn du es auf mehreren spielst.",
-    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen."
+    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
+    "more": "Weitere Optionen"
   },
   "plan": {
     "break": "Pause",
@@ -730,7 +759,9 @@
     "deleteTitle": "Diese Einheit löschen?",
     "deleteMessage": "Die Minuten werden von deinen Summen abgezogen.",
     "cancel": "Abbrechen",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "minutesLess": "%{n} Minuten weniger",
+    "minutesMore": "%{n} Minuten mehr"
   },
   "logPast": {
     "title": "Vergangenes Üben eintragen",
@@ -794,11 +825,11 @@
     "total": "%{n} Min. gesamt",
     "minutes": "%{n} Min.",
     "reason": {
-        "spotDue": "Problemstellen fällig",
-        "stalled": "Seit zwei Wochen keine Bewegung",
-        "review": "Wieder fällig – schon eine Weile her",
-        "plateau": "Tempo stagniert – langsam üben bei %{bpm} BPM",
-        "drift": "Kam zuletzt zu kurz"
+      "spotDue": "Problemstellen fällig",
+      "stalled": "Seit zwei Wochen keine Bewegung",
+      "review": "Wieder fällig – schon eine Weile her",
+      "plateau": "Tempo stagniert – langsam üben bei %{bpm} BPM",
+      "drift": "Kam zuletzt zu kurz"
     }
   },
   "recordings": {
@@ -830,7 +861,11 @@
     "moveTitle": "Take verschieben nach",
     "moveCancel": "Abbrechen",
     "saveTrim": "Kürzung speichern",
-    "cancelTrim": "Abbrechen"
+    "cancelTrim": "Abbrechen",
+    "play": "Aufnahme abspielen",
+    "pause": "Pausieren",
+    "nudgeEarlier": "%{label} 0,1 s früher",
+    "nudgeLater": "%{label} 0,1 s später"
   },
   "recap": {
     "challenge": "Monats-Herausforderung",
@@ -975,7 +1010,10 @@
     "free": "Frei lesbar",
     "yours": "In deinen Daten",
     "statInterleaving": "Ein Übetag von dir berührt im Schnitt %{n} Schwerpunkte.",
-    "statSpacing": "Du übst in einer typischen Woche an %{n} Tagen.",
+    "statSpacing": {
+      "one": "Du übst in einer typischen Woche an %{n} Tag.",
+      "other": "Du übst in einer typischen Woche an %{n} Tagen."
+    },
     "statSessionLength": "Deine Einheit dauert im Schnitt %{n} Minuten.",
     "e": {
       "deliberatePractice": {

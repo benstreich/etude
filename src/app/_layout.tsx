@@ -35,6 +35,7 @@ import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
 
 const NAV_H = 74;
+const TAB_PATHS = ['/', '/practice', '/repertoire', '/tools'];
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,11 +52,17 @@ function TabIcon({ focused, children }: { focused: boolean; children: React.Reac
 }
 
 function NavItem({ icon, label, active, onPress }: { icon: React.ReactNode; label: string; active: boolean; onPress: () => void }) {
-  const { C } = useTheme();
+  const { C, fs } = useTheme();
   return (
-    <Pressable onPress={onPress} style={{ alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      style={{ alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10 }}>
       <TabIcon focused={active}>{icon}</TabIcon>
-      <Text style={{ fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 0.8, textTransform: 'uppercase', color: active ? C.accent : C.sub }}>{label}</Text>
+      <Text numberOfLines={1} style={{ fontFamily: F.bodySemi, fontSize: fs(10.5), letterSpacing: 0.8, textTransform: 'uppercase', color: active ? C.accent : C.sub }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -94,7 +101,7 @@ function StaffNav({ state, navigation, descriptors, insets }: BottomTabBarProps)
   return (
     <View style={{ backgroundColor: C.bg, paddingBottom: insets.bottom }}>
       <View style={{ height: 1, backgroundColor: C.cardBorder, marginHorizontal: 24 }} />
-      <View style={{ height: NAV_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 12 }}>
+      <View accessibilityRole="tablist" style={{ minHeight: NAV_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 12 }}>
         {items.map((it) => (
           <NavItem key={it.name} icon={it.icon} label={it.label} active={route.name === it.name} onPress={() => navigation.navigate(it.name)} />
         ))}
@@ -105,7 +112,7 @@ function StaffNav({ state, navigation, descriptors, insets }: BottomTabBarProps)
 
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
-  const [loaded] = useFonts({
+  const [loaded, fontError] = useFonts({
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
@@ -116,7 +123,9 @@ export default function RootLayout() {
     Bravura: require('../../assets/fonts/Bravura.otf'),
   });
 
-  if (!loaded) return null;
+  // a font that fails to load (a corrupt asset after an update) falls back to the
+  // system face; waiting on it would hold the splash screen forever
+  if (!loaded && !fontError) return null;
 
   return (
     // the root gesture handler the score viewer's pinch/pan needs (#60)
@@ -158,9 +167,12 @@ function RunPill({ bottom }: { bottom: number }) {
         borderRadius: 999,
         paddingVertical: 10,
         paddingHorizontal: 18,
+        maxWidth: '90%',
       }}
+      accessibilityRole="button"
+      accessibilityLabel={t('planRun.inProgress', { name: plan.name })}
       onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
-      <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg }}>
+      <Text numberOfLines={1} style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg, flexShrink: 1 }}>
         ▶ {t('planRun.inProgress', { name: plan.name })}
       </Text>
     </Pressable>
@@ -168,8 +180,12 @@ function RunPill({ bottom }: { bottom: number }) {
 }
 
 function Shell({ insets }: { insets: { bottom: number } }) {
-  const { C, dark } = useTheme();
+  const { C, dark, reduceMotion } = useTheme();
   const { onboarded, t } = useStore();
+  // the staff nav only exists on the four tab screens; elsewhere the pill and
+  // toast sit on the home indicator instead of floating a nav's height up
+  const pathname = usePathname();
+  const navH = TAB_PATHS.includes(pathname) ? NAV_H : 0;
   // Shell only mounts once fonts AND the store are ready (StoreProvider renders
   // null until hydration) — hiding here avoids a bare-window flash on cold start
   useEffect(() => {
@@ -181,7 +197,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <StatusBar style={dark ? 'light' : 'dark'} />
         <Onboarding />
-        <Toast />
+        <Toast bottom={insets.bottom + 24} />
       </View>
     );
   return (
@@ -193,7 +209,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             tabBar={(p) => <StaffNav {...p} />}
             screenOptions={{
               headerShown: false,
-              animation: 'shift',
+              animation: reduceMotion ? 'none' : 'shift',
               sceneStyle: { backgroundColor: C.bg },
             }}>
             <Tabs.Screen name="index" options={{ title: t('tabs.home') }} />
@@ -215,8 +231,9 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="tuner" options={{ href: null }} />
             <Tabs.Screen name="score" options={{ href: null }} />
           </Tabs>
-          <RunPill bottom={NAV_H + insets.bottom + 12} />
-          <Toast />
+          <RunPill bottom={navH + insets.bottom + 12} />
+          {/* clears the RunPill too, whether or not a routine is running */}
+          <Toast bottom={navH + insets.bottom + 64} />
           <WidgetSync />
         </View>
   );

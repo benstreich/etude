@@ -1,7 +1,7 @@
 // A piece can be played on several instruments; untagged means all of them.
 import assert from 'node:assert';
 
-import { instrumentChoices, instrumentLabel, onInstrument, pieceInstruments, toggleInstrument } from '../src/lib/instrument-math.ts';
+import { instrumentChoices, instrumentLabel, instrumentName, onInstrument, pieceInstruments, toggleInstrument } from '../src/lib/instrument-math.ts';
 
 // reading the set, old field and new
 assert.deepEqual(pieceInstruments({}), []);
@@ -27,6 +27,11 @@ assert.equal(onInstrument({ instruments: ['Guitar', 'Violin'] }, 'Cello'), false
 assert.equal(instrumentLabel({}), '');
 assert.equal(instrumentLabel({ instrument: 'Guitar' }), 'Guitar');
 assert.equal(instrumentLabel({ instruments: ['Guitar', 'Violin'] }), 'Guitar · Violin');
+// display names translate the common ids and pass the long tail through
+const fakeT = (k: string) => `<${k}>`;
+assert.equal(instrumentName('Piano', fakeT), '<settings.instPiano>');
+assert.equal(instrumentName('Oud', fakeT), 'Oud');
+assert.equal(instrumentLabel({ instruments: ['Guitar', 'Oud'] }, (v) => instrumentName(v, fakeT)), '<settings.instGuitar> · Oud');
 
 // toggling adds, removes, and keeps `instrument` pointing at the first
 assert.deepEqual(toggleInstrument({ instrument: 'Guitar' }, 'Violin'), { instruments: ['Guitar', 'Violin'], instrument: 'Guitar' });

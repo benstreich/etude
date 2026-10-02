@@ -54,7 +54,7 @@ export function CalendarSection({ mbd, sessions, onEditSession }: SectionProps) 
             <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
           </Pressable>
         </View>
-        <Text style={s.monthCount}>{store.t('progress.daysPracticed', { practiced, days: elapsedDays })}</Text>
+        <Text style={s.monthCount}>{store.t('progress.daysPracticed', { practiced, days: elapsedDays, count: elapsedDays })}</Text>
       </View>
       <View style={s.dowRow}>
         {dow.map((d, i) => (

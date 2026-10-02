@@ -6,4 +6,6 @@ import { F } from '@/lib/theme';
 // call sites. Explicit styles come after and still win, so nothing that sets
 // its own fontFamily changes. Glyph characters missing from Instrument Sans
 // fall back per-glyph to the OS font, which is the existing behaviour.
-export const Text = ({ style, ...p }: TextProps) => <RNText style={[{ fontFamily: F.body }, style]} {...p} />;
+// The OS text size stacks on the app's own fs() scale and the fixed-size
+// controls clip past ~1.4x; callers can still pass their own cap.
+export const Text = ({ style, ...p }: TextProps) => <RNText maxFontSizeMultiplier={1.4} style={[{ fontFamily: F.body }, style]} {...p} />;

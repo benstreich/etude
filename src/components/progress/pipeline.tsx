@@ -42,7 +42,7 @@ export function PipelineSection({ pieces }: SectionProps) {
       </View>
       <Text style={[s.goalNote, { marginTop: 10 }]}>
         {store.t('progress.pipelineReady', { n: readyThisMonth, stage: store.stages[n - 1], m: readyLastMonth })}
-        {total > 0 && ` · ${store.t('progress.pipelineTotal', { n: total })}`}
+        {total > 0 && ` · ${store.t('progress.pipelineTotal', { count: total })}`}
       </Text>
     </Card>
   );

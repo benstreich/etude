@@ -144,7 +144,7 @@ export function LadderRows({
     <View style={{ gap: 4 }}>
       <View style={s.row}>
         <Text style={s.rowLabel}>{store.t('tempoLadder.auto')}</Text>
-        <Switch testID="ladder-auto-switch" value={cfg.on} onChange={(on) => onChange({ on })} />
+        <Switch testID="ladder-auto-switch" accessibilityLabel={store.t('tempoLadder.auto')} value={cfg.on} onChange={(on) => onChange({ on })} />
       </View>
       {cfg.on && (
         <>

@@ -38,9 +38,27 @@ export function instrumentChoices(p: Instrumented | undefined, filter: string): 
   return list.length > 1 ? list : [];
 }
 
+/**
+ * Stored instrument ids stay English; the common eight have translations
+ * (settings.inst*), the long tail shows the id itself.
+ */
+export const INSTRUMENT_KEYS: Record<string, string> = {
+  Piano: 'settings.instPiano',
+  Guitar: 'settings.instGuitar',
+  Violin: 'settings.instViolin',
+  Cello: 'settings.instCello',
+  Flute: 'settings.instFlute',
+  Voice: 'settings.instVoice',
+  Drums: 'settings.instDrums',
+  Bass: 'settings.instBass',
+};
+
+/** Persisted id → label in the current language. */
+export const instrumentName = (v: string, t: (key: string) => string) => (INSTRUMENT_KEYS[v] ? t(INSTRUMENT_KEYS[v]) : v);
+
 /** What to print under a row on the All list; empty when the piece is untagged. */
-export function instrumentLabel(p: Instrumented): string {
-  return pieceInstruments(p).join(' · ');
+export function instrumentLabel(p: Instrumented, name: (v: string) => string = (v) => v): string {
+  return pieceInstruments(p).map(name).join(' · ');
 }
 
 /**

@@ -37,7 +37,7 @@ export default function Learn() {
     }
     if (hook === 'spacing') {
       const cons = consistency(store.minutesByDate, store.today, monday);
-      return cons.average > 0 ? store.t('learn.statSpacing', { n: cons.average }) : null;
+      return cons.average > 0 ? store.t('learn.statSpacing', { n: cons.average, count: cons.average }) : null;
     }
     const total = store.sessions.reduce((a, x) => a + x.min, 0);
     const avg = Math.round(total / store.sessions.length);

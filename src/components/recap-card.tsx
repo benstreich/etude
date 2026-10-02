@@ -11,6 +11,7 @@ import { captureRef } from 'react-native-view-shot';
 
 import { LogoMark } from '@/components/icons';
 import { Text } from '@/components/text';
+import { Toast } from '@/components/toast';
 import { monthlyChallenge } from '@/lib/challenge-math';
 import { recapStats, tempoDelta } from '@/lib/growth-math';
 import { projection, ratingSummary } from '@/lib/stats-math';
@@ -224,6 +225,8 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
             </View>
           </ScrollView>
         </View>
+        {/* its own window, so "sharing isn't available" would toast under it otherwise */}
+        <Toast inModal bottom={40} />
       </View>
     </Modal>
   );

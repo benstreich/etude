@@ -145,6 +145,7 @@ function Row({
       </View>
       <Switch
         testID={`layout-switch-${item.key}`}
+        accessibilityLabel={store.t(`progress.section.${item.key}`)}
         value={item.on && !blocked}
         disabled={!!blocked}
         onValueChange={onToggle}

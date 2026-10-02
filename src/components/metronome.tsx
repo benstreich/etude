@@ -210,12 +210,18 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
             </View>
 
             <View style={{ gap: 12 }}>
-              <Pressable style={s.switchRow} onPress={() => setRamp({ on: !ramp.on })}>
+              {/* the whole row is the tap target, so it carries the switch's role and state too */}
+              <Pressable
+                style={s.switchRow}
+                accessibilityRole="switch"
+                accessibilityLabel={t('metronome.tempoRamp')}
+                accessibilityState={{ checked: ramp.on }}
+                onPress={() => setRamp({ on: !ramp.on })}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.label}>{t('metronome.tempoRamp')}</Text>
                   <Text style={s.hint}>{summary ?? t('metronome.rampOffHint')}</Text>
                 </View>
-                <Switch value={ramp.on} onChange={(on) => setRamp({ on })} />
+                <Switch accessibilityLabel={t('metronome.tempoRamp')} value={ramp.on} onChange={(on) => setRamp({ on })} />
               </Pressable>
 
               {ramp.on && (

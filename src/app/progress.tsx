@@ -26,7 +26,7 @@ export default function Progress() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <ScreenTitle>{store.t('tabs.progress')}</ScreenTitle>
             {!empty && (
-              <Pressable style={s.shareBtn} hitSlop={8} onPress={() => setRecapOpen(true)}>
+              <Pressable style={s.shareBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('recap.share')} onPress={() => setRecapOpen(true)}>
                 <ShareIcon />
               </Pressable>
             )}

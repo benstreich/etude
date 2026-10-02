@@ -272,7 +272,12 @@ export function RecordingsList({
         return (
           <View key={r.id} style={[i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
             <View style={s.row}>
-              <Pressable style={[s.playBtn, playing && { backgroundColor: C.accent }]} hitSlop={8} onPress={() => toggle(r)}>
+              <Pressable
+                style={[s.playBtn, playing && { backgroundColor: C.accent }]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={store.t(playing ? 'recordings.pause' : 'recordings.play')}
+                onPress={() => toggle(r)}>
                 {playing ? <PauseIcon color={C.bg} size={14} /> : <PlayIcon color={C.bg} size={14} />}
               </Pressable>
               <View style={{ flex: 1 }}>
@@ -638,11 +643,14 @@ function Bound({
   hereLabel: string;
 }) {
   const s = useS();
+  const { t } = useStore();
   const nudge = (steps: number, glyph: string, key: string) => (
     <Pressable
       key={key}
       style={s.nudge}
       hitSlop={7}
+      accessibilityRole="button"
+      accessibilityLabel={t(steps < 0 ? 'recordings.nudgeEarlier' : 'recordings.nudgeLater', { label })}
       onPress={() => {
         tap();
         onNudge(steps);

@@ -15,7 +15,7 @@ import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
 import { LiveWaveform, MeasureBar, NoteTempo, WaveformIcon } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
-import { pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
+import { instrumentName, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { recordingPair } from '@/lib/movement-math';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
@@ -141,8 +141,9 @@ export default function PieceDetail() {
   return (
     <KeyboardAwareScrollView style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
-        <BackLink label={store.t('tabs.repertoire')} onPress={() => router.back()} />
-        <Pressable testID="piece-menu" hitSlop={8} onPress={() => setMenuOpen(true)}>
+        {/* back follows history (Home's progress cards, Repertoire, Progress…), so it can't name one screen */}
+        <BackLink label={store.t('common.back')} onPress={() => router.back()} />
+        <Pressable testID="piece-menu" hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('piece.more')} onPress={() => setMenuOpen(true)}>
           <Text style={s.navGlyph}>⋯</Text>
         </Pressable>
       </View>
@@ -208,7 +209,7 @@ export default function PieceDetail() {
                     tap();
                     store.updatePiece(piece.id, toggleInstrument(piece, i));
                   }}>
-                  <Text style={[s.instChipText, on && { color: C.accent }]}>{i}</Text>
+                  <Text style={[s.instChipText, on && { color: C.accent }]}>{instrumentName(i, store.t)}</Text>
                 </Pressable>
               );
             })}
