@@ -16,7 +16,7 @@ import { Text } from '@/components/text';
 import { EntryRow, Overline, PulseRing, useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
-import { getActiveRun, resolvePlan, setActiveRun, setTransientPlan, useTransientPlan } from '@/lib/plan-run-state';
+import { getActiveRun, getTransientPlan, resolvePlan, setActiveRun, setTransientPlan, TRANSIENT_PLAN_ID, useTransientPlan } from '@/lib/plan-run-state';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
 import { dateKey, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -47,9 +47,14 @@ function Runner({ id }: { id: string }) {
   // in plan-run-state rather than the store and is dropped once the run is over
   useTransientPlan();
   const plan = resolvePlan(store.plans, id);
+  // the transient plan this runner was started with, if any: a restart of the
+  // suggested session remounts the runner (new run token) after the card has
+  // already set the next plan, and the old runner's cleanup must not drop that one
+  const [ownTransient] = useState(() => (id === TRANSIENT_PLAN_ID ? getTransientPlan() : null));
   useEffect(() => () => {
-    if (!getActiveRun()) setTransientPlan(null); // leaving with no run in flight: nothing to come back to
-  }, []);
+    // leaving with no run in flight: nothing to come back to
+    if (ownTransient && !getActiveRun() && getTransientPlan() === ownTransient) setTransientPlan(null);
+  }, [ownTransient]);
   // resume the run-in-progress if this screen was unmounted mid-run (tab switch)
   const [resumed] = useState(() => {
     const r = getActiveRun();
