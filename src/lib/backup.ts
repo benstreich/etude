@@ -51,7 +51,7 @@ async function writeBackup(state: object, paths: string[]) {
   const found: [string, File][] = [];
   let bytes = 0;
   for (const rel of new Set(paths)) {
-    if (rel.includes(':')) continue; // web/blob leftovers can't be bundled
+    if (typeof rel !== 'string' || rel.includes(':')) continue; // web/blob leftovers can't be bundled
     const f = new File(Paths.document, rel);
     if (!f.exists) continue;
     found.push([rel, f]);
@@ -130,7 +130,7 @@ export function runAutoBackup(state: object, everyDays: number, todayKey: string
 export function missingFiles(paths: string[]): Set<string> {
   const gone = new Set<string>();
   for (const rel of paths) {
-    if (rel.includes(':')) continue;
+    if (typeof rel !== 'string' || rel.includes(':')) continue; // a hand-edited entry may lack its uri
     try {
       if (!new File(Paths.document, rel).exists) gone.add(rel);
     } catch {
