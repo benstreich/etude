@@ -192,7 +192,10 @@ export function useTakeRecorder(pieceName: () => string | null) {
 
   /** Stop and throw the take away — document-dir files the store never references leak forever. */
   const discard = () => {
-    if (!recording) return;
+    // the ref, not the state: a confirm dialog holds this closure, and a take the
+    // notification's Stop banked meanwhile must not have its (now stored) file deleted
+    if (!recordingRef.current) return;
+    recordingRef.current = false;
     setRecording(false);
     setPaused(false);
     setRecordingFlags({});
