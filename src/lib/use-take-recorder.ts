@@ -13,7 +13,7 @@ import { File } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
-import { LEVEL_FLOOR } from '@/components/motifs';
+import { LEVEL_FLOOR, SAMPLE_MS } from '@/components/motifs';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
 import { detectSilence } from '@/lib/silence-math';
 import { toStoredUri, useStore } from '@/lib/store';
@@ -95,9 +95,16 @@ export function useTakeRecorder(pieceName: () => string | null) {
     applyAudioMode({ playsInSilentMode: true });
     const raw = waveRef.current;
     waveRef.current = [];
-    // totalMs banks only un-paused time, which is exactly the span `raw` covers, so
+    // totalMs banks only un-paused time, which is the span `raw` should cover, so
     // one number both maps sample indices to seconds and lands as the take's length.
-    const sec = Math.round(totalMs / 1000);
+    // Tenths, not whole seconds: playback stops at `sec`, so rounding cut the tail.
+    const sec = Math.round(totalMs / 100) / 10;
+    // ...but the samples come from a JS interval, which stops while the app is in
+    // the background or the screen is locked. A take played mostly with the phone
+    // locked has a few seconds of samples for minutes of audio, and spreading them
+    // evenly put the auto-trim bounds (and the drawn wave) nowhere near the music.
+    // Too few samples for the length: save no wave and no trim rather than wrong ones.
+    const covered = raw.length >= (0.8 * totalMs) / SAMPLE_MS;
     const piece = nameRef.current();
     // No focus at stop time — the piece was deleted, or the screen was left with a
     // take still running. Dropping it here lost the audio *and* leaked the file:
@@ -109,11 +116,11 @@ export function useTakeRecorder(pieceName: () => string | null) {
         piece ?? store.t('recordings.unfiled'),
         toStoredUri(recorder.uri),
         sec,
-        downsample(raw),
+        covered ? downsample(raw) : undefined,
         undefined,
         // the lead-in and tail nearly every take has: set as playback bounds, never
         // written to the file, and re-draggable in the trim sheet like any other trim
-        detectSilence(raw, sec) ?? undefined
+        (covered && detectSilence(raw, sec)) || undefined
       );
   };
 

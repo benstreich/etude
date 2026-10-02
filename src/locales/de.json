@@ -302,7 +302,10 @@
     "pickFirst": "Wähle etwas zum Üben",
     "shorterBreak": "Pause um 1 Minute verkürzen",
     "longerBreak": "Pause um 1 Minute verlängern",
-    "bpmLabel": "%{bpm} BPM"
+    "bpmLabel": "%{bpm} BPM",
+    "discardTakeTitle": "Diese Aufnahme verwerfen?",
+    "discardTakeMessage": "Die Aufnahme stoppt und die Audiodatei wird gelöscht. Das lässt sich nicht rückgängig machen.",
+    "keepRecording": "Weiter aufnehmen"
   },
   "progress": {
     "challengeDays": "Übe an %{target} Tagen im %{month}",
@@ -539,9 +542,13 @@
     },
     "playing": "%{which} läuft",
     "flipHint": "Zum Wechseln tippen — die Position bleibt erhalten",
-    "pickHint": "Tippe auf einen Take, um ihn zu A zu machen; B übernimmt den anderen Platz.",
+    "pickHint": "Tippe auf A oder B, um einen Take auf diesen Platz zu legen. Wählst du den Take vom anderen Platz, werden die beiden getauscht.",
     "goneTitle": "Diese Aufnahme gibt es nicht mehr",
-    "goneText": "Eine der beiden Aufnahmen wurde gelöscht — es bleibt nichts zum Vergleichen."
+    "goneText": "Eine der beiden Aufnahmen wurde gelöscht — es bleibt nichts zum Vergleichen.",
+    "back": "Zurück",
+    "playTake": "Take %{which} abspielen",
+    "pauseTake": "Take %{which} pausieren",
+    "putInSlot": "%{name} auf Platz %{which} legen"
   },
   "piece": {
     "forecast": "In diesem Tempo: %{target} BPM etwa am %{date}",
@@ -597,7 +604,8 @@
     "stopTake": "Stopp",
     "instruments": "Instrumente",
     "instrumentsHint": "Wird darauf geübt. Wähle mehrere, wenn du es auf mehreren spielst.",
-    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen."
+    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
+    "importing": "Wird importiert …"
   },
   "plan": {
     "break": "Pause",
@@ -814,11 +822,11 @@
     "total": "%{n} Min. gesamt",
     "minutes": "%{n} Min.",
     "reason": {
-        "spotDue": "Problemstellen fällig",
-        "stalled": "Seit zwei Wochen keine Bewegung",
-        "review": "Wieder fällig – schon eine Weile her",
-        "plateau": "Tempo stagniert – langsam üben bei %{bpm} BPM",
-        "drift": "Kam zuletzt zu kurz"
+      "spotDue": "Problemstellen fällig",
+      "stalled": "Seit zwei Wochen keine Bewegung",
+      "review": "Wieder fällig – schon eine Weile her",
+      "plateau": "Tempo stagniert – langsam üben bei %{bpm} BPM",
+      "drift": "Kam zuletzt zu kurz"
     }
   },
   "recordings": {
@@ -850,7 +858,18 @@
     "moveTitle": "Take verschieben nach",
     "moveCancel": "Abbrechen",
     "saveTrim": "Kürzung speichern",
-    "cancelTrim": "Abbrechen"
+    "cancelTrim": "Abbrechen",
+    "play": "%{name} abspielen",
+    "pause": "%{name} pausieren",
+    "renameHint": "Benennt die Aufnahme um",
+    "speed": "Wiedergabetempo %{rate}",
+    "inEarlier": "Startpunkt 0,1 s früher setzen",
+    "inLater": "Startpunkt 0,1 s später setzen",
+    "outEarlier": "Endpunkt 0,1 s früher setzen",
+    "outLater": "Endpunkt 0,1 s später setzen",
+    "inHere": "Startpunkt auf die Wiedergabeposition setzen",
+    "outHere": "Endpunkt auf die Wiedergabeposition setzen",
+    "shareFailed": "Diese Aufnahme ließ sich nicht teilen"
   },
   "recap": {
     "challenge": "Monats-Herausforderung",

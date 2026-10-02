@@ -302,7 +302,10 @@
     "pickFirst": "Pick something to practise",
     "shorterBreak": "Shorten break by 1 minute",
     "longerBreak": "Lengthen break by 1 minute",
-    "bpmLabel": "%{bpm} BPM"
+    "bpmLabel": "%{bpm} BPM",
+    "discardTakeTitle": "Discard this take?",
+    "discardTakeMessage": "Recording stops and the audio is deleted. This cannot be undone.",
+    "keepRecording": "Keep recording"
   },
   "progress": {
     "challengeDays": "Practise on %{target} days in %{month}",
@@ -539,9 +542,13 @@
     },
     "playing": "Playing %{which}",
     "flipHint": "Tap to flip — playback keeps its position",
-    "pickHint": "Tap a take to make it A, then B keeps the other slot.",
+    "pickHint": "Tap A or B to put a take in that slot. Picking the take from the other slot swaps them.",
     "goneTitle": "That take is gone",
-    "goneText": "One of the two recordings was deleted, so there is nothing left to compare."
+    "goneText": "One of the two recordings was deleted, so there is nothing left to compare.",
+    "back": "Back",
+    "playTake": "Play take %{which}",
+    "pauseTake": "Pause take %{which}",
+    "putInSlot": "Put %{name} in slot %{which}"
   },
   "piece": {
     "forecast": "At this rate: %{target} BPM around %{date}",
@@ -597,7 +604,8 @@
     "stopTake": "Stop",
     "instruments": "Instruments",
     "instrumentsHint": "Practised on these. Pick more than one if you play it on several.",
-    "instrumentsAll": "No instrument picked — it shows under all of them."
+    "instrumentsAll": "No instrument picked — it shows under all of them.",
+    "importing": "Importing…"
   },
   "plan": {
     "break": "Break",
@@ -814,11 +822,11 @@
     "total": "%{n} min total",
     "minutes": "%{n} min",
     "reason": {
-        "spotDue": "Trouble spots due for review",
-        "stalled": "No movement in two weeks",
-        "review": "Due for review — it’s been a while",
-        "plateau": "Tempo has plateaued — slow work at %{bpm} BPM",
-        "drift": "Getting less time lately"
+      "spotDue": "Trouble spots due for review",
+      "stalled": "No movement in two weeks",
+      "review": "Due for review — it’s been a while",
+      "plateau": "Tempo has plateaued — slow work at %{bpm} BPM",
+      "drift": "Getting less time lately"
     }
   },
   "recordings": {
@@ -850,7 +858,18 @@
     "moveTitle": "Move take to",
     "moveCancel": "Cancel",
     "saveTrim": "Save trim",
-    "cancelTrim": "Cancel"
+    "cancelTrim": "Cancel",
+    "play": "Play %{name}",
+    "pause": "Pause %{name}",
+    "renameHint": "Renames the take",
+    "speed": "Playback speed %{rate}",
+    "inEarlier": "Move the in point 0.1 s earlier",
+    "inLater": "Move the in point 0.1 s later",
+    "outEarlier": "Move the out point 0.1 s earlier",
+    "outLater": "Move the out point 0.1 s later",
+    "inHere": "Set the in point to where playback is",
+    "outHere": "Set the out point to where playback is",
+    "shareFailed": "Couldn’t share this take"
   },
   "recap": {
     "challenge": "Monthly challenge",

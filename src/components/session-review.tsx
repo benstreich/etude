@@ -28,6 +28,7 @@ export function SessionReview({
   onClose,
   onToggleTake,
   onImportTake,
+  importing = false,
   recording = false,
 }: {
   session: ReviewSession | null;
@@ -35,6 +36,8 @@ export function SessionReview({
   /** Toggles the caller's recorder; omit to hide the "Attach take" button. */
   onToggleTake?: () => void;
   onImportTake?: () => void;
+  /** An import is copying files in; the chip says so and ignores taps. */
+  importing?: boolean;
   recording?: boolean;
 }) {
   const s = useS();
@@ -211,7 +214,12 @@ export function SessionReview({
                 />
                 {/* a take doesn't have to come from this phone's mic */}
                 {onImportTake && !recording && (
-                  <ActionChip icon={() => null} label={store.t('sessionReview.importTake')} onPress={onImportTake} />
+                  <ActionChip
+                    icon={() => null}
+                    label={store.t(importing ? 'piece.importing' : 'sessionReview.importTake')}
+                    disabled={importing}
+                    onPress={onImportTake}
+                  />
                 )}
               </ChipRow>
             </View>
