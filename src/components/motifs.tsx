@@ -32,7 +32,7 @@ import {
   yOf,
   type BarLayout,
 } from '@/lib/engrave';
-import { eighthsFor, meterFor, SIGNATURE, type MelodyKey, type MelodyNote } from '@/lib/melody';
+import { eighthsFor, meterFor, SIGNATURE, type Head, type MelodyKey, type MelodyNote } from '@/lib/melody';
 import { barlines, tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
@@ -127,6 +127,7 @@ export function MelodyStaff({
   selected,
   sounding,
   onSelect,
+  describe,
 }: {
   /** oldest first, today last */
   bars: { date: string; day: string; isToday: boolean; notes: MelodyNote[] }[];
@@ -139,6 +140,8 @@ export function MelodyStaff({
   /** dateKey of the bar playing right now (lib/melody-play.ts); lit like the selection */
   sounding?: string;
   onSelect?: (date: string) => void;
+  /** what a screen reader says for a bar — its day and minutes; the drawing says nothing */
+  describe?: (date: string, minutes: number) => string;
 }) {
   const C = useC();
   const scroll = useRef<ScrollView>(null);
@@ -176,7 +179,13 @@ export function MelodyStaff({
     const xOff = PAD + meterW;
     const last = lay?.notes[lay.notes.length - 1];
     return (
-      <Pressable key={b.date} disabled={!onSelect} onPress={() => onSelect?.(b.date)}>
+      <Pressable
+        key={b.date}
+        disabled={!onSelect}
+        accessibilityRole="button"
+        accessibilityState={{ selected: b.date === selected }}
+        accessibilityLabel={describe?.(b.date, b.notes.reduce((a, n) => a + n.min, 0))}
+        onPress={() => onSelect?.(b.date)}>
         {/* the landed day answers the tap: the same spring the stars settle on */}
         <Bump trigger={on} peak={1.12}>
         <Svg width={w} height={MELODY_H}>
@@ -403,7 +412,39 @@ export function MetNote({ size, color }: { size: number; color: string }) {
   );
 }
 
-/** "♩ 96 Moderato" — note glyph, BPM and term in one inline run; accent while a metronome is actually running. */
+// each value's metronome-mark glyph and its advance width in em (redist/Bravura.json)
+const MET_NOTE: Record<Head, { glyph: string; w: number }> = {
+  eighth: { glyph: GLYPH.metNote8thUp, w: 0.534 },
+  quarter: { glyph: GLYPH.metNoteQuarterUp, w: 0.332 },
+  half: { glyph: GLYPH.metNoteHalfUp, w: 0.341 },
+  whole: { glyph: GLYPH.metNoteWhole, w: 0.459 },
+  breve: { glyph: GLYPH.metNoteDoubleWhole, w: 0.655 },
+};
+
+/**
+ * Any note value as one inline mark — MetNote's approach for the whole table,
+ * so the legend and the Score panel never hand a note to Text (see MetNote).
+ * `size` is the tallest value's full height, the eighth's flag included, so
+ * every value shares one baseline and the heads line up in a column.
+ */
+export function NoteGlyph({ head, dotted, size, color }: { head: Head; dotted?: boolean; size: number; color: string }) {
+  const em = size / 0.864; // metNote8thUp reaches 0.696 em up, metNoteDoubleWhole 0.168 em down
+  const { glyph, w } = MET_NOTE[head];
+  return (
+    <Svg width={(w + (dotted ? 0.3 : 0)) * em + 1} height={size} style={{ overflow: 'visible' }}>
+      <SvgText x={0} y={0.696 * em} fontFamily={F.smufl} fontSize={em} fill={color}>
+        {glyph}
+      </SvgText>
+      {dotted && (
+        <SvgText x={(w + 0.12) * em} y={0.696 * em} fontFamily={F.smufl} fontSize={em} fill={color}>
+          {GLYPH.metAugmentationDot}
+        </SvgText>
+      )}
+    </Svg>
+  );
+}
+
+/** "♩ 96 Moderato"— note glyph, BPM and term in one inline run; accent while a metronome is actually running. */
 export function NoteTempo({ bpm, active, size = 14 }: { bpm: number; active?: boolean; size?: number }) {
   const C = useC();
   const { fs } = useTheme();

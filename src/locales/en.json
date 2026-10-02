@@ -219,7 +219,7 @@
       "rest": "A day with nothing logged is a rest.",
       "fermata": "Beat the goal and the last note of the day gets a fermata — held as long as you like.",
       "meterHead": "The time signature",
-      "meter": "Every bar carries its own. 4/4 is a day that met the goal; 6/4 is a day half again as long. That is deliberate — a bar is a day, not a fixed meter, so it runs exactly as long as the day did, and the signature is written only where it changes. A day that stopped between beats ends on a short rest, so the bar still adds up to what its signature promises.",
+      "meter": "Every bar carries its own. 4/4 is roughly a day that met the goal; 6/4 a day half again as long. Each session is rounded to its nearest note, so a day split into several can come out a beat or so longer. That is deliberate — a bar is a day, not a fixed meter, so it runs exactly as long as the day did, and the signature is written only where it changes. A day that stopped between beats ends on a short rest, so the bar still adds up to what its signature promises.",
       "key": "The whole staff is read and played in %{key}. You can change that in Settings."
     },
     "staffHint": "Tap a day to see its log — quick log lands there too",
@@ -998,7 +998,10 @@
     "unsupported": "That file is not a PDF or an image.",
     "noPdfRenderer": "PDFs need the full app build. Photos work everywhere.",
     "importFailed": "Could not add that file.",
-    "more": "Rename or delete"
+    "more": "Rename or delete",
+    "importing": "Adding…",
+    "deleteTitle": "Delete this score?",
+    "deleteBody": "“%{name}” and all its pages are removed from this phone. This can’t be undone."
   },
   "fullScore": {
     "title": "Your score",
@@ -1006,11 +1009,12 @@
     "goalBeats": "%{min} min = 4 beats",
     "earlier": "Earlier",
     "startOfLog": "Start of the log",
+    "limitReached": "Last %{count} weeks shown",
     "showingWeeks": {
       "one": "showing 1 week",
       "other": "showing %{count} weeks"
     },
-    "later": "Later",
+    "later": "Show fewer weeks",
     "thisIsToday": "This is today",
     "rest": "A rest — nothing logged"
   },

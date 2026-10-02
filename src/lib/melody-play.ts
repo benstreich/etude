@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { applyAudioMode } from './audio-mode';
 import { thud } from './haptics';
 import { midiFor, valueFor, type Bar, type MelodyKey, type MelodyNote } from './melody';
+import { metronomeRunning } from './metronome';
 import { pianoFor } from './piano-samples';
 
 const WHOLE_MS = 1600;
@@ -104,7 +105,9 @@ export function useMelodyPlayer() {
     stop();
     const mine = run.current;
     const live = () => mounted.current && run.current === mine;
-    applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
+    // a running metronome already holds a background mode; replacing it would
+    // silence its clicks once the phone locks
+    if (!metronomeRunning()) applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
     const total = bars.reduce((n, b) => n + b.notes.length, 0); // notes, not bars: a bar may hold several
     let index = 0; // position in the phrase, for the long crescendo towards today
     for (const bar of bars) {

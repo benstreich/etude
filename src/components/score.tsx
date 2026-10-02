@@ -7,7 +7,7 @@
 import { Image } from 'expo-image';
 import { useKeepAwake } from 'expo-keep-awake';
 import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -18,7 +18,7 @@ import { Card, Overline } from '@/components/ui';
 import { forPiece, type Attachment } from '@/lib/attachment-math';
 import { NoPdfRendererError, pickAttachments, UnsupportedFileError } from '@/lib/attachments';
 import { resolveRecordingUri, useStore } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 const MAX_ZOOM = 5;
 
@@ -54,6 +54,7 @@ function useAddScore(piece: string) {
 export function ScoreCard({ piece }: { piece: string }) {
   const s = useS();
   const C = useC();
+  const { fs } = useTheme();
   const store = useStore();
   const scores = useScores(piece);
   const { add, busy } = useAddScore(piece);
@@ -62,6 +63,25 @@ export function ScoreCard({ piece }: { piece: string }) {
   const [draft, setDraft] = useState('');
 
   const pageCount = scores.reduce((a, x) => a + x.files.length, 0);
+
+  // the delete sits right under Save and takes every page file with it — ask first
+  const confirmDelete = (a: Attachment) => {
+    const doDelete = () => {
+      store.deleteAttachment(a.id);
+      setEditing(null);
+    };
+    const title = store.t('score.deleteTitle');
+    const body = store.t('score.deleteBody', { name: a.name });
+    // ponytail: Alert.alert is a no-op on web; window.confirm covers it
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title} ${body}`)) doDelete();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: store.t('editSession.cancel'), style: 'cancel' },
+      { text: store.t('score.delete'), style: 'destructive', onPress: doDelete },
+    ]);
+  };
 
   return (
     <View style={{ gap: 12 }}>
@@ -106,9 +126,10 @@ export function ScoreCard({ piece }: { piece: string }) {
               </View>
             </Pressable>
           ))}
-          <Pressable style={[s.addTile, busy && { opacity: 0.4 }]} disabled={busy} onPress={add}>
-            <Text style={s.addPlus}>+</Text>
-            <Text style={s.addLabel}>{store.t('score.add')}</Text>
+          {/* a long PDF takes a while to rasterise, so say it's working */}
+          <Pressable style={s.addTile} disabled={busy} onPress={add} accessibilityRole="button" accessibilityState={{ busy, disabled: busy }}>
+            {busy ? <ActivityIndicator color={C.sub} style={{ height: fs(28) }} /> : <Text style={s.addPlus}>+</Text>}
+            <Text style={s.addLabel}>{store.t(busy ? 'score.importing' : 'score.add')}</Text>
           </Pressable>
         </ScrollView>
         {scores.length === 0 && <Text style={s.hint}>{store.t('score.emptyHint')}</Text>}
@@ -143,8 +164,7 @@ export function ScoreCard({ piece }: { piece: string }) {
             <Pressable
               style={s.menuRow}
               onPress={() => {
-                if (editing) store.deleteAttachment(editing.id);
-                setEditing(null);
+                if (editing) confirmDelete(editing);
               }}>
               <Text style={[s.menuText, { color: C.accent }]}>{store.t('score.delete')}</Text>
             </Pressable>
@@ -199,7 +219,7 @@ export function ScoreViewer({ piece, start, onClose }: { piece: string; start: A
   return (
     <Modal visible={!!start} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       {!!start && <KeepAwake />}
-      <View style={[s.viewer, { paddingTop: insets.top }]}>
+      <View style={[s.viewer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.viewerBar}>
           <View style={{ flex: 1 }}>
             <Text style={s.viewerTitle} numberOfLines={1}>
@@ -214,13 +234,16 @@ export function ScoreViewer({ piece, start, onClose }: { piece: string; start: A
           </Pressable>
         </View>
 
+        {/* keyed by score: a reused pager kept the last score's offset, so a
+            switch opened on its page 4 while the label said page 1 */}
         <ScrollView
+          key={active?.id ?? 'none'}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}>
           {(active?.files ?? []).map((f) => (
-            <ZoomablePage key={f} uri={resolveRecordingUri(f)} width={width} height={height - insets.top - 56} />
+            <ZoomablePage key={f} uri={resolveRecordingUri(f)} width={width} height={height - insets.top - insets.bottom - 56} />
           ))}
         </ScrollView>
 
@@ -229,7 +252,7 @@ export function ScoreViewer({ piece, start, onClose }: { piece: string; start: A
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={s.switcher}
+            style={[s.switcher, { bottom: 24 + insets.bottom }]}
             contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
             {scores.map((a, i) => (
               <Pressable
@@ -276,6 +299,12 @@ function ZoomablePage({ uri, width, height }: { uri: string; width: number; heig
     })
     .onUpdate((e) => {
       scale.value = Math.min(MAX_ZOOM, Math.max(1, base.value * e.scale));
+    })
+    .onEnd(() => {
+      // back at 1x the pan is off, so a page left off-centre would stay there
+      if (scale.value > 1) return;
+      x.value = withTiming(0);
+      y.value = withTiming(0);
     });
 
   // at 1x the horizontal drag belongs to the pager, so panning only moves a
@@ -353,8 +382,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   viewerTitle: { fontFamily: F.bodySemi, fontSize: fs(15), color: '#fff' },
   viewerSub: { fontFamily: F.bodyMed, fontSize: fs(12), color: 'rgba(255,255,255,0.6)' },
   viewerClose: { fontFamily: F.bodySemi, fontSize: fs(15), color: '#fff' },
-  switcher: { position: 'absolute', left: 0, right: 0, bottom: 24, maxHeight: 36 },
-  switchChip: { height: 32, paddingHorizontal: 12, borderRadius: r(999), backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', maxWidth: 160 },
+  switcher: { position: 'absolute', left: 0, right: 0, bottom: 24, maxHeight: 64 },
+  switchChip: { minHeight: 32, paddingVertical: 6, paddingHorizontal: 12, borderRadius: r(999), backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center', maxWidth: 160 },
   switchChipSel: { backgroundColor: C.accent },
   switchText: { fontFamily: F.bodyMed, fontSize: fs(12.5), color: 'rgba(255,255,255,0.75)' },
 }));

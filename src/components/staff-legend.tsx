@@ -1,11 +1,14 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 
+import { NoteGlyph } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Sheet } from '@/components/ui';
-import { NOTE_VALUES } from '@/lib/melody';
+import { GLYPH } from '@/lib/engrave';
+import { keyDisplayName, NOTE_VALUES } from '@/lib/melody';
 import { useStore } from '@/lib/store';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 /**
  * What the staff on Home means, for the person reading it. The note values are
@@ -17,7 +20,11 @@ export function StaffLegend({ visible, onClose }: { visible: boolean; onClose: (
   const s = useS();
   const C = useC();
   const store = useStore();
+  const { fs } = useTheme();
   const goal = Math.max(1, store.dailyGoal);
+  // the marks are Bravura through SVG, the same glyphs the staff draws: in a
+  // Text, Android drops the heads off Noto Music's notes (see MetNote)
+  const em = fs(40);
 
   return (
     <Sheet visible={visible} onClose={onClose} grabber>
@@ -34,8 +41,7 @@ export function StaffLegend({ visible, onClose }: { visible: boolean; onClose: (
         {[...NOTE_VALUES].reverse().map((v) => (
           <View key={`${v.glyph}${v.dotted}`} style={s.valueRow}>
             <View style={s.glyphBox}>
-              <Text style={s.glyph}>{v.glyph}</Text>
-              {v.dotted && <View style={[s.dot, { backgroundColor: C.ink }]} />}
+              <NoteGlyph head={v.head} dotted={v.dotted} size={fs(28)} color={C.ink} />
             </View>
             <Text style={s.valueMin}>{store.t('home.staffLegend.aboutMin', { min: Math.round(v.f * goal) })}</Text>
           </View>
@@ -45,13 +51,23 @@ export function StaffLegend({ visible, onClose }: { visible: boolean; onClose: (
       <Text style={s.head}>{store.t('home.staffLegend.marksHead')}</Text>
       <View style={s.markRow}>
         <View style={s.glyphBox}>
-          <Text style={s.glyph}>{'\u{1D13D}'}</Text>
+          {/* a whole rest, hung from its line, as every day off on the staff is */}
+          <Svg width={0.282 * em + 8} height={0.2 * em}>
+            <Rect x={0} y={0.05 * em} width={0.282 * em + 8} height={1} fill={C.staffLine} />
+            <SvgText x={4} y={0.05 * em} fontFamily={F.smufl} fontSize={em} fill={C.ink}>
+              {GLYPH.restWhole}
+            </SvgText>
+          </Svg>
         </View>
         <Text style={s.markText}>{store.t('home.staffLegend.rest')}</Text>
       </View>
       <View style={s.markRow}>
         <View style={s.glyphBox}>
-          <Text style={s.glyph}>{'\u{1D110}'}</Text>
+          <Svg width={0.61 * em} height={0.34 * em}>
+            <SvgText x={0} y={0.335 * em} fontFamily={F.smufl} fontSize={em} fill={C.ink}>
+              {GLYPH.fermataAbove}
+            </SvgText>
+          </Svg>
         </View>
         <Text style={s.markText}>{store.t('home.staffLegend.fermata')}</Text>
       </View>
@@ -59,7 +75,7 @@ export function StaffLegend({ visible, onClose }: { visible: boolean; onClose: (
       <Text style={s.head}>{store.t('home.staffLegend.meterHead')}</Text>
       <Text style={s.body}>{store.t('home.staffLegend.meter')}</Text>
 
-      <Text style={s.foot}>{store.t('home.staffLegend.key', { key: store.t('settings.majorKey', { key: store.melodyKey }) })}</Text>
+      <Text style={s.foot}>{store.t('home.staffLegend.key', { key: store.t('settings.majorKey', { key: keyDisplayName(store.melodyKey, store.lang) }) })}</Text>
     </Sheet>
   );
 }
@@ -71,11 +87,7 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   body: { fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink, marginTop: 6 },
   values: { marginTop: 10, gap: 2 },
   valueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  // the notation font hangs its glyphs well below the baseline, so the box is
-  // taller than the text and the row centres on the note head, not on the stem
-  glyphBox: { width: 40, height: 34, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
-  glyph: { fontFamily: F.notation, fontSize: fs(26), lineHeight: fs(34), color: C.ink },
-  dot: { width: 4, height: 4, borderRadius: 2, marginLeft: 2, marginTop: 6 },
+  glyphBox: { width: 40, minHeight: 34, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
   valueMin: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   markRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   markText: { flex: 1, fontFamily: F.body, fontSize: fs(14), lineHeight: fs(20), color: C.ink },

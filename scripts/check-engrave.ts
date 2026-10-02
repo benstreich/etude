@@ -286,6 +286,14 @@ assert.equal(BAR_PAD(10), 4);
   assert.ok(narrowedFirst[0].bars.length < uniform[0].bars.length, 'a narrower first system should hold fewer bars');
   assert.ok(narrowedFirst[0].width <= 160.01, 'the first system should not exceed the narrower capacity it was given');
   assert.ok(narrowedFirst[1].width <= LINE_CAP + 0.01, 'a later system is unaffected by the first system’s narrower capacity');
+
+  // a day too long for any line: the system reports the bar's real width, not the cap
+  const crowded = layoutSystems([bar('c1', [30]), bar('c2', [60, 60, 60, 60, 60, 60]), bar('c3', [30])], GOAL2, LINE_CAP, S);
+  for (const sys of crowded) {
+    const last = sys.bars.at(-1)!;
+    assert.ok(last.x + last.width <= sys.width + 0.01, `an oversized bar (${last.x + last.width}) runs past its system (${sys.width})`);
+  }
+  assert.ok(crowded.some((sys) => sys.width > LINE_CAP), 'six goal-length sessions should not fit a 300px line');
 }
 
 console.log('check-engrave ok');
