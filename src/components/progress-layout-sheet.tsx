@@ -112,9 +112,10 @@ function Row({
   const C = useC();
   const store = useStore();
   const name = store.t(`progress.section.${item.key}`);
-  // the drag is a long-press pan, which a screen reader cannot perform; these actions are its stand-in
+  // the drag is a long-press pan, which a screen reader cannot perform; these actions are its stand-in.
+  // A swipe up (increment) moves the row up the list, the direction the finger went.
   const a11yMove = (action: string) => {
-    const to = action === 'decrement' || action === 'moveUp' ? index - 1 : action === 'increment' || action === 'moveDown' ? index + 1 : index;
+    const to = action === 'increment' || action === 'moveUp' ? index - 1 : action === 'decrement' || action === 'moveDown' ? index + 1 : index;
     if (to >= 0 && to < count) onMove(index, to);
   };
 
@@ -157,9 +158,11 @@ function Row({
           accessible
           accessibilityRole="adjustable"
           accessibilityLabel={`${name}, ${store.t('settings.dragToReorder')}`}
+          // an adjustable announces its value after each step, so the reader hears where the row landed
+          accessibilityValue={{ text: store.t('settings.nOfM', { n: index + 1, m: count }) }}
           accessibilityActions={[
-            { name: 'decrement', label: store.t('settings.moveUp') },
-            { name: 'increment', label: store.t('settings.moveDown') },
+            { name: 'increment', label: store.t('settings.moveUp') },
+            { name: 'decrement', label: store.t('settings.moveDown') },
             { name: 'moveUp', label: store.t('settings.moveUp') },
             { name: 'moveDown', label: store.t('settings.moveDown') },
           ]}

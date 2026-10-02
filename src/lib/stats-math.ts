@@ -152,15 +152,16 @@ const median = (xs: number[]) => {
 
 export type TempoForecast = { bpmPerWeek: number; reachDate: string | null; plateau: boolean };
 
+const MAX_FORECAST_DAYS = 730;
+
 /**
  * Learning curve for one piece. ponytail: a straight-line fit, not a logistic —
  * the tempo log is one point per day and rarely long enough to bend. Hidden
  * under 4 entries or 14 days of span. `reachDate` is null when the target is
- * already met, unset, or the trend is flat/negative. `plateau`: at least 60 min
- * of sessions in the last 3 weeks and no BPM above the pre-window best.
+ * already met, unset, the trend is flat/negative, or it lies over two years out.
+ * `plateau`: at least 60 min of sessions in the last 3 weeks and no BPM above
+ * the pre-window best.
  */
-const MAX_FORECAST_DAYS = 730;
-
 export function tempoForecast(
   log: { date: string; bpm: number }[],
   target: number | undefined,
