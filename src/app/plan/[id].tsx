@@ -1,8 +1,8 @@
 // Practice plan builder (#17) — edits write straight to the store, like the
 // rest of the app; "Save plan" is just the way out.
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,9 @@ import { PlayIcon } from '@/components/icons';
 import { Tempo } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Sheet, Stepper } from '@/components/ui';
+import { useMetronome } from '@/lib/metronome';
+import { getActiveRun, setActiveRun, useActiveRun } from '@/lib/plan-run-state';
+import { hideSessionNotice } from '@/lib/session-notice';
 import { PlanSegment, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -27,9 +30,25 @@ export default function PlanBuilder() {
   // editIdx: index of the segment being edited; -1 = adding a new one; null = sheet closed
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<PlanSegment | null>(null);
+  const metro = useMetronome();
+  const active = useActiveRun();
+  const defaultName = store.t('practice.defaultPlanName');
+
+  // leaving: "New routine" creates the plan up front, so one backed out of
+  // untouched is dropped, and a cleared name falls back to the default. On blur,
+  // not unmount — this screen stays mounted in the tab navigator.
+  const tidyRef = useRef((_pid: string) => {});
+  useEffect(() => {
+    tidyRef.current = (pid) => store.tidyPlan(pid, defaultName);
+  });
+  useFocusEffect(useCallback(() => () => tidyRef.current(id), [id]));
 
   const plan = store.plans.find((p) => p.id === id);
   if (!plan) return null; // deleted while open — back nav already left
+
+  const fixName = () => {
+    if (!plan.name.trim()) store.updatePlan(plan.id, { name: defaultName });
+  };
 
   const totalMin = plan.segments.reduce((a, x) => a + x.min, 0);
   const setSegments = (segments: PlanSegment[]) => store.updatePlan(plan.id, { segments });
@@ -61,6 +80,8 @@ export default function PlanBuilder() {
     if (to < 0 || to >= plan.segments.length) return;
     const next = [...plan.segments];
     [next[editIdx], next[to]] = [next[to], next[editIdx]];
+    // moving commits, so commit the open form with it rather than half of the sheet
+    if (draft?.focus) next[to] = draft;
     setSegments(next);
     setEditIdx(to);
   };
@@ -70,14 +91,59 @@ export default function PlanBuilder() {
     closeEdit();
   };
 
+  const confirmDelete = () => {
+    const doDelete = () => {
+      // deleting the routine that is running ends the run with it
+      if (getActiveRun()?.planId === plan.id) {
+        if (metro.running) metro.toggle();
+        setActiveRun(null);
+        hideSessionNotice();
+      }
+      store.removePlan(plan.id);
+      router.back();
+    };
+    const title = store.t('plan.deletePlanTitle', { name: plan.name.trim() || defaultName });
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title} ${store.t('plan.deletePlanBody')}`)) doDelete();
+      return;
+    }
+    Alert.alert(title, store.t('plan.deletePlanBody'), [
+      { text: store.t('plan.cancel'), style: 'cancel' },
+      { text: store.t('plan.delete'), style: 'destructive', onPress: doDelete },
+    ]);
+  };
+
+  const start = () => {
+    // another routine mid-run: starting this one would drop its open segment unlogged
+    if (active && active.planId !== plan.id) {
+      const goCurrent = () => router.push({ pathname: '/plan/run', params: { id: active.planId } });
+      if (Platform.OS === 'web') {
+        if (window.confirm(`${store.t('plan.otherRunningTitle')} ${store.t('plan.otherRunningBody')}`)) goCurrent();
+        return;
+      }
+      Alert.alert(store.t('plan.otherRunningTitle'), store.t('plan.otherRunningBody'), [
+        { text: store.t('plan.cancel'), style: 'cancel' },
+        { text: store.t('plan.goToCurrent'), onPress: goCurrent },
+      ]);
+      return;
+    }
+    fixName();
+    router.push({ pathname: '/plan/run', params: { id: plan.id } });
+  };
+
+  const back = () => {
+    fixName();
+    router.back();
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <KeyboardAwareScrollView contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]} keyboardShouldPersistTaps="handled" bottomOffset={16}>
         <View style={s.navRow}>
-          <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8}>
+          <Pressable style={s.navBtn} onPress={back} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('plan.back')}>
             <Text style={s.navGlyph}>‹</Text>
           </Pressable>
-          <Pressable hitSlop={10} onPress={() => router.back()}>
+          <Pressable hitSlop={10} onPress={back}>
             <Text style={s.saveLink}>{store.t('plan.savePlan')}</Text>
           </Pressable>
         </View>
@@ -86,6 +152,7 @@ export default function PlanBuilder() {
           style={s.title}
           value={plan.name}
           onChangeText={(name) => store.updatePlan(plan.id, { name })}
+          onBlur={fixName}
           placeholder={store.t('plan.planName')}
           placeholderTextColor={C.tertiary}
         />
@@ -96,9 +163,13 @@ export default function PlanBuilder() {
         <View style={{ marginTop: 20 }}>
           {plan.segments.map((seg, i) => {
             const isBreak = seg.focus.kind === 'Break';
+            const label = [
+              (isBreak ? store.t('plan.break') : seg.focus.name) + (seg.note ? `, ${seg.note}` : ''),
+              seg.bpm ? store.t('plan.metronomeBpm', { bpm: seg.bpm }) : '',
+              store.t('plan.minutesLabel', { count: seg.min }),
+            ].filter(Boolean).join(', ');
             return (
-              <Pressable key={i} style={s.segRow} onPress={() => openEdit(i)}>
-                <Text style={s.handle}>⠿</Text>
+              <Pressable key={i} style={s.segRow} onPress={() => openEdit(i)} accessibilityRole="button" accessibilityLabel={label}>
                 <View style={[s.segBar, { backgroundColor: isBreak ? C.chartInactive : C.accent }]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[s.segTitle, isBreak && { color: C.sub }]} numberOfLines={1}>
@@ -122,10 +193,7 @@ export default function PlanBuilder() {
         <Pressable
           hitSlop={8}
           style={{ marginTop: 28, alignSelf: 'center' }}
-          onPress={() => {
-            store.removePlan(plan.id);
-            router.back();
-          }}>
+          onPress={confirmDelete}>
           <Text style={s.deleteLink}>{store.t('plan.deletePlan')}</Text>
         </Pressable>
       </KeyboardAwareScrollView>
@@ -135,7 +203,7 @@ export default function PlanBuilder() {
           testID="plan-start"
           style={[s.startBtn, plan.segments.length === 0 && { opacity: 0.4 }]}
           disabled={plan.segments.length === 0}
-          onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
+          onPress={start}>
           <PlayIcon />
           <Text style={s.startText}>{store.t('plan.startPlan')}</Text>
         </Pressable>
@@ -151,6 +219,8 @@ export default function PlanBuilder() {
                       <Pressable
                         key={`${f.kind}:${f.name}`}
                         style={[s.chip, sel && s.chipSel]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: sel }}
                         onPress={() => setDraft((d) => (d ? { ...d, focus: f } : d))}>
                         <Text style={[s.chipText, sel && { color: C.accent }]}>{f.name}</Text>
                       </Pressable>
@@ -159,6 +229,8 @@ export default function PlanBuilder() {
                   {/* #59: a rest between blocks — no focus, never logged */}
                   <Pressable
                     style={[s.chip, draft?.focus.kind === 'Break' && s.chipSel]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: draft?.focus.kind === 'Break' }}
                     onPress={() => setDraft((d) => (d ? { ...d, focus: { name: 'Break', kind: 'Break' }, bpm: undefined } : d))}>
                     <Text style={[s.chipText, draft?.focus.kind === 'Break' && { color: C.accent }]}>{store.t('plan.break')}</Text>
                   </Pressable>
@@ -191,7 +263,7 @@ export default function PlanBuilder() {
                   value={draft?.bpm ? String(draft.bpm) : ''}
                   onChangeText={(t) => {
                     const v = Number(t.replace(/\D/g, '').slice(0, 3));
-                    setDraft((d) => (d ? { ...d, bpm: v > 0 && v <= MAX_SEG_BPM ? v : undefined } : d));
+                    setDraft((d) => (d ? { ...d, bpm: v > 0 ? Math.min(v, MAX_SEG_BPM) : undefined } : d));
                   }}
                   keyboardType="number-pad"
                   placeholder="BPM"
@@ -229,9 +301,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   saveLink: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
   title: { fontFamily: F.head, fontSize: fs(28), color: C.ink, padding: 0 },
   meta: { fontFamily: F.body, fontSize: fs(13.5), color: C.sub, marginTop: 4 },
-  segRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 64, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  segRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
   segBar: { width: 3, height: 30, borderRadius: 1.5 },
-  handle: { fontSize: fs(15), color: C.chartInactive },
   segTitle: { fontFamily: F.bodyMed, fontSize: fs(15.5), color: C.ink },
   segSub: { fontFamily: F.body, fontSize: fs(12.5), color: C.sub, marginTop: 1 },
   minChip: { minWidth: 32, height: 32, paddingHorizontal: 8, borderRadius: r(9), backgroundColor: C.bg, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' },
@@ -241,7 +312,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   addText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.sub },
   deleteLink: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.sub, textDecorationLine: 'underline' },
   startBtn: { height: 56, borderRadius: r(14), backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  startText: { fontFamily: F.bodySemi, fontSize: fs(17), color: '#FFFFFF' },
+  startText: { fontFamily: F.bodySemi, fontSize: fs(17), color: C.bg },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -257,5 +328,5 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   smallBtn: { flex: 1, height: 42, borderRadius: r(12), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   smallBtnText: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.ink },
   saveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: '#FFFFFF' },
+  saveText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },
 }));

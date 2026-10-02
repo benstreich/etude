@@ -719,7 +719,7 @@ export default function Practice() {
                     <View style={s.optionBar} />
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={s.optionText} numberOfLines={1}>
-                        {p.name}
+                        {p.name.trim() || store.t('practice.defaultPlanName')}
                       </Text>
                       <Text style={s.optionMeta}>{store.t('practice.planMeta', { count: p.segments.length, total })}</Text>
                     </View>

@@ -165,7 +165,7 @@ function RunPill({ bottom }: { bottom: number }) {
       accessibilityRole="button"
       onPress={() => (plan ? router.push({ pathname: '/plan/run', params: { id: plan.id } }) : router.push('/practice'))}>
       <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg }}>
-        ▶ {t('planRun.inProgress', { name: plan ? plan.name : (session?.name ?? '') })}
+        ▶ {t('planRun.inProgress', { name: plan ? plan.name.trim() || t('practice.defaultPlanName') : (session?.name ?? '') })}
       </Text>
     </Pressable>
   );

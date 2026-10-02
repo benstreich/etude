@@ -14,6 +14,10 @@ export type ActiveRun = {
   accum: number;
   /** Wall-clock start of the whole run, for the session review. */
   runStart: number;
+  /** Minutes actually logged so far, for the review total. */
+  loggedMin: number;
+  /** Id of the last session logged (breaks log none), for the review. */
+  lastId: string;
 };
 
 let run: ActiveRun | null = null;

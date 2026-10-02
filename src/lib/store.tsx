@@ -279,6 +279,8 @@ type Store = State & {
   addPlan: (name: string) => string;
   updatePlan: (id: string, patch: Partial<Pick<Plan, 'name' | 'segments'>>) => void;
   removePlan: (id: string) => void;
+  /** Leaving the editor: drops a plan still empty and default-named, restores a blank name. No toast. */
+  tidyPlan: (id: string, defaultName: string) => void;
   /** Upserts today's (or `date`'s) tempo entry for a piece and mirrors it into currentBpm. */
   logTempo: (pieceId: string, bpm: number, date?: string) => void;
   deleteTempoEntry: (pieceId: string, date: string) => void;
@@ -494,6 +496,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const removePlan = (id: string) => {
     setState((s) => (s ? { ...s, plans: s.plans.filter((p) => p.id !== id) } : s));
     showToast(t('toast.planDeleted'));
+  };
+
+  const tidyPlan: Store['tidyPlan'] = (id, defaultName) => {
+    setState((s) => {
+      const p = s?.plans.find((x) => x.id === id);
+      if (!s || !p) return s;
+      const name = p.name.trim();
+      if (!p.segments.length && (!name || name === defaultName)) return { ...s, plans: s.plans.filter((x) => x.id !== id) };
+      return name ? s : { ...s, plans: s.plans.map((x) => (x.id === id ? { ...x, name: defaultName } : x)) };
+    });
   };
 
   const logTempo: Store['logTempo'] = (pieceId, bpm, date = dateKey()) => {
@@ -736,9 +748,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // the piece's scores go with it, files included — nothing orphaned in attachments/
       const orphaned = gone ? forPiece(s.attachments, gone.name) : [];
       deleteAttachmentFiles(orphaned.map((a) => a.id));
+      const pieces = s.pieces.filter((p) => p.id !== id);
+      // routine segments join on the name too; keep them while a same-named piece remains
+      const kind = gone?.kind ?? 'Piece';
+      const segGone = !!gone && !pieces.some((p) => p.name === gone.name && (p.kind ?? 'Piece') === kind);
       return {
         ...s,
-        pieces: s.pieces.filter((p) => p.id !== id),
+        pieces,
+        plans: segGone ? s.plans.map((pl) => ({ ...pl, segments: pl.segments.filter((sg) => !(sg.focus.name === gone.name && sg.focus.kind === kind)) })) : s.plans,
         attachments: orphaned.length ? s.attachments.filter((a) => !orphaned.includes(a)) : s.attachments,
         quickLogFocus: gone ? clearFocus(s, gone.name, gone.kind ?? 'Piece') : s.quickLogFocus,
       };
@@ -922,6 +939,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addPlan,
     updatePlan,
     removePlan,
+    tidyPlan,
     logTempo,
     deleteTempoEntry,
     addSpot,
