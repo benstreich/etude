@@ -1,4 +1,6 @@
 {
-  "CFBundleDisplayName": "Étude",
-  "NSMicrophoneUsageDescription": "Étude nutzt das Mikrofon, um dein Üben aufzunehmen, damit du es nachhören kannst, und um dein Instrument zu stimmen."
+  "ios": {
+    "CFBundleDisplayName": "Étude",
+    "NSMicrophoneUsageDescription": "Étude nutzt das Mikrofon, um dein Üben aufzunehmen, damit du es nachhören kannst, und um dein Instrument zu stimmen."
+  }
 }
