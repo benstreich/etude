@@ -589,7 +589,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // same pct rule as cyclePiece so the repertoire bar stays consistent
           if (patch.stage !== undefined) {
             next.pct = stagePct(patch.stage, n);
-            next.stageLog = appendStageLog(p.stageLog, dateKey(), patch.stage);
+            next.stageLog = appendStageLog(p.stageLog, dateKey(), patch.stage, p.stage);
           }
           return next;
         }),
@@ -670,7 +670,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         pieces: s.pieces.map((p) => {
           if (p.id !== id) return p;
           const stage = (Math.min(p.stage, n - 1) + 1) % n;
-          return { ...p, stage, pct: stagePct(stage, n), stageLog: appendStageLog(p.stageLog, dateKey(), stage) };
+          return { ...p, stage, pct: stagePct(stage, n), stageLog: appendStageLog(p.stageLog, dateKey(), stage, p.stage) };
         }),
       };
     });
@@ -865,7 +865,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const n = patch.stages.length;
         next.pieces = next.pieces.map((p) => {
           const stage = Math.min(p.stage, n - 1);
-          return { ...p, stage, pct: stagePct(stage, n), stageLog: stage === p.stage ? p.stageLog : appendStageLog(p.stageLog, dateKey(), stage) };
+          return { ...p, stage, pct: stagePct(stage, n), stageLog: stage === p.stage ? p.stageLog : appendStageLog(p.stageLog, dateKey(), stage, p.stage) };
         });
       }
       return next;

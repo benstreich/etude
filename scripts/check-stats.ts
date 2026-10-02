@@ -107,6 +107,14 @@ assert.equal(sv.typicalLength, 2);
 assert.equal(sv.breakWeekday, 2); // breaks on Thu, Wed, Tue — a three-way tie resolves to the lowest weekday
 assert.deepEqual(sv.lengths, [3, 2, 1]);
 assert.equal(streakSurvival({ '2026-08-03': 20 }, '2026-09-04'), null);
+// Sunday off: a run carries over the weekend, and a Saturday run is still alive on Monday
+const mbdSun: Record<string, number> = {};
+for (const d of ['03', '04', '05', '06', '07', '08', '10', '11', '14', '15', '17', '20']) mbdSun[`2026-08-${d}`] = 20;
+mbdSun['2026-09-05'] = 20;
+const svSun = streakSurvival(mbdSun, '2026-09-07', ['Sunday'])!;
+assert.deepEqual(svSun.lengths, [8, 3, 1]);
+assert.equal(svSun.breakWeekday, 2); // breaks on Wed, Tue, Fri — never "on Sunday"
+assert.equal(streakSurvival(mbdSun, '2026-09-07')!.count, 6, 'without break days every Sunday ends a run');
 
 // --- projection: 30 min/day for the last 56 days → next milestone 50 h, 44 days out
 const daily: Record<string, number> = {};

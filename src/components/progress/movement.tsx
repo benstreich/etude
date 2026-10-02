@@ -14,10 +14,10 @@ import type { SectionProps } from './types';
 const MAX_ROWS = 5;
 
 export const chipKey = (m: Movement) =>
-  m.kind === 'stage' ? 'progress.moveStage' : m.kind === 'tempo' ? 'progress.moveTempo' : m.kind === 'rating' ? 'progress.moveRating' : m.kind === 'stalled' ? 'progress.moveStalled' : m.kind === 'due' ? 'progress.moveDue' : 'progress.moveNew';
+  m.kind === 'stage' ? 'progress.moveStage' : m.kind === 'tempo' ? 'progress.moveTempo' : m.kind === 'rating' ? 'progress.moveRating' : m.kind === 'stalled' ? 'progress.moveStalled' : m.kind === 'due' ? 'progress.moveDue' : m.kind === 'steady' ? 'progress.moveSteady' : 'progress.moveNew';
 export const chipArgs = (m: Movement, stages: string[]) =>
-  m.kind === 'stage' ? { from: stages[m.from] ?? m.from + 1, to: stages[m.to] ?? m.to + 1 } : m.kind === 'tempo' ? { n: m.deltaBpm } : m.kind === 'rating' ? { n: m.delta.toFixed(1) } : m.kind === 'new' ? {} : { days: m.days };
-/** Success (a mover) vs. accent (stalled/due/new) for the italic movement line. */
+  m.kind === 'stage' ? { from: stages[m.from] ?? m.from + 1, to: stages[m.to] ?? m.to + 1 } : m.kind === 'tempo' ? { n: m.deltaBpm } : m.kind === 'rating' ? { n: m.delta.toFixed(1) } : m.kind === 'new' || m.kind === 'steady' ? {} : { days: m.days };
+/** Success (a mover) vs. accent (stalled/due/new/steady) for the italic movement line. */
 export const chipMoving = (k: Movement['kind']) => k === 'stage' || k === 'tempo' || k === 'rating';
 
 const CAL_KEY = { 'grading-feel': 'progress.calGradingFeel', 'not-speed': 'progress.calNotSpeed', 'hard-days-count': 'progress.calHardDays' } as const;

@@ -248,28 +248,37 @@ export function concentration(sessions: { title: string; min: number }[]): Conce
   return { pct: Math.round((acc / total) * 100), top, total: mins.length };
 }
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export type StreakSurvival = { count: number; typicalLength: number; breakWeekday: number; lengths: number[] };
 
 /**
- * Past streaks (runs of consecutive practised days that have ended): their
- * typical length and the weekday they most often break on (0 = Sunday, the
- * first missed day). ponytail: plain consecutive days, break-day and grace
- * settings ignored. null under 3 ended streaks.
+ * Past streaks (runs of practised days that have ended): their typical length
+ * and the weekday they most often break on (0 = Sunday, the first missed day).
+ * An unpractised break day doesn't end a run, matching the app's streak;
+ * ponytail: grace ignored. null under 3 ended streaks.
  */
-export function streakSurvival(minutesByDate: Record<string, number>, today: string): StreakSurvival | null {
+export function streakSurvival(minutesByDate: Record<string, number>, today: string, breakDays: string[] = []): StreakSurvival | null {
+  const weekday = (key: string) => new Date(key + 'T12:00:00').getDay();
+  // the next day after `key` that isn't a break day (capped, in case every day is one)
+  const nextWorkday = (key: string) => {
+    let k = shiftKey(key, 1);
+    for (let i = 0; i < 6 && breakDays.includes(DAY_NAMES[weekday(k)]); i++) k = shiftKey(k, 1);
+    return k;
+  };
   const days = Object.keys(minutesByDate).filter((k) => minutesByDate[k] > 0 && k < today).sort();
   const runs: { len: number; end: string }[] = [];
   let len = 0;
   for (let i = 0; i < days.length; i++) {
-    len = i > 0 && daysBetween(days[i - 1], days[i]) === 1 ? len + 1 : 1;
+    len = i > 0 && days[i] <= nextWorkday(days[i - 1]) ? len + 1 : 1;
     const next = days[i + 1];
-    // a run reaching yesterday is still alive — it hasn't broken yet
-    if ((!next || daysBetween(days[i], next) > 1) && daysBetween(days[i], today) > 1) runs.push({ len, end: days[i] });
+    // a run whose next workday is today is still alive — it hasn't broken yet
+    if ((!next || next > nextWorkday(days[i])) && nextWorkday(days[i]) < today) runs.push({ len, end: days[i] });
   }
   if (runs.length < 3) return null;
   const counts: Record<number, number> = {};
   for (const r of runs) {
-    const wd = new Date(shiftKey(r.end, 1) + 'T12:00:00').getDay();
+    const wd = weekday(nextWorkday(r.end));
     counts[wd] = (counts[wd] ?? 0) + 1;
   }
   const breakWeekday = Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);

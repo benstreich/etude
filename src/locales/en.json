@@ -396,6 +396,7 @@
     "moveStalled": "stalled %{days} d",
     "moveDue": "due · %{days} d",
     "moveNew": "new",
+    "moveSteady": "steady",
     "calGradingFeel": "Stars rise, tempo doesn't — grading the feeling?",
     "calNotSpeed": "Tempo is there, stars aren't — it's not speed.",
     "calHardDays": "Hard-feeling sessions still moved this piece.",

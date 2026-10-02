@@ -396,6 +396,7 @@
     "moveStalled": "%{days} T. Pause",
     "moveDue": "fällig · %{days} T.",
     "moveNew": "neu",
+    "moveSteady": "stabil",
     "calGradingFeel": "Sterne steigen, Tempo nicht – bewertest du das Gefühl?",
     "calNotSpeed": "Tempo stimmt, Sterne nicht – am Tempo liegt es nicht.",
     "calHardDays": "Auch zähe Sessions haben dieses Stück vorangebracht.",

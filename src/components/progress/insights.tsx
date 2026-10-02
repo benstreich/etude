@@ -27,7 +27,7 @@ export function InsightsSection({ sessions, pieces, mbd, monday, inst }: Section
     d.dim === 'timeOfDay' ? store.t(`progress.${d.best}`).toLowerCase() : d.dim === 'length' ? store.t('progress.lengthMin', { range: d.best }) : store.t(`progress.${d.best}`);
   const timeOfDay = byTimeOfDay(inPeriod);
   const conc = concentration(inPeriod);
-  const survival = streakSurvival(mbd, store.today);
+  const survival = streakSurvival(mbd, store.today, store.breakDays);
   const proj = projection(mbd, inst ? sessions.reduce((a, x) => a + x.min, 0) : store.totalMin, store.today);
   const due = pieces
     .filter((p) => p.stage >= store.stages.length - 1)
