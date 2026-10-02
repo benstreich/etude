@@ -58,17 +58,19 @@ export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose
   const lift = useKeyboardLift();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
+      <View style={s.backdrop}>
+        {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
         {/* the ramp's number fields sit low in the sheet; the lift rides the sheet above the keyboard (see ui.tsx) */}
         <Animated.View style={[{ maxHeight: '85%', justifyContent: 'flex-end' }, lift]}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+          <View style={s.sheet}>
             <KeyboardAwareScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={{ gap: 18 }}>
               <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
               <MetronomeControls active={visible} />
             </KeyboardAwareScrollView>
-          </Pressable>
+          </View>
         </Animated.View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }

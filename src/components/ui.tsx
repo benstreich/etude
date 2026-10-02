@@ -115,14 +115,19 @@ export function Sheet({
     <Modal visible={mounted} transparent animationType="fade" onRequestClose={onClose}>
       {/* A Modal is its own native view tree, so the app's root handler in _layout
           does not reach inside it: without this, gestures in a sheet never fire. */}
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <RNPressable style={s.backdrop} onPress={onClose}>
+      <GestureHandlerRootView style={s.backdrop}>
+        {/* A sibling behind the sheet, never a wrapper around it: a Pressable that is
+            an ancestor of the scroll view becomes the JS responder for any drag that
+            starts on plain text, and on Android JSResponderHandler then intercepts
+            the MOVE events before the ScrollView reaches touch slop — a long sheet
+            simply would not scroll. */}
+        <RNPressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
         {shown && (
         <Animated.View
           entering={reduceMotion ? undefined : SlideInDown.duration(380).easing(Easing.bezier(0.33, 1, 0.68, 1))}
           exiting={reduceMotion ? undefined : SlideOutDown.duration(OUT_MS).easing(Easing.bezier(0.32, 0, 0.67, 0))}
           style={[s.avoid, lift, dragStyle, { paddingTop: insets.top, pointerEvents: 'box-none' }]}>
-          <RNPressable style={[s.sheet, { maxHeight: winH - insets.top - 12 }, fill && s.sheetFill, style]} onPress={() => {}}>
+          <View style={[s.sheet, { maxHeight: winH - insets.top - 12 }, fill && s.sheetFill, style]}>
             <GestureDetector gesture={pan}>
               <View style={s.dragZone}>
                 <View style={[s.grabber, !grabber && { opacity: 0.6 }]} />
@@ -145,10 +150,9 @@ export function Sheet({
               contentContainerStyle={[align === 'bottom' && s.contentBottom, contentStyle]}>
               {children}
             </KeyboardAwareScrollView>
-          </RNPressable>
+          </View>
           </Animated.View>
         )}
-        </RNPressable>
       </GestureHandlerRootView>
     </Modal>
   );

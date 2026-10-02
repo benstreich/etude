@@ -587,8 +587,10 @@ export default function Repertoire() {
 
       {/* re-home an orphaned take: recordings join pieces by name, so this is a one-field write */}
       <Modal visible={moveTake !== null} transparent animationType="fade" onRequestClose={() => setMoveTake(null)}>
-        <Pressable style={s.backdrop} onPress={() => setMoveTake(null)}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <View style={s.backdrop}>
+          {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMoveTake(null)} accessible={false} />
+          <View style={s.sheet}>
             <Text style={s.sheetTitle}>{store.t('recordings.moveTitle')}</Text>
             <ScrollView style={{ maxHeight: 320 }}>
               {store.allPieces.map((p) => (
@@ -613,8 +615,8 @@ export default function Repertoire() {
             <Pressable style={s.moveCancel} onPress={() => setMoveTake(null)}>
               <Text style={s.moveCancelText}>{store.t('recordings.moveCancel')}</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* A Sheet, not a bare Modal: the "new folder" field sits at the bottom of

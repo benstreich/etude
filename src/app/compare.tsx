@@ -167,8 +167,10 @@ export default function Compare() {
       </View>
 
       <Modal visible={pickOpen} transparent animationType="fade" onRequestClose={() => setPickOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setPickOpen(false)}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <View style={s.backdrop}>
+          {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPickOpen(false)} accessible={false} />
+          <View style={s.sheet}>
             <Text style={s.sheetTitle}>{store.t('compare.changeTakes')}</Text>
             <Text style={s.sheetHint}>{store.t('compare.pickHint')}</Text>
             <ScrollView style={{ maxHeight: 320 }}>
@@ -203,8 +205,8 @@ export default function Compare() {
                 );
               })}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </ScrollView>
   );

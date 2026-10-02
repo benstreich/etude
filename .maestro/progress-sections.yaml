@@ -36,6 +36,12 @@ tags:
     id: "setting-progressSections"
 - tapOn:
     id: "layout-switch-volume"
+# the sheet is taller than the screen: a swipe that starts on row text must scroll it
+# (a Pressable wrapping the scroll view used to swallow those drags on Android)
+- scrollUntilVisible:
+    element:
+      id: "layout-reset"
+    direction: DOWN
 - back
 - back
 

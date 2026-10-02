@@ -123,8 +123,10 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={() => {}}>
+      <View style={s.backdrop}>
+        {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
+        <View style={s.sheet}>
           <ScrollView contentContainerStyle={{ alignItems: 'center', gap: 16 }} showsVerticalScrollIndicator={false}>
             <View style={s.segTrack}>
               {(
@@ -221,8 +223,8 @@ export function RecapModal({ visible, onClose }: { visible: boolean; onClose: ()
               </Pressable>
             </View>
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
