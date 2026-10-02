@@ -6,8 +6,8 @@
 // re-renders only when the *note* changes, not on every frame of audio.
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, AppState, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Animated, {
   interpolateColor,
@@ -23,7 +23,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { Text } from '@/components/text';
 import { BackLink, Card, Stepper } from '@/components/ui';
 import { useStore } from '@/lib/store';
-import { inputSampleRate, readSamples, startInput, stopInput, type TunerStatus } from '@/lib/tuner-input';
+import { inputSampleRate, micGranted, readSamples, startInput, stopInput, type TunerStatus } from '@/lib/tuner-input';
 import {
   detectPitch,
   INSTRUMENTS,
@@ -45,6 +45,9 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const POLL_MS = 40;
 /** Cents inside which the note counts as in tune. 5 is the usual tuner tolerance. */
 const LOCK_CENTS = 5;
+/** Cents past which a lock is released. Wider than LOCK_CENTS so a note held
+ *  right at the edge doesn't buzz and flicker in and out. */
+const UNLOCK_CENTS = 8;
 /** Readings kept for the median. 5 × 40ms = 200ms of history: enough to reject
  *  an octave error, short enough that the needle still feels live. */
 const HISTORY = 5;
@@ -176,7 +179,7 @@ export default function Tuner() {
     fade(live, 1);
     fade(prox, 1 - Math.abs(off) / 50);
 
-    const locked = Math.abs(off) <= LOCK_CENTS;
+    const locked = Math.abs(off) <= (wasLocked.current ? UNLOCK_CENTS : LOCK_CENTS);
     settleLock(lock, locked ? 1 : 0);
     // Exactly once, on the way in. Never on the way out — otherwise it buzzes
     // continuously while a peg is being turned.
@@ -189,30 +192,75 @@ export default function Tuner() {
     setTarget(pinned ?? nearestString(n.midi, instrument.strings));
   }, [cents, live, lock, prox, settle, fade, settleLock, reset, refA, pinned, instrument]);
 
-  const begin = useCallback(async () => {
+  // The interval calls through a ref, so pinning a string or nudging the
+  // reference swaps the tick without restarting the mic and blanking the screen.
+  const tickRef = useRef(tick);
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
+  // 'Try again' bumps this to rerun the whole focus effect — the interval is
+  // only created there, so reopening the mic alone left a frozen needle.
+  const [attempt, setAttempt] = useState(0);
+
+  const begin = useCallback(async (isStale: () => boolean) => {
     setStatus('starting');
-    const result = await startInput();
-    setStatus(result);
+    const result = await startInput(isStale);
+    if (!isStale()) setStatus(result);
     return result;
   }, []);
 
-  // Mic on focus, off on blur. A tuner that holds the microphone open in the
-  // background is how an app earns one-star reviews.
+  // Mic on focus, off on blur — and off in the background. A tuner that holds
+  // the microphone open in the background is how an app earns one-star reviews.
   useFocusEffect(
     useCallback(() => {
       let timer: ReturnType<typeof setInterval> | null = null;
-      let cancelled = false;
-      begin().then((result) => {
-        if (cancelled || result !== 'ok') return;
-        timer = setInterval(tick, POLL_MS);
-      });
-      return () => {
-        cancelled = true;
+      // bumped by every start and stop, so a start still waiting on the
+      // permission prompt knows it has been overtaken
+      let gen = 0;
+      let last: TunerStatus | null = null;
+      let resume = false;
+      const start = () => {
+        const mine = ++gen;
+        const stale = () => mine !== gen;
+        begin(stale).then((result) => {
+          if (stale()) return;
+          last = result;
+          if (result === 'ok') timer = setInterval(() => tickRef.current(), POLL_MS);
+        });
+      };
+      const stop = () => {
+        gen++;
         if (timer) clearInterval(timer);
+        timer = null;
         stopInput();
         reset();
       };
-    }, [begin, tick, reset]),
+      start();
+      const sub = AppState.addEventListener('change', (state) => {
+        // only a running mic is stopped: Android backgrounds the app for its
+        // own permission dialog, and that must not restart the prompt
+        if (state === 'background' && timer) {
+          stop();
+          resume = true;
+        } else if (state === 'active') {
+          if (resume) {
+            resume = false;
+            start();
+          } else if (last === 'denied') {
+            // back from Settings, where access may just have been granted
+            const g = gen;
+            micGranted().then((ok) => {
+              if (ok && g === gen) start();
+            });
+          }
+        }
+      });
+      return () => {
+        sub.remove();
+        stop();
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- attempt is the retry trigger, read by nothing inside
+    }, [begin, reset, attempt]),
   );
 
   // --- animated bits ---
@@ -267,11 +315,13 @@ export default function Tuner() {
             : {
                 title: store.t('tuner.error'),
                 body: store.t('tuner.errorBody'),
-                action: { label: store.t('tuner.retry'), run: begin },
+                action: { label: store.t('tuner.retry'), run: () => setAttempt((n) => n + 1) },
               };
 
     return (
-      <View style={[s.scroll, s.screen, { paddingTop: insets.top + 12 }]}>
+      // scrolls: in German at the largest text size the card's action button
+      // would otherwise fall off the bottom
+      <ScrollView style={s.scroll} contentContainerStyle={[s.screen, { paddingTop: insets.top + 24 }]}>
         <BackLink label={store.t('tabs.tools')} onPress={() => router.back()} />
         <Text style={s.title}>{store.t('tuner.tuner')}</Text>
         {card && (
@@ -289,16 +339,18 @@ export default function Tuner() {
             )}
           </Card>
         )}
-      </View>
+      </ScrollView>
     );
   }
 
   const heard = note !== null;
+  // TalkBack reads a bare '#' as "hash"
+  const spoken = (name: string) => (name.includes('#') ? store.t('common.noteSharp', { note: name[0] }) : name);
 
   return (
     // Scrolls rather than clips: at the largest Dynamic Type setting the note
     // glyph alone is over 110pt, and the tab bar already owns the bottom inset.
-    <ScrollView style={s.scroll} contentContainerStyle={[s.screen, { paddingTop: insets.top + 12 }]}>
+    <ScrollView style={s.scroll} contentContainerStyle={[s.screen, { paddingTop: insets.top + 24 }]}>
       <BackLink label={store.t('tabs.tools')} onPress={() => router.back()} />
 
       <View style={s.titleRow}>
@@ -316,7 +368,15 @@ export default function Tuner() {
           </Pressable>
           <Text style={s.controlSep}>|</Text>
           <Text style={s.controlLabel}>{store.t('tuner.reference')}</Text>
-          <Stepper value={refA} min={MIN_REF_A} max={MAX_REF_A} size={30} onChange={(v) => store.updateSettings({ tunerRefA: v })} />
+          <Stepper
+            value={refA}
+            min={MIN_REF_A}
+            max={MAX_REF_A}
+            size={30}
+            suffix="Hz"
+            label={store.t('tuner.reference')}
+            onChange={(v) => store.updateSettings({ tunerRefA: v })}
+          />
         </View>
       </View>
       {/* a real picker, not a cycle-on-tap: every instrument visible, one tap to choose */}
@@ -378,7 +438,7 @@ export default function Tuner() {
         {heard && (
           <Animated.View style={noteStyle}>
             <View style={s.noteRow}>
-              <Text style={s.noteName} accessibilityLabel={`${note.name} ${note.octave}`}>
+              <Text style={s.noteName} accessibilityLabel={`${spoken(note.name)} ${note.octave}`}>
                 {note.name.replace('#', '♯')}
               </Text>
               <Text style={s.noteOctave}>{note.octave}</Text>
@@ -405,6 +465,7 @@ export default function Tuner() {
                   key={`${midi}-${i}`}
                   on={on || isPinned}
                   label={n.name.replace('#', '♯')}
+                  spoken={spoken(n.name)}
                   octave={n.octave}
                   onPress={() => setPinned(isPinned ? null : i)}
                 />
@@ -420,7 +481,19 @@ export default function Tuner() {
 }
 
 /** A string in the row below the gauge. Its dot grows rather than swaps on selection, and the label crossfades along with it. */
-function StringCell({ on, label, octave, onPress }: { on: boolean; label: string; octave: number; onPress: () => void }) {
+function StringCell({
+  on,
+  label,
+  spoken,
+  octave,
+  onPress,
+}: {
+  on: boolean;
+  label: string;
+  spoken: string;
+  octave: number;
+  onPress: () => void;
+}) {
   const s = useS();
   const C = useC();
   const { reduceMotion } = useTheme();
@@ -441,7 +514,7 @@ function StringCell({ on, label, octave, onPress }: { on: boolean; label: string
       style={s.stringCell}
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
-      accessibilityLabel={`${label}${octave}`}
+      accessibilityLabel={`${spoken} ${octave}`}
       onPress={onPress}>
       <Animated.View style={[s.stringDot, dotStyle]} />
       <Animated.Text style={[s.stringLabel, labelStyle]}>{label}</Animated.Text>
@@ -470,19 +543,28 @@ function CentsLabel({
   const [text, setText] = useState(idle);
   // 'idle' | 'off' | 'locked' — drives which of the three type styles applies
   const [mode, setMode] = useState<'idle' | 'off' | 'locked'>('idle');
+  // Screen readers hear only the transitions into 'locked' and 'idle' — the
+  // running cents value would be a constant stream of speech.
+  const lastMode = useRef<'idle' | 'off' | 'locked'>('idle');
 
   // Sampled at a quarter of the audio rate: the number only needs to be
   // readable, and re-rendering text 25×/sec is wasted work.
   React.useEffect(() => {
+    const announce = (next: 'idle' | 'off' | 'locked', msg: string) => {
+      if (next !== 'off' && next !== lastMode.current) AccessibilityInfo.announceForAccessibility(msg);
+      lastMode.current = next;
+    };
     const id = setInterval(() => {
       if (live.value < 0.5) {
         setText(idle);
         setMode('idle');
+        announce('idle', idle);
         return;
       }
       const locked = lock.value > 0.5;
       const c = Math.round(cents.value);
       setMode(locked ? 'locked' : 'off');
+      announce(locked ? 'locked' : 'off', inTune);
       setText(locked ? inTune : `${c > 0 ? '+' : ''}${c} ¢`);
     }, 160);
     return () => clearInterval(id);
@@ -498,7 +580,7 @@ function CentsLabel({
 const useS = themed(({ C, fs, r }: T) =>
   StyleSheet.create({
     scroll: { flex: 1, backgroundColor: C.bg },
-    screen: { paddingHorizontal: 20, paddingBottom: 24 },
+    screen: { paddingHorizontal: 24, paddingBottom: 24 },
 
     title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
 
@@ -509,7 +591,8 @@ const useS = themed(({ C, fs, r }: T) =>
     titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
     controls: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6, flexShrink: 1, flexWrap: 'wrap', rowGap: 4 },
     instRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-    instChip: { height: 34, paddingHorizontal: 14, borderRadius: r(999), backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
+    // the transparent border reserves the width, so selecting doesn't shift the chip
+    instChip: { height: 34, paddingHorizontal: 14, borderRadius: r(999), borderWidth: 1.5, borderColor: 'transparent', backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
     instChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
     instChipText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
     controlLabel: { fontFamily: F.body, fontSize: fs(14), color: C.subStrong },

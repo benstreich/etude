@@ -4,6 +4,7 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 
 import { DRONE_NOTES, droneFreq, droneRate } from '../src/lib/drone.ts';
+import { MAX_REF_A, MIN_REF_A } from '../src/lib/tuner-math.ts';
 
 assert.equal(DRONE_NOTES.length, 12);
 assert.equal(droneFreq('A', 4), 440);
@@ -32,6 +33,10 @@ for (const n of DRONE_NOTES) assert.equal(droneRate(n, SAMPLE_OCTAVE, 440), 1, `
 // window (0.1..2 on Android, 0.0..2 on iOS), or the drone plays at the wrong
 // pitch instead of refusing. Rendering the samples an octave low used to push
 // A4/A#4/B4 above concert pitch past the ceiling.
+// The drone reads the tuner's reference setting, so it must accept every value
+// the tuner can store — a 415 baroque A set in the tuner has to play here too.
+assert.equal(A4_MIN, MIN_REF_A, 'drone and tuner share one A4 range');
+assert.equal(A4_MAX, MAX_REF_A, 'drone and tuner share one A4 range');
 const A4S = [A4_MIN, 440, A4_MAX];
 const offered = DRONE_NOTES.flatMap((n) => DRONE_OCTAVES.flatMap((oct) => A4S.map((a4) => ({ n, oct, a4, r: droneRate(n, oct, a4) }))));
 assert.equal(offered.length, 108);
