@@ -471,11 +471,17 @@ function DayPanel({
   const s = useS();
   const { C, fs, reduceMotion } = useTheme();
   const { height: winH } = useWindowDimensions();
-  const v = useSharedValue(1);
+  // starts hidden, so the first frame doesn't flash the card at full opacity
+  // before the effect below resets it to 0
+  const v = useSharedValue(reduceMotion ? 1 : 0);
   React.useEffect(() => {
     // from 0 each time, or it animated from 1 to 1 and never showed
-    if (reduceMotion || !open) {
+    if (reduceMotion) {
       v.value = 1;
+      return;
+    }
+    if (!open) {
+      v.value = 0; // the chip isn't animated; the card comes back from hidden
       return;
     }
     v.value = 0;
