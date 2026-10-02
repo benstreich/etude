@@ -1,5 +1,9 @@
-/** What the lock-screen / notification buttons mean. The step size is the caller's business. */
-export type MetronomeCommand = 'inc' | 'dec' | 'toggle';
+/**
+ * What the lock-screen / notification buttons mean. The step size is the caller's business.
+ * Android only: 'stop' is the paused notification's Stop or its dismissal; 'pause' is the
+ * engine giving up the stream (audio focus lost, headphones unplugged, the track died).
+ */
+export type MetronomeCommand = 'inc' | 'dec' | 'toggle' | 'stop' | 'pause';
 
 /** One tick the native engine has just placed (Android only): the tick played, and the one after it. */
 export type MetronomeTickEvent = {

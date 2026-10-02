@@ -4,11 +4,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.SoundPool
 import android.os.Build
@@ -36,6 +40,7 @@ private const val PKG = "expo.modules.metronomecontrols"
 const val ACTION_INC = "$PKG.INC"
 const val ACTION_DEC = "$PKG.DEC"
 const val ACTION_TOGGLE = "$PKG.TOGGLE"
+const val ACTION_STOP = "$PKG.STOP"
 
 class ControlsState(
   @Field val bpm: Int = 120,
@@ -195,6 +200,9 @@ object Ticker {
   @Volatile private var running = false
   private var thread: Thread? = null
   private var wakeLock: PowerManager.WakeLock? = null
+  private var audioApp: Context? = null // set while focus and the noisy receiver are held
+  private var focusRequest: AudioFocusRequest? = null
+  private var noisy: BroadcastReceiver? = null
   private var beat = 0
   private var sub = 0
 
@@ -218,6 +226,7 @@ object Ticker {
     wakeLock = (app.getSystemService(Context.POWER_SERVICE) as PowerManager)
       .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "etude:metronome")
       .also { it.acquire(4 * 60 * 60 * 1000L) } // 4h safety cap
+    holdAudio(app)
     running = true
     thread = Thread({ loop(app, startInMs.coerceAtLeast(0.0)) }, "metronome-audio").also { it.start() }
   }
@@ -226,49 +235,118 @@ object Ticker {
     if (!running) return
     running = false
     thread?.join(500) // the loop is never blocked longer than one 10 ms chunk write
+    freeRun()
+  }
+
+  /** Everything a run holds besides the loop itself. */
+  private fun freeRun() {
     thread = null
     wakeLock?.takeIf { it.isHeld }?.release()
     wakeLock = null
+    releaseAudio()
   }
+
+  /**
+   * The loop ended without stop(): the track could not be built or died under us
+   * (an audioserver restart). Left `running`, every later start() returned early and
+   * the metronome stayed silent — so free the run and have JS show it as paused.
+   */
+  @Synchronized private fun onLoopDied(dead: Thread) {
+    if (!running || thread !== dead) return // stopped, or already restarted, meanwhile
+    running = false
+    freeRun()
+    MetronomeControlsService.onCommand?.invoke("pause")
+  }
+
+  // A raw AudioTrack gets no audio focus or noisy handling for free: without these it
+  // clicked over music and calls, and moved to the loudspeaker when headphones came out.
+  // Both just ask JS to pause, which stops this engine and repaints the controls.
+  private val onFocus = AudioManager.OnAudioFocusChangeListener { change ->
+    if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)
+      MetronomeControlsService.onCommand?.invoke("pause")
+  }
+
+  private fun holdAudio(app: Context) {
+    val am = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        .setAudioAttributes(ATTRIBUTES)
+        .setOnAudioFocusChangeListener(onFocus)
+        .build()
+        .also { am.requestAudioFocus(it) }
+    } else {
+      @Suppress("DEPRECATION")
+      am.requestAudioFocus(onFocus, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+    }
+    // BECOMING_NOISY is a protected system broadcast, so exporting the receiver opens nothing
+    noisy = object : BroadcastReceiver() {
+      override fun onReceive(context: Context, intent: Intent) {
+        MetronomeControlsService.onCommand?.invoke("pause")
+      }
+    }.also {
+      ContextCompat.registerReceiver(app, it, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), ContextCompat.RECEIVER_EXPORTED)
+    }
+    audioApp = app
+  }
+
+  private fun releaseAudio() {
+    val app = audioApp ?: return
+    audioApp = null
+    val am = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      focusRequest?.let { am.abandonAudioFocusRequest(it) }
+    } else {
+      @Suppress("DEPRECATION")
+      am.abandonAudioFocus(onFocus)
+    }
+    focusRequest = null
+    noisy?.let { runCatching { app.unregisterReceiver(it) } }
+    noisy = null
+  }
+
+  private val ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_MEDIA)
+    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+    .build()
 
   private class Voice(val sample: ShortArray, var pos: Int, val gain: Float)
 
   private fun loop(app: Context, startInMs: Double) {
     Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
-    val chunk = RATE / 100 // 10 ms of frames per write: how quickly an edit reaches the stream
-    val minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
-    val bufBytes = max(minBuf, chunk * 2 * 4)
-    val track = AudioTrack.Builder()
-      .setAudioAttributes(
-        AudioAttributes.Builder()
-          .setUsage(AudioAttributes.USAGE_MEDIA)
-          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-          .build()
-      )
-      .setAudioFormat(
-        AudioFormat.Builder()
-          .setSampleRate(RATE)
-          .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-          .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-          .build()
-      )
-      .setBufferSizeInBytes(bufBytes)
-      .setTransferMode(AudioTrack.MODE_STREAM)
-      .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
-      .build()
-    // what sits queued between a write and the speaker — the dots are told to wait this long
-    val queuedMs = (bufBytes / 2) * 1000L / RATE
+    val self = Thread.currentThread()
     val main = Handler(Looper.getMainLooper())
-    val mix = FloatArray(chunk)
-    val out = ShortArray(chunk)
-    val voices = ArrayList<Voice>()
-    var written = 0L // frames handed to the track so far
-    var beatLen = RATE * 60.0 / bpm
-    // the first tick lands `startIn` from now; a mid-beat pickup puts its downbeat before that
-    var beatFrame = startInMs * RATE / 1000.0 - sub * beatLen / subdiv
-
-    track.play()
+    var track: AudioTrack? = null
+    // building and starting the track sit inside the try too: on this bare thread
+    // an exception from either was uncaught and took the whole process down
     try {
+      val chunk = RATE / 100 // 10 ms of frames per write: how quickly an edit reaches the stream
+      val minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+      val bufBytes = max(minBuf, chunk * 2 * 4)
+      val t = AudioTrack.Builder()
+        .setAudioAttributes(ATTRIBUTES)
+        .setAudioFormat(
+          AudioFormat.Builder()
+            .setSampleRate(RATE)
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+            .build()
+        )
+        .setBufferSizeInBytes(bufBytes)
+        .setTransferMode(AudioTrack.MODE_STREAM)
+        .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY) }
+        .build()
+      track = t
+      // what sits queued between a write and the speaker — the dots are told to wait this long
+      val queuedMs = (bufBytes / 2) * 1000L / RATE
+      val mix = FloatArray(chunk)
+      val out = ShortArray(chunk)
+      val voices = ArrayList<Voice>()
+      var written = 0L // frames handed to the track so far
+      var beatLen = RATE * 60.0 / bpm
+      // the first tick lands `startIn` from now; a mid-beat pickup puts its downbeat before that
+      var beatFrame = startInMs * RATE / 1000.0 - sub * beatLen / subdiv
+
+      t.play()
       while (running) {
         java.util.Arrays.fill(mix, 0f)
         val end = written + chunk
@@ -285,9 +363,11 @@ object Ticker {
           var tickFrame = beatFrame + sub * beatLen / n
           if (tickFrame < written) {
             // its moment passed while the tempo or slicing changed — play it now, and
-            // re-anchor the bar on a downbeat so the grid runs on from here
+            // re-anchor the beat's grid on it so the grid runs on from here. Anchoring
+            // only on a downbeat left a late subdivision's successors in the past too,
+            // stacking two or three clicks on one frame after a big tempo jump.
             tickFrame = written.toDouble()
-            if (sub == 0) beatFrame = tickFrame
+            beatFrame = tickFrame - sub * beatLen / n
           }
           if (tickFrame >= end) break
           val offset = (tickFrame - written).toInt()
@@ -323,15 +403,20 @@ object Ticker {
           if (v.pos >= v.sample.size) it.remove()
         }
         for (i in 0 until chunk) out[i] = mix[i].coerceIn(-32768f, 32767f).toInt().toShort()
-        if (track.write(out, 0, chunk, AudioTrack.WRITE_BLOCKING) < 0) break
+        if (t.write(out, 0, chunk, AudioTrack.WRITE_BLOCKING) < 0) break // e.g. ERROR_DEAD_OBJECT
         written += chunk
       }
+    } catch (_: Exception) {
+      // the track could not be built or started — handled below like a dead stream
     } finally {
-      try {
-        track.pause()
-        track.flush()
-      } catch (_: Exception) {}
-      track.release()
+      track?.let {
+        try {
+          it.pause()
+          it.flush()
+        } catch (_: Exception) {}
+        runCatching { it.release() }
+      }
+      if (running) main.post { onLoopDied(self) }
     }
   }
 }
@@ -361,7 +446,7 @@ class MetronomeControlsService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (val action = intent?.action) {
-      ACTION_INC, ACTION_DEC, ACTION_TOGGLE -> onCommand?.invoke(action.substringAfterLast('.').lowercase())
+      ACTION_INC, ACTION_DEC, ACTION_TOGGLE, ACTION_STOP -> onCommand?.invoke(action.substringAfterLast('.').lowercase())
       else -> {
         bpm = intent?.getIntExtra(EXTRA_BPM, bpm) ?: bpm
         running = intent?.getBooleanExtra(EXTRA_RUNNING, running) ?: running
@@ -370,6 +455,8 @@ class MetronomeControlsService : Service() {
     }
     // always re-post: a button intent must not leave a startForegroundService() call unanswered
     goForeground()
+    // no JS left to stop us (it hides the service itself otherwise): Stop must still clear the notification
+    if (intent?.action == ACTION_STOP && onCommand == null) stopSelf()
     // NOT_STICKY: without the JS runtime this service is useless — a sticky restart
     // after process death would only resurrect a zombie notification with dead buttons
     return START_NOT_STICKY
@@ -411,24 +498,31 @@ class MetronomeControlsService : Service() {
     val open = packageManager.getLaunchIntentForPackage(packageName)?.let {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
     }
-    return NotificationCompat.Builder(this, CHANNEL_ID)
+    val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_media_play)
       .setContentTitle("$bpm BPM")
       .setContentText(subtitle ?: "Metronome")
-      .setOngoing(true)
+      .setOngoing(running)
       .setSilent(true)
       .setShowWhen(false)
       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setContentIntent(open)
-      .addAction(android.R.drawable.ic_media_previous, "Slower", button(ACTION_DEC))
-      .addAction(
-        if (running) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-        if (running) "Pause" else "Play",
-        button(ACTION_TOGGLE)
-      )
-      .addAction(android.R.drawable.ic_media_next, "Faster", button(ACTION_INC))
-      .build()
+    // Paused, the notification still holds the foreground service, and on Android 13
+    // and earlier it cannot be swiped away — so it carries its own Stop (a template
+    // shows three actions at most, hence Play + Stop), and a swipe where allowed stops too.
+    if (running) {
+      builder
+        .addAction(android.R.drawable.ic_media_previous, "Slower", button(ACTION_DEC))
+        .addAction(android.R.drawable.ic_media_pause, "Pause", button(ACTION_TOGGLE))
+        .addAction(android.R.drawable.ic_media_next, "Faster", button(ACTION_INC))
+    } else {
+      builder
+        .addAction(android.R.drawable.ic_media_play, "Play", button(ACTION_TOGGLE))
+        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", button(ACTION_STOP))
+        .setDeleteIntent(button(ACTION_STOP))
+    }
+    return builder.build()
   }
 
   companion object {

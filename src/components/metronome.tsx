@@ -1,17 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import Animated from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 
 import { PlayIcon } from '@/components/icons';
-import { RollingNumber } from '@/components/motifs';
+import { MetNote, RollingNumber } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Bump } from '@/components/motion';
-import { ActionChip, EntryRow, Stepper, Switch, UnderlineTabs, useKeyboardLift } from '@/components/ui';
+import { ActionChip, EntryRow, Sheet, Stepper, Switch, UnderlineTabs } from '@/components/ui';
 import { tap } from '@/lib/haptics';
 import { LOCK_SCREEN_STEP, preloadClicks, previewClick, useBeat, useMetronome } from '@/lib/metronome';
-import { describeRamp, MAX_BPM, MIN_BPM, SOUND_SETS, SUBDIVS, tapTempo, type RampUnit, type SoundSet } from '@/lib/metronome-math';
+import { describeRamp, MAX_BPM, MIN_BPM, SOUND_SETS, SUBDIVS, tapTempo, type Level, type RampUnit, type SoundSet } from '@/lib/metronome-math';
 import { useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -30,12 +28,20 @@ const SOUND_KEY: Record<SoundSet, string> = {
   soft: 'metronome.soundSoft',
   rim: 'metronome.soundRim',
 };
+// what a screen reader says for each dot: 0 muted, 1 plain, 2 group start, 3 downbeat
+const LEVEL_KEY: Record<Level, string> = {
+  0: 'metronome.levelMuted',
+  1: 'metronome.levelPlain',
+  2: 'metronome.levelMid',
+  3: 'metronome.levelAccent',
+};
 
 /** Opens the metronome sheet; shows the live tempo once it is running. */
 export function MetronomeButton({ compact = false, presetBpm }: { compact?: boolean; presetBpm?: number }) {
   const s = useS();
   const C = useC();
   const { t } = useStore();
+  const { fs } = useTheme();
   const { running, bpm, setBpm } = useMetronome();
   const [open, setOpen] = useState(false);
   const openSheet = () => {
@@ -44,8 +50,20 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
   };
   return (
     <>
-      <Pressable style={[s.pill, compact && s.pillCompact, running && s.pillOn]} onPress={openSheet}>
-        <Text style={[s.pillText, running && { color: C.bg }]}>{running ? `♩ ${bpm}` : t('metronome.metronome')}</Text>
+      <Pressable
+        style={[s.pill, compact && s.pillCompact, running && s.pillOn]}
+        accessibilityRole="button"
+        accessibilityLabel={running ? t('metronome.runningA11y', { bpm }) : t('metronome.metronome')}
+        onPress={openSheet}>
+        {running ? (
+          // the note goes through SVG, never Text (see MetNote)
+          <View style={s.pillRow}>
+            <MetNote size={fs(16)} color={C.bg} />
+            <Text style={[s.pillText, { color: C.bg }]}>{bpm}</Text>
+          </View>
+        ) : (
+          <Text style={s.pillText}>{t('metronome.metronome')}</Text>
+        )}
       </Pressable>
       <MetronomeSheet visible={open} onClose={() => setOpen(false)} />
     </>
@@ -55,28 +73,16 @@ export function MetronomeButton({ compact = false, presetBpm }: { compact?: bool
 export function MetronomeSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const s = useS();
   const { t } = useStore();
-  const lift = useKeyboardLift();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
-        {/* the ramp's number fields sit low in the sheet; the lift rides the sheet above the keyboard (see ui.tsx) */}
-        <Animated.View style={[{ maxHeight: '85%', justifyContent: 'flex-end' }, lift]}>
-          <View style={s.sheet}>
-            <KeyboardAwareScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={{ gap: 18 }}>
-              <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
-              <MetronomeControls active={visible} />
-            </KeyboardAwareScrollView>
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+    <Sheet visible={visible} onClose={onClose} grabber contentStyle={{ gap: 18 }}>
+      <Text style={s.sheetTitle}>{t('metronome.metronome')}</Text>
+      <MetronomeControls active={visible} />
+    </Sheet>
   );
 }
 
 /**
- * Every metronome control, no chrome: the sheet wraps it in a Modal, the Tools
+ * Every metronome control, no chrome: MetronomeSheet wraps it in the shared Sheet, the Tools
  * tab's /metronome page lays it out full screen. `active` preloads the click
  * sets the moment the host is shown (#78).
  */
@@ -88,14 +94,15 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
   const metronome = useMetronome();
   const { running, bpm, startBpm, timeSig, ramp, subdiv, accents, sound, volume } = metronome;
   const { toggle, setBpm, nudge, setTimeSig, setRamp, setSubdiv, cycleAccent, setSound, setVolume } = metronome;
-  const beat = useBeat();
+  const { beat, n: pulse } = useBeat();
   const taps = useRef<number[]>([]);
   // every sound set ready before the picker is touched (#78)
   useEffect(() => {
     if (active) preloadClicks();
   }, [active]);
 
-  const tap = () => {
+  const onTapTempo = () => {
+    tap();
     const now = Date.now();
     // a long gap means a new count-in, not a very slow tempo
     taps.current = now - (taps.current.at(-1) ?? 0) > 3000 ? [now] : [...taps.current, now];
@@ -115,13 +122,23 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
       })
     : null;
 
+  // 12/8 at the usual spacing ran wider than a 360dp phone
+  const dense = accents.length > 9;
+
   return (
     <>
             {/* tap a dot to cycle its accent: accent → mid → plain → muted (#57) */}
-            <View style={s.dots}>
+            <View style={[s.dots, dense && { gap: 8 }]}>
               {accents.map((level, i) => (
-                <Pressable key={i} hitSlop={6} onPress={() => cycleAccent(i)}>
-                  <Bump trigger={running && beat === i} peak={level === 3 ? 1.5 : 1.3}>
+                <Pressable
+                  key={i}
+                  hitSlop={dense ? 4 : 6}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('metronome.beatA11y', { n: i + 1, level: t(LEVEL_KEY[level]) })}
+                  accessibilityHint={t('metronome.accentsHint')}
+                  onPress={() => cycleAccent(i)}>
+                  {/* keyed on the pulse, not the index: in 1/4 the index never changes */}
+                  <Bump trigger={running && beat === i ? pulse : 0} peak={level === 3 ? 1.5 : 1.3}>
                   <View
                     style={[
                       s.dot,
@@ -149,17 +166,18 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
               <Step label="+5" testID="metro-plus-5" disabled={bpm >= MAX_BPM} onPress={() => nudge(5)} />
             </View>
 
+            {/* its own target, not a link inside the Start row: a slightly missed tap there toggled playback */}
+            <Pressable style={[s.pill, s.tapPill]} accessibilityRole="button" onPress={onTapTempo}>
+              <Text style={s.pillText}>{t('metronome.tapTempo')}</Text>
+            </Pressable>
+
             <EntryRow
               testID="metro-start"
               keySize={52}
               keyStyle={running ? { backgroundColor: C.accent } : { borderWidth: 1.5, borderColor: C.ink }}
               keyContent={running ? <View style={{ width: 14, height: 14, borderRadius: 2, backgroundColor: C.bg }} /> : <PlayIcon color={C.ink} />}
               title={running ? t('metronome.stop') : t('metronome.start')}
-              right={
-                <Pressable hitSlop={8} onPress={tap}>
-                  <Text style={s.tapLink}>{t('metronome.tapTempo')}</Text>
-                </Pressable>
-              }
+              right={null}
               close
               onPress={toggle}
             />
@@ -206,14 +224,22 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
                 <Text style={[s.label, { flex: 1 }]}>{t('metronome.volume')}</Text>
                 <Text style={s.hint}>{volume}%</Text>
               </View>
-              <VolumeSlider value={volume} onChange={setVolume} />
+              <VolumeSlider value={volume} onChange={setVolume} label={t('metronome.volume')} />
             </View>
 
             <View style={{ gap: 12 }}>
-              <Pressable style={s.switchRow} onPress={() => setRamp({ on: !ramp.on })}>
+              {/* the row is the switch for a screen reader: it groups the inner Switch away */}
+              <Pressable
+                style={s.switchRow}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: ramp.on }}
+                onPress={() => {
+                  tap();
+                  setRamp({ on: !ramp.on });
+                }}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.label}>{t('metronome.tempoRamp')}</Text>
-                  <Text style={s.hint}>{summary ?? t('metronome.rampOffHint')}</Text>
+                  <Text style={s.hint}>{summary ?? t(ramp.on ? 'metronome.rampSameTarget' : 'metronome.rampOffHint')}</Text>
                 </View>
                 <Switch value={ramp.on} onChange={(on) => setRamp({ on })} />
               </Pressable>
@@ -227,19 +253,22 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
                   <View style={s.fieldRow}>
                     <Text style={s.fieldLabel}>{t('metronome.every')}</Text>
                     <Stepper value={ramp.every} min={1} max={MAX_BPM} size={38} onChange={(every) => setRamp({ every })} />
-                    {UNITS.map((unit) => (
-                      <ActionChip
-                        key={unit}
-                        label={t(UNIT_KEY[unit])}
-                        active={ramp.unit === unit}
-                        onPress={() => setRamp({ unit })}
-                        icon={() => null}
-                      />
-                    ))}
+                    {/* one unit: the two chips wrap together, never one per line */}
+                    <View style={s.unitRow}>
+                      {UNITS.map((unit) => (
+                        <ActionChip
+                          key={unit}
+                          label={t(UNIT_KEY[unit])}
+                          active={ramp.unit === unit}
+                          onPress={() => setRamp({ unit })}
+                          icon={() => null}
+                        />
+                      ))}
+                    </View>
                   </View>
                   <View style={s.fieldRow}>
                     <Text style={s.fieldLabel}>{t('metronome.until')}</Text>
-                    <Stepper value={ramp.target} min={MIN_BPM} max={MAX_BPM} size={38} suffix="BPM" onChange={(target) => setRamp({ target })} />
+                    <Stepper value={ramp.target} min={MIN_BPM} max={MAX_BPM} coarseStep={5} size={38} suffix="BPM" onChange={(target) => setRamp({ target })} />
                   </View>
                   <Text style={s.hint}>{t('metronome.rampDownHint')}</Text>
                 </View>
@@ -255,19 +284,31 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
  * 0-100 in one bar. ponytail: the responder props RN already has, like the trim
  * handle in recordings.tsx — no gesture library, no slider dependency.
  */
-function VolumeSlider({ value, onChange }: { value: number; onChange: (pct: number) => void }) {
+function VolumeSlider({ value, onChange, label }: { value: number; onChange: (pct: number) => void; label: string }) {
   const s = useS();
   const width = useRef(1);
   const at = (x: number) => onChange(Math.round((Math.min(width.current, Math.max(0, x)) / width.current) * 100));
   return (
+    // a 44pt touch zone around the 12pt bar; it keeps the drag once it has it, or a
+    // slightly diagonal one was handed to the scroll view. The bar inside is inert,
+    // so locationX is always measured against this view.
     <View
-      style={s.volTrack}
+      style={s.volHit}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ min: 0, max: 100, now: value, text: `${value}%` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(e) => onChange(Math.min(100, Math.max(0, value + (e.nativeEvent.actionName === 'increment' ? 10 : -10))))}
       onLayout={(e) => (width.current = Math.max(1, e.nativeEvent.layout.width))}
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
+      onResponderTerminationRequest={() => false}
       onResponderGrant={(e) => at(e.nativeEvent.locationX)}
       onResponderMove={(e) => at(e.nativeEvent.locationX)}>
-      <View style={[s.volFill, { width: `${value}%` }]} />
+      <View style={[s.volTrack, { pointerEvents: 'none' }]}>
+        <View style={[s.volFill, { width: `${value}%` }]} />
+      </View>
     </View>
   );
 }
@@ -295,20 +336,23 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   pillCompact: { height: 36, paddingHorizontal: 14 },
   pillOn: { backgroundColor: C.accent, borderColor: C.accent },
   pillText: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink },
+  pillRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  tapPill: { alignSelf: 'center' },
 
-  backdrop: { flex: 1, backgroundColor: 'rgba(28,26,23,0.4)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, flexShrink: 1 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
 
-  dots: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
+  dots: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' },
   dot: { width: 16, height: 16, borderRadius: 8, backgroundColor: C.chartInactive },
   dotDown: { backgroundColor: C.accent },
   dotMid: { backgroundColor: C.faint },
   dotMuted: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: C.chartInactive },
-  dotLit: { backgroundColor: C.faint },
-  dotDownLit: { backgroundColor: C.accent },
+  // ink when lit: with reduce motion there is no bump, and a lit downbeat or mid
+  // dot in its own colour showed no change at all
+  dotLit: { backgroundColor: C.ink },
+  dotDownLit: { backgroundColor: C.ink },
   dotMutedLit: { borderColor: C.faint },
 
+  volHit: { height: 44, marginVertical: -16, justifyContent: 'center' },
   volTrack: { height: 12, borderRadius: r(999), backgroundColor: C.track, overflow: 'hidden', justifyContent: 'center' },
   volFill: { height: 12, borderRadius: r(999), backgroundColor: C.accent },
 
@@ -320,13 +364,12 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   step: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.track, alignItems: 'center', justifyContent: 'center' },
   stepText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
 
-  tapLink: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.ink },
-
   label: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
   hint: { fontFamily: F.body, fontSize: fs(14.5), color: C.subStrong, lineHeight: fs(19) },
 
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 
   fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink, width: 84 },
+  fieldLabel: { fontFamily: F.bodyMed, fontSize: fs(14), color: C.ink, minWidth: 84 },
+  unitRow: { flexDirection: 'row', gap: 10 },
 }));
