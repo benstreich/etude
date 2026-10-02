@@ -77,7 +77,7 @@
   "settings": {
     "breakEvery": "Pausenerinnerung",
     "everyMin": "alle %{min} Min",
-    "breakEveryHint": "Der Timer erinnert dich nach so vielen Minuten an eine Pause. Pausen halten die Sitzung an und zählen nicht als Übung.",
+    "breakEveryHint": "Der Timer erinnert dich nach so vielen Minuten an eine Pause. Pausen halten die Einheit an und zählen nicht als Übung.",
     "title": "Einstellungen",
     "rate": "Gefällt dir Étude? Hinterlasse eine Bewertung",
     "rateSub": "Eine Bewertung hilft anderen Musiker:innen, die App zu finden",
@@ -205,7 +205,7 @@
     "resetLayoutTitle": "Bereiche zurücksetzen?",
     "resetLayoutBody": "Schalter und Reihenfolge gehen auf den Standard zurück.",
     "resetLayoutConfirm": "Zurücksetzen",
-    "errStagesDuplicate": "Gib jeder Stufe einen eigenen Namen",
+    "errStagesDuplicate": "Gib jeder Phase einen eigenen Namen",
     "remindAt": "Erinnern um %{time}"
   },
   "home": {
@@ -278,7 +278,7 @@
     "onBreak": "In der Pause",
     "breakOver": "Pause vorbei",
     "breakChannel": "Pausen",
-    "sessionChannel": "Übungs-Session",
+    "sessionChannel": "Übungseinheit",
     "breakOverTitle": "Pause vorbei",
     "breakOverBody": "Weiter üben?",
     "micPermissionNeeded": "Mikrofonberechtigung erforderlich",
@@ -343,8 +343,8 @@
     "weekend": "am Wochenende",
     "weekday": "an Wochentagen",
     "routine": "mit einer Routine",
-    "free": "in einer freien Sitzung",
-    "driversSentence": "Deine bestbewerteten Sitzungen: %{list}.",
+    "free": "in einer freien Einheit",
+    "driversSentence": "Deine bestbewerteten Einheiten: %{list}.",
     "concentrationSentence": "%{pct} % dieses Zeitraums gingen an %{top} von %{total} Schwerpunkten.",
     "streakSentence": "Deine Serien reißen meist an Tag %{day}, am häufigsten an einem %{weekday}.",
     "paceSentence": "Im Tempo der letzten 8 Wochen erreichst du dieses Jahr %{hours} Stunden.",
