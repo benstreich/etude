@@ -21,7 +21,7 @@ import { syncReminder } from './reminders';
 import { applySessionUpdate, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
-import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
+import { computeBestStreak, computeStreak, dateKey, graceFor, nextBestStreak, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
@@ -569,11 +569,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!s) return s;
       const next = applySessionUpdate(s, id, patch);
       if (next === s || patch.min === undefined) return next;
-      // an edited day can complete a streak, same monotonic bump as logMinutes
-      return {
-        ...next,
-        bestStreak: Math.max(next.bestStreak, computeBestStreak(next.minutesByDate, next.breakDays, graceFor(next.streakMode))),
-      };
+      // an edited day can complete a streak, or (minutes cut to 0) break the one that made the best
+      const best = (m: Record<string, number>) => computeBestStreak(m, s.breakDays, graceFor(s.streakMode));
+      return { ...next, bestStreak: nextBestStreak(s.bestStreak, best(s.minutesByDate), best(next.minutesByDate)) };
     });
   };
 
@@ -603,12 +601,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const sess = s.sessions.find((x) => x.id === id);
       if (!sess) return s;
       const dayMin = s.minutesByDate[sess.date];
+      const minutesByDate = dayMin === undefined ? s.minutesByDate : { ...s.minutesByDate, [sess.date]: Math.max(0, dayMin - sess.min) };
+      // the deleted session may have been the bridge in the best run
+      const best = (m: Record<string, number>) => computeBestStreak(m, s.breakDays, graceFor(s.streakMode));
       return {
         ...s,
         sessions: s.sessions.filter((x) => x.id !== id),
         totalMin: Math.max(0, s.totalMin - sess.min),
-        minutesByDate:
-          dayMin === undefined ? s.minutesByDate : { ...s.minutesByDate, [sess.date]: Math.max(0, dayMin - sess.min) },
+        minutesByDate,
+        bestStreak: nextBestStreak(s.bestStreak, best(s.minutesByDate), best(minutesByDate)),
       };
     });
     showToast(t('toast.sessionDeleted'));

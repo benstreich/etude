@@ -4,7 +4,9 @@
     "dayNames": "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
     "today": "Today",
     "yesterday": "Yesterday",
-    "dayLetters": "SMTWTFS"
+    "dayLetters": "SMTWTFS",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month"
   },
   "tabs": {
     "home": "Home",
@@ -182,7 +184,11 @@
     "resetDefault": "Reset to default",
     "nOfM": "%{n} of %{m}",
     "progressSectionsHelp": "Switch sections on and off. Hold the handle and drag to change the order.",
-    "dragToReorder": "Drag to reorder"
+    "dragToReorder": "Drag to reorder",
+    "resetLayoutTitle": "Reset the sections?",
+    "resetLayoutBody": "Your switches and order go back to the default.",
+    "resetLayoutConfirm": "Reset",
+    "errStagesDuplicate": "Give each stage its own name"
   },
   "home": {
     "goodMorning": "Good morning",
@@ -340,6 +346,7 @@
     "goalBehind": "%{min} min behind pace",
     "deadlines": "Coming up",
     "daysLeft": {
+      "zero": "today",
       "one": "tomorrow",
       "other": "in %{count} days"
     },
@@ -364,8 +371,9 @@
     "period30d": "30d",
     "periodAll": "All",
     "nothingInPeriod": "Nothing logged in this period",
+    "notEnoughRatedInPeriod": "Too few rated sessions in this period to compare.",
     "customise": "Customise",
-    "customHint": "This tab is yours — switch sections on and off, and put them in your order.",
+    "customHint": "These sections are yours — switch them on and off, and put them in your order.",
     "hintDismiss": "Got it",
     "ratingSessions": "%{n} rated sessions",
     "section": {
@@ -407,6 +415,7 @@
     "performable": "Performable today",
     "performableCount": "%{n} of %{m} fresh",
     "lastPlayed": "%{days} d ago",
+    "playedToday": "played today",
     "neverPlayed": "never played",
     "sinceLastMonth": "Since last month",
     "changedDay": "day 1–%{day} vs. last month",
@@ -444,6 +453,7 @@
       "sessions": "Log a session first.",
       "pieces": "Add a piece to your repertoire first.",
       "rated": "Needs %{need} rated sessions — you have %{have}.",
+      "ratedPiece": "Needs %{need} rated sessions of one piece — you have %{have}.",
       "history": "Needs %{need} days of practice — you have %{have}.",
       "recordings": "Needs a piece with two recordings.",
       "goals": "Set a daily goal or a piece deadline first.",

@@ -104,6 +104,9 @@ assert.equal(year.monthlyMinutes[6], 20);
 assert.equal(year.monthlyMinutes[7], 100);
 assert.equal(year.longestStreak, 4); // Jul 31 – Aug 3
 assert.equal(recapStats({ sessions: [], minutesByDate: {}, breakDays: [], year: 2026 }).topPiece, null);
+// a month of focus-less quick logs outweighs every piece, but is not one
+const quickHeavy = recapStats({ sessions: [...sessions, { title: 'Quick log', meta: 'Logged', min: 300, date: '2026-08-04' }], minutesByDate: {}, breakDays: [], year: 2026, month: 7 });
+assert.equal(quickHeavy.topPiece, 'Clair de Lune');
 
 // --- migrate: old blobs get an empty plans array; junk plans values are reset
 assert.deepEqual((migrate(JSON.stringify({ totalMin: 5 }), { plans: [] as unknown[] }) as { plans: unknown[] }).plans, []);

@@ -1,5 +1,4 @@
 import React from 'react';
-import { View } from 'react-native';
 
 import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
@@ -7,7 +6,7 @@ import { chartSeries } from '@/lib/heatmap-math';
 import { useStore } from '@/lib/store';
 
 import { MinutesChart } from './minutes-chart';
-import { usePeriod } from './period';
+import { PeriodHead, usePeriod } from './period';
 import { fmtTime, useS } from './styles';
 import type { SectionProps } from './types';
 
@@ -17,13 +16,12 @@ function ChartSection({ mbd, sessions, kind }: SectionProps & { kind: 'line' | '
   const store = useStore();
   const { period, picker } = usePeriod(sessions);
   const series = chartSeries(mbd, store.today, period);
-  const total = series.reduce((a, pt) => a + pt.min, 0);
+  // 'all' draws at most a year of weekly buckets, but its total is the whole history — the same figure as Volume's all-time
+  const total = period === 'all' ? Object.keys(mbd).reduce((a, k) => (k <= store.today ? a + (mbd[k] ?? 0) : a), 0) : series.reduce((a, pt) => a + pt.min, 0);
   return (
     <Card>
-      <View style={s.monthHead}>
-        {picker}
-        <Text style={s.monthCount}>{fmtTime(total, store.t)}</Text>
-      </View>
+      <PeriodHead title={store.t(kind === 'line' ? 'progress.section.lineChart' : 'progress.section.barChart')} picker={picker} />
+      <Text style={[s.monthCount, { marginTop: 6, marginBottom: 14 }]}>{fmtTime(total, store.t)}</Text>
       <MinutesChart points={series} kind={kind} lang={store.lang} fmt={(m) => fmtTime(m, store.t)} empty={store.t('progress.chartEmpty')} emptyStyle={s.detailEmpty} />
     </Card>
   );

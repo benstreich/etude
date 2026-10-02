@@ -1,16 +1,17 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { EditSessionSheet } from '@/components/edit-session';
 import { ProgressBody } from '@/components/progress';
-import { ExpandIcon, FlameIcon, GearIcon, LogoMark, SlidersIcon } from '@/components/icons';
+import { ExpandIcon, FlameIcon, GearIcon, LogoMark, ShareIcon, SlidersIcon } from '@/components/icons';
 import { InstrumentAsk } from '@/components/instrument-ask';
 import { LogPastModal } from '@/components/log-past';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
+import { RecapModal } from '@/components/recap-card';
 import { StaffLegend } from '@/components/staff-legend';
 import { FermataMark, MelodyStaff, RollingNumber } from '@/components/motifs';
 import { success, tap } from '@/lib/haptics';
@@ -20,6 +21,7 @@ import { Text } from '@/components/text';
 import { fmtTime } from '@/components/progress/styles';
 import { useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices } from '@/lib/instrument-math';
+import { QUICK_META, QUICK_TITLE, sessionTitle } from '@/lib/session-math';
 import { dateKey, dayLabel, useStore, type Session } from '@/lib/store';
 import { F, themed, useTheme, type T } from '@/lib/theme';
 
@@ -47,6 +49,14 @@ export default function Home() {
   // which day the log below the staff is reading; a tap on a note moves it
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [pendingLog, setPendingLog] = useState<number | null>(null); // minutes waiting on "which instrument?"
+  const [recapOpen, setRecapOpen] = useState(false);
+  // a picked day is a fixed date: across midnight it would quietly turn into
+  // yesterday and catch the next quick log, so a new day drops the pick
+  const [pickedOn, setPickedOn] = useState(store.today);
+  if (pickedOn !== store.today) {
+    setPickedOn(store.today);
+    setPickedDay(null);
+  }
   const day = pickedDay ?? store.today;
 
   const focusOptions: { name: string; kind: 'Piece' | 'Technique' }[] = [
@@ -66,7 +76,7 @@ export default function Home() {
       return;
     }
     success();
-    store.logMinutes(min, f?.name ?? 'Quick log', f?.kind ?? 'Logged', day, undefined, on || inst || undefined);
+    store.logMinutes(min, f?.name ?? QUICK_TITLE, f?.kind ?? QUICK_META, day, undefined, on || inst || undefined);
     const name = f?.name;
     if (day !== store.today) {
       const when = dayLabel(day, store.today, store.t, store.lang);
@@ -93,6 +103,12 @@ export default function Home() {
     melody.play(bars.slice(Math.max(0, from)), store.dailyGoal, store.melodyKey);
   };
   const dayLog = store.sessions.filter((x) => x.date === day).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
+  // the × sits right where a tap meant for the row lands, and a delete has no undo — ask, as the editor does
+  const confirmDelete = (id: string) =>
+    Alert.alert(store.t('editSession.deleteTitle'), store.t('editSession.deleteMessage'), [
+      { text: store.t('editSession.cancel'), style: 'cancel' },
+      { text: store.t('editSession.delete'), style: 'destructive', onPress: () => store.deleteSession(id) },
+    ]);
   const weekTotal = store.week.reduce((a, d) => a + d.min, 0);
 
   return (
@@ -103,6 +119,12 @@ export default function Home() {
         <View style={s.logoRow}>
           <LogoMark size={26} />
           <Text style={[s.wordmark, { flex: 1 }]}>Étude</Text>
+          {/* the recap card (#17) lived on the old Progress tab; Home is where that list went */}
+          {(store.totalMin > 0 || store.sessions.length > 0) && (
+            <Pressable testID="open-recap" style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('recap.share')} onPress={() => setRecapOpen(true)}>
+              <ShareIcon size={18} />
+            </Pressable>
+          )}
           {/* which progress sections show below, and in what order — the body used to carry this button itself */}
           <Pressable style={s.iconBtn} hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('settings.progressSections')} onPress={() => setLayoutOpen(true)}>
             <SlidersIcon size={18} />
@@ -142,7 +164,7 @@ export default function Home() {
             <Text style={s.overline}>{store.t('progress.last7Days')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {/* the key lives in Settings; shown here so the accidentals on the staff have a reason */}
-              <Pressable hitSlop={8} onPress={() => router.push('/profile')}>
+              <Pressable hitSlop={8} accessibilityRole="button" onPress={() => router.push('/profile')}>
                 <Text style={[s.overlineMeta, { color: C.tertiary }]}>{store.t('settings.majorKey', { key: store.melodyKey })}</Text>
               </Pressable>
               <Text style={s.overlineMeta}>{fmtTime(weekTotal, store.t)}</Text>
@@ -183,7 +205,8 @@ export default function Home() {
               sounding={melody.playing ?? undefined}
               onSelect={(d) => {
                 tap();
-                setPickedDay(d);
+                // today is the default, not a pick — so it keeps following the date
+                setPickedDay(d === store.today ? null : d);
                 setResumeAt(null);
                 if (melody.playing) playFrom(d);
               }}
@@ -210,13 +233,23 @@ export default function Home() {
               <Text style={s.overline}>{store.t('home.offTheClock')}</Text>
               {/* the staff below picks the day these minutes land on; tap the pill to come back to today */}
               {day !== store.today && (
-                <Pressable hitSlop={8} style={s.dayPill} onPress={() => setPickedDay(null)}>
+                <Pressable
+                  hitSlop={8}
+                  style={s.dayPill}
+                  accessibilityRole="button"
+                  accessibilityLabel={dayLabel(day, store.today, store.t, store.lang)}
+                  onPress={() => setPickedDay(null)}>
                   <Text style={s.dayPillText}>{dayLabel(day, store.today, store.t, store.lang)}</Text>
                   <Text style={s.dayPillX}>×</Text>
                 </Pressable>
               )}
             </View>
-            <Pressable hitSlop={8} onPress={() => setFocusOpen((v) => !v)} style={[s.focusToggle, { flexShrink: 1 }]}>
+            <Pressable
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: focusOpen }}
+              onPress={() => setFocusOpen((v) => !v)}
+              style={[s.focusToggle, { flexShrink: 1 }]}>
               <Text style={s.focusToggleText} numberOfLines={1}>
                 {store.quickLogFocus ? store.quickLogFocus.name : store.t('home.chooseFocus')}
               </Text>
@@ -227,6 +260,8 @@ export default function Home() {
             <View style={s.chipWrap}>
               <Pressable
                 style={[s.chip, !store.quickLogFocus && s.chipSel]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: !store.quickLogFocus }}
                 onPress={() => {
                   store.updateSettings({ quickLogFocus: null });
                   setFocusOpen(false);
@@ -239,6 +274,8 @@ export default function Home() {
                   <Pressable
                     key={`${f.kind}:${f.name}`}
                     style={[s.chip, sel && s.chipSel]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: sel }}
                     onPress={() => {
                       store.updateSettings({ quickLogFocus: f });
                       setFocusOpen(false);
@@ -250,8 +287,9 @@ export default function Home() {
             </View>
           )}
           <View style={s.addRow}>
-            {store.quickLog.slice(0, 3).map((m) => (
-              <Pressable testID={`quick-log-${m}`} key={m} style={s.addBtn} onPress={() => quickLog(m)}>
+            {/* deduped: a preset list like 15, 15, 30 is two chips, not two identical keys */}
+            {[...new Set(store.quickLog)].slice(0, 3).map((m) => (
+              <Pressable testID={`quick-log-${m}`} key={m} style={s.addBtn} accessibilityRole="button" onPress={() => quickLog(m)}>
                 <Text style={s.addBtnText}>{store.t('home.chipMin', { min: m })}</Text>
               </Pressable>
             ))}
@@ -274,27 +312,42 @@ export default function Home() {
             <Text style={s.overline}>{dayLabel(day, store.today, store.t, store.lang)}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
               <Text style={s.tapHint}>{store.t('home.tapToAdjust')}</Text>
-              <Pressable testID="log-past-open" hitSlop={8} onPress={() => setPastOpen(true)}>
+              <Pressable testID="log-past-open" hitSlop={8} accessibilityRole="button" onPress={() => setPastOpen(true)}>
                 <Text style={s.manualLink}>{store.t('practice.logPast')}</Text>
               </Pressable>
             </View>
           </View>
           <View style={{ marginTop: 4 }}>
             {dayLog.map((l, i) => {
+              const title = sessionTitle(l, store.t);
               return (
                 <View key={l.id} style={s.logRowWrap}>
                   {/* the full session editor — focus, minutes, rating, note — same as on the piece page */}
-                  <Pressable testID={`session-row-${i}`} style={s.logRow} onPress={() => setEditSess(l)}>
+                  <Pressable
+                    testID={`session-row-${i}`}
+                    style={s.logRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${title}, ${fmtTime(l.min, store.t)}`}
+                    // the row is one focus stop for a screen reader, so the × inside it is offered as an action
+                    accessibilityActions={[{ name: 'delete', label: store.t('editSession.deleteSession') }]}
+                    onAccessibilityAction={(e) => e.nativeEvent.actionName === 'delete' && confirmDelete(l.id)}
+                    onPress={() => setEditSess(l)}>
                     {/* backdated logs carry no time of day (store.logMinutes), so the column collapses rather than gaping */}
                     {!!l.at && <Text style={s.logTime}>{new Date(l.at).toLocaleTimeString(store.lang, { hour: '2-digit', minute: '2-digit', hour12: false })}</Text>}
                     <Text style={s.logTitle} numberOfLines={1}>
-                      {l.title}
+                      {title}
                     </Text>
                     <Text style={s.logMin}>
                       {l.min}
                       <Text style={s.logMinUnit}> {store.t('home.minWord')}</Text>
                     </Text>
-                    <Pressable testID={`session-delete-${i}`} hitSlop={8} style={s.logDelete} onPress={() => store.deleteSession(l.id)}>
+                    <Pressable
+                      testID={`session-delete-${i}`}
+                      hitSlop={8}
+                      style={s.logDelete}
+                      accessibilityRole="button"
+                      accessibilityLabel={store.t('editSession.deleteSession')}
+                      onPress={() => confirmDelete(l.id)}>
                       <Text style={s.logDeleteText}>×</Text>
                     </Pressable>
                   </Pressable>
@@ -313,7 +366,7 @@ export default function Home() {
           <ProgressBody showEmpty={false} />
         </View>
       </ScrollView>
-      <LogPastModal visible={pastOpen} onClose={() => setPastOpen(false)} />
+      <LogPastModal visible={pastOpen} defaultDate={day} onClose={() => setPastOpen(false)} />
       <InstrumentAsk
         visible={pendingLog !== null}
         name={store.quickLogFocus?.name ?? ''}
@@ -326,6 +379,7 @@ export default function Home() {
         }}
       />
       <ProgressLayoutSheet visible={layoutOpen} onClose={() => setLayoutOpen(false)} />
+      <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
       <StaffLegend visible={legendOpen} onClose={() => setLegendOpen(false)} />
       <EditSessionSheet session={editSess} onClose={() => setEditSess(null)} />
     </View>

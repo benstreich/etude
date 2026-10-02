@@ -41,6 +41,7 @@ import {
 import { tap } from '@/lib/haptics';
 import { barsFor, SIGNATURE, valueFor, type MelodyKey } from '@/lib/melody';
 import { useMelodyPlayer } from '@/lib/melody-play';
+import { sessionTitle } from '@/lib/session-math';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { F, themed, useTheme, type T } from '@/lib/theme';
 
@@ -390,7 +391,7 @@ function DayPanel({
   dateLabel: string;
   total: number;
   goal: number;
-  sessions: { id: string; title: string; min: number }[];
+  sessions: { id: string; title: string; meta: string; min: number }[];
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const s = useS();
@@ -431,7 +432,7 @@ function DayPanel({
           <View key={sess.id} style={s.panelRow}>
             <Text style={s.panelGlyph}>{valueFor(sess.min, goal).glyph}</Text>
             <Text style={s.panelName} numberOfLines={1}>
-              {sess.title}
+              {sessionTitle(sess, t)}
             </Text>
             <Text style={s.panelMin}>{sess.min}</Text>
           </View>

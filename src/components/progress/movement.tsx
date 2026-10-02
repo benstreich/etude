@@ -5,6 +5,7 @@ import { Pressable } from '@/components/press';
 
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
+import { fmtNum } from '@/lib/i18n';
 import { pieceMovement, rankMovement, type Movement } from '@/lib/movement-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -15,8 +16,8 @@ const MAX_ROWS = 5;
 
 export const chipKey = (m: Movement) =>
   m.kind === 'stage' ? 'progress.moveStage' : m.kind === 'tempo' ? 'progress.moveTempo' : m.kind === 'rating' ? 'progress.moveRating' : m.kind === 'stalled' ? 'progress.moveStalled' : m.kind === 'due' ? 'progress.moveDue' : 'progress.moveNew';
-export const chipArgs = (m: Movement, stages: string[]) =>
-  m.kind === 'stage' ? { from: stages[m.from] ?? m.from + 1, to: stages[m.to] ?? m.to + 1 } : m.kind === 'tempo' ? { n: m.deltaBpm } : m.kind === 'rating' ? { n: m.delta.toFixed(1) } : m.kind === 'new' ? {} : { days: m.days };
+export const chipArgs = (m: Movement, stages: string[], lang: string) =>
+  m.kind === 'stage' ? { from: stages[m.from] ?? m.from + 1, to: stages[m.to] ?? m.to + 1 } : m.kind === 'tempo' ? { n: m.deltaBpm } : m.kind === 'rating' ? { n: fmtNum(m.delta, 1, lang) } : m.kind === 'new' ? {} : { days: m.days };
 /** Success (a mover) vs. accent (stalled/due/new) for the italic movement line. */
 export const chipMoving = (k: Movement['kind']) => k === 'stage' || k === 'tempo' || k === 'rating';
 
@@ -50,7 +51,7 @@ export function MovementSection({ pieces, sessions }: SectionProps) {
                 {r.piece.name}
               </Text>
               <Text style={[s.move, { color: chipMoving(r.move.kind) ? C.success : C.accent }]} numberOfLines={1}>
-                {store.t(chipKey(r.move), chipArgs(r.move, store.stages))}
+                {store.t(chipKey(r.move), chipArgs(r.move, store.stages, store.lang))}
               </Text>
               {r.calibration && <Text style={s.calNote}>{store.t(CAL_KEY[r.calibration])}</Text>}
             </View>

@@ -2,6 +2,7 @@
 // tempo-ladder deltas, recap-card stats. Node-runnable (see scripts/check-growth.ts).
 
 // explicit .ts so the node check runner (--experimental-strip-types) can resolve it
+import { isQuickLog } from './session-math.ts';
 import { computeBestStreak, dateKey } from './streak-math.ts';
 
 // labels are English literals, localized at display time (session-review.tsx),
@@ -86,7 +87,7 @@ export type RecapStats = {
 
 /** Stats for a recap card. Pass `month` (0-based) for a monthly card, omit for year-so-far. */
 export function recapStats(opts: {
-  sessions: { title: string; min: number; date: string }[];
+  sessions: { title: string; meta?: string; min: number; date: string }[];
   minutesByDate: Record<string, number>;
   breakDays: string[];
   year: number;
@@ -106,7 +107,8 @@ export function recapStats(opts: {
     if (key.startsWith(`${year}-`)) monthlyMinutes[Number(key.slice(5, 7)) - 1] += min;
   }
   const byPiece: Record<string, number> = {};
-  for (const s of sessions) if (s.date.startsWith(prefix)) byPiece[s.title] = (byPiece[s.title] ?? 0) + s.min;
+  // a focus-less quick log is not a piece, so it can never be the top one
+  for (const s of sessions) if (s.date.startsWith(prefix) && !isQuickLog(s)) byPiece[s.title] = (byPiece[s.title] ?? 0) + s.min;
   const top = Object.entries(byPiece).sort((a, b) => b[1] - a[1])[0];
   return {
     totalMin,

@@ -7,6 +7,7 @@ import { MeasureBar } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { deadlineStatus, goalProgress, type GoalPeriod } from '@/lib/goal-math';
+import { fmtDay } from '@/lib/i18n';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { tempoForecast } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
@@ -98,7 +99,7 @@ export function GoalsSection({ pieces, sessions }: SectionProps) {
                   {p.name}
                 </Text>
                 <Text style={s.goalNote}>
-                  {new Date(p.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })} ·{' '}
+                  {fmtDay(p.targetDate!, store.today, store.lang)} ·{' '}
                   {d.overdue ? store.t('progress.overdueBy', { count: -d.days }) : store.t('progress.daysLeft', { count: d.days })}
                   {d.lagging.length > 0 && ` · ${store.t('piece.lagging', { list: d.lagging.map((k) => store.t(`piece.${k}Word`)).join(', ') })}`}
                 </Text>

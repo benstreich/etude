@@ -5,6 +5,7 @@ import { StackedShares } from '@/components/mini-charts';
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { mix } from '@/lib/heatmap-math';
+import { sessionTitle } from '@/lib/session-math';
 import { focusDrift } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -32,7 +33,7 @@ export function DriftSection({ sessions, monday }: SectionProps) {
           <View key={sr.title || '_other'} style={s.driftItem}>
             <View style={[s.legendSwatch, { backgroundColor: colors[i % colors.length] }]} />
             <Text style={s.legendText} numberOfLines={1}>
-              {sr.title || store.t('progress.other')}
+              {sr.title ? sessionTitle(sr, store.t) : store.t('progress.other')}
             </Text>
           </View>
         ))}

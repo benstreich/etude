@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
+import { fmtNum } from '@/lib/i18n';
 import { consistency } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -21,7 +22,7 @@ export function ConsistencySection({ sessions, mbd, monday }: SectionProps) {
     <Card>
       <View style={s.focusHead}>
         <Overline>{store.t('progress.consistency')}</Overline>
-        <Text style={s.skillLevel}>{store.t('progress.avgDaysPerWeek', { n: cons.average })}</Text>
+        <Text style={s.skillLevel}>{store.t('progress.avgDaysPerWeek', { n: fmtNum(cons.average, 1, store.lang, 0) })}</Text>
       </View>
       <View style={[s.chart, { height: 56 }]}>
         {cons.perWeek.map((d, i) => (

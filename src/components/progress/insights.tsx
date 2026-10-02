@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { MiniBars, MiniTrend } from '@/components/mini-charts';
 import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
+import { fmtDay } from '@/lib/i18n';
 import { concentration, goalCalibration, interleaving, MIN_INSIGHT_DAYS, MIN_RATED, projection, qualityDrivers, rated, rollingMean, staleness, streakSurvival, TIME_OF_DAY, weeklyTotals, byTimeOfDay } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 
@@ -62,7 +63,7 @@ export function InsightsSection({ sessions, pieces, mbd, monday, inst }: Section
       : []),
     ...(proj ? [{ text: store.t('progress.paceSentence', { hours: proj.hoursByYearEnd }), chart: <MiniTrend values={weekMins} mean={rollingMean(weekMins, 4)} /> }] : []),
     ...(proj?.milestoneDate
-      ? [{ text: store.t('progress.milestoneSentence', { hours: proj.milestoneH, date: new Date(proj.milestoneDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) }) }]
+      ? [{ text: store.t('progress.milestoneSentence', { hours: proj.milestoneH, date: fmtDay(proj.milestoneDate, store.today, store.lang) }) }]
       : []),
     ...due.slice(0, 3).map((x) => ({ text: store.t('progress.dueSentence', { piece: x.p.name, days: x.st!.daysSince }) })),
   ];

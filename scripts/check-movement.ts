@@ -99,7 +99,7 @@ assert.deepEqual(sectionUnavailable('consistency', emptyInput), { reason: 'sessi
 assert.deepEqual(sectionUnavailable('goals', emptyInput), { reason: 'goals', have: 0, need: 0 });
 assert.deepEqual(sectionUnavailable('hear', emptyInput), { reason: 'recordings', have: 0, need: 0 });
 assert.deepEqual(sectionUnavailable('performable', emptyInput), { reason: 'ready', have: 0, need: 0 });
-assert.deepEqual(sectionUnavailable('rating', emptyInput), { reason: 'rated', have: 0, need: 1 });
+assert.deepEqual(sectionUnavailable('rating', emptyInput), { reason: 'ratedPiece', have: 0, need: 2 });
 assert.deepEqual(sectionUnavailable('timeOfDay', emptyInput), { reason: 'rated', have: 0, need: 5 });
 assert.deepEqual(sectionUnavailable('insights', emptyInput), { reason: 'history', have: 0, need: 7 });
 
@@ -126,7 +126,13 @@ assert.deepEqual(sectionUnavailable('hear', oneRec), { reason: 'recordings', hav
 // four rated sessions is still under the floor the cards enforce
 const fourRated = { ...withData, sessions: (withData.sessions as unknown[]).slice(0, 4) } as unknown as AvailabilityInput;
 assert.deepEqual(sectionUnavailable('timeOfDay', fourRated), { reason: 'rated', have: 4, need: 5 });
-assert.equal(sectionUnavailable('rating', fourRated), null, 'the per-piece rating chart only needs one');
+assert.equal(sectionUnavailable('rating', fourRated), null, 'the per-piece rating chart needs two on one piece, not five');
+// one rating on each of two pieces draws no line anywhere, so the switch must not claim it does
+const onePerPiece = { ...withData, sessions: [
+  { id: 'a', title: 'Asturias', meta: '', min: 20, date: '2026-09-01', rating: 4 },
+  { id: 'b', title: 'Study', meta: '', min: 20, date: '2026-09-02', rating: 3 },
+] } as unknown as AvailabilityInput;
+assert.deepEqual(sectionUnavailable('rating', onePerPiece), { reason: 'ratedPiece', have: 1, need: 2 });
 
 // nothing at the last stage yet
 const noReady = { ...withData, pieces: [{ id: 'p2', name: 'Study', stage: 0 }] } as unknown as AvailabilityInput;
@@ -137,7 +143,7 @@ console.log('check-movement: availability passed');
 import de from '../src/locales/de.json' with { type: 'json' };
 import en from '../src/locales/en.json' with { type: 'json' };
 
-const REASONS = ['sessions', 'pieces', 'rated', 'history', 'recordings', 'goals', 'ready'];
+const REASONS = ['sessions', 'pieces', 'rated', 'ratedPiece', 'history', 'recordings', 'goals', 'ready'];
 for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   const prog = (dict as Record<string, any>).progress;
   for (const r of REASONS) {
@@ -146,7 +152,7 @@ for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   for (const key of ['chartCalendar', 'chartLine', 'chartBars', 'chartEmpty']) {
     assert.ok(typeof prog[key] === 'string' && prog[key].length > 0, `${lang}: progress.${key} missing`);
   }
-  for (const k of ['rated', 'history']) {
+  for (const k of ['rated', 'ratedPiece', 'history']) {
     assert.ok(prog.unavailable[k].includes('%{have}') && prog.unavailable[k].includes('%{need}'), `${lang}: ${k} must name both counts`);
   }
 }

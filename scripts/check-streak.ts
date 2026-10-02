@@ -1,7 +1,7 @@
 // Self-check for the pure streak math. Run: npm run check:streak
 import assert from 'node:assert/strict';
 
-import { computeBestStreak, computeStreak, dateKey, graceFor } from '../src/lib/streak-math.ts';
+import { computeBestStreak, computeStreak, dateKey, graceFor, nextBestStreak } from '../src/lib/streak-math.ts';
 
 // build a minutesByDate from offsets (days ago) that practiced
 const history = (...daysAgo: number[]) => {
@@ -54,5 +54,14 @@ assert.equal(run(history(0, 10, 11, 12)), 1); // ...which the current streak doe
 assert.equal(computeBestStreak(history(10, 12), [], 1), 2);
 // empty history
 assert.equal(computeBestStreak({}, []), 0);
+
+// deleting the session that bridged two runs lowers a best the history explained...
+const bridged = history(10, 11, 12, 13, 14);
+const split = { ...bridged, [Object.keys(bridged)[2]]: 0 };
+assert.equal(nextBestStreak(5, computeBestStreak(bridged, []), computeBestStreak(split, [])), 2);
+// ...keeps one the history never explained (data from before the scan existed)
+assert.equal(nextBestStreak(9, 5, 2), 9);
+// ...and still rises when an edit completes a longer run
+assert.equal(nextBestStreak(2, 2, 5), 5);
 
 console.log('check-streak: all assertions passed');
