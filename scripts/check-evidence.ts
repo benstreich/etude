@@ -39,7 +39,7 @@ assert.ok(ENTRIES.some((e) => e.contested), 'no contested entry — the counter-
 for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   const learn = (dict as Record<string, any>).learn;
   assert.ok(learn, `${lang}: no learn section`);
-  for (const key of ['title', 'back', 'intro', 'groupPractice', 'groupLearning', 'groupPeople', 'contested', 'free', 'yours', 'statInterleaving', 'statSpacing', 'statSessionLength']) {
+  for (const key of ['title', 'intro', 'groupPractice', 'groupLearning', 'groupPeople', 'contested', 'free', 'yours', 'statInterleaving', 'statSpacing', 'statSessionLength']) {
     assert.ok(typeof learn[key] === 'string' && learn[key].length > 0, `${lang}: learn.${key} missing`);
   }
   assert.ok(typeof (dict as Record<string, any>).tools.learn === 'string', `${lang}: tools.learn missing`);

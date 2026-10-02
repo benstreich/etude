@@ -1,6 +1,7 @@
 // Pushes the widget snapshot to the native side (#17, feature 6) whenever
 // today's numbers change. Renders nothing; a no-op in Expo Go and on web.
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 
 import EtudeWidgets from '../../modules/etude-widgets';
 import { applyAccentIcon } from '@/lib/app-icon';
@@ -33,9 +34,19 @@ export function WidgetSync() {
   useEffect(() => {
     EtudeWidgets?.setWidgetData(JSON.parse(payload));
   }, [payload]);
-  // #80: so does the launcher icon (native build only; a no-op elsewhere)
+  // #80: so does the launcher icon (native build only; a no-op elsewhere). Only
+  // on launch and on leaving the app — some launchers close the app on a switch,
+  // which mid-way through tapping the swatches would throw the user out.
+  const accentRef = useRef(store.accent);
   useEffect(() => {
-    applyAccentIcon(store.accent);
+    accentRef.current = store.accent;
   }, [store.accent]);
+  useEffect(() => {
+    applyAccentIcon(accentRef.current);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'background') applyAccentIcon(accentRef.current);
+    });
+    return () => sub.remove();
+  }, []);
   return null;
 }

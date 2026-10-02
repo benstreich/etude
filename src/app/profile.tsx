@@ -1,8 +1,7 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import * as StoreReview from 'expo-store-review';
 import * as Updates from 'expo-updates';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,9 +18,10 @@ import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
 import { KEYS } from '@/lib/melody';
 import { ALL_INSTRUMENTS, INSTRUMENTS } from '@/lib/instruments';
-import { notificationsAllowed, parseReminderTime, reminderLabel } from '@/lib/reminders';
+import { notificationsAllowed, parseReminderTime, reminderDisplay, reminderLabel } from '@/lib/reminders';
 import { availabilityFrom, countOnSections } from '@/lib/progress-availability';
 import { resolveLayout } from '@/lib/progress-sections';
+import { stageRemap } from '@/lib/stage-math';
 import { type LanguageSetting } from '@/lib/i18n';
 import { dayLabel, useStore, WeekStart } from '@/lib/store';
 import type { StreakMode } from '@/lib/streak-math';
@@ -79,7 +79,7 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
   const s = useS();
   const C = useC();
   return (
-    <Pressable style={[s.chip, selected && s.chipSel]} onPress={onPress}>
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} style={[s.chip, selected && s.chipSel]} onPress={onPress}>
       <Text style={[s.chipText, selected && { color: C.accent }]}>{label}</Text>
     </Pressable>
   );
@@ -96,17 +96,14 @@ export default function Profile() {
   const layoutAll = resolveLayout(store.progressLayout);
   const layoutTotal = layoutAll.length;
   const layoutOn = countOnSections(layoutAll, availabilityFrom(store));
-  // ponytail: native in-app review sheet; row hides where no store flow exists (web, sideloads)
-  const [canRate, setCanRate] = useState(false);
-  useEffect(() => {
-    StoreReview.hasAction().then(setCanRate).catch(() => {});
-  }, []);
   // draft values while the editor is open
   const [text, setText] = useState('');
   const [time, setTime] = useState({ hour: 19, minute: 0 });
   const [notifAllowed, setNotifAllowed] = useState(true);
   const [list, setList] = useState<string[]>([]);
   const [query, setQuery] = useState<string | null>(null); // null = full instrument list collapsed
+  // non-default instruments as of opening, so deselecting one leaves its chip to reselect
+  const [extras, setExtras] = useState<string[]>([]);
 
   // persisted value → localized label (stored values stay English)
   const instLabel = (v: string) => (INSTRUMENT_KEYS[v] ? store.t(INSTRUMENT_KEYS[v]) : v);
@@ -117,11 +114,13 @@ export default function Profile() {
     if (key === 'goal') setText(String(store.dailyGoal));
     if (key === 'instruments') {
       setList(store.instruments);
+      setExtras(store.instruments.filter((v) => !INSTRUMENTS.includes(v)));
       setQuery(null);
     }
     if (key === 'periodGoals') setList([store.weeklyGoal, store.monthlyGoal, store.yearlyGoal].map((n) => (n > 0 ? String(n) : '')));
     if (key === 'breakDays') setList(store.breakDays);
-    if (key === 'quickLog') setList(store.quickLog.map(String));
+    // always three slots, so a cleared preset can be typed back in
+    if (key === 'quickLog') setList([0, 1, 2].map((i) => (store.quickLog[i] != null ? String(store.quickLog[i]) : '')));
     if (key === 'stages') setList(store.stages);
     // the wheel opens on the current custom time, or 7:00 PM for a preset/Off
     if (key === 'reminder') {
@@ -176,7 +175,7 @@ export default function Profile() {
     }
     if (editing === 'stages') {
       const names = list.map((t) => t.trim()).filter(Boolean);
-      if (names.length >= 2) store.updateSettings({ stages: names });
+      if (names.length >= 2) store.updateSettings({ stages: names }, stageRemap(list));
       else error = store.t('settings.errStages');
     }
     if (error) return store.showToast(error);
@@ -274,7 +273,7 @@ export default function Profile() {
     { key: 'quickLogFocus', label: store.t('settings.quickLogFocus'), value: store.quickLogFocus?.name ?? store.t('settings.nothingSpecific') },
     { key: 'breakDays', label: store.t('settings.breakDays'), value: store.breakDays.length ? store.breakDays.map(dayName).join(', ') : store.t('settings.none') },
     { key: 'streaks', label: store.t('settings.streaks'), value: store.t(STREAK_KEYS[store.streakMode]) },
-    { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : store.reminder },
+    { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : reminderDisplay(store.reminder, store.lang) },
     { key: 'weekStart', label: store.t('settings.weekStart'), value: dayName(store.weekStart) },
     { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
     { key: 'melodyKey', label: store.t('settings.melodyKey'), value: store.t('settings.majorKey', { key: store.melodyKey }) },
@@ -302,7 +301,9 @@ export default function Profile() {
     autoBackup: store.t('settings.autoBackups'),
   };
 
-  const totalHours = Math.floor(store.totalMin / 60);
+  // under an hour shows minutes, or 45 logged minutes reads as "0 hours"
+  const totalUnder1h = store.totalMin < 60;
+  const totalValue = totalUnder1h ? store.totalMin : Math.floor(store.totalMin / 60);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
@@ -315,7 +316,7 @@ export default function Profile() {
 
       <RuledStats
         items={[
-          { label: store.t('settings.totalPractice'), value: <Text>{totalHours} <Text style={s.statUnit}>{store.t('settings.hoursUnit')}</Text></Text> },
+          { label: store.t('settings.totalPractice'), value: <Text>{totalValue} <Text style={s.statUnit}>{store.t(totalUnder1h ? 'progress.minUnit' : 'settings.hoursUnit')}</Text></Text> },
           { label: store.t('settings.bestStreak'), value: <Text>{store.bestStreak} <Text style={s.statUnit}>{store.t('settings.daysUnit')}</Text></Text> },
         ]}
       />
@@ -391,24 +392,15 @@ export default function Profile() {
               [store.t('settings.howBuilt'), `${REPO}/blob/main/docs/how-etude-is-built.md`],
               [store.t('settings.sourceCode'), REPO],
               [store.t('settings.privacyPolicy'), PRIVACY_URL],
-              // in-app review only exists for a Play install, and Play rations it even
-              // then; the listing link is the fallback that always does something
+              // the listing, not the in-app review sheet: Play rations that sheet
+              // and resolves silently when it's used up, so this row did nothing
               [store.t('settings.rate'), STORE_URL],
             ] as const
           ).map(([label, url], i, arr) => (
             <Pressable
               key={label}
               style={[s.row, i === arr.length - 1 && s.rowClose]}
-              onPress={async () => {
-                if (url === STORE_URL && canRate) {
-                  try {
-                    return await StoreReview.requestReview();
-                  } catch {
-                    // fall through to the listing
-                  }
-                }
-                Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')));
-              }}>
+              onPress={() => Linking.openURL(url).catch(() => store.showToast(store.t('settings.linkFailed')))}>
               <Text style={[s.rowLabel, { flex: 1 }]}>{label}</Text>
               <ChevronIcon />
             </Pressable>
@@ -419,8 +411,8 @@ export default function Profile() {
       {/* Which bundle is actually running. The app version stays 1.0.0 across
           every OTA update, so the update id is the only part that moves. */}
       <Text style={s.version}>
-        {`Etude ${Constants.expoConfig?.version ?? '?'} · ${
-          Updates.isEmbeddedLaunch ? 'bundled' : (Updates.updateId?.slice(0, 8) ?? 'dev')
+        {`Étude ${Constants.expoConfig?.version ?? '?'}${
+          Updates.isEmbeddedLaunch || !Updates.updateId ? '' : ` · ${Updates.updateId.slice(0, 8)}`
         }`}
       </Text>
       {/* CC BY 3.0 asks for the credit somewhere in the product; the piano samples in assets/audio/piano */}
@@ -489,7 +481,7 @@ export default function Profile() {
             {editing === 'instruments' && (
               <>
                 <View style={s.chipWrap}>
-                  {[...INSTRUMENTS, ...list.filter((v) => !INSTRUMENTS.includes(v))].map((inst) => (
+                  {[...INSTRUMENTS, ...extras, ...list.filter((v) => !INSTRUMENTS.includes(v) && !extras.includes(v))].map((inst) => (
                     <Chip key={inst} label={instLabel(inst)} selected={list.includes(inst)} onPress={() => toggle(inst)} />
                   ))}
                   <Chip label={store.t('settings.moreInstruments')} selected={query !== null} onPress={() => setQuery(query === null ? '' : null)} />
@@ -558,7 +550,7 @@ export default function Profile() {
                     <Chip
                       key={p.id}
                       label={p.name}
-                      selected={store.quickLogFocus?.name === p.name}
+                      selected={store.quickLogFocus?.kind === 'Piece' && store.quickLogFocus.name === p.name}
                       onPress={() => pick({ quickLogFocus: { name: p.name, kind: 'Piece' } })}
                     />
                   ))}
@@ -566,7 +558,7 @@ export default function Profile() {
                   <Chip
                     key={t}
                     label={t}
-                    selected={store.quickLogFocus?.name === t}
+                    selected={store.quickLogFocus?.kind === 'Technique' && store.quickLogFocus.name === t}
                     onPress={() => pick({ quickLogFocus: { name: t, kind: 'Technique' } })}
                   />
                 ))}
@@ -576,7 +568,8 @@ export default function Profile() {
               <>
                 {/* the order is the progression, so it has to be rearrangeable
                     without retyping every field (#43). Pieces keep their stage
-                    index, exactly as they do when a stage is renamed. */}
+                    index, exactly as they do when a stage is renamed; clearing a
+                    stage moves later pieces down with it (stageRemap). */}
                 {list.map((v, i) => (
                   <View key={i} style={s.stageRow}>
                     <TextInput
@@ -636,15 +629,15 @@ export default function Profile() {
               <>
                 <View style={s.chipWrap}>
                   {REMINDERS.map((r) => (
-                    <Chip key={r} label={r === 'Off' ? store.t('settings.off') : r} selected={store.reminder === r} onPress={() => pick({ reminder: r })} />
+                    <Chip key={r} label={r === 'Off' ? store.t('settings.off') : reminderDisplay(r, store.lang)} selected={store.reminder === r} onPress={() => pick({ reminder: r })} />
                   ))}
                   {!REMINDERS.includes(store.reminder) && (
-                    <Chip label={store.reminder} selected onPress={() => {}} />
+                    <Chip label={reminderDisplay(store.reminder, store.lang)} selected onPress={() => {}} />
                   )}
                 </View>
-                <TimeWheel value={time} onChange={setTime} />
+                <TimeWheel value={time} onChange={setTime} h24={store.lang === 'de'} />
                 <Pressable style={s.wheelSave} onPress={saveCustomReminder}>
-                  <Text style={s.wheelSaveText}>{reminderLabel(time)}</Text>
+                  <Text style={s.wheelSaveText}>{store.t('settings.remindAt', { time: reminderDisplay(reminderLabel(time), store.lang) })}</Text>
                 </Pressable>
                 {!notifAllowed && (
                   <Pressable onPress={() => Linking.openSettings()}>
@@ -700,10 +693,11 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   name: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
   sub: { marginTop: 4, fontFamily: F.body, fontSize: fs(17), color: C.subStrong },
   statUnit: { fontFamily: F.body, fontWeight: '400', fontSize: fs(17), color: C.subStrong },
-  row: { flexDirection: 'row', alignItems: 'center', height: 52, gap: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingVertical: 8, gap: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
   rowClose: { borderBottomWidth: 3, borderBottomColor: C.barline },
-  rowLabel: { fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
-  rowValue: { flex: 1, textAlign: 'right', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
+  // both sides may shrink, so a long German label at XL text can't squeeze the value to nothing
+  rowLabel: { flexGrow: 1, flexShrink: 1, fontFamily: F.bodyMed, fontSize: fs(16), color: C.ink },
+  rowValue: { flexShrink: 1, flexBasis: 'auto', maxWidth: '50%', textAlign: 'right', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   sheetTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
   input: { height: 48, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.bodyMed, fontSize: fs(15), color: C.ink },

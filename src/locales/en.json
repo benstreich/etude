@@ -37,7 +37,6 @@
     "recordingMoved": "Moved to %{piece}"
   },
   "appearance": {
-    "backToSettings": "‹ Settings",
     "title": "Appearance",
     "theme": "Theme",
     "system": "System",
@@ -64,7 +63,7 @@
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
     "accentSlate": "Slate",
-    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes.",
+    "accentHint": "The app icon and the home-screen widgets follow the accent. The icon changes when you leave the app; on some Android phones that takes a moment.",
     "previewSample": "This is how Étude will read."
   },
   "settings": {
@@ -161,13 +160,14 @@
     "minutesPerDay": "Minutes per day",
     "namePlaceholder": "Name",
     "clearPresetHint": "Clear a field to remove that preset.",
+    "remindAt": "Remind me at %{time}",
     "stagePlaceholder": "Stage %{n}",
     "addStage": "+ Add stage",
     "moveUp": "Move up",
     "moveDown": "Move down",
     "stagesHint": "In order, first to last. Clear a field to remove it; at least two stages.",
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
-    "notifBlocked": "Notifications are turned off for Etude — tap to open system settings.",
+    "notifBlocked": "Notifications are turned off for Étude — tap to open system settings.",
     "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings aren’t included — “Back up everything” covers those when switching phones.",
     "save": "Save",
     "about": "About",
@@ -966,7 +966,6 @@
   },
   "learn": {
     "title": "Practice science",
-    "back": "‹ Tools",
     "intro": "What the research actually says about practising — including where the popular version overstates it. Every claim links to its source.",
     "groupPractice": "How to practise",
     "groupLearning": "How learning works",
