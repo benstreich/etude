@@ -538,6 +538,7 @@ export function Stepper({
   coarseStep,
   size = 38,
   suffix,
+  label,
   onChange,
 }: {
   value: number;
@@ -547,32 +548,35 @@ export function Stepper({
   coarseStep?: number;
   size?: 30 | 38 | 44;
   suffix?: string;
+  /** What is being stepped, for screen readers — a bare "−" says nothing. */
+  label?: string;
   onChange: (v: number) => void;
 }) {
   const s = useS();
   const C = useC();
-  const { t } = useStore();
+  const store = useStore();
   const glyphColor = size === 30 ? C.accent : C.ink;
   const clamp = (v: number) => Math.min(max, Math.max(min, v));
 
-  const btn = (delta: number, label: string, key: string) => {
+  const btn = (delta: number, glyph: string, key: string) => {
     const next = clamp(value + delta);
     const disabled = next === value;
+    const action = store.t(delta < 0 ? 'common.decreaseBy' : 'common.increaseBy', { n: Math.abs(delta) });
     return (
       <Pressable
         key={key}
         hitSlop={size === 30 ? 7 : undefined}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={t(delta < 0 ? 'common.decreaseBy' : 'common.increaseBy', { n: Math.abs(delta) })}
         accessibilityState={{ disabled }}
+        accessibilityLabel={label ? `${label}: ${action}` : action}
         onPress={() => {
           if (disabled) return;
           tap();
           onChange(next);
         }}
         style={[s.stepBtn, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={[s.stepGlyph, { color: disabled ? C.faint : glyphColor }]}>{label}</Text>
+        <Text style={[s.stepGlyph, { color: disabled ? C.faint : glyphColor }]}>{glyph}</Text>
       </Pressable>
     );
   };

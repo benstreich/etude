@@ -1,6 +1,9 @@
 {
   "common": {
     "all": "All",
+    "decreaseBy": "Decrease by %{n}",
+    "increaseBy": "Increase by %{n}",
+    "noteSharp": "%{note} sharp",
     "dayNames": "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
     "today": "Today",
     "yesterday": "Yesterday",
