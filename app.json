@@ -9,6 +9,9 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.benstreich.etude",
+      "infoPlist": {
+        "CFBundleDisplayName": "Étude"
+      },
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.benstreich.etude"
@@ -29,6 +32,11 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "package": "com.benstreich.etude",
       "versionCode": 13
@@ -51,13 +59,15 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Etude records your practice sessions so you can listen back.",
+          "microphonePermission": "Étude uses the microphone to record your practice so you can listen back, and to tune your instrument.",
           "enableBackgroundRecording": true
         }
       ],
       [
         "expo-notifications",
         {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#B34A2E",
           "sounds": [
             "./assets/audio/cue_reminder.wav"
           ]
@@ -113,8 +123,15 @@
         ]
       ],
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "./plugins/with-app-label",
+        "Étude"
+      ]
     ],
+    "locales": {
+      "de": "./assets/locales/de.json"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
@@ -144,7 +161,7 @@
     },
     "owner": "benstreichs-team",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "updates": {
       "url": "https://u.expo.dev/5e81d0a4-4a3b-43e5-89f0-1a9a5d50f93c"

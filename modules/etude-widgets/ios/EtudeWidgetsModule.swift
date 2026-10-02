@@ -7,6 +7,8 @@ import WidgetKit
 let appGroup = "group.com.benstreich.etude"
 
 struct WidgetData: Record {
+  // the JS dateKey (yyyy-MM-dd) the numbers belong to; the widget rolls it over
+  @Field var day: String?
   @Field var today: Int = 0
   @Field var goal: Int = 45
   @Field var streak: Int = 0
@@ -15,6 +17,8 @@ struct WidgetData: Record {
   // #80: [accent, mid, soft] hex per scheme; empty = brand terracotta
   @Field var accentLight: [String] = []
   @Field var accentDark: [String] = []
+  // in-app language strings (minutesToday, min, practice, streak, next); missing = English
+  @Field var labels: [String: String] = [:]
 }
 
 /**
@@ -34,6 +38,8 @@ public class EtudeWidgetsModule: Module {
       defaults.set(data.nextFocus, forKey: "nextFocus")
       defaults.set(data.accentLight, forKey: "accentLight")
       defaults.set(data.accentDark, forKey: "accentDark")
+      defaults.set(data.day, forKey: "day")
+      defaults.set(data.labels, forKey: "labels")
       #if canImport(WidgetKit)
       if #available(iOS 14.0, *) {
         WidgetCenter.shared.reloadAllTimelines()

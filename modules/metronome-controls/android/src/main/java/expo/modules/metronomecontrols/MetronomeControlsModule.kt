@@ -40,7 +40,9 @@ const val ACTION_TOGGLE = "$PKG.TOGGLE"
 class ControlsState(
   @Field val bpm: Int = 120,
   @Field val running: Boolean = false,
-  @Field val subtitle: String? = null
+  @Field val subtitle: String? = null,
+  // in-app language: channel, slower, play, pause, faster; missing = English
+  @Field val labels: Map<String, String> = emptyMap()
 ) : Record
 
 class Click(
@@ -370,6 +372,12 @@ class MetronomeControlsService : Service() {
     }
     // always re-post: a button intent must not leave a startForegroundService() call unanswered
     goForeground()
+    // a hide() that arrived before this point was held back: stopping a service
+    // that has not yet called startForeground() crashes the app
+    if (takeStop()) {
+      ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+      stopSelf()
+    }
     // NOT_STICKY: without the JS runtime this service is useless — a sticky restart
     // after process death would only resurrect a zombie notification with dead buttons
     return START_NOT_STICKY
@@ -400,9 +408,11 @@ class MetronomeControlsService : Service() {
 
   private fun buildNotification(): android.app.Notification {
     val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(CHANNEL_ID) == null) {
+    val label = { key: String, english: String -> labels[key] ?: english }
+    // created on every post, which renames an existing channel when the language changes
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       manager.createNotificationChannel(
-        NotificationChannel(CHANNEL_ID, "Metronome", NotificationManager.IMPORTANCE_LOW).apply {
+        NotificationChannel(CHANNEL_ID, label("channel", "Metronome"), NotificationManager.IMPORTANCE_LOW).apply {
           setShowBadge(false)
           setSound(null, null)
         }
@@ -414,20 +424,20 @@ class MetronomeControlsService : Service() {
     return NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(android.R.drawable.ic_media_play)
       .setContentTitle("$bpm BPM")
-      .setContentText(subtitle ?: "Metronome")
+      .setContentText(subtitle ?: label("channel", "Metronome"))
       .setOngoing(true)
       .setSilent(true)
       .setShowWhen(false)
       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setContentIntent(open)
-      .addAction(android.R.drawable.ic_media_previous, "Slower", button(ACTION_DEC))
+      .addAction(android.R.drawable.ic_media_previous, label("slower", "Slower"), button(ACTION_DEC))
       .addAction(
         if (running) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-        if (running) "Pause" else "Play",
+        if (running) label("pause", "Pause") else label("play", "Play"),
         button(ACTION_TOGGLE)
       )
-      .addAction(android.R.drawable.ic_media_next, "Faster", button(ACTION_INC))
+      .addAction(android.R.drawable.ic_media_next, label("faster", "Faster"), button(ACTION_INC))
       .build()
   }
 
@@ -440,6 +450,29 @@ class MetronomeControlsService : Service() {
     // can't legally go through startService() on API 26+, but a direct call can.
     var instance: MetronomeControlsService? = null
     var onCommand: ((String) -> Unit)? = null
+    @Volatile var labels: Map<String, String> = emptyMap()
+
+    // startForegroundService() sent, onStartCommand() not yet run; a stop asked for meanwhile waits
+    private val lock = Any()
+    private var starting = false
+    private var stopRequested = false
+
+    /** Before startForegroundService(): true. If that throws: false. Either way a held-back stop is dropped. */
+    fun markStarting(on: Boolean) = synchronized(lock) { starting = on; stopRequested = false }
+
+    /** A show() reaching a live service cancels a stop still held back for it. */
+    fun cancelStop() = synchronized(lock) { stopRequested = false }
+
+    /** Stop now (true), or leave it to onStartCommand because the start is still in flight. */
+    fun requestStop(): Boolean = synchronized(lock) {
+      if (starting) stopRequested = true
+      !starting
+    }
+
+    private fun takeStop(): Boolean = synchronized(lock) {
+      starting = false
+      stopRequested.also { stopRequested = false }
+    }
   }
 }
 
@@ -466,23 +499,32 @@ class MetronomeControlsModule : Module() {
     }
 
     Function("show") { state: ControlsState ->
+      MetronomeControlsService.labels = state.labels
       val running = MetronomeControlsService.instance
       if (running != null) {
+        MetronomeControlsService.cancelStop()
         running.update(state.bpm, state.running, state.subtitle)
       } else {
-        ContextCompat.startForegroundService(
-          context,
-          Intent(context, MetronomeControlsService::class.java)
-            .putExtra(MetronomeControlsService.EXTRA_BPM, state.bpm)
-            .putExtra(MetronomeControlsService.EXTRA_RUNNING, state.running)
-            .putExtra(MetronomeControlsService.EXTRA_SUBTITLE, state.subtitle)
-        )
+        MetronomeControlsService.markStarting(true)
+        try {
+          ContextCompat.startForegroundService(
+            context,
+            Intent(context, MetronomeControlsService::class.java)
+              .putExtra(MetronomeControlsService.EXTRA_BPM, state.bpm)
+              .putExtra(MetronomeControlsService.EXTRA_RUNNING, state.running)
+              .putExtra(MetronomeControlsService.EXTRA_SUBTITLE, state.subtitle)
+          )
+        } catch (e: Exception) {
+          MetronomeControlsService.markStarting(false)
+          throw e
+        }
       }
       // the notification's tempo and the stream's are one number
       Ticker.bpm = state.bpm
     }
 
     Function("update") { state: ControlsState ->
+      MetronomeControlsService.labels = state.labels
       MetronomeControlsService.instance?.update(state.bpm, state.running, state.subtitle)
       Ticker.bpm = state.bpm
     }
@@ -513,6 +555,6 @@ class MetronomeControlsModule : Module() {
   }
 
   private fun hide() {
-    context.stopService(Intent(context, MetronomeControlsService::class.java))
+    if (MetronomeControlsService.requestStop()) context.stopService(Intent(context, MetronomeControlsService::class.java))
   }
 }

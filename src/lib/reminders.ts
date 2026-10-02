@@ -83,6 +83,18 @@ export function cancelBreakEnd(id: string | null) {
   if (id && Notifications) Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
 }
 
+/** Ask for notification permission if the OS still lets us; resolves to whether we have it. */
+export async function ensureNotificationPermission(): Promise<boolean> {
+  if (Platform.OS === 'web' || !Notifications) return false;
+  try {
+    const { granted, canAskAgain } = await Notifications.getPermissionsAsync();
+    if (granted || !canAskAgain) return granted;
+    return (await Notifications.requestPermissionsAsync()).granted;
+  } catch {
+    return false;
+  }
+}
+
 // false only when the OS has actually blocked us — unknown/unsupported reads as allowed
 export async function notificationsAllowed(): Promise<boolean> {
   if (Platform.OS === 'web' || !Notifications) return true;

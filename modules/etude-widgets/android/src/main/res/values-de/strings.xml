@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the launcher shows before the app has pushed its own (in-app language) labels -->
+<resources>
+  <string name="etude_widget_minutes_today">Minuten heute</string>
+  <string name="etude_widget_practice">Üben</string>
+  <string name="etude_widget_small_label">Étude · Heute</string>
+  <string name="etude_widget_medium_label">Étude · Woche</string>
+  <string name="etude_widget_description">Dein Üben heute auf einen Blick</string>
+</resources>

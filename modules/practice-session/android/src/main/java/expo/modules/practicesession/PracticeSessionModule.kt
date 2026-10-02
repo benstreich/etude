@@ -25,7 +25,9 @@ class SessionState(
   @Field val subtitle: String? = null,
   @Field val running: Boolean = true,
   // milliseconds practised at the moment of the call; the notification's clock runs on from here
-  @Field val elapsedMs: Double = 0.0
+  @Field val elapsedMs: Double = 0.0,
+  // the channel's name in the in-app language; null = English
+  @Field val channel: String? = null
 ) : Record
 
 /**
@@ -57,6 +59,12 @@ class PracticeSessionService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent != null) read(intent)
     goForeground()
+    // a hide() that arrived before this point was held back: stopping a service
+    // that has not yet called startForeground() crashes the app
+    if (takeStop()) {
+      ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+      stopSelf()
+    }
     // NOT_STICKY: without the JS runtime the session it stands for is gone
     return START_NOT_STICKY
   }
@@ -95,9 +103,10 @@ class PracticeSessionService : Service() {
 
   private fun buildNotification(): android.app.Notification {
     val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(CHANNEL_ID) == null) {
+    // created on every post, which renames an existing channel when the language changes
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       manager.createNotificationChannel(
-        NotificationChannel(CHANNEL_ID, "Practice session", NotificationManager.IMPORTANCE_LOW).apply {
+        NotificationChannel(CHANNEL_ID, channelName ?: "Practice session", NotificationManager.IMPORTANCE_LOW).apply {
           setShowBadge(false)
           setSound(null, null)
         }
@@ -107,7 +116,7 @@ class PracticeSessionService : Service() {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
     }
     val b = NotificationCompat.Builder(this, CHANNEL_ID)
-      .setSmallIcon(android.R.drawable.ic_media_play)
+      .setSmallIcon(if (running) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause)
       .setContentTitle(title)
       .setOngoing(true)
       .setSilent(true)
@@ -139,6 +148,29 @@ class PracticeSessionService : Service() {
     // ponytail: a static instance beats binding — update() from a backgrounded app
     // can't legally go through startService() on API 26+, but a direct call can.
     var instance: PracticeSessionService? = null
+    @Volatile var channelName: String? = null
+
+    // startForegroundService() sent, onStartCommand() not yet run; a stop asked for meanwhile waits
+    private val lock = Any()
+    private var starting = false
+    private var stopRequested = false
+
+    /** Before startForegroundService(): true. If that throws: false. Either way a held-back stop is dropped. */
+    fun markStarting(on: Boolean) = synchronized(lock) { starting = on; stopRequested = false }
+
+    /** A show() reaching a live service cancels a stop still held back for it. */
+    fun cancelStop() = synchronized(lock) { stopRequested = false }
+
+    /** Stop now (true), or leave it to onStartCommand because the start is still in flight. */
+    fun requestStop(): Boolean = synchronized(lock) {
+      if (starting) stopRequested = true
+      !starting
+    }
+
+    private fun takeStop(): Boolean = synchronized(lock) {
+      starting = false
+      stopRequested.also { stopRequested = false }
+    }
   }
 }
 
@@ -152,18 +184,26 @@ class PracticeSessionModule : Module() {
     OnDestroy { hide() }
 
     Function("show") { state: SessionState ->
+      PracticeSessionService.channelName = state.channel
       val live = PracticeSessionService.instance
       if (live != null) {
+        PracticeSessionService.cancelStop()
         live.update(state.title, state.subtitle, state.running, state.elapsedMs)
       } else {
-        ContextCompat.startForegroundService(
-          context,
-          Intent(context, PracticeSessionService::class.java)
-            .putExtra(PracticeSessionService.EXTRA_TITLE, state.title)
-            .putExtra(PracticeSessionService.EXTRA_SUBTITLE, state.subtitle)
-            .putExtra(PracticeSessionService.EXTRA_RUNNING, state.running)
-            .putExtra(PracticeSessionService.EXTRA_ELAPSED, state.elapsedMs)
-        )
+        PracticeSessionService.markStarting(true)
+        try {
+          ContextCompat.startForegroundService(
+            context,
+            Intent(context, PracticeSessionService::class.java)
+              .putExtra(PracticeSessionService.EXTRA_TITLE, state.title)
+              .putExtra(PracticeSessionService.EXTRA_SUBTITLE, state.subtitle)
+              .putExtra(PracticeSessionService.EXTRA_RUNNING, state.running)
+              .putExtra(PracticeSessionService.EXTRA_ELAPSED, state.elapsedMs)
+          )
+        } catch (e: Exception) {
+          PracticeSessionService.markStarting(false)
+          throw e
+        }
       }
     }
 
@@ -171,6 +211,6 @@ class PracticeSessionModule : Module() {
   }
 
   private fun hide() {
-    context.stopService(Intent(context, PracticeSessionService::class.java))
+    if (PracticeSessionService.requestStop()) context.stopService(Intent(context, PracticeSessionService::class.java))
   }
 }

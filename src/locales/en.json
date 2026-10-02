@@ -250,6 +250,7 @@
     "onBreak": "On a break",
     "breakOver": "Break over",
     "breakChannel": "Breaks",
+    "sessionChannel": "Practice session",
     "breakOverTitle": "Break over",
     "breakOverBody": "Back to practice?",
     "micPermissionNeeded": "Microphone permission needed",
@@ -664,6 +665,10 @@
   },
   "metronome": {
     "metronome": "Metronome",
+    "slower": "Slower",
+    "play": "Play",
+    "pause": "Pause",
+    "faster": "Faster",
     "bars": "Bars",
     "seconds": "Seconds",
     "tapTempo": "Tap tempo",
@@ -873,6 +878,11 @@
     "channelName": "Practice reminders",
     "notifTitle": "Time to practice 🎵",
     "notifBody": "A few minutes today keeps the streak alive."
+  },
+  "widget": {
+    "minutesToday": "minutes today",
+    "min": "min",
+    "next": "%{name} next"
   },
   "addFocus": {
     "new": "+ New",

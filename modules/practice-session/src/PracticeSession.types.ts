@@ -8,4 +8,6 @@ export type PracticeSessionState = {
   running: boolean;
   /** Milliseconds practised so far at the moment of this call. */
   elapsedMs: number;
+  /** Android: the notification channel's name, already localized; English when absent. */
+  channel?: string;
 };
