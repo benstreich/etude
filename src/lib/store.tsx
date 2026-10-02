@@ -707,6 +707,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             attachments: s.attachments.map((a) => (a.piece === old ? { ...a, piece: clean } : a)),
             plans: s.plans.map((pl) => ({ ...pl, segments: pl.segments.map((seg) => (seg.focus.name === old && seg.focus.kind === kind ? { ...seg, focus: { ...seg.focus, name: clean } } : seg)) })),
             quickLogFocus: s.quickLogFocus?.name === old && s.quickLogFocus.kind === kind ? { ...s.quickLogFocus, name: clean } : s.quickLogFocus,
+            // a session in flight is saved under its focus name too — and revived from it after a restart
+            liveSession: s.liveSession?.name === old && s.liveSession.kind === kind ? { ...s.liveSession, name: clean } : s.liveSession,
           }
         : s
     );

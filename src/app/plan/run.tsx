@@ -18,7 +18,7 @@ import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, resolvePlan, setActiveRun, setTransientPlan, useTransientPlan } from '@/lib/plan-run-state';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
-import { useStore } from '@/lib/store';
+import { dateKey, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function PlanRunner() {
@@ -113,8 +113,10 @@ function Runner({ id }: { id: string }) {
     // the run's answer only applies to segments actually played on that instrument:
     // a piano-only piece sitting in a violin routine keeps its own tag
     const segPiece = store.allPieces.find((p) => p.name === seg.focus.name);
-    const on = runInst && onInstrument(segPiece ?? {}, runInst) ? runInst : inst || undefined;
-    return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id, on);
+    // …and the tab in view only applies to a piece that is on it, same as Practice
+    const on = runInst && onInstrument(segPiece ?? {}, runInst) ? runInst : segPiece && !onInstrument(segPiece, inst) ? undefined : inst || undefined;
+    // filed under the day the segment began, so a run across midnight doesn't empty the evening
+    return store.logMinutes(min, seg.focus.name, seg.focus.kind, dateKey(new Date(Date.now() - sec * 1000)), plan.id, on);
   };
 
   const startSegment = (i: number) => {

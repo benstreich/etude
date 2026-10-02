@@ -42,6 +42,8 @@ assert.deepEqual(toggleInstrument(once, 'Violin').instruments, ['Guitar']);
 const both = { instruments: ['Guitar', 'Violin'] };
 assert.deepEqual(instrumentChoices(both, ''), ['Guitar', 'Violin']); // two tags, no tab — ask
 assert.deepEqual(instrumentChoices(both, 'Guitar'), []); // the tab in view already answered
+assert.deepEqual(instrumentChoices(both, 'Cello'), ['Guitar', 'Violin']); // a tab the piece isn't on answers nothing
+assert.deepEqual(instrumentChoices({ instrument: 'Piano' }, 'Violin'), []); // one tag still files itself
 assert.deepEqual(instrumentChoices({ instrument: 'Guitar' }, ''), []); // one tag, nothing to ask
 assert.deepEqual(instrumentChoices({}, ''), []); // untagged counts everywhere
 assert.deepEqual(instrumentChoices({ instruments: [] }, ''), []);

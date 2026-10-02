@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Platform, StyleSheet, View } from 'react-native';
+import { Alert, AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -22,10 +22,11 @@ import { ActionChip, ChipRow, EntryRow, Overline, PulseRing, SearchField, Sectio
 import { tap, thud } from '@/lib/haptics';
 import { instrumentChoices, instrumentLabel, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
+import { getActiveRun } from '@/lib/plan-run-state';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
 import { restoreLive } from '@/lib/session-math';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
-import { Piece, useStore } from '@/lib/store';
+import { dateKey, Piece, useStore } from '@/lib/store';
 import { pickRecordings } from '@/lib/import-recording';
 import { useTakeRecorder } from '@/lib/use-take-recorder';
 import { tempoTerm } from '@/lib/tempo';
@@ -67,10 +68,12 @@ function ToolCell({
       disabled={disabled}
       testID={testID}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={[s.toolCell, divider && s.toolCellDivider, disabled && { opacity: 0.4 }]}>
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]} />
       <View style={s.toolGlyphBox}>{glyph(color)}</View>
-      <Text style={[s.toolLabel, { color }]} numberOfLines={1}>
+      <Text style={[s.toolLabel, { color }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
         {label}
       </Text>
     </Pressable>
@@ -114,6 +117,22 @@ export default function Practice() {
   const [sessionInst, setSessionInst] = useState<string | null>(revived?.inst ?? null);
   const [askInst, setAskInst] = useState(false);
   const focusPiece = store.allPieces.find((p) => p.name === focus?.name);
+  // the focus is held by name, and Repertoire can rename, delete or archive the
+  // piece meanwhile: follow a rename by id, and drop a focus that is gone — but
+  // never under a running session or an open review, whose minutes need a home.
+  // Adjusted during render (as session-review does), not in an effect.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  if (focus) {
+    const busy = running || !!review;
+    if (focusPiece) {
+      if (focusPiece.id !== focusId) setFocusId(focusPiece.id);
+      if (focusPiece.archived && !busy) setFocus(null);
+    } else {
+      const renamed = focusId ? store.allPieces.find((p) => p.id === focusId) : undefined;
+      if (renamed) setFocus({ name: renamed.name, kind: focus.kind });
+      else if (!busy) setFocus(null);
+    }
+  }
   // the trouble spot this session is about (#91): null = the whole piece. One per
   // session; re-tapping another chip simply changes it, last selection wins.
   const [spotId, setSpotId] = useState<string | null>(revived?.spot ?? null);
@@ -145,22 +164,37 @@ export default function Practice() {
   useEffect(() => {
     if (breakOver) buzz();
   }, [breakOver]);
+  // answering a break covers every interval already crossed — after a long
+  // stretch unanswered, Skip would otherwise bring the banner straight back
+  const answerBreak = () => setBreaksSeen((n) => Math.max(n + 1, Math.floor(seconds / (store.breakEvery * 60))));
+  // scheduling is async: a generation counter lets a schedule that resolves after
+  // the break was changed or ended cancel itself instead of firing anyway
+  const breakGen = useRef(0);
+  const armBreakNotif = (sec: number) => {
+    const gen = ++breakGen.current;
+    cancelBreakEnd(breakNotif.current);
+    breakNotif.current = null;
+    scheduleBreakEnd(sec).then((id) => {
+      if (gen === breakGen.current) breakNotif.current = id;
+      else cancelBreakEnd(id);
+    });
+  };
   const startBreak = (min = 5) => {
     setAccum(seconds);
     setStartedAt(null);
-    setBreaksSeen((n) => n + 1);
+    answerBreak();
     setBreakEnd(Date.now() + min * 60000);
-    scheduleBreakEnd(min * 60).then((id) => (breakNotif.current = id));
+    armBreakNotif(min * 60);
   };
   const adjustBreak = (dMin: number) => {
     if (breakEnd === null) return;
     const total = Math.round((breakEnd - Date.now()) / 60000) + dMin; // whole minutes left after the change
     if (total < 1 || total > 10) return;
     setBreakEnd(breakEnd + dMin * 60000);
-    cancelBreakEnd(breakNotif.current);
-    scheduleBreakEnd(Math.round((breakEnd + dMin * 60000 - Date.now()) / 1000)).then((id) => (breakNotif.current = id));
+    armBreakNotif(Math.round((breakEnd + dMin * 60000 - Date.now()) / 1000));
   };
   const endBreak = () => {
+    breakGen.current++;
     cancelBreakEnd(breakNotif.current);
     breakNotif.current = null;
     setBreakEnd(null);
@@ -223,11 +257,17 @@ export default function Practice() {
   // transitions only — start, pause, resume, a new focus — never per second.
   const sessionWord = store.t('practice.session');
   const pausedWord = store.t('practice.paused');
+  // The service is shared with routines (plan/run.tsx), so only take down a
+  // notice this screen put up, and never under a routine still in flight —
+  // hiding on mount used to kill a running routine's keep-alive.
+  const noticeShown = useRef(false);
   useEffect(() => {
     if (!running || !focus) {
-      hideSessionNotice();
+      if (noticeShown.current && !getActiveRun()) hideSessionNotice();
+      noticeShown.current = false;
       return;
     }
+    noticeShown.current = true;
     const elapsedMs = accum * 1000 + (startedAt !== null ? Date.now() - startedAt : 0);
     showSessionNotice({ title: focus.name, subtitle: startedAt !== null ? sessionWord : pausedWord, running: startedAt !== null, elapsedMs });
   }, [running, focus, startedAt, accum, sessionWord, pausedWord]);
@@ -264,33 +304,51 @@ export default function Practice() {
     setRunning(true);
   };
 
+  // the await on a running take lets a second tap through with a fresh closure
+  // (recording already false) that would log the session again
+  const ending = useRef(false);
   const endSave = async () => {
-    if (!focus) return;
-    if (recording) await toggleRec();
-    const min = Math.max(1, Math.round(seconds / 60));
-    // #58 follow-up: the same piece can be practised on two instruments, so the
-    // session records the one picked when it started, then the tab in view, and
-    // only then falls back to the piece's own first tag
-    // the store drops a spot that was resolved or deleted mid-session (#91)
-    const id = store.logMinutes(min, focus.name, focus.kind, undefined, undefined, sessionInst || inst || undefined, spotId ?? undefined);
-    store.setLiveSession(null);
-    setSpotId(null);
-    setRunning(false);
-    setStartedAt(null);
-    setAccum(0);
-    setSeconds(0);
-    setBreaksSeen(0);
-    if (breakEnd !== null) endBreak();
-    // focus stays set until the review closes — "Attach take" files under it
-    setReview({ id, min, focusName: focus.name, start: sessionStart.current, end: Date.now() });
+    if (!focus || ending.current) return;
+    ending.current = true;
+    try {
+      if (recording) await toggleRec();
+      const min = Math.max(1, Math.round(seconds / 60));
+      // #58 follow-up: the same piece can be practised on two instruments, so the
+      // session records the one picked when it started, then the tab in view — only
+      // when the piece is on it — and only then falls back to the piece's own first tag
+      const on = sessionInst || (focusPiece && !onInstrument(focusPiece, inst) ? undefined : inst) || undefined;
+      // filed under the day it began, so a session across midnight doesn't empty the evening.
+      // The store drops a spot that was resolved or deleted mid-session (#91).
+      const id = store.logMinutes(min, focus.name, focus.kind, dateKey(new Date(sessionStart.current)), undefined, on, spotId ?? undefined);
+      store.setLiveSession(null);
+      setSpotId(null);
+      setRunning(false);
+      setStartedAt(null);
+      setAccum(0);
+      setSeconds(0);
+      setBreaksSeen(0);
+      if (breakEnd !== null) endBreak();
+      // focus stays set until the review closes — "Attach take" files under it
+      setReview({ id, min, focusName: focus.name, start: sessionStart.current, end: Date.now() });
+    } finally {
+      ending.current = false;
+    }
   };
 
+  // same race as endSave: a second Save would clear the focus before the take is filed
+  const closing = useRef(false);
   const closeReview = async () => {
-    if (recording) await toggleRec(); // an attached take still running gets banked
-    setReview(null);
-    setFocus(null);
-    setSessionInst(null); // the next session asks again; a stale answer would misfile it
-    router.push('/');
+    if (closing.current) return;
+    closing.current = true;
+    try {
+      if (recording) await toggleRec(); // an attached take still running gets banked
+      setReview(null);
+      setFocus(null);
+      setSessionInst(null); // the next session asks again; a stale answer would misfile it
+      router.push('/');
+    } finally {
+      closing.current = false;
+    }
   };
 
   if (running && focus) {
@@ -300,6 +358,10 @@ export default function Practice() {
     const toGoal = Math.max(0, Math.round(store.dailyGoal - store.todayMin - elapsedMin));
     const minSoFar = Math.max(1, Math.round(seconds / 60));
     const breakInMin = store.breakEvery > 0 ? Math.max(0, store.breakEvery * (breaksSeen + 1) - Math.floor(seconds / 60)) : null;
+    // the same 1..10 minute bounds adjustBreak enforces, so the steppers can show them
+    const breakLeftMin = Math.round(breakLeft / 60);
+    const canShorten = breakLeftMin - 1 >= 1;
+    const canLengthen = breakLeftMin + 1 <= 10;
     // the nav bar is hidden while running, so this screen owns the bottom inset —
     // without it "Discard session" sits under the gesture bar and can't be tapped
     return (
@@ -308,9 +370,11 @@ export default function Practice() {
           <Overline>{store.t('practice.session')}</Overline>
           <Text style={s.runStarted}>{store.t('practice.startedAt', { time: new Date(startClock).toLocaleTimeString(store.lang, { hour: 'numeric', minute: '2-digit' }) })}</Text>
         </View>
-        <View style={s.runCenter}>
+        {/* scrolls once spots, ladder, waveform and a break banner outgrow a small
+            screen or a large font, instead of spilling over the controls below */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={s.runCenter}>
           <Text style={s.runFocus}>{focus.name}</Text>
-          <View style={s.timerRow}>
+          <View style={s.timerRow} accessible accessibilityRole="timer" accessibilityLabel={`${mm}:${ss}`}>
             <RollingNumber value={mm} style={s.timer} height={fs(100)} />
             <Text style={[s.timer, { lineHeight: fs(100) }]}>:</Text>
             <RollingNumber value={ss} style={s.timer} height={fs(100)} />
@@ -344,7 +408,7 @@ export default function Practice() {
                 <Pressable style={s.breakBtn} onPress={() => startBreak()}>
                   <Text style={[s.breakBtnText, { color: C.accent }]}>{store.t('practice.startBreak')}</Text>
                 </Pressable>
-                <Pressable style={s.breakBtn} onPress={() => setBreaksSeen((n) => n + 1)}>
+                <Pressable style={s.breakBtn} onPress={answerBreak}>
                   <Text style={s.breakBtnText}>{store.t('practice.skip')}</Text>
                 </Pressable>
               </View>
@@ -355,13 +419,25 @@ export default function Practice() {
               <Text style={s.breakText}>{breakOver ? store.t('practice.breakOver') : store.t('practice.onBreak')}</Text>
               {!breakOver && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Pressable hitSlop={8} onPress={() => adjustBreak(-1)}>
+                  <Pressable
+                    hitSlop={8}
+                    disabled={!canShorten}
+                    style={!canShorten && { opacity: 0.3 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={store.t('practice.shorterBreak')}
+                    onPress={() => adjustBreak(-1)}>
                     <Text style={s.breakStep}>−</Text>
                   </Pressable>
                   <Text style={s.breakClock}>
                     {String(Math.floor(breakLeft / 60)).padStart(2, '0')}:{String(breakLeft % 60).padStart(2, '0')}
                   </Text>
-                  <Pressable hitSlop={8} onPress={() => adjustBreak(1)}>
+                  <Pressable
+                    hitSlop={8}
+                    disabled={!canLengthen}
+                    style={!canLengthen && { opacity: 0.3 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={store.t('practice.longerBreak')}
+                    onPress={() => adjustBreak(1)}>
                     <Text style={s.breakStep}>+</Text>
                   </Pressable>
                 </View>
@@ -407,7 +483,7 @@ export default function Practice() {
             <ToolCell
               divider
               testID="session-metronome"
-              label={`${metronome.bpm} ${tempoTerm(metronome.bpm)}`}
+              label={store.t('practice.bpmLabel', { bpm: metronome.bpm })}
               glyph={(color) => <MetNote size={fs(22)} color={color} />}
               onPress={() => {
                 tap();
@@ -432,30 +508,34 @@ export default function Practice() {
             />
           </View>
           {(recording || recPaused) && (
-            <Text style={s.toolHint}>
-              {store.t('practice.toolStripRecording', { name: focus.name })}
-              {' · '}
-              <Text style={{ color: C.accent }} onPress={pauseResumeRec}>
-                {recPaused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}
-              </Text>
-            </Text>
+            <View style={s.toolHintRow}>
+              <Text style={s.toolHint}>{store.t('practice.toolStripRecording', { name: focus.name })}</Text>
+              {/* its own target, as on the piece page — a link nested in the hint was too small to hit and invisible to TalkBack */}
+              <Pressable hitSlop={12} style={s.toolHintBtn} accessibilityRole="button" onPress={pauseResumeRec}>
+                <Text style={[s.toolHint, { color: C.accent }]}>{recPaused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}</Text>
+              </Pressable>
+            </View>
           )}
           {focus.kind === 'Piece' && <ScoreViewer piece={focus.name} start={scoreOpen} onClose={() => setScoreOpen(null)} />}
-        </View>
+        </ScrollView>
         <View>
           <EntryRow
             top
             keySize={48}
             keyStyle={{ borderWidth: 1.5, borderColor: C.ink, backgroundColor: 'transparent' }}
             keyContent={
-              <View style={{ flexDirection: 'row', gap: 4 }}>
-                <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
-                <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
-              </View>
+              paused ? (
+                <PlayIcon color={C.ink} />
+              ) : (
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
+                  <View style={{ width: 3, height: 14, borderRadius: 1, backgroundColor: C.ink }} />
+                </View>
+              )
             }
             testID="practice-pause"
             title={paused ? store.t('practice.resume') : store.t('practice.pause')}
-            subline={breakInMin !== null ? store.t('practice.breakDueIn', { min: breakInMin }) : undefined}
+            subline={breakInMin ? store.t('practice.breakDueIn', { min: breakInMin }) : undefined}
             right={null}
             disabled={breakEnd !== null}
             onPress={() => {
@@ -614,9 +694,10 @@ export default function Practice() {
           </>
         )}
         {pieces.length === 0 && techniques.length === 0 && plans.length === 0 && (
-          <Text style={s.noMatch}>{store.t('practice.noMatches', { query: query.trim() })}</Text>
+          <Text style={s.noMatch}>{q ? store.t('practice.noMatches', { query: query.trim() }) : store.t('practice.empty')}</Text>
         )}
-        {!q && (
+        {/* a search that only matches a routine still shows it */}
+        {(!q || plans.length > 0) && (
           <>
             <Overline style={{ marginTop: 32 }}>{store.t('practice.plans')}</Overline>
             <View style={{ marginTop: 6 }}>
@@ -635,15 +716,17 @@ export default function Practice() {
                   </Pressable>
                 );
               })}
-              <Pressable
-                testID="new-routine"
-                style={s.planAdd}
-                onPress={() => {
-                  const id = store.addPlan(store.t('practice.defaultPlanName'));
-                  router.push({ pathname: '/plan/[id]', params: { id } });
-                }}>
-                <Text style={s.planAddText}>{store.t('practice.newPlan')}</Text>
-              </Pressable>
+              {!q && (
+                <Pressable
+                  testID="new-routine"
+                  style={s.planAdd}
+                  onPress={() => {
+                    const id = store.addPlan(store.t('practice.defaultPlanName'));
+                    router.push({ pathname: '/plan/[id]', params: { id } });
+                  }}>
+                  <Text style={s.planAddText}>{store.t('practice.newPlan')}</Text>
+                </Pressable>
+              )}
             </View>
           </>
         )}
@@ -655,7 +738,7 @@ export default function Practice() {
           keyContent={<PlayIcon color={C.bg} />}
           testID="start-session"
           title={store.t('practice.startSession')}
-          subline={focus ? <Text style={[s.entrySubAccent]}>{focus.name}</Text> : undefined}
+          subline={focus ? <Text style={[s.entrySubAccent]}>{focus.name}</Text> : store.t('practice.pickFirst')}
           right={null}
           disabled={!focus}
           close
@@ -701,7 +784,7 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   runPage: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 24 },
   runHeadRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
   runStarted: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
-  runCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  runCenter: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
   runFocus: { fontFamily: F.body, fontSize: fs(20), color: C.subStrong },
   timerRow: { flexDirection: 'row', justifyContent: 'center', marginVertical: 8 },
   timer: { fontFamily: F.head, fontSize: fs(90), color: C.ink, fontVariant: ['tabular-nums'] },
@@ -720,7 +803,9 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   toolCell: { flex: 1, minWidth: 0, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden' },
   toolCellDivider: { borderLeftWidth: 1, borderLeftColor: C.staffLine },
   toolGlyphBox: { height: 24, alignItems: 'center', justifyContent: 'center' },
-  toolLabel: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 0.3 },
-  toolHint: { marginTop: 10, textAlign: 'center', fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
+  toolLabel: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 0.3, paddingHorizontal: 4 },
+  toolHintRow: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 12 },
+  toolHintBtn: { minHeight: 44, justifyContent: 'center' },
+  toolHint: { textAlign: 'center', fontFamily: F.body, fontSize: fs(11.5), color: C.tertiary },
   discard: { fontFamily: F.body, fontSize: fs(14), color: C.sub, textDecorationLine: 'underline', textDecorationColor: C.sub },
 }));

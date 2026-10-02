@@ -129,7 +129,7 @@ export function SessionReview({
   };
 
   return (
-    <Modal visible transparent={false} animationType="slide" onRequestClose={close}>
+    <Modal visible transparent={false} animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={close}>
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <KeyboardAwareScrollView
           bottomOffset={16}
@@ -162,13 +162,14 @@ export function SessionReview({
               {!!spotLabel && <Text style={s.meta}>{spotLabel}</Text>}
             </View>
             {chips.length > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              // wraps: a streak and a challenge chip side by side outrun the screen in German
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 8, rowGap: 4, marginTop: 8 }}>
                 {chips.map((c, i) => (
                   <React.Fragment key={c.label}>
                     {i > 0 && <Text style={s.chipSep}>|</Text>}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       {c.kind === 'streak' && <FlameIcon />}
-                      <Text style={s.meta}>{chipText(c)}</Text>
+                      <Text style={[s.meta, { flexShrink: 1 }]}>{chipText(c)}</Text>
                     </View>
                   </React.Fragment>
                 ))}
@@ -226,7 +227,8 @@ export function SessionReview({
               </Svg>
             }
             testID="review-save"
-            title={store.t('sessionReview.saveSession')}
+            // the session was logged when the timer stopped; this only closes, as every other exit does
+            title={store.t('sessionReview.done')}
             right={null}
             onPress={close}
           />

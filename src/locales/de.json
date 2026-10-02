@@ -52,7 +52,7 @@
     "reduceMotion": "Bewegung reduzieren",
     "reduceMotionHint": "Überspringt Feder- und Einblendanimationen",
     "sounds": "Töne",
-    "soundsHint": "Ein kurzer Akkord, wenn du eine Session beendest. Folgt dem Stummschalter.",
+    "soundsHint": "Ein kurzer Akkord, wenn du eine Einheit beendest. Folgt dem Stummschalter.",
     "language": "Sprache",
     "fsSmall": "Klein",
     "fsDefault": "Standard",
@@ -243,11 +243,11 @@
     "nothingSpecific": "Nichts Bestimmtes"
   },
   "practice": {
-    "session": "Session",
+    "session": "Einheit",
     "breakDue": "%{min} Min — kurz Pause machen?",
     "startBreak": "Pause starten",
     "skip": "Überspringen",
-    "onBreak": "Pause",
+    "onBreak": "In der Pause",
     "breakOver": "Pause vorbei",
     "breakChannel": "Pausen",
     "breakOverTitle": "Pause vorbei",
@@ -256,11 +256,11 @@
     "recordStartFailed": "Aufnahme konnte nicht gestartet werden",
     "paused": "Pausiert",
     "running": "Läuft",
-    "stopRecording": "Aufnahme beenden",
+    "stopRecording": "Stopp",
     "record": "Aufnehmen",
     "toolStripRecording": "Nimmt %{name} auf",
     "resume": "Fortsetzen",
-    "pause": "Pause",
+    "pause": "Pausieren",
     "endSave": "Beenden & speichern",
     "discardTitle": "Einheit verwerfen?",
     "discardMessage": "Diese Übungszeit wird nicht gespeichert.",
@@ -290,7 +290,12 @@
     "importTake": "Take importieren",
     "pauseTake": "Aufnahme pausieren",
     "resumeTake": "Aufnahme fortsetzen",
-    "discardTake": "Aufnahme verwerfen"
+    "discardTake": "Aufnahme verwerfen",
+    "empty": "Noch nichts zum Üben. Füge im Repertoire ein Stück oder eine Technik hinzu.",
+    "pickFirst": "Wähle etwas zum Üben",
+    "shorterBreak": "Pause um 1 Minute verkürzen",
+    "longerBreak": "Pause um 1 Minute verlängern",
+    "bpmLabel": "%{bpm} BPM"
   },
   "progress": {
     "challengeDays": "Übe an %{target} Tagen im %{month}",
@@ -327,7 +332,7 @@
     "morning": "Morgens",
     "afternoon": "Nachmittags",
     "evening": "Abends",
-    "sessionLength": "Sitzungslänge",
+    "sessionLength": "Länge der Einheit",
     "thisWeek": "Diese Woche",
     "avgPerDay": "Ø / Tag",
     "allTime": "Insgesamt",
@@ -367,7 +372,7 @@
     "customise": "Anpassen",
     "customHint": "Dieser Tab gehört dir – schalte Bereiche ein und aus und ordne sie, wie du willst.",
     "hintDismiss": "Verstanden",
-    "ratingSessions": "%{n} bewertete Sessions",
+    "ratingSessions": "%{n} bewertete Einheiten",
     "section": {
       "challenge": "Monatliche Herausforderung",
       "movement": "In Bewegung",
@@ -386,7 +391,7 @@
       "consistency": "Regelmässigkeit",
       "rating": "Bewertung über die Zeit",
       "timeOfDay": "Beste Tageszeit",
-      "sessionLength": "Session-Länge"
+      "sessionLength": "Länge der Einheit"
     },
     "moving": "In Bewegung",
     "allPieces": "Alle Stücke",
@@ -398,7 +403,7 @@
     "moveNew": "neu",
     "calGradingFeel": "Sterne steigen, Tempo nicht – bewertest du das Gefühl?",
     "calNotSpeed": "Tempo stimmt, Sterne nicht – am Tempo liegt es nicht.",
-    "calHardDays": "Auch zähe Sessions haben dieses Stück vorangebracht.",
+    "calHardDays": "Auch zähe Einheiten haben dieses Stück vorangebracht.",
     "hearTitle": "Hör den Unterschied",
     "hearDays": "%{days} Tage dazwischen",
     "pipelineTitle": "Repertoire-Pipeline",
@@ -433,7 +438,7 @@
       "consistency": "Übetage pro Woche",
       "rating": "Sterne pro Stück im Verlauf",
       "timeOfDay": "Morgens, nachmittags oder abends",
-      "sessionLength": "Welche Sessionlängen am besten bewertet sind"
+      "sessionLength": "Welche Einheitslängen am besten bewertet sind"
     },
     "chartCalendar": "Kalender",
     "chartLine": "Linie",
@@ -563,7 +568,7 @@
     "compare": "Vergleichen",
     "recordings": "Aufnahmen",
     "importTake": "Aufnahme importieren",
-    "noTakesHint": "Nimm in einer Session auf oder importiere eine Aufnahme von woanders.",
+    "noTakesHint": "Nimm in einer Einheit auf oder importiere eine Aufnahme von woanders.",
     "importFailed": "Diese Datei ließ sich nicht importieren",
     "history": "Verlauf",
     "restore": "Ins Repertoire zurückholen",
@@ -657,7 +662,7 @@
     "tourTitle": "Vier Orte, die du kennen solltest",
     "tourSubline": "Das ist die ganze App. Alles andere steckt dahinter.",
     "tour_home": "Die Minuten von heute, ein Schnelleintrag für Üben ohne Timer und dein Fortschritt.",
-    "tour_practice": "Eine Session mit Timer starten – mit Metronom, Aufnahmen und deinen Noten.",
+    "tour_practice": "Eine Einheit mit Timer starten – mit Metronom, Aufnahmen und deinen Noten.",
     "tour_repertoire": "Deine Stücke und Techniken, jeweils mit Stufen und Tempo-Leiter.",
     "tour_tools": "Metronom, Stimmgerät und Drone einzeln, wann immer du eins brauchst.",
     "letsGo": "Los geht’s"
@@ -879,7 +884,8 @@
     "piece": "Stück",
     "technique": "Technik",
     "namePlaceholder": "Name",
-    "add": "Hinzufügen"
+    "add": "Hinzufügen",
+    "cancel": "Abbrechen"
   },
   "tuner": {
     "tuner": "Stimmgerät",
@@ -910,7 +916,7 @@
   "score": {
     "title": "Noten",
     "add": "Hinzufügen",
-    "emptyHint": "Füge ein PDF oder ein Foto deiner Noten hinzu — sie öffnen sich hier und während einer Session.",
+    "emptyHint": "Füge ein PDF oder ein Foto deiner Noten hinzu — sie öffnen sich hier und während einer Einheit.",
     "pages": {
       "one": "%{count} Seite",
       "other": "%{count} Seiten"

@@ -114,5 +114,9 @@ assert.equal(budgetFor({ minutesByDate: mbd(sessions), today, dailyGoal: 30 }), 
   assert.equal(budgetFor({ minutesByDate: many, today, dailyGoal: 45 }), 15);
   assert.equal(budgetFor({ minutesByDate: many, today, dailyGoal: 10 }), 10, 'never above the goal');
 }
+// today's minutes come off the budget, and a day already full leaves nothing to suggest
+assert.equal(budgetFor({ minutesByDate: { ...mbd(sessions), [today]: 10 }, today, dailyGoal: 30 }), 20);
+assert.equal(budgetFor({ minutesByDate: { ...mbd(sessions), [today]: 45 }, today, dailyGoal: 30 }), 0);
+assert.equal(suggestSession({ ...base, minutesByDate: { ...base.minutesByDate, [today]: 25 } }), null, '5 minutes left cannot hold two segments');
 
 console.log('suggest ok');

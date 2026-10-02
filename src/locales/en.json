@@ -256,7 +256,7 @@
     "recordStartFailed": "Couldn’t start recording",
     "paused": "Paused",
     "running": "Practicing",
-    "stopRecording": "Stop recording",
+    "stopRecording": "Stop",
     "record": "Record",
     "toolStripRecording": "Recording %{name}",
     "resume": "Resume",
@@ -290,7 +290,12 @@
     "importTake": "Import a take",
     "pauseTake": "Pause take",
     "resumeTake": "Resume take",
-    "discardTake": "Discard take"
+    "discardTake": "Discard take",
+    "empty": "Nothing to practise yet. Add a piece or technique in Repertoire.",
+    "pickFirst": "Pick something to practise",
+    "shorterBreak": "Shorten break by 1 minute",
+    "longerBreak": "Lengthen break by 1 minute",
+    "bpmLabel": "%{bpm} BPM"
   },
   "progress": {
     "challengeDays": "Practise on %{target} days in %{month}",
@@ -879,7 +884,8 @@
     "piece": "Piece",
     "technique": "Technique",
     "namePlaceholder": "Name",
-    "add": "Add"
+    "add": "Add",
+    "cancel": "Cancel"
   },
   "tuner": {
     "tuner": "Tuner",

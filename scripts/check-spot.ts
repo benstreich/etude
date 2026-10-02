@@ -2,7 +2,7 @@
 // Run: npm run check:spot
 import assert from 'node:assert/strict';
 
-import { spotStats, TREND_DOWN, TREND_UP } from '../src/lib/spot-math.ts';
+import { dueSpots, spotStats, TREND_DOWN, TREND_UP } from '../src/lib/spot-math.ts';
 
 const today = '2026-09-22';
 const sess = (date: string, min: number, spot?: string, title = 'Für Elise') => ({ title, date, min, spot });
@@ -58,6 +58,27 @@ assert.equal(spotStats([sess('2026-07-01', 90, 'a')], 'Für Elise', 'a', today).
   const st = spotStats([sess('2026-08-25', 10, 'a')], 'Für Elise', 'a', today);
   assert.equal(st.trend, 'flat');
   assert.equal(st.min, 10, 'outside the trend windows still counts towards the total');
+}
+
+// --- dueSpots: open, and untouched for 7+ days (or never) ---
+{
+  const pieces = [
+    {
+      name: 'Für Elise',
+      spots: [
+        { id: 'a', label: 'bars 1–4' }, // last on 09-15: exactly 7 days → due
+        { id: 'b', label: 'bars 5–8' }, // last on 09-16: 6 days → not yet
+        { id: 'c', label: 'coda' }, // never practised → due
+        { id: 'd', label: 'solid', resolvedAt: '2026-09-01' }, // resolved → never due
+      ],
+    },
+    { name: 'Clair de Lune', archived: true, spots: [{ id: 'e', label: 'opening' }] }, // archived piece → skipped
+  ];
+  const list = [sess('2026-09-15', 10, 'a'), sess('2026-09-16', 10, 'b'), sess('2026-09-21', 10, 'c', 'Clair de Lune')];
+  assert.deepEqual(dueSpots(pieces, list, today), [
+    { pieceName: 'Für Elise', label: 'bars 1–4' },
+    { pieceName: 'Für Elise', label: 'coda' },
+  ]);
 }
 
 console.log('spot ok');
