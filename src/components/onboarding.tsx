@@ -183,7 +183,7 @@ export function Onboarding() {
                       onFocus={() => setGoalFocused(true)}
                       onBlur={() => {
                         setGoalFocused(false);
-                        setGoal(Math.min(300, Math.max(1, goal || 1)));
+                        setGoal(clampGoal(goal));
                       }}
                       keyboardType="number-pad"
                       selectTextOnFocus

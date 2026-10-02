@@ -1,5 +1,5 @@
 // The one place the automatic review prompt is fired from (#68). Settings' manual
-// "Leave a review" row calls StoreReview directly and does not count as the once.
+// "Rate" row opens the store listing instead and does not count as the once.
 import * as StoreReview from 'expo-store-review';
 
 import { shouldPromptReview } from './review-math';
