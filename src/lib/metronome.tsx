@@ -44,6 +44,7 @@ const controls = (bpm: number, running: boolean) => ({
     play: tr('metronome.play'),
     pause: tr('metronome.pause'),
     faster: tr('metronome.faster'),
+    stop: tr('metronome.stop'),
   },
 });
 
@@ -95,9 +96,11 @@ export const LOCK_SCREEN_STEP = 5;
 // samples (#78). expo-audio's ExoPlayer smeared the onset of these 30 ms samples
 // — quiet and thin in the app, and its rewind replayed them as a fast double.
 // Elsewhere: two expo-audio players per sound, used alternately; a player is
-// rewound right after it fires, so the beat itself is a bare play().
+// rewound right after it fires, so the beat itself is a bare play(). The
+// subdivision click gets four: sixteenths at 210+ BPM came back round to a
+// player inside its 150 ms rewind and dropped the click.
 // ponytail: pools are built per sound set on first use and kept — five sets of
-// eight players is cheap, and rebuilding one mid-run would drop a click.
+// ten players is cheap, and rebuilding one mid-run would drop a click.
 
 /** True where the native engine exists (an Android dev build) — then it owns every click of a run. */
 const nativeEngine = typeof Controls?.click === 'function';
@@ -107,8 +110,9 @@ const cursor = [0, 0, 0, 0];
 function ensurePool(set: SoundSet) {
   if (nativeEngine) return Controls!.preloadClicks!();
   if (pools[set]) return;
-  const pair = (source: number) => [createAudioPlayer(source), createAudioPlayer(source)];
-  pools[set] = SAMPLES[set].map(pair);
+  pools[set] = SAMPLES[set].map((source, bank) =>
+    Array.from({ length: bank === SUB_BANK ? 4 : 2 }, () => createAudioPlayer(source))
+  );
 }
 
 function playClick(set: SoundSet, bank: number, volume: number) {
@@ -150,19 +154,25 @@ export const metronomeRunning = () => metroRunning;
 // Kept out of context on purpose: the provider wraps the whole app, and a
 // context update per beat would re-render every screen four times a bar.
 
-const beatListeners = new Set<(beat: number) => void>();
-const emitBeat = (beat: number) => beatListeners.forEach((listener) => listener(beat));
+/** The current beat within the bar (-1 while stopped), and `n`, which moves on every beat — in 1/4 `beat` never changes. */
+export type BeatPulse = { beat: number; n: number };
 
-/** Index of the current beat within the bar, or -1 while stopped. */
-export function useBeat(): number {
-  const [beat, setBeat] = useState(-1);
+const beatListeners = new Set<(pulse: BeatPulse) => void>();
+let pulses = 0;
+const emitBeat = (beat: number) => {
+  const pulse = { beat, n: ++pulses };
+  beatListeners.forEach((listener) => listener(pulse));
+};
+
+export function useBeat(): BeatPulse {
+  const [pulse, setPulse] = useState<BeatPulse>({ beat: -1, n: 0 });
   useEffect(() => {
-    beatListeners.add(setBeat);
+    beatListeners.add(setPulse);
     return () => {
-      beatListeners.delete(setBeat);
+      beatListeners.delete(setPulse);
     };
   }, []);
-  return beat;
+  return pulse;
 }
 
 // --- provider -------------------------------------------------------------
@@ -236,6 +246,8 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
   );
 
   const run = useRef<Run | null>(null);
+  // the notification / now-playing controls are up: running, or paused from them
+  const controlsUp = useRef(false);
   // latest config for the scheduler, which runs outside React's render cycle
   const latest = useRef({ bpm, sig, ramp, subdiv, accents, sound, volume, startBpm: store.metroBpm });
   useEffect(() => {
@@ -302,6 +314,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     run.current = { startedAt: now, baseBpm: startBpm, baseBeats: 0, beats: 0, sub: 0, nextAt: now, timer: null };
     metroRunning = true;
+    controlsUp.current = true;
     setRunning(true);
     Controls?.show(controls(startBpm, true));
     // Android: the native engine clicks from the first beat, in the app and with
@@ -323,6 +336,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     if (run.current?.timer) clearTimeout(run.current.timer);
     run.current = null;
     metroRunning = false;
+    controlsUp.current = false;
     setRunning(false);
     emitBeat(-1);
     Controls?.stopTicking();
@@ -369,7 +383,16 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
 
   // a new signature drops any edited bar: an accent on beat 5 means nothing in 3/4
   const setTimeSig = useCallback(
-    (next: string) => store.updateSettings({ metroTimeSig: next, metroAccents: [] }),
+    (next: string) => {
+      const r = run.current;
+      if (r) {
+        // a bars ramp counts bars of the new length from here on, not the whole run re-counted
+        r.baseBpm = latest.current.bpm;
+        r.baseBeats = r.beats;
+        r.startedAt = Date.now();
+      }
+      store.updateSettings({ metroTimeSig: next, metroAccents: [] });
+    },
     [store]
   );
 
@@ -428,13 +451,18 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
       // iOS sends a headset's play and pause as such: each only ever goes one way
       else if (command === 'play') {
         if (!run.current) start();
-      } else if (command === 'pause') {
+      }
+      // Android: the paused notification's Stop (or swiping it away)
+      else if (command === 'stop') stop();
+      // iOS headset pause, or Android: lost audio focus, headphones unplugged, or the
+      // audio stream died — never a resume
+      else if (command === 'pause') {
         if (run.current) pause();
       } else if (run.current) pause();
       else start();
     });
     return () => sub?.remove();
-  }, [nudge, pause, start]);
+  }, [nudge, pause, start, stop]);
 
   // The native engine's beat, mirrored for the dots and the ramp. `beat`/`sub`
   // is the tick it has just placed, `nextBeat`/`nextSub` the one after — the
@@ -456,9 +484,10 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [applyRamp]);
 
-  // the notification and the engine both follow the live tempo, the ramp's included
+  // the notification and the engine both follow the live tempo, the ramp's included —
+  // and a paused one too, or its Faster/Slower would seem to do nothing
   useEffect(() => {
-    if (running) Controls?.update(controls(bpm, true));
+    if (running || controlsUp.current) Controls?.update(controls(bpm, running));
   }, [bpm, running]);
 
   // edits made in the sheet (or from a widget) reach the running engine at once

@@ -786,7 +786,14 @@
     "soundRim": "Rim",
     "volume": "Click volume",
     "accentsHint": "Tap a beat to change its accent, or mute it.",
-    "subdivHint": "Clicks per beat."
+    "subdivHint": "Clicks per beat.",
+    "rampSameTarget": "Set a target different from the tempo to start the ramp",
+    "runningA11y": "Metronome, %{bpm} BPM",
+    "beatA11y": "Beat %{n}, %{level}",
+    "levelAccent": "accent",
+    "levelMid": "light accent",
+    "levelPlain": "plain",
+    "levelMuted": "muted"
   },
   "tempoLadder": {
     "title": "Tempo ladder",

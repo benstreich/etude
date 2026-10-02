@@ -655,8 +655,10 @@ function Digit({ digit, style, height, fast }: { digit: number; style?: TextStyl
   return (
     <View style={{ height, overflow: 'hidden' }}>
       <Animated.View style={{ transform: [{ translateY: y }] }}>
+        {/* the column is a fixed `height`, so the OS text scale must not grow the
+            digit past it (the app's own scale already reaches `height` via fs) */}
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-          <Text key={n} style={[style, { height, lineHeight: height, textAlign: 'center' }]}>
+          <Text key={n} maxFontSizeMultiplier={1} style={[style, { height, lineHeight: height, textAlign: 'center' }]}>
             {n}
           </Text>
         ))}

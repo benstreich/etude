@@ -786,7 +786,14 @@
     "soundRim": "Rim",
     "volume": "Klick-Lautstärke",
     "accentsHint": "Tippe einen Schlag an, um seine Betonung zu ändern oder ihn stummzuschalten.",
-    "subdivHint": "Klicks pro Schlag."
+    "subdivHint": "Klicks pro Schlag.",
+    "rampSameTarget": "Wähle ein Ziel, das vom Tempo abweicht, damit die Rampe startet",
+    "runningA11y": "Metronom, %{bpm} BPM",
+    "beatA11y": "Schlag %{n}, %{level}",
+    "levelAccent": "betont",
+    "levelMid": "leicht betont",
+    "levelPlain": "normal",
+    "levelMuted": "stumm"
   },
   "tempoLadder": {
     "title": "Tempoleiter",

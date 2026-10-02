@@ -1,5 +1,10 @@
-/** What the lock-screen / notification buttons mean. The step size is the caller's business. `play`/`pause` are iOS-only. */
-export type MetronomeCommand = 'inc' | 'dec' | 'toggle' | 'play' | 'pause';
+/**
+ * What the lock-screen / notification buttons mean. The step size is the caller's business.
+ * iOS only: 'play'/'pause' are a headset's or the lock screen's own play and pause.
+ * Android only: 'stop' is the paused notification's Stop or its dismissal; 'pause' is the
+ * engine giving up the stream (audio focus lost, headphones unplugged, the track died).
+ */
+export type MetronomeCommand = 'inc' | 'dec' | 'toggle' | 'play' | 'pause' | 'stop';
 
 /** One tick the native engine has just placed (Android only): the tick played, and the one after it. */
 export type MetronomeTickEvent = {
@@ -24,7 +29,7 @@ export type MetronomeControlsState = {
   /** Second line — the piece being practiced, when there is one. */
   subtitle?: string;
   /** Android: channel name and button labels, already localized; English when absent. */
-  labels?: { channel: string; slower: string; play: string; pause: string; faster: string };
+  labels?: { channel: string; slower: string; play: string; pause: string; faster: string; stop: string };
 };
 
 /** One click through the native SoundPool (Android only) — the sound picker's preview. */
