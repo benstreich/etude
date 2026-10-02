@@ -70,6 +70,9 @@ function Runner({ id }: { id: string }) {
   const [accum, setAccum] = useState(resumed?.accum ?? 0);
   const [seconds, setSeconds] = useState(resumed?.accum ?? 0);
   const [review, setReview] = useState<ReviewSession | null>(null);
+  // ended with nothing to review: this tab stays mounted after router.back(), so
+  // the clock must stop or the auto-advance would end (and go back) every tick
+  const [over, setOver] = useState(false);
   const [metroOpen, setMetroOpen] = useState(false);
   const [runStart] = useState(() => resumed?.runStart ?? Date.now());
   // what has actually been logged, so the review reports real minutes and never
@@ -89,9 +92,9 @@ function Runner({ id }: { id: string }) {
   // behind a locked screen) the segment can overrun; on return the auto-advance
   // carries the overrun into the next segments, so no practice time is lost.
   useEffect(() => {
-    if (!plan || review) return;
+    if (!plan || review || over) return;
     setActiveRun({ planId: plan.id, idx, startedAt, accum, runStart, loggedMin: logged.current.min, lastId: logged.current.lastId });
-  }, [plan, idx, startedAt, accum, runStart, review]);
+  }, [plan, idx, startedAt, accum, runStart, review, over]);
 
   // every segment removed (or the routine deleted) mid-run: end the run rather
   // than strand a blank screen with no way out. Only leave if we're on screen —
@@ -121,18 +124,18 @@ function Runner({ id }: { id: string }) {
   const segName = seg ? (seg.focus.kind === 'Break' ? store.t('planRun.break') : seg.focus.name) : '';
   const pausedWord = store.t('practice.paused');
   useEffect(() => {
-    if (!plan || !seg || review) return;
+    if (!plan || !seg || review || over) return;
     const elapsedMs = accum * 1000 + (startedAt !== null ? Date.now() - startedAt : 0);
     showSessionNotice({ title: planName, subtitle: startedAt !== null ? segName : `${segName} · ${pausedWord}`, running: startedAt !== null, elapsedMs });
-  }, [plan, planName, seg, segName, pausedWord, startedAt, accum, review]);
+  }, [plan, planName, seg, segName, pausedWord, startedAt, accum, review, over]);
 
   useEffect(() => {
-    if (startedAt === null || review) return;
+    if (startedAt === null || review || over) return;
     const tick = () => setSeconds(accum + Math.floor((Date.now() - startedAt) / 1000));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [startedAt, accum, review]);
+  }, [startedAt, accum, review, over]);
 
   const isBreak = seg?.focus.kind === 'Break';
 
@@ -163,6 +166,7 @@ function Runner({ id }: { id: string }) {
   };
 
   const abandon = () => {
+    setOver(true);
     if (metro.running) metro.toggle();
     setActiveRun(null);
     hideSessionNotice();
@@ -193,7 +197,7 @@ function Runner({ id }: { id: string }) {
 
   // auto-advance at segment end
   // ponytail: checked on the 1s tick, not a precise deadline timer — ±1s is fine here
-  const wantAdvance = !!seg && seconds >= segSec && !paused && !review;
+  const wantAdvance = !!seg && seconds >= segSec && !paused && !review && !over;
   const advanceRef = useRef(advance);
   useEffect(() => {
     advanceRef.current = advance;
