@@ -13,7 +13,7 @@ import { TimeWheel } from '@/components/time-wheel';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { BackLink, Overline, RuledStats, Sheet } from '@/components/ui';
 import { filesOf } from '@/lib/attachment-math';
-import { exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
+import { BACKUP_TOO_LARGE, exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
@@ -98,6 +98,8 @@ export default function Profile() {
   const layoutOn = countOnSections(layoutAll, availabilityFrom(store));
   // ponytail: native in-app review sheet; row hides where no store flow exists (web, sideloads)
   const [canRate, setCanRate] = useState(false);
+  // a big library takes a while to encode; the row says so and stays disabled meanwhile
+  const [backingUp, setBackingUp] = useState(false);
   useEffect(() => {
     StoreReview.hasAction().then(setCanRate).catch(() => {});
   }, []);
@@ -192,12 +194,14 @@ export default function Profile() {
     store.showToast(store.t('toast.saved'));
   };
 
-  const backup = () =>
+  const backup = () => {
+    setBackingUp(true);
     // recordings and score pages travel with the state, or a restored phone
     // shows empty players and blank thumbnails
-    exportBackup(store.backupState(), [...store.recordings.map((r) => r.uri), ...filesOf(store.attachments)]).catch(() =>
-      store.showToast(store.t('settings.backupFailed'))
-    );
+    exportBackup(store.backupState(), [...store.recordings.map((r) => r.uri), ...filesOf(store.attachments)])
+      .catch((e: Error) => store.showToast(store.t(e?.message === BACKUP_TOO_LARGE ? 'settings.backupTooLarge' : 'settings.backupFailed')))
+      .finally(() => setBackingUp(false));
+  };
   const csv = () => exportCsv(store.sessions).catch(() => store.showToast(store.t('settings.exportFailed')));
   const confirmRestore = ({ state, files }: { state: object; files: Record<string, string> }) =>
     Alert.alert(store.t('settings.restoreConfirmTitle'), store.t('settings.restoreConfirmBody'), [
@@ -206,9 +210,14 @@ export default function Profile() {
         text: store.t('settings.restore'),
         style: 'destructive',
         onPress: () => {
-          restoreFiles(files);
-          store.restoreBackup(state);
-          store.showToast(store.t('settings.backupRestored'));
+          // a throw in here would surface as a fatal error, not a toast
+          try {
+            restoreFiles(files);
+            const lost = store.restoreBackup(state);
+            store.showToast(lost ? store.t('settings.backupRestoredMissing', { count: lost }) : store.t('settings.backupRestored'));
+          } catch {
+            store.showToast(store.t('settings.backupUnreadable'));
+          }
         },
       },
     ]);
@@ -216,8 +225,8 @@ export default function Profile() {
     let picked: Awaited<ReturnType<typeof pickBackup>>;
     try {
       picked = await pickBackup();
-    } catch {
-      return store.showToast(store.t('settings.notABackup'));
+    } catch (e) {
+      return store.showToast(store.t((e as Error)?.message === BACKUP_TOO_LARGE ? 'settings.backupTooLarge' : 'settings.notABackup'));
     }
     if (picked) confirmRestore(picked);
   };
@@ -308,7 +317,7 @@ export default function Profile() {
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 24 }]}>
       <BackLink label={store.t('tabs.home')} onPress={() => router.back()} />
 
-      <Pressable onPress={() => open('name')}>
+      <Pressable accessibilityRole="button" onPress={() => open('name')}>
         <Text style={s.name}>{store.name || store.t('settings.addYourName')}</Text>
       </Pressable>
       <Text style={s.sub}>{store.instruments.length ? store.instruments.map(instLabel).join(' & ') : store.t('settings.setInstruments')}</Text>
@@ -327,6 +336,7 @@ export default function Profile() {
             <Pressable
               key={row.key}
               testID={`setting-${row.key}`}
+              accessibilityRole="button"
               style={[s.row, i === rows.length - 1 && s.rowClose]}
               onPress={() => (row.key === 'progressSections' ? setLayoutOpen(true) : open(row.key))}>
               <Text style={s.rowLabel}>{row.label}</Text>
@@ -342,7 +352,7 @@ export default function Profile() {
       <View>
         <Overline>{store.t('appearance.title')}</Overline>
         <View style={{ marginTop: 6 }}>
-          <Pressable testID="setting-appearance" style={[s.row, s.rowClose]} onPress={() => router.push('/appearance')}>
+          <Pressable testID="setting-appearance" accessibilityRole="button" style={[s.row, s.rowClose]} onPress={() => router.push('/appearance')}>
             <Text style={s.rowLabel}>{store.t('appearance.title')}</Text>
             <Text style={s.rowValue} numberOfLines={1}>
               {store.t(store.theme === 'system' ? 'appearance.system' : store.theme === 'dark' ? 'appearance.dark' : 'appearance.light')}
@@ -357,7 +367,7 @@ export default function Profile() {
         <View style={{ marginTop: 6 }}>
           {(
             [
-              [store.t('settings.backupEverything'), store.t('settings.backupEverythingSub'), backup],
+              [store.t('settings.backupEverything'), store.t(backingUp ? 'settings.preparingBackup' : 'settings.backupEverythingSub'), backup],
               [
                 store.t('settings.autoBackups'),
                 AUTO_BACKUP_KEYS[store.autoBackupDays]
@@ -369,7 +379,12 @@ export default function Profile() {
               [store.t('settings.restoreFromBackup'), store.t('settings.restoreSub'), restore],
             ] as const
           ).map(([label, sub, onPress], i, arr) => (
-            <Pressable key={label} style={[s.dataRow, i === arr.length - 1 && s.rowClose]} onPress={onPress}>
+            <Pressable
+              key={label}
+              accessibilityRole="button"
+              disabled={i === 0 && backingUp}
+              style={[s.dataRow, i === arr.length - 1 && s.rowClose]}
+              onPress={onPress}>
               <View style={{ flex: 1 }}>
                 <Text style={s.dataLabel}>{label}</Text>
                 <Text style={s.dataSub}>{sub}</Text>
@@ -398,6 +413,7 @@ export default function Profile() {
           ).map(([label, url], i, arr) => (
             <Pressable
               key={label}
+              accessibilityRole="link"
               style={[s.row, i === arr.length - 1 && s.rowClose]}
               onPress={async () => {
                 if (url === STORE_URL && canRate) {

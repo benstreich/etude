@@ -9,6 +9,13 @@ import * as Sharing from 'expo-sharing';
 
 import { autoBackupDate, autoBackupPlan, buildCsv, isSafeRelPath, parseBackup } from './backup-math';
 import type { Session } from './store';
+import { dateKey } from './streak-math';
+
+// Everything is held in memory as base64 and then copied again by stringify; past
+// this the app can run out of memory and die without a toast. Thrown as
+// BACKUP_TOO_LARGE so the caller can say so instead.
+const MAX_FILE_BYTES = 150 * 1024 * 1024;
+export const BACKUP_TOO_LARGE = 'backup-too-large';
 
 const b64ToBytes = (b64: string) => {
   const bin = atob(b64);
@@ -24,25 +31,43 @@ const shareFile = async (name: string, content: string, mimeType: string) => {
   await Sharing.shareAsync(file.uri, { mimeType });
 };
 
+// a second tap while one export is still encoding would start a second one and a second share sheet
+let exporting = false;
 /**
  * One file: full state JSON + every attached file (recordings and score pages),
  * each as documents-relative path → base64.
  */
 export async function exportBackup(state: object, paths: string[]) {
-  const files: Record<string, string> = {};
-  for (const rel of paths) {
-    if (rel.includes(':')) continue; // web/blob leftovers can't be bundled
-    if (files[rel]) continue;
-    const f = new File(Paths.document, rel);
-    if (f.exists) files[rel] = await f.base64();
+  if (exporting) return;
+  exporting = true;
+  try {
+    await writeBackup(state, paths);
+  } finally {
+    exporting = false;
   }
-  const date = new Date().toISOString().slice(0, 10);
+}
+
+async function writeBackup(state: object, paths: string[]) {
+  const found: [string, File][] = [];
+  let bytes = 0;
+  for (const rel of new Set(paths)) {
+    if (rel.includes(':')) continue; // web/blob leftovers can't be bundled
+    const f = new File(Paths.document, rel);
+    if (!f.exists) continue;
+    found.push([rel, f]);
+    bytes += f.size ?? 0;
+  }
+  // checked before reading anything, so a too-big library costs no memory at all
+  if (bytes > MAX_FILE_BYTES) throw new Error(BACKUP_TOO_LARGE);
+  const files: Record<string, string> = {};
+  for (const [rel, f] of found) files[rel] = await f.base64();
+  const date = dateKey();
   await shareFile(`etude-backup-${date}.json`, JSON.stringify({ etudeBackup: 1, state, files }), 'application/json');
 }
 
 export async function exportCsv(sessions: Session[]) {
-  const date = new Date().toISOString().slice(0, 10);
-  await shareFile(`etude-sessions-${date}.csv`, buildCsv(sessions), 'text/csv');
+  // the BOM is what makes Excel read the file as UTF-8 — without it umlauts garble
+  await shareFile(`etude-sessions-${dateKey()}.csv`, '\uFEFF' + buildCsv(sessions), 'text/csv');
 }
 
 /**
@@ -53,6 +78,8 @@ export async function exportCsv(sessions: Session[]) {
 export async function pickBackup(): Promise<{ state: object; files: Record<string, string> } | null> {
   const res = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true });
   if (res.canceled) return null;
+  // base64 grows files by a third; a file past what exportBackup would write is not read at all
+  if ((res.assets[0].size ?? 0) > MAX_FILE_BYTES * 1.4) throw new Error(BACKUP_TOO_LARGE);
   return parseBackup(await new File(res.assets[0].uri).text());
 }
 
@@ -97,6 +124,20 @@ export function runAutoBackup(state: object, everyDays: number, todayKey: string
   } catch {
     // silent by design: a failed background backup must never crash or toast
   }
+}
+
+/** Which of these documents-relative paths are gone from disk (scheme URIs are skipped). */
+export function missingFiles(paths: string[]): Set<string> {
+  const gone = new Set<string>();
+  for (const rel of paths) {
+    if (rel.includes(':')) continue;
+    try {
+      if (!new File(Paths.document, rel).exists) gone.add(rel);
+    } catch {
+      // can't tell (web) — keep it rather than drop a recording that may be fine
+    }
+  }
+  return gone;
 }
 
 /** Writes the bundled recordings and score pages back into the documents directory. */

@@ -2,12 +2,13 @@
 // Merges a saved blob over the current seed so old installs pick up new
 // defaults, and upgrades legacy shapes in place. Anything unreadable falls
 // back to the seed — a corrupt blob must never brick the app at launch.
+import { dateKey } from './streak-math.ts';
 
 type StageEntry = { date: string; stage: number };
 /** One-time backfill for pieces that predate the stage log: one entry at addedAt (or today) with the current stage. */
 export function backfillStageLog(p: { stage: number; stageLog?: StageEntry[]; addedAt?: number }, todayKey: string): StageEntry[] {
   if (p.stageLog && p.stageLog.length) return p.stageLog;
-  const date = p.addedAt ? new Date(p.addedAt).toISOString().slice(0, 10) : todayKey;
+  const date = p.addedAt ? dateKey(new Date(p.addedAt)) : todayKey;
   return [{ date, stage: p.stage }];
 }
 
@@ -24,29 +25,44 @@ export function migrate<S>(raw: string | null, seedState: S): S {
   const merged: any = { ...seedState, ...saved };
   // legacy: pieces stored a named status before stages became a list
   const legacyStage: Record<string, number> = { Learning: 0, Polishing: 1, Ready: 2 };
-  if (saved.stageLabels)
+  // only when no stages list exists yet: a blob saved since carries both, and
+  // re-converting would undo every later rename or added stage on each launch
+  if (saved.stageLabels && !Array.isArray(saved.stages))
     merged.stages = ['Learning', 'Polishing', 'Ready'].map((k) => saved.stageLabels[k] || k);
+  delete merged.stageLabels;
+  // hand-edited or half-written blobs can hold nulls in their lists; one would throw below
+  const isObj = (x: unknown) => !!x && typeof x === 'object';
+  for (const k of ['pieces', 'recordings', 'sessions', 'attachments', 'plans'])
+    if (Array.isArray(merged[k])) merged[k] = merged[k].filter(isObj);
+  // a stage index past the list (left by the stageLabels bug above) has no column to show in
+  const lastStage = Array.isArray(merged.stages) && merged.stages.length ? merged.stages.length - 1 : Infinity;
   if (saved.metroBeatsPerBar && !saved.metroTimeSig) merged.metroTimeSig = `${saved.metroBeatsPerBar}/4`;
   merged.pieces = (Array.isArray(merged.pieces) ? merged.pieces : []).map(
     (p: { stage?: number; status?: string }) => ({
       ...p,
-      stage: p.stage ?? legacyStage[p.status ?? ''] ?? 0,
+      stage: Math.min(p.stage ?? legacyStage[p.status ?? ''] ?? 0, lastStage),
     }),
   );
   // spec 2026-09-15: every piece carries a stage log; older pieces get one entry at addedAt
   {
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = dateKey();
     merged.pieces = merged.pieces.map((p: { stage: number; stageLog?: { date: string; stage: number }[]; addedAt?: number }) => ({ ...p, stageLog: backfillStageLog(p, todayKey) }));
   }
   // #83: techniques used to be bare names next to the pieces; they are pieces of
   // kind 'Technique' now. A name that already exists as a piece is not doubled.
   if (Array.isArray(saved.techniques)) {
     const have = new Set(merged.pieces.map((p: { name?: string }) => String(p.name ?? '').trim().toLowerCase()));
+    // the slug folds 'C major' and 'C-major' (and any all-umlaut name) together — suffix repeats
+    const ids = new Set(merged.pieces.map((p: { id?: string }) => p.id));
     for (const raw of saved.techniques) {
       const name = typeof raw === 'string' ? raw.trim() : '';
       if (!name || have.has(name.toLowerCase())) continue;
       have.add(name.toLowerCase());
-      merged.pieces.push({ id: 'tech-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name, by: '', stage: 0, pct: 10, kind: 'Technique' });
+      const base = 'tech-' + (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item');
+      let id = base;
+      for (let n = 2; ids.has(id); n++) id = `${base}-${n}`;
+      ids.add(id);
+      merged.pieces.push({ id, name, by: '', stage: 0, pct: 10, kind: 'Technique' });
     }
   }
   delete merged.techniques;
