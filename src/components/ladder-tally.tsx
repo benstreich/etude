@@ -31,22 +31,18 @@ export function LadderTally({ piece }: { piece: Piece }) {
   const [tally, setTally] = useState(0);
 
   // A BPM change the player made themselves means a different exercise, so the
-  // reps before it stop counting towards the next bump. `ours` marks the change
-  // this component just made, which must not reset the tally it just reset.
-  const ours = useRef<number | null>(null);
+  // reps before it stop counting towards the next bump. An advance sets lastBpm
+  // itself before bumping the metronome, so its own change never resets the tally.
   const lastBpm = useRef(metronome.bpm);
   useEffect(() => {
     const bpm = metronome.bpm;
     if (bpm === lastBpm.current) return;
     lastBpm.current = bpm;
-    if (ours.current === bpm) {
-      ours.current = null;
-      return;
-    }
     setTally(0);
   }, [metronome.bpm]);
 
-  if (!cfg.on || !target || piece.kind === 'Technique') return null;
+  // techniques climb too: the piece page offers them the same switch
+  if (!cfg.on || !target) return null;
 
   // Stopping the metronome collapses the block to its hint rather than removing
   // it — a control that disappears under the finger moves everything below it.
@@ -62,7 +58,6 @@ export function LadderTally({ piece }: { piece: Piece }) {
     const r = ladderStep({ tally, bpm: metronome.bpm }, event, { need: cfg.need, step: cfg.step, target });
     setTally(r.tally);
     if (!r.advanced) return tap();
-    ours.current = r.bpm;
     lastBpm.current = r.bpm;
     metronome.setBpm(r.bpm);
     store.logTempo(piece.id, r.bpm);

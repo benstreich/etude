@@ -52,3 +52,13 @@ export function toggleInstrument(p: Instrumented, inst: string): { instruments: 
   const next = list.includes(inst) ? list.filter((i) => i !== inst) : [...list, inst];
   return { instruments: next, instrument: next[0] };
 }
+
+/**
+ * Drop tags for instruments the player no longer has, as a patch for the store
+ * (empty when nothing changes). A piece left with none reads as "every instrument".
+ */
+export function keepInstruments(p: Instrumented, kept: string[]): { instruments?: string[]; instrument?: string } {
+  const list = pieceInstruments(p);
+  const next = list.filter((i) => kept.includes(i));
+  return next.length === list.length ? {} : { instruments: next, instrument: next[0] };
+}

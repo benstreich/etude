@@ -123,6 +123,22 @@ export function useTakeRecorder(pieceName: () => string | null) {
     };
   });
 
+  // Backstop: unmounted mid-take, end() never runs (the recorder is already released,
+  // so the take can't be banked) — but the record-mode flags must still go, or Android
+  // stays in communication routing for the rest of the session (see end).
+  const recordingRef = useRef(false);
+  useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
+  useEffect(
+    () => () => {
+      if (!recordingRef.current) return;
+      setRecordingFlags({});
+      applyAudioMode({ playsInSilentMode: true });
+    },
+    []
+  );
+
   const toggle = async () => {
     if (recording) return end(true);
     const { granted } = await requestRecordingPermissionsAsync();

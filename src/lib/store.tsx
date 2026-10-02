@@ -7,7 +7,7 @@ import { AppState } from 'react-native';
 import { forPiece, type Attachment } from './attachment-math';
 import { removeFolderIn, renameFolderIn, validFolderName } from './folder-math';
 import type { LadderConfig } from './ladder-math';
-import { pieceInstruments } from './instrument-math';
+import { keepInstruments, pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
 import { runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
@@ -181,10 +181,11 @@ function seed(): State {
     bestStreak: 0,
     totalMin: 0,
     // two starter techniques so the Practice picker isn't bare — ordinary pieces of
-    // kind 'Technique' (#83), deletable like any other
+    // kind 'Technique' (#83), deletable like any other. Named in the device language,
+    // the same strings the Repertoire preset chips use (a fresh install is 'system').
     pieces: [
-      { id: 'tech-scales', name: 'Scales & arpeggios', by: '', stage: 0, pct: 10, kind: 'Technique' },
-      { id: 'tech-sight', name: 'Sight reading', by: '', stage: 0, pct: 10, kind: 'Technique' },
+      { id: 'tech-scales', name: i18n.t('repertoire.preset.scales', { locale: resolveLang('system') }), by: '', stage: 0, pct: 10, kind: 'Technique' },
+      { id: 'tech-sight', name: i18n.t('repertoire.preset.sightReading', { locale: resolveLang('system') }), by: '', stage: 0, pct: 10, kind: 'Technique' },
     ],
     recordings: [],
     attachments: [],
@@ -546,9 +547,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       s
         ? {
             ...s,
-            pieces: s.pieces.map((p) =>
-              p.id === pieceId ? { ...p, tempoLog: (p.tempoLog ?? []).filter((e) => e.date !== date) } : p
-            ),
+            pieces: s.pieces.map((p) => {
+              if (p.id !== pieceId) return p;
+              const old = p.tempoLog ?? [];
+              const log = old.filter((e) => e.date !== date);
+              // currentBpm is set by logging, so dropping the newest entry it came
+              // from falls back to the one before it rather than keeping the deleted value
+              const newest = old[old.length - 1];
+              const stale = newest?.date === date && p.currentBpm === newest.bpm;
+              return { ...p, tempoLog: log, ...(stale ? { currentBpm: log[log.length - 1]?.bpm } : {}) };
+            }),
           }
         : s
     );
@@ -635,7 +643,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   pct: 10,
                   addedAt: Date.now(),
                   kind,
-                  ...(artwork ? { artwork } : {}),
+                  // '' = "looked, none": a hand-made piece must not get the cover backfill's first hit
+                  ...(artwork ? { artwork } : kind === 'Piece' ? { artwork: '' } : {}),
                   instrument: instrument ?? (kind === 'Piece' ? primaryOf(s.instruments, s.primaryInstrument) || undefined : undefined),
                 },
                 ...s.pieces,
@@ -653,6 +662,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addTechnique = (name: string) => {
     if (!name.trim()) return;
+    // an archived technique is hidden from the chips' "selected" state, so adding it
+    // again means bringing it back, not a dead "already in repertoire"
+    const shelved = state.pieces.find((p) => p.kind === 'Technique' && p.archived && p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (shelved) return setArchived(shelved.id, false);
     const dup = insertPiece('Technique', name);
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.techniqueAdded'));
   };
@@ -743,7 +756,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         pieces: s.pieces.map((p) => (p.id === id ? { ...p, archived } : p)),
-        quickLogFocus: archived && target ? clearFocus(s, target.name, 'Piece') : s.quickLogFocus,
+        quickLogFocus: archived && target ? clearFocus(s, target.name, target.kind ?? 'Piece') : s.quickLogFocus,
       };
     });
     showToast(t(archived ? 'toast.archived' : 'toast.restored'));
@@ -861,6 +874,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // stages changed → clamp the index so none dangles, and rescale pct with it,
       // otherwise the bar keeps the old scale while the label moves (e.g. 3→4
       // stages left a "Polishing" piece showing 100%)
+      // a removed instrument must not linger as a piece tag: it would hide the piece
+      // from every remaining tab with no chip left to untick it
+      if (patch.instruments) {
+        const kept = patch.instruments;
+        next.pieces = next.pieces.map((p) => ({ ...p, ...keepInstruments(p, kept) }));
+      }
       if (patch.stages) {
         const n = patch.stages.length;
         next.pieces = next.pieces.map((p) => {

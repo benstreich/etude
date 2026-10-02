@@ -1,7 +1,7 @@
 // Trouble spots on the piece page (#91): named passages with their own minutes,
 // last-practised date and trend. Spots live on the piece and sessions point at
 // them by id, so a label edit or a piece rename never orphans a session.
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 
@@ -23,6 +23,7 @@ export function TroubleSpots({ piece, sessions }: { piece: Piece; sessions: Sess
   const [draft, setDraft] = useState<Draft | null>(null); // the add/edit sheet, null = closed
   const [menu, setMenu] = useState<TroubleSpot | null>(null); // the spot whose options are open
   const [solidOpen, setSolidOpen] = useState(false);
+  const noteRef = useRef<TextInput>(null);
 
   const spots = piece.spots ?? [];
   const open = spots.filter((sp) => !sp.resolvedAt);
@@ -124,9 +125,13 @@ export function TroubleSpots({ piece, sessions }: { piece: Piece; sessions: Sess
               placeholderTextColor={C.tertiary}
               autoFocus
               returnKeyType="next"
+              // "next" means the note field, not a dismissed keyboard
+              submitBehavior="submit"
+              onSubmitEditing={() => noteRef.current?.focus()}
               maxLength={60}
             />
             <TextInput
+              ref={noteRef}
               style={s.input}
               value={draft.note}
               onChangeText={(note) => setDraft({ ...draft, note })}

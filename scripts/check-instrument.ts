@@ -1,7 +1,7 @@
 // A piece can be played on several instruments; untagged means all of them.
 import assert from 'node:assert';
 
-import { instrumentChoices, instrumentLabel, onInstrument, pieceInstruments, toggleInstrument } from '../src/lib/instrument-math.ts';
+import { instrumentChoices, instrumentLabel, keepInstruments, onInstrument, pieceInstruments, toggleInstrument } from '../src/lib/instrument-math.ts';
 
 // reading the set, old field and new
 assert.deepEqual(pieceInstruments({}), []);
@@ -50,5 +50,11 @@ assert.deepEqual(instrumentChoices(undefined, ''), []); // a focus with no piece
 assert.deepEqual(instrumentChoices({ instruments: ['Cello', 'Bass', 'Violin'] }, ''), ['Cello', 'Bass', 'Violin']);
 // the old single field reads the same as a one-entry set
 assert.deepEqual(instrumentChoices({ instrument: 'Guitar', instruments: ['Guitar', 'Violin'] }, ''), ['Guitar', 'Violin']);
+
+// removing an instrument in settings drops its tag; the last one gone reads as untagged
+assert.deepEqual(keepInstruments({ instruments: ['Guitar', 'Violin'] }, ['Guitar', 'Violin']), {});
+assert.deepEqual(keepInstruments({ instruments: ['Violin', 'Guitar'] }, ['Guitar']), { instruments: ['Guitar'], instrument: 'Guitar' });
+assert.deepEqual(keepInstruments({ instrument: 'Violin' }, ['Guitar']), { instruments: [], instrument: undefined });
+assert.deepEqual(keepInstruments({}, ['Guitar']), {});
 
 console.log('instrument ok');
