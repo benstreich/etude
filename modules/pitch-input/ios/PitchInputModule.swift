@@ -62,6 +62,13 @@ public class PitchInputModule: Module {
 
     let input = engine.inputNode
     let format = input.outputFormat(forBus: 0)
+    // No input route (the Simulator without a mic, or the mic taken by another
+    // app) reports a 0 Hz format, and installTap on it raises an uncatchable
+    // NSException — fail as a JS error instead.
+    guard format.sampleRate > 0, format.channelCount > 0 else {
+      try? session.setActive(false, options: .notifyOthersOnDeactivation)
+      throw Exception(name: "ERR_NO_INPUT", description: "No microphone input is available")
+    }
     rate = format.sampleRate
 
     // A start that failed below may have left its tap behind, and installing a

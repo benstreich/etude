@@ -3,6 +3,7 @@
 // @bacons/apple-targets to build. Reads the App Group written by
 // modules/etude-widgets/ios/EtudeWidgetsModule.swift.
 import SwiftUI
+import UIKit
 import WidgetKit
 
 let appGroup = "group.com.benstreich.etude"
