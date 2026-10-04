@@ -157,7 +157,7 @@
               "appExtensions": [
                 {
                   "bundleIdentifier": "com.benstreich.etude.widget",
-                  "targetName": "EtudeWidgets",
+                  "targetName": "EtudeWidgetExtension",
                   "entitlements": {
                     "com.apple.security.application-groups": [
                       "group.com.benstreich.etude"

@@ -35,7 +35,7 @@ at midnight.
 - **Android**: `npx expo run:android` (or EAS). Widgets show up in the launcher's
   widget picker as "Étude · Today" and "Étude · Week".
 - **iOS**: needs a Mac. `npx expo prebuild -p ios`, open the workspace, set your
-  team on the EtudeWidgets target, build. The Swift in `targets/widgets/index.swift`
+  team on the EtudeWidgetExtension target, build. The Swift in `targets/widgets/index.swift`
   has NOT been compiled — expect one round of fixes. The app's App Group
   entitlement is declared in app.json (`ios.entitlements`).
 
