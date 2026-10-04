@@ -1,0 +1,4 @@
+# React Native's Gradle plugin strips package="" from library manifests inside
+# node_modules during a local build; EAS fingerprints a pristine install, so a
+# build from a machine that has run gradle got a mismatched runtime version
+node_modules/**/android/src/main/AndroidManifest.xml
