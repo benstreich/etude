@@ -95,7 +95,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
-  cell: { height: 32, paddingHorizontal: 16, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
+  cell: { minHeight: 32, paddingVertical: 6, paddingHorizontal: 16, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
   cellGrow: { flex: 1, paddingHorizontal: 8 },
   text: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub },
   textSel: { color: C.ink },

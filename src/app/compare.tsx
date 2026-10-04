@@ -12,8 +12,19 @@ import { Card } from '@/components/ui';
 import { applyAudioMode } from '@/lib/audio-mode';
 import { dayLabel, Recording, resolveRecordingUri, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
+import { inPoint } from '@/lib/trim-math';
 
-const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.max(0, Math.round(sec)) % 60).padStart(2, '0')}`;
+// round once, then split — flooring the minutes of an unrounded value showed 59.5s as 0:00
+const fmt = (sec: number) => {
+  const t = Math.max(0, Math.round(sec));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
+
+// A take's trim bounds hold here too: the lead-in silence auto-trim cut on one take
+// and not the other used to line the position lock up on different passages. `dur`
+// is the loaded file's length, for an imported take whose stored length is 0.
+const clipEnd = (r: Recording, dur: number) => r.end ?? (dur > 0 ? dur : r.sec);
+const clipLen = (r: Recording, dur = 0) => Math.max(0, clipEnd(r, dur) - inPoint(r));
 
 const gapLabel = (a: Recording, b: Recording, t: (key: string, opts?: Record<string, unknown>) => string) => {
   const days = Math.abs((new Date(a.date).getTime() - new Date(b.date).getTime()) / 86400000);
@@ -36,13 +47,18 @@ export default function Compare() {
   const recA = takes.find((r) => r.id === params.a);
   const recB = takes.find((r) => r.id === params.b);
 
-  const playerA = useAudioPlayer();
-  const playerB = useAudioPlayer();
+  // 100ms status ticks, so a take stops at its out point rather than up to 0.5s past it
+  const playerA = useAudioPlayer(null, { updateInterval: 100 });
+  const playerB = useAudioPlayer(null, { updateInterval: 100 });
   const statusA = useAudioPlayerStatus(playerA);
   const statusB = useAudioPlayerStatus(playerB);
 
   const uriA = recA?.uri;
   const uriB = recB?.uri;
+  const inA = recA ? inPoint(recA) : 0;
+  const inB = recB ? inPoint(recB) : 0;
+  const endA = recA?.end;
+  const endB = recB?.end;
   // reset the flip to A whenever the pair changes (adjust-state-during-render,
   // react.dev "you might not need an effect")
   const pairKey = `${uriA}|${uriB}`;
@@ -53,9 +69,27 @@ export default function Compare() {
   }
   useEffect(() => {
     applyAudioMode({ playsInSilentMode: true, allowsRecording: false });
-    if (uriA) playerA.replace(resolveRecordingUri(uriA));
-    if (uriB) playerB.replace(resolveRecordingUri(uriB));
-  }, [uriA, uriB, playerA, playerB]);
+    if (uriA) {
+      playerA.replace(resolveRecordingUri(uriA));
+      playerA.seekTo(inA);
+    }
+    if (uriB) {
+      playerB.replace(resolveRecordingUri(uriB));
+      playerB.seekTo(inB);
+    }
+  }, [uriA, uriB, inA, inB, playerA, playerB]);
+
+  // a trimmed take stops at its out point and parks at its in point, ready to replay
+  useEffect(() => {
+    if (endA === undefined || !statusA.playing || statusA.currentTime < endA) return;
+    playerA.pause();
+    playerA.seekTo(inA);
+  }, [endA, inA, statusA.playing, statusA.currentTime, playerA]);
+  useEffect(() => {
+    if (endB === undefined || !statusB.playing || statusB.currentTime < endB) return;
+    playerB.pause();
+    playerB.seekTo(inB);
+  }, [endB, inB, statusB.playing, statusB.currentTime, playerB]);
 
   // leaving the screen stops both takes rather than playing on behind you
   useFocusEffect(
@@ -75,7 +109,7 @@ export default function Compare() {
     return (
       <View style={[s.page, { flex: 1, backgroundColor: C.bg, paddingTop: insets.top + 16 }]}>
         <View style={s.navRow}>
-          <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8}>
+          <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.back')}>
             <Text style={s.navGlyph}>‹</Text>
           </Pressable>
         </View>
@@ -96,21 +130,27 @@ export default function Compare() {
   //   - the other take may be SHORTER than where we are (a 3s take and a 6s take
   //     is the normal case), and clamping to its end meant playing its last 50ms
   // Either way the honest answer is to start the other take from the beginning.
-  const ended = (st: { currentTime: number; duration: number }) => st.duration > 0 && st.currentTime >= st.duration - 0.25;
+  // Positions are carried as the offset into each take's clip, not into its file.
+  const curRec = active === 'A' ? recA : recB;
+  const ended = (r: Recording, st: { currentTime: number; duration: number }) => {
+    const end = clipEnd(r, st.duration);
+    return end > 0 && st.currentTime >= end - 0.25;
+  };
 
   const flip = (to: 'A' | 'B', andPlay = false) => {
     if (to === active) return;
     const target = to === 'A' ? playerA : playerB;
+    const targetRec = to === 'A' ? recA : recB;
     const targetDur = to === 'A' ? statusA.duration : statusB.duration;
-    const from = ended(curStatus) ? 0 : curStatus.currentTime;
+    const from = ended(curRec, curStatus) ? 0 : Math.max(0, curStatus.currentTime - inPoint(curRec));
     // a player that hasn't loaded yet reports duration 0, and carrying the position
     // over unchecked used to seek past the end of a shorter take — the same "plays
     // 50ms of nothing" this guard exists to stop. Unknown length, so start at 0.
-    const known = targetDur > 0 ? targetDur : (to === 'A' ? recA.sec : recB.sec);
-    const pos = known > 0 && from >= known - 0.25 ? 0 : from;
+    const known = clipLen(targetRec, targetDur);
+    const off = known > 0 && from >= known - 0.25 ? 0 : from;
     const wasPlaying = playing;
     cur.pause();
-    target.seekTo(pos);
+    target.seekTo(inPoint(targetRec) + off);
     if (wasPlaying || andPlay) target.play();
     setActive(to);
   };
@@ -130,17 +170,17 @@ export default function Compare() {
   const toggle = (which: 'A' | 'B') => {
     if (which !== active) return flip(which, true);
     if (playing) return cur.pause();
-    if (ended(curStatus)) cur.seekTo(0); // replay rather than sit at the end doing nothing
+    if (ended(curRec, curStatus)) cur.seekTo(inPoint(curRec)); // replay rather than sit at the end doing nothing
     cur.play();
   };
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: C.bg }} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
-        <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8}>
+        <Pressable style={s.navBtn} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.back')}>
           <Text style={s.navGlyph}>‹</Text>
         </Pressable>
-        <Pressable hitSlop={10} onPress={() => setPickOpen(true)}>
+        <Pressable hitSlop={10} accessibilityRole="button" onPress={() => setPickOpen(true)}>
           <Text style={s.changeLink}>{store.t('compare.changeTakes')}</Text>
         </Pressable>
       </View>
@@ -158,7 +198,12 @@ export default function Compare() {
       <View style={{ alignItems: 'center', gap: 10 }}>
         <View style={s.flipTrack}>
           {(['A', 'B'] as const).map((w) => (
-            <Pressable key={w} style={[s.flipBtn, active === w && { backgroundColor: C.accent }]} onPress={() => flip(w)}>
+            <Pressable
+              key={w}
+              style={[s.flipBtn, active === w && { backgroundColor: C.accent }]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active === w }}
+              onPress={() => flip(w)}>
               <Text style={[s.flipText, active === w && { color: '#FFFFFF' }]}>{active === w ? store.t('compare.playing', { which: w }) : w}</Text>
             </Pressable>
           ))}
@@ -167,8 +212,10 @@ export default function Compare() {
       </View>
 
       <Modal visible={pickOpen} transparent animationType="fade" onRequestClose={() => setPickOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setPickOpen(false)}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <View style={s.backdrop}>
+          {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPickOpen(false)} accessible={false} />
+          <View style={s.sheet}>
             <Text style={s.sheetTitle}>{store.t('compare.changeTakes')}</Text>
             <Text style={s.sheetHint}>{store.t('compare.pickHint')}</Text>
             <ScrollView style={{ maxHeight: 320 }}>
@@ -181,7 +228,7 @@ export default function Compare() {
                         {rec.name || dayLabel(rec.date, store.today, store.t, store.lang)}
                       </Text>
                       <Text style={s.takeMeta}>
-                        {dayLabel(rec.date, store.today, store.t, store.lang)} · {fmt(rec.sec)}
+                        {dayLabel(rec.date, store.today, store.t, store.lang)} · {fmt(clipLen(rec))}
                         {rec.starred ? ` · ${store.t('recordings.reference')}` : ''}
                       </Text>
                     </View>
@@ -194,6 +241,12 @@ export default function Compare() {
                           key={w}
                           style={[s.slotBtn, on && { backgroundColor: C.accent, borderColor: C.accent }]}
                           hitSlop={4}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: on }}
+                          accessibilityLabel={store.t('compare.putInSlot', {
+                            name: rec.name || dayLabel(rec.date, store.today, store.t, store.lang),
+                            which: w,
+                          })}
                           onPress={() => assign(w, rec.id)}>
                           <Text style={[s.slotText, on && { color: '#FFFFFF' }]}>{w}</Text>
                         </Pressable>
@@ -203,8 +256,8 @@ export default function Compare() {
                 );
               })}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </ScrollView>
   );
@@ -230,7 +283,12 @@ function TakeCard({
   const s = useS();
   const C = useC();
   const store = useStore();
-  const progress = isActive && duration ? elapsed / duration : 0;
+  // elapsed and progress run over the clip, from its in point
+  const len = clipLen(rec, duration);
+  const into = Math.min(len, Math.max(0, elapsed - inPoint(rec)));
+  const progress = isActive && len > 0 ? into / len : 0;
+  // an imported take has no level samples: a flat track, never an invented shape
+  const hasWave = !!rec.wave?.length;
   return (
     <Card style={[{ padding: 16, gap: 12 }, isActive && { borderColor: C.accent, borderWidth: 1.5 }]}>
       <View style={s.takeHead}>
@@ -238,28 +296,30 @@ function TakeCard({
           <Text style={[s.badgeText, isActive ? { color: '#FFFFFF' } : { color: C.sub }]}>{which}</Text>
         </View>
         <Text style={s.takeDate}>{rec.name || dayLabel(rec.date, store.today, store.t, store.lang)}</Text>
-        <Text style={s.takeMeta}>{fmt(rec.sec)}</Text>
+        <Text style={s.takeMeta}>{fmt(len)}</Text>
       </View>
       <View style={s.playRow}>
         <Pressable
           style={[s.playBtn, isActive ? { backgroundColor: C.accent } : { backgroundColor: C.track }]}
+          accessibilityRole="button"
+          accessibilityLabel={store.t(isActive && playing ? 'compare.pauseTake' : 'compare.playTake', { which })}
           onPress={onToggle}>
           <Text style={[s.playGlyph, isActive && { color: '#FFFFFF' }]}>{isActive && playing ? '❚❚' : '▶'}</Text>
         </Pressable>
         <View style={s.wave}>
-          {(rec.wave ?? Array(40).fill(0.4)).map((v: number, j: number, arr: number[]) => (
+          {(hasWave ? rec.wave! : Array(40).fill(0)).map((v: number, j: number, arr: number[]) => (
             <View
               key={j}
               style={{
                 flex: 1,
-                height: 4 + v * 22,
+                height: hasWave ? 4 + v * 22 : 3,
                 borderRadius: 2,
                 backgroundColor: (j + 1) / arr.length <= progress ? C.accent : C.chartInactive,
               }}
             />
           ))}
         </View>
-        <Text style={s.elapsed}>{isActive ? fmt(elapsed) : '0:00'}</Text>
+        <Text style={s.elapsed}>{isActive ? fmt(into) : '0:00'}</Text>
       </View>
     </Card>
   );

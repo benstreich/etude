@@ -1,7 +1,13 @@
 // The repertoire bar must agree with the stage label on any number of stages.
 import assert from 'node:assert';
 
-import { stagePct } from '../src/lib/stage-math.ts';
+import { stagePct, stageRemap } from '../src/lib/stage-math.ts';
+
+// clearing a middle stage moves later pieces down with it, not a stage ahead
+assert.deepEqual(stageRemap(['Learning', '', 'Polishing', 'Ready']), [0, 0, 1, 2]);
+assert.deepEqual(stageRemap(['', 'Memorizing', 'Ready']), [0, 0, 1], 'a removed first stage falls to the new first');
+assert.deepEqual(stageRemap(['Learning', 'Ready', '  ']), [0, 1, 1], 'a removed last stage falls to the one before');
+assert.deepEqual(stageRemap(['A', 'B', 'C', 'D']), [0, 1, 2, 3], 'nothing removed is the identity');
 
 assert.equal(stagePct(0, 3), 20); // first stage always reads the same sliver
 assert.equal(stagePct(1, 3), 67);

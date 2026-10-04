@@ -1,23 +1,35 @@
 // Bridge between the native mic tap and the pure pitch math: permissions,
 // lifecycle, and unpacking the bytes. Everything here is I/O; the maths lives
 // in tuner-math.ts so it stays testable without a device.
-import { requestRecordingPermissionsAsync } from 'expo-audio';
+import { getRecordingPermissionsAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 
 import { bytesToSamples } from './tuner-math';
 import PitchInput from '../../modules/pitch-input';
 
 export type TunerStatus = 'ok' | 'no-module' | 'denied' | 'error';
 
-export async function startInput(): Promise<TunerStatus> {
+/** `isCancelled` is asked once the permission prompt resolves: the screen may
+ *  have been left while it was up, and the mic must not open for it then. */
+export async function startInput(isCancelled: () => boolean = () => false): Promise<TunerStatus> {
   // Expo Go has no native side — the screen offers a dev build instead.
   if (!PitchInput) return 'no-module';
   try {
     const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) return 'denied';
+    if (isCancelled()) return 'error'; // discarded by the caller either way
     PitchInput.start();
     return 'ok';
   } catch {
     return 'error';
+  }
+}
+
+/** Checks without prompting — for noticing a grant made in system Settings. */
+export async function micGranted(): Promise<boolean> {
+  try {
+    return (await getRecordingPermissionsAsync()).granted;
+  } catch {
+    return false;
   }
 }
 

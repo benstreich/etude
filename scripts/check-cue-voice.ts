@@ -12,6 +12,10 @@ assert.equal(cueVoice('Bass Guitar'), 'pluck');
 assert.equal(cueVoice('Electric Bass'), 'pluck');
 assert.equal(cueVoice('Bass Clarinet'), 'bow'); // not a plucked "bass"
 assert.equal(cueVoice('Double Bass'), 'bow');
+assert.equal(cueVoice('Bassoon'), 'bow'); // not a plucked "bass"
+assert.equal(cueVoice('Flute'), 'bow'); // not a plucked "lute"
+assert.equal(cueVoice('Pan Flute'), 'bow');
+assert.equal(cueVoice('Lute'), 'pluck');
 assert.equal(cueVoice('Violin'), 'bow');
 assert.equal(cueVoice('Voice'), 'bow');
 assert.equal(cueVoice('Drums'), 'perc');

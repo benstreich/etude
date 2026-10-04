@@ -2,9 +2,9 @@
 // ponytail: sessions/recordings join on the piece *name*, like everywhere else
 // in the app (pieces can't be renamed); move to id-joins if rename ever lands.
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Modal, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
@@ -15,26 +15,31 @@ import { EditSessionSheet } from '@/components/edit-session';
 import { MetronomeIcon } from '@/components/icons';
 import { LiveWaveform, MeasureBar, NoteTempo, WaveformIcon } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
-import { pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
+import { instrumentName, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { recordingPair } from '@/lib/movement-math';
 import { ScoreCard } from '@/components/score';
 import { TempoLadder } from '@/components/tempo-ladder';
 import { Text } from '@/components/text';
 import { TroubleSpots } from '@/components/trouble-spots';
 import { ActionChip, BackLink, Card, ChipRow, Overline, RuledStats, Sheet, stageColor, Stars } from '@/components/ui';
+import { confirmRemovePiece } from '@/components/confirm-remove';
 import { deadlineStatus } from '@/lib/goal-math';
 import { tap } from '@/lib/haptics';
 import { pickRecordings } from '@/lib/import-recording';
 import { useTakeRecorder } from '@/lib/use-take-recorder';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { MAX_BPM } from '@/lib/metronome-math';
+import { fmtDay } from '@/lib/i18n';
 import { minPerBpm, tempoForecast } from '@/lib/stats-math';
-import { dayLabel, Session, useStore } from '@/lib/store';
+import { dateKey, dayLabel, Session, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('piece.hoursMin', { h: Math.floor(min / 60), m: min % 60 }) : t('piece.min', { count: min });
+/** Bar fill from a 30 BPM floor; a target at or under the floor measures from zero instead of dividing by it. */
+const tempoProgress = (cur: number, target: number) =>
+  cur >= target ? 1 : Math.max(0, Math.min(1, target > 30 ? (cur - 30) / (target - 30) : cur / target));
 /** One rung of the stage ladder: fades between track and stage colour, staggered so a jump reads as a climb. */
 function Seg({ filled, delay, color, track, style }: { filled: boolean; delay: number; color: string; track: string; style: object }) {
   const { reduceMotion } = useTheme();
@@ -47,12 +52,18 @@ function Seg({ filled, delay, color, track, style }: { filled: boolean; delay: n
 }
 
 export default function PieceDetail() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  // A tab screen stays mounted and only swaps `id`: keyed, each piece gets a fresh
+  // body, so neither a running take nor half-typed drafts carry over to the next one.
+  return <PieceBody key={id} id={id} />;
+}
+
+function PieceBody({ id }: { id: string }) {
   const s = useS();
   const C = useC();
   const store = useStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -62,12 +73,20 @@ export default function PieceDetail() {
   const [targetStars, setTargetStars] = useState<number | undefined>();
   const [editSess, setEditSess] = useState<Session | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const piece = store.allPieces.find((p) => p.id === id); // techniques live here too (#83)
   // recording without a session running: the same recorder the practice screen
   // uses, filed under this piece — "let me just capture this passage". Above the
   // early return below, or the hook order changes when the piece goes away.
   const take = useTakeRecorder(() => piece?.name ?? null);
+  // Leaving the page mid-take banks it under this piece. Watched through the blur
+  // rather than a focus-effect cleanup, which also runs on unmount, after expo-audio
+  // has released the recorder (see recordings.tsx).
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (!focused && take.recording) take.toggle();
+  }, [focused, take]);
 
   if (!piece) return null; // removed while open — the back nav below already left
 
@@ -83,7 +102,7 @@ export default function PieceDetail() {
   const n = store.stages.length;
   const stage = Math.min(piece.stage, n - 1);
   const added = piece.addedAt
-    ? new Date(piece.addedAt).toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })
+    ? fmtDay(dateKey(new Date(piece.addedAt)), store.today, store.lang)
     : null;
 
   // "mastered by" deadline (#56): days left plus whether the stage kept pace
@@ -97,6 +116,7 @@ export default function PieceDetail() {
         stage,
         stages: n,
         targetBpm: piece.targetBpm,
+        currentBpm: piece.currentBpm ?? piece.tempoLog?.at(-1)?.bpm,
         tempoReachDate: piece.targetBpm ? (forecast?.reachDate ?? null) : undefined,
         targetRating: piece.targetRating,
         ratingAvg,
@@ -121,17 +141,39 @@ export default function PieceDetail() {
     setTempoOpen(true);
   };
   // takes recorded outside the app: pick, copy in, list them like any other recording
+  // copying can take seconds a file; the guard stops a second tap importing them twice
   const importTakes = async () => {
+    if (importing) return;
+    setImporting(true);
     try {
-      for (const t of await pickRecordings()) store.addRecording(piece.name, t.uri, t.sec, undefined, t.name);
+      const { added, error } = await pickRecordings();
+      for (const t of added) store.addRecording(piece.name, t.uri, t.sec, undefined, t.name);
+      if (error) store.showToast(store.t('piece.importFailed'));
     } catch {
       store.showToast(store.t('piece.importFailed'));
+    } finally {
+      setImporting(false);
     }
+  };
+  // Discard sits a thumb's width from Pause and deletes the audio outright — ask first
+  const confirmDiscard = () => {
+    const title = store.t('practice.discardTakeTitle');
+    const body = store.t('practice.discardTakeMessage');
+    // ponytail: Alert.alert is a no-op on web; window.confirm covers it (see practice.tsx)
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title} ${body}`)) take.discard();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: store.t('practice.keepRecording'), style: 'cancel' },
+      { text: store.t('practice.discardTake'), style: 'destructive', onPress: take.discard },
+    ]);
   };
   const saveTempo = () => {
     const parse = (t: string) => {
       const v = Math.round(Number(t));
-      return Number.isFinite(v) && v > 0 && v <= MAX_BPM ? v : undefined;
+      // too fast is clamped, not dropped: discarding it silently cleared the saved value
+      return Number.isFinite(v) && v > 0 ? Math.min(v, MAX_BPM) : undefined;
     };
     store.updatePiece(piece.id, { currentBpm: parse(cur), targetBpm: parse(target), targetRating: targetStars });
     setTempoOpen(false);
@@ -141,8 +183,9 @@ export default function PieceDetail() {
   return (
     <KeyboardAwareScrollView style={{ flex: 1, backgroundColor: C.bg }} keyboardShouldPersistTaps="handled" bottomOffset={16} contentContainerStyle={[s.page, { paddingTop: insets.top + 16 }]}>
       <View style={s.navRow}>
-        <BackLink label={store.t('tabs.repertoire')} onPress={() => router.back()} />
-        <Pressable testID="piece-menu" hitSlop={8} onPress={() => setMenuOpen(true)}>
+        {/* back follows history (Home's progress cards, Repertoire, Progress…), so it can't name one screen */}
+        <BackLink label={store.t('common.back')} onPress={() => router.back()} />
+        <Pressable testID="piece-menu" hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('piece.more')} onPress={() => setMenuOpen(true)}>
           <Text style={s.navGlyph}>⋯</Text>
         </Pressable>
       </View>
@@ -161,27 +204,26 @@ export default function PieceDetail() {
           <Overline>{store.t('piece.stage')}</Overline>
           <Text style={[s.stageName, { color: stageColor(C, stage, n) }]}>{store.stages[stage] ?? store.t('piece.noStage')}</Text>
         </View>
-        {/* a technique need not sit on the ladder at all: tapping its current stage again clears it */}
-        <View style={[s.segRow, { marginTop: 14 }]}>
-          {store.stages.map((_, i) => (
+        {/* a technique need not sit on the ladder at all: tapping its current stage again clears it.
+            Bar and label are one target: a 3px bar alone was too small to hit and had no name. */}
+        <View style={[s.segRow, { marginTop: 4 }]}>
+          {store.stages.map((label, i) => (
             <Pressable
               key={i}
               testID={`piece-stage-${i}`}
-              style={{ flex: 1 }}
-              hitSlop={{ top: 10, bottom: 10 }}
+              style={s.segCell}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: i === stage }}
               onPress={() => {
                 tap();
                 store.updatePiece(piece.id, { stage: piece.kind === 'Technique' && i === stage ? -1 : i });
               }}>
               <Seg filled={i <= stage} delay={i <= stage ? i * 70 : 0} color={stageColor(C, stage, n)} track={C.staffLine} style={s.seg} />
+              <Text style={[s.stageLabel, i === stage && { color: C.accent, fontFamily: F.bodySemi }]} numberOfLines={1}>
+                {label}
+              </Text>
             </Pressable>
-          ))}
-        </View>
-        <View style={[s.segRow, { marginTop: 8 }]}>
-          {store.stages.map((label, i) => (
-            <Text key={i} style={[s.stageLabel, i === stage && { color: C.accent, fontFamily: F.bodySemi }]} numberOfLines={1}>
-              {label}
-            </Text>
           ))}
         </View>
         {/* stage -1 means "none" and every consumer already reads it as not-finished */}
@@ -208,7 +250,7 @@ export default function PieceDetail() {
                     tap();
                     store.updatePiece(piece.id, toggleInstrument(piece, i));
                   }}>
-                  <Text style={[s.instChipText, on && { color: C.accent }]}>{i}</Text>
+                  <Text style={[s.instChipText, on && { color: C.accent }]}>{instrumentName(i, store.t)}</Text>
                 </Pressable>
               );
             })}
@@ -247,13 +289,13 @@ export default function PieceDetail() {
           </Pressable>
           {!!piece.currentBpm && !!piece.targetBpm && (
             <View style={{ marginTop: 14 }}>
-              <MeasureBar segments={[1, 1, 1, 1]} done={Math.max(0, Math.min(1, (piece.currentBpm - 30) / (piece.targetBpm - 30)))} />
+              <MeasureBar segments={[1, 1, 1, 1]} done={tempoProgress(piece.currentBpm, piece.targetBpm)} />
             </View>
           )}
           {/* #61 §1: straight-line forecast to the target, and a plateau nudge */}
           {forecast?.reachDate && (
             <Text style={[s.tempoTarget, { marginTop: 8, color: C.success, fontFamily: F.body }]}>
-              {store.t('piece.forecast', { target: piece.targetBpm, date: new Date(forecast.reachDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' }) })}
+              {store.t('piece.forecast', { target: piece.targetBpm, date: fmtDay(forecast.reachDate, store.today, store.lang) })}
             </Text>
           )}
           {forecast?.plateau && <Text style={[s.tempoTarget, { marginTop: 8, color: C.accent }]}>{store.t('piece.plateau')}</Text>}
@@ -270,7 +312,7 @@ export default function PieceDetail() {
           <View>
             <Overline>{store.t('piece.masterBy')}</Overline>
             <Text style={s.masterByDate}>
-              {new Date(piece.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })}
+              {fmtDay(piece.targetDate, store.today, store.lang)}
               <Text style={s.tempoTarget}> · {deadlineNote}</Text>
             </Text>
           </View>
@@ -307,7 +349,14 @@ export default function PieceDetail() {
             testID="piece-record"
             onPress={take.toggle}
           />
-          {!take.recording && <ActionChip icon={() => null} label={store.t('piece.importTake')} onPress={importTakes} />}
+          {!take.recording && (
+            <ActionChip
+              icon={() => null}
+              label={store.t(importing ? 'piece.importing' : 'piece.importTake')}
+              disabled={importing}
+              onPress={importTakes}
+            />
+          )}
           {recordings.length >= 2 && !take.recording && (
             <ActionChip
               icon={() => null}
@@ -331,7 +380,7 @@ export default function PieceDetail() {
               <Pressable hitSlop={8} onPress={take.pauseResume}>
                 <Text style={s.compareLink}>{take.paused ? store.t('practice.resumeTake') : store.t('practice.pauseTake')}</Text>
               </Pressable>
-              <Pressable hitSlop={8} onPress={take.discard}>
+              <Pressable hitSlop={8} onPress={confirmDiscard}>
                 <Text style={[s.compareLink, { color: C.sub }]}>{store.t('practice.discardTake')}</Text>
               </Pressable>
             </View>
@@ -391,11 +440,12 @@ export default function PieceDetail() {
             </Pressable>
             <Pressable
               style={s.sheetRow}
-              onPress={() => {
-                setMenuOpen(false);
-                router.back();
-                store.removePiece(piece.id);
-              }}>
+              onPress={() =>
+                confirmRemovePiece(store, piece, () => {
+                  setMenuOpen(false);
+                  router.back();
+                })
+              }>
               <Text style={[s.sheetRowText, { color: C.accent }]}>{store.t('piece.remove')}</Text>
             </Pressable>
           </Pressable>
@@ -428,17 +478,21 @@ export default function PieceDetail() {
                     [store.t('piece.currentBpm'), cur, setCur, 'tempo-current-input'],
                     [store.t('piece.targetBpm'), target, setTarget, 'tempo-target-input'],
                   ] as const
-                ).map(([ph, val, set, id]) => (
-                  <TextInput
-                    key={ph}
-                    testID={id}
-                    style={s.input}
-                    value={val}
-                    onChangeText={(t) => set(t.replace(/\D/g, '').slice(0, 3))}
-                    keyboardType="number-pad"
-                    placeholder={ph}
-                    placeholderTextColor={C.tertiary}
-                  />
+                ).map(([label, val, set, id]) => (
+                  // a label that stays once the field is filled — a placeholder left two bare numbers
+                  <View key={label} style={{ flex: 1 }}>
+                    <Text style={s.tempoTarget}>{label}</Text>
+                    <TextInput
+                      testID={id}
+                      style={s.input}
+                      value={val}
+                      onChangeText={(t) => set(t.replace(/\D/g, '').slice(0, 3))}
+                      keyboardType="number-pad"
+                      accessibilityLabel={label}
+                      placeholder="—"
+                      placeholderTextColor={C.tertiary}
+                    />
+                  </View>
                 ))}
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -489,7 +543,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stageName: { fontFamily: F.body, fontSize: fs(16) },
   segRow: { flexDirection: 'row', gap: 5 },
   seg: { height: 3, borderRadius: 2 },
-  stageLabel: { flex: 1, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
+  segCell: { flex: 1, paddingTop: 10, paddingBottom: 6 },
+  stageLabel: { marginTop: 8, fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
   noStageBtn: { alignSelf: 'flex-start', marginTop: 14, height: 34, paddingHorizontal: 14, borderRadius: 999, backgroundColor: C.track, justifyContent: 'center' },
   noStageText: { fontFamily: F.bodyMed, fontSize: fs(13.5), color: C.ink },
   tempoValue: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.ink, marginTop: 2 },

@@ -10,11 +10,12 @@ tags:
 - tapOn:
     id: "open-score"
 
-# a week back, a week forward — the Earlier row sits under the staves
+# a week back, a week forward — the score opens on today (scrolled to the
+# end, as Home's staff does), so the Earlier row is above the staves
 - scrollUntilVisible:
     element:
       id: "score-earlier"
-    direction: DOWN
+    direction: UP
 - tapOn:
     id: "score-earlier"
 - scrollUntilVisible:

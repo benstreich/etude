@@ -1,12 +1,13 @@
 import { StyleSheet } from 'react-native';
 
+import { fmtNum } from '@/lib/i18n';
 import { F, themed, type T } from '@/lib/theme';
 
 /** Formats minutes as "1h 05m" or "45 min" through the translator. */
 export const fmtTime = (min: number, t: (key: string, opts?: Record<string, unknown>) => string) =>
   min >= 60 ? t('progress.timeHM', { h: Math.floor(min / 60), m: min % 60 }) : t('progress.timeMin', { min });
 
-export const stars = (v: number | null) => (v === null ? '—' : `★ ${v.toFixed(1)}`);
+export const stars = (v: number | null, lang: string) => (v === null ? '—' : `★ ${fmtNum(v, 1, lang)}`);
 
 // One stylesheet for every section: they were one screen and share most of these.
 export const useS = themed(({ C, fs, r }: T) => StyleSheet.create({

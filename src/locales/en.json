@@ -1,10 +1,18 @@
 {
   "common": {
     "all": "All",
+    "decreaseBy": "Decrease by %{n}",
+    "increaseBy": "Increase by %{n}",
+    "noteSharp": "%{note} sharp",
     "dayNames": "Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
     "today": "Today",
     "yesterday": "Yesterday",
-    "dayLetters": "SMTWTFS"
+    "dayLetters": "SMTWTFS",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "back": "Back",
+    "starsOf": "%{n} of 5 stars",
+    "clearSearch": "Clear search"
   },
   "tabs": {
     "home": "Home",
@@ -37,7 +45,6 @@
     "recordingMoved": "Moved to %{piece}"
   },
   "appearance": {
-    "backToSettings": "‹ Settings",
     "title": "Appearance",
     "theme": "Theme",
     "system": "System",
@@ -64,7 +71,7 @@
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
     "accentSlate": "Slate",
-    "accentHint": "The app icon and the home-screen widgets follow the accent. On some Android phones the app closes for a moment when the icon changes.",
+    "accentHint": "The app icon and the home-screen widgets follow the accent. The icon changes when you leave the app; on some Android phones that takes a moment.",
     "previewSample": "This is how Étude will read."
   },
   "settings": {
@@ -131,12 +138,18 @@
     "errPresets": "Keep at least one preset",
     "errStages": "At least two stages",
     "backupFailed": "Backup failed",
+    "backupTooLarge": "Too large for one backup file — over 150 MB of recordings and scores",
+    "preparingBackup": "Preparing backup…",
     "exportFailed": "Export failed",
     "restoreConfirmTitle": "Restore from backup?",
     "restoreConfirmBody": "Replaces what’s on this device.",
     "cancel": "Cancel",
     "restore": "Restore",
     "backupRestored": "Backup restored",
+    "backupRestoredMissing": {
+      "one": "Backup restored — 1 recording or score couldn’t be recovered",
+      "other": "Backup restored — %{count} recordings or scores couldn’t be recovered"
+    },
     "notABackup": "That file isn’t an Étude backup",
     "restoreFromBackup": "Restore from backup",
     "autoBackupFound": "There’s an automatic backup from %{when} on this device.",
@@ -147,12 +160,18 @@
     "setInstruments": "Set your instruments below",
     "practice": "Practice",
     "totalPractice": "Total practice",
-    "hoursUnit": "hours",
+    "hoursUnit": {
+      "one": "hour",
+      "other": "hours"
+    },
     "bestStreak": "Best streak",
-    "daysUnit": "days",
+    "daysUnit": {
+      "one": "day",
+      "other": "days"
+    },
     "yourData": "Your data",
     "backupEverything": "Back up everything",
-    "backupEverythingSub": "One file: sessions, pieces, settings",
+    "backupEverythingSub": "One file: sessions, pieces, recordings, scores, settings",
     "everyNDays": "Every %{n} days",
     "exportCsv": "Export sessions as CSV",
     "exportCsvSub": "For spreadsheets — date, focus, minutes, note",
@@ -167,8 +186,8 @@
     "moveDown": "Move down",
     "stagesHint": "In order, first to last. Clear a field to remove it; at least two stages.",
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
-    "notifBlocked": "Notifications are turned off for Etude — tap to open system settings.",
-    "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings aren’t included — “Back up everything” covers those when switching phones.",
+    "notifBlocked": "Notifications are turned off for Étude — tap to open system settings.",
+    "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings and score pages aren’t included — “Back up everything” covers those when switching phones.",
     "save": "Save",
     "about": "About",
     "howBuilt": "How Étude is built",
@@ -182,7 +201,12 @@
     "resetDefault": "Reset to default",
     "nOfM": "%{n} of %{m}",
     "progressSectionsHelp": "Switch sections on and off. Hold the handle and drag to change the order.",
-    "dragToReorder": "Drag to reorder"
+    "dragToReorder": "Drag to reorder",
+    "resetLayoutTitle": "Reset the sections?",
+    "resetLayoutBody": "Your switches and order go back to the default.",
+    "resetLayoutConfirm": "Reset",
+    "errStagesDuplicate": "Give each stage its own name",
+    "remindAt": "Remind me at %{time}"
   },
   "home": {
     "goodMorning": "Good morning",
@@ -213,7 +237,7 @@
       "rest": "A day with nothing logged is a rest.",
       "fermata": "Beat the goal and the last note of the day gets a fermata — held as long as you like.",
       "meterHead": "The time signature",
-      "meter": "Every bar carries its own. 4/4 is a day that met the goal; 6/4 is a day half again as long. That is deliberate — a bar is a day, not a fixed meter, so it runs exactly as long as the day did, and the signature is written only where it changes. A day that stopped between beats ends on a short rest, so the bar still adds up to what its signature promises.",
+      "meter": "Every bar carries its own. 4/4 is roughly a day that met the goal; 6/4 a day half again as long. Each session is rounded to its nearest note, so a day split into several can come out a beat or so longer. That is deliberate — a bar is a day, not a fixed meter, so it runs exactly as long as the day did, and the signature is written only where it changes. A day that stopped between beats ends on a short rest, so the bar still adds up to what its signature promises.",
       "key": "The whole staff is read and played in %{key}. You can change that in Settings."
     },
     "staffHint": "Tap a day to see its log — quick log lands there too",
@@ -230,7 +254,10 @@
     "landsOnDay": "Lands on %{day}",
     "min": "%{min} min",
     "addedMinFocus": "Added %{min} min · %{name}",
-    "addedMinutes": "Added %{min} minutes",
+    "addedMinutes": {
+      "one": "Added 1 minute",
+      "other": "Added %{min} minutes"
+    },
     "addedMinDay": "Added %{min} min · %{name} · %{day}",
     "addedMinutesDay": "Added %{min} min · %{day}",
     "firstSession": "Your first session",
@@ -240,7 +267,8 @@
     "guide3Pre": "Practiced away from your phone? ",
     "guide3Post": " it below",
     "quickLogFocus": "Quick log focus",
-    "nothingSpecific": "Nothing specific"
+    "nothingSpecific": "Nothing specific",
+    "deleteSession": "Delete “%{title}”"
   },
   "practice": {
     "session": "Session",
@@ -250,13 +278,14 @@
     "onBreak": "On a break",
     "breakOver": "Break over",
     "breakChannel": "Breaks",
+    "sessionChannel": "Practice session",
     "breakOverTitle": "Break over",
     "breakOverBody": "Back to practice?",
     "micPermissionNeeded": "Microphone permission needed",
     "recordStartFailed": "Couldn’t start recording",
     "paused": "Paused",
     "running": "Practicing",
-    "stopRecording": "Stop recording",
+    "stopRecording": "Stop",
     "record": "Record",
     "toolStripRecording": "Recording %{name}",
     "resume": "Resume",
@@ -290,7 +319,15 @@
     "importTake": "Import a take",
     "pauseTake": "Pause take",
     "resumeTake": "Resume take",
-    "discardTake": "Discard take"
+    "discardTake": "Discard take",
+    "empty": "Nothing to practise yet. Add a piece or technique in Repertoire.",
+    "pickFirst": "Pick something to practise",
+    "shorterBreak": "Shorten break by 1 minute",
+    "longerBreak": "Lengthen break by 1 minute",
+    "bpmLabel": "%{bpm} BPM",
+    "discardTakeTitle": "Discard this take?",
+    "discardTakeMessage": "Recording stops and the audio is deleted. This cannot be undone.",
+    "keepRecording": "Keep recording"
   },
   "progress": {
     "challengeDays": "Practise on %{target} days in %{month}",
@@ -319,7 +356,10 @@
     "drift": "Focus drift",
     "other": "Other",
     "consistency": "Consistency",
-    "avgDaysPerWeek": "avg %{n} days / week",
+    "avgDaysPerWeek": {
+      "one": "avg %{n} day / week",
+      "other": "avg %{n} days / week"
+    },
     "daysThisWeek": "%{n} of 7 days this week",
     "ratingOverTime": "Rating over time",
     "last12Weeks": "last 12 weeks",
@@ -336,10 +376,11 @@
     "goal_month": "This month",
     "goal_year": "This year",
     "goalMet": "Goal met",
-    "goalAhead": "%{min} min to go — ahead of pace",
-    "goalBehind": "%{min} min behind pace",
+    "goalAhead": "%{time} to go — ahead of pace",
+    "goalBehind": "%{time} behind pace",
     "deadlines": "Coming up",
     "daysLeft": {
+      "zero": "today",
       "one": "tomorrow",
       "other": "in %{count} days"
     },
@@ -355,7 +396,10 @@
     "emptyTitle": "Your week will show up here",
     "emptyText": "Log your first session and this chart starts filling in.",
     "startPracticing": "Start practicing",
-    "daysPracticed": "%{practiced} of %{days} days",
+    "daysPracticed": {
+      "one": "%{practiced} of 1 day",
+      "other": "%{practiced} of %{days} days"
+    },
     "less": "less",
     "more": "more",
     "noSessionDetails": "No session details for this day",
@@ -364,8 +408,9 @@
     "period30d": "30d",
     "periodAll": "All",
     "nothingInPeriod": "Nothing logged in this period",
+    "notEnoughRatedInPeriod": "Too few rated sessions in this period to compare.",
     "customise": "Customise",
-    "customHint": "This tab is yours — switch sections on and off, and put them in your order.",
+    "customHint": "These sections are yours — switch them on and off, and put them in your order.",
     "hintDismiss": "Got it",
     "ratingSessions": "%{n} rated sessions",
     "section": {
@@ -396,17 +441,25 @@
     "moveStalled": "stalled %{days} d",
     "moveDue": "due · %{days} d",
     "moveNew": "new",
+    "moveSteady": "steady",
     "calGradingFeel": "Stars rise, tempo doesn't — grading the feeling?",
     "calNotSpeed": "Tempo is there, stars aren't — it's not speed.",
     "calHardDays": "Hard-feeling sessions still moved this piece.",
     "hearTitle": "Hear the difference",
-    "hearDays": "%{days} days apart",
+    "hearDays": {
+      "one": "1 day apart",
+      "other": "%{count} days apart"
+    },
     "pipelineTitle": "Repertoire pipeline",
     "pipelineReady": "%{n} reached %{stage} this month · %{m} last month",
-    "pipelineTotal": "%{n} pieces",
+    "pipelineTotal": {
+      "one": "1 piece",
+      "other": "%{count} pieces"
+    },
     "performable": "Performable today",
     "performableCount": "%{n} of %{m} fresh",
     "lastPlayed": "%{days} d ago",
+    "playedToday": "played today",
     "neverPlayed": "never played",
     "sinceLastMonth": "Since last month",
     "changedDay": "day 1–%{day} vs. last month",
@@ -444,7 +497,10 @@
       "sessions": "Log a session first.",
       "pieces": "Add a piece to your repertoire first.",
       "rated": "Needs %{need} rated sessions — you have %{have}.",
+      "ratedPiece": "Needs %{need} rated sessions of one piece — you have %{have}.",
       "history": "Needs %{need} days of practice — you have %{have}.",
+      "driftWeeks": "Needs practice in %{need} of the last 12 weeks — you have %{have}.",
+      "driftFoci": "Needs %{need} different pieces or techniques in the last 12 weeks — you have %{have}.",
       "recordings": "Needs a piece with two recordings.",
       "goals": "Set a daily goal or a piece deadline first.",
       "ready": "Needs a piece at the final stage."
@@ -480,7 +536,7 @@
       "one": "1 recording",
       "other": "%{count} recordings"
     },
-    "tapHint": "Tap a piece for details, stats & recordings",
+    "tapHint": "Tap a piece for details · long-press to file it in a folder",
     "techniqueRecordings": "Other recordings",
     "techniques": "Techniques",
     "notPractisedYet": "Not practised yet",
@@ -496,12 +552,25 @@
     "restore": "Restore to repertoire",
     "archive": "Archive",
     "remove": "Remove",
+    "removeTitle": "Remove “%{name}”?",
+    "removeBody": "Its stages, tempo log, trouble spots and score pages are deleted for good. Archive it instead to keep them.",
+    "preset": {
+      "scales": "Scales & arpeggios",
+      "sightReading": "Sight reading",
+      "earTraining": "Ear training",
+      "improvisation": "Improvisation",
+      "rhythm": "Rhythm & metronome",
+      "chords": "Chords & voicings",
+      "fingerExercises": "Finger exercises",
+      "theory": "Music theory"
+    },
     "instrumentsHint": "Tick every instrument you play this on.",
     "instrumentsAll": "No instrument picked — shows under all of them.",
     "searchList": "Search your repertoire",
     "noMatchesTitle": "Nothing matches",
     "noMatchesText": "No piece or technique here fits that search and instrument.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "addTechnique": "Add technique"
   },
   "instrumentAsk": {
     "title": "Which instrument?",
@@ -523,9 +592,12 @@
     },
     "playing": "Playing %{which}",
     "flipHint": "Tap to flip — playback keeps its position",
-    "pickHint": "Tap a take to make it A, then B keeps the other slot.",
+    "pickHint": "Tap A or B to put a take in that slot. Picking the take from the other slot swaps them.",
     "goneTitle": "That take is gone",
-    "goneText": "One of the two recordings was deleted, so there is nothing left to compare."
+    "goneText": "One of the two recordings was deleted, so there is nothing left to compare.",
+    "playTake": "Play take %{which}",
+    "pauseTake": "Pause take %{which}",
+    "putInSlot": "Put %{name} in slot %{which}"
   },
   "piece": {
     "forecast": "At this rate: %{target} BPM around %{date}",
@@ -581,7 +653,9 @@
     "stopTake": "Stop",
     "instruments": "Instruments",
     "instrumentsHint": "Practised on these. Pick more than one if you play it on several.",
-    "instrumentsAll": "No instrument picked — it shows under all of them."
+    "instrumentsAll": "No instrument picked — it shows under all of them.",
+    "importing": "Importing…",
+    "more": "More options"
   },
   "plan": {
     "break": "Break",
@@ -597,6 +671,16 @@
     "addFocusFirst": "Add a piece or technique first",
     "addSegment": "Add segment",
     "deletePlan": "Delete routine",
+    "deletePlanTitle": "Delete “%{name}”?",
+    "deletePlanBody": "The routine and its segments are removed. Sessions you already logged stay.",
+    "cancel": "Cancel",
+    "otherRunningTitle": "Another routine is running",
+    "otherRunningBody": "Finish or end it before starting this one.",
+    "goToCurrent": "Go to current routine",
+    "minutesLabel": {
+      "one": "1 minute",
+      "other": "%{count} minutes"
+    },
     "startPlan": "Start routine",
     "newSegment": "New segment",
     "editSegment": "Edit segment",
@@ -620,7 +704,9 @@
     "metronomeBpm": "Metronome · %{bpm} BPM",
     "next": "Next",
     "finish": "Finish",
-    "inProgress": "%{name} in progress — tap to return"
+    "inProgress": "%{name} in progress — tap to return",
+    "timerLabel": "%{min} min %{sec} s",
+    "timerLabelBreak": "%{min} min %{sec} s remaining"
   },
   "onboarding": {
     "skip": "Skip",
@@ -664,6 +750,10 @@
   },
   "metronome": {
     "metronome": "Metronome",
+    "slower": "Slower",
+    "play": "Play",
+    "pause": "Pause",
+    "faster": "Faster",
     "bars": "Bars",
     "seconds": "Seconds",
     "tapTempo": "Tap tempo",
@@ -694,7 +784,14 @@
     "soundRim": "Rim",
     "volume": "Click volume",
     "accentsHint": "Tap a beat to change its accent, or mute it.",
-    "subdivHint": "Clicks per beat."
+    "subdivHint": "Clicks per beat.",
+    "rampSameTarget": "Set a target different from the tempo to start the ramp",
+    "runningA11y": "Metronome, %{bpm} BPM",
+    "beatA11y": "Beat %{n}, %{level}",
+    "levelAccent": "accent",
+    "levelMid": "light accent",
+    "levelPlain": "plain",
+    "levelMuted": "muted"
   },
   "tempoLadder": {
     "title": "Tempo ladder",
@@ -704,6 +801,7 @@
     "deltaThisMonth": "+%{delta} this month",
     "logTodaysTempo": "Log today’s tempo",
     "delete": "Delete",
+    "deleteConfirm": "Delete %{bpm} BPM (%{day})?",
     "todaysTempo": "Today’s tempo",
     "logTempo": "Log tempo",
     "auto": "Auto-advance",
@@ -730,7 +828,9 @@
     "deleteTitle": "Delete this session?",
     "deleteMessage": "Its minutes come off your totals.",
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete",
+    "minutesLess": "%{n} minutes less",
+    "minutesMore": "%{n} minutes more"
   },
   "logPast": {
     "title": "Log past practice",
@@ -794,11 +894,11 @@
     "total": "%{n} min total",
     "minutes": "%{n} min",
     "reason": {
-        "spotDue": "Trouble spots due for review",
-        "stalled": "No movement in two weeks",
-        "review": "Due for review — it’s been a while",
-        "plateau": "Tempo has plateaued — slow work at %{bpm} BPM",
-        "drift": "Getting less time lately"
+      "spotDue": "Trouble spots due for review",
+      "stalled": "No movement in two weeks",
+      "review": "Due for review — it’s been a while",
+      "plateau": "Tempo has plateaued — slow work at %{bpm} BPM",
+      "drift": "Getting less time lately"
     }
   },
   "recordings": {
@@ -830,7 +930,18 @@
     "moveTitle": "Move take to",
     "moveCancel": "Cancel",
     "saveTrim": "Save trim",
-    "cancelTrim": "Cancel"
+    "cancelTrim": "Cancel",
+    "play": "Play %{name}",
+    "pause": "Pause %{name}",
+    "renameHint": "Renames the take",
+    "speed": "Playback speed %{rate}",
+    "inEarlier": "Move the in point 0.1 s earlier",
+    "inLater": "Move the in point 0.1 s later",
+    "outEarlier": "Move the out point 0.1 s earlier",
+    "outLater": "Move the out point 0.1 s later",
+    "inHere": "Set the in point to where playback is",
+    "outHere": "Set the out point to where playback is",
+    "shareFailed": "Couldn’t share this take"
   },
   "recap": {
     "challenge": "Monthly challenge",
@@ -874,12 +985,18 @@
     "notifTitle": "Time to practice 🎵",
     "notifBody": "A few minutes today keeps the streak alive."
   },
+  "widget": {
+    "minutesToday": "minutes today",
+    "min": "min",
+    "next": "%{name} next"
+  },
   "addFocus": {
     "new": "+ New",
     "piece": "Piece",
     "technique": "Technique",
     "namePlaceholder": "Name",
-    "add": "Add"
+    "add": "Add",
+    "cancel": "Cancel"
   },
   "tuner": {
     "tuner": "Tuner",
@@ -927,7 +1044,10 @@
     "unsupported": "That file is not a PDF or an image.",
     "noPdfRenderer": "PDFs need the full app build. Photos work everywhere.",
     "importFailed": "Could not add that file.",
-    "more": "Rename or delete"
+    "more": "Rename or delete",
+    "importing": "Adding…",
+    "deleteTitle": "Delete this score?",
+    "deleteBody": "“%{name}” and all its pages are removed from this phone. This can’t be undone."
   },
   "fullScore": {
     "title": "Your score",
@@ -935,11 +1055,12 @@
     "goalBeats": "%{min} min = 4 beats",
     "earlier": "Earlier",
     "startOfLog": "Start of the log",
+    "limitReached": "Last %{count} weeks shown",
     "showingWeeks": {
       "one": "showing 1 week",
       "other": "showing %{count} weeks"
     },
-    "later": "Later",
+    "later": "Show fewer weeks",
     "thisIsToday": "This is today",
     "rest": "A rest — nothing logged"
   },
@@ -966,7 +1087,6 @@
   },
   "learn": {
     "title": "Practice science",
-    "back": "‹ Tools",
     "intro": "What the research actually says about practising — including where the popular version overstates it. Every claim links to its source.",
     "groupPractice": "How to practise",
     "groupLearning": "How learning works",
@@ -975,7 +1095,10 @@
     "free": "Free to read",
     "yours": "In your data",
     "statInterleaving": "A practice day of yours touches %{n} focuses on average.",
-    "statSpacing": "You practise on %{n} days in a typical week.",
+    "statSpacing": {
+      "one": "You practise on %{n} day in a typical week.",
+      "other": "You practise on %{n} days in a typical week."
+    },
     "statSessionLength": "Your average session runs %{n} minutes.",
     "e": {
       "deliberatePractice": {

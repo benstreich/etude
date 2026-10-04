@@ -7,6 +7,7 @@ import { MeasureBar } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { deadlineStatus, goalProgress, type GoalPeriod } from '@/lib/goal-math';
+import { fmtDay } from '@/lib/i18n';
 import { pieceRatings, ratingForecast, rollingAvg } from '@/lib/rating-math';
 import { tempoForecast } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
@@ -52,6 +53,7 @@ export function GoalsSection({ pieces, sessions }: SectionProps) {
           stage: p.stage,
           stages: store.stages.length,
           targetBpm: p.targetBpm,
+          currentBpm: p.currentBpm ?? p.tempoLog?.at(-1)?.bpm,
           tempoReachDate: p.targetBpm ? (tf?.reachDate ?? null) : undefined,
           targetRating: p.targetRating,
           ratingAvg: rollingAvg(ratings),
@@ -82,7 +84,7 @@ export function GoalsSection({ pieces, sessions }: SectionProps) {
                 <MeasureBar segments={measureSegments(g.period)} done={g.pct / 100} color={g.onTrack ? C.success : C.accent} />
               </View>
               <Text style={[s.goalNote, { marginTop: 12, color: g.left === 0 || g.onTrack ? C.success : C.accent }]}>
-                {g.left === 0 ? store.t('progress.goalMet') : g.onTrack ? store.t('progress.goalAhead', { min: g.left }) : store.t('progress.goalBehind', { min: g.pace - g.done })}
+                {g.left === 0 ? store.t('progress.goalMet') : g.onTrack ? store.t('progress.goalAhead', { time: fmtTime(g.left, store.t) }) : store.t('progress.goalBehind', { time: fmtTime(g.pace - g.done, store.t) })}
               </Text>
             </View>
           ))}
@@ -98,7 +100,7 @@ export function GoalsSection({ pieces, sessions }: SectionProps) {
                   {p.name}
                 </Text>
                 <Text style={s.goalNote}>
-                  {new Date(p.targetDate + 'T12:00:00').toLocaleDateString(store.lang, { month: 'long', day: 'numeric' })} ·{' '}
+                  {fmtDay(p.targetDate!, store.today, store.lang)} ·{' '}
                   {d.overdue ? store.t('progress.overdueBy', { count: -d.days }) : store.t('progress.daysLeft', { count: d.days })}
                   {d.lagging.length > 0 && ` · ${store.t('piece.lagging', { list: d.lagging.map((k) => store.t(`piece.${k}Word`)).join(', ') })}`}
                 </Text>

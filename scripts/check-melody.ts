@@ -1,12 +1,17 @@
 // The practice log as a melody: a pentatonic pitch per focus, a value per session, one bar per day, read in a key.
 import assert from 'node:assert';
 
-import { barsFor, DEGREES, degreeFor, eighthsFor, eighthsOf, KEYS, meterFor, midiFor, NOTE_VALUES, pentatonicPitches, PITCHES, pitchFor, valueFor, type MelodyKey, type SessionNote } from '../src/lib/melody.ts';
+import { barsFor, DEGREES, degreeFor, eighthsFor, eighthsOf, keyDisplayName, KEYS, meterFor, midiFor, NOTE_VALUES, pentatonicPitches, PITCHES, pitchFor, valueFor, type MelodyKey, type SessionNote } from '../src/lib/melody.ts';
 
 // --- pitch ----------------------------------------------------------------
 assert.equal(pitchFor('Bach Invention', 'C'), pitchFor('Bach Invention', 'C')); // a piece always sings the same note
 for (const n of ['Bach Invention', 'Scales', '']) assert.ok(pitchFor(n, 'C') >= 0 && pitchFor(n, 'C') < PITCHES.length);
 assert.ok(new Set(['Scales', 'Arpeggios', 'Bach Invention', 'Chopin Waltz', 'Sight reading', 'Etude'].map((n) => pitchFor(n, 'C'))).size > 1); // a repertoire is not one pitch
+
+// --- key names ------------------------------------------------------------
+// a German B is the English B flat, so the raw id would name the wrong key
+assert.deepEqual(KEYS.map((k) => keyDisplayName(k, 'de')), ['C', 'G', 'D', 'A', 'E', 'H', 'Fis', 'Des', 'As', 'Es', 'B', 'F']);
+assert.deepEqual(KEYS.map((k) => keyDisplayName(k, 'en')), [...KEYS]);
 
 // --- pentatonic -----------------------------------------------------------
 // every key gives exactly six degrees, which is what lets a degree transpose

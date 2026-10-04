@@ -29,18 +29,49 @@ export function onInstrument(p: Instrumented, inst: string): boolean {
  * taking the first of the set is a coin toss, and half the time the minutes land on
  * the wrong instrument's total. Only the player knows which one today was.
  *
- * Empty means there is nothing to ask — the tab in view already names an instrument,
- * the piece carries at most one, or it is untagged and so counts under every one.
+ * Empty means there is nothing to ask — the tab in view names an instrument the
+ * piece is on, the piece carries at most one, or it is untagged and so counts
+ * under every one. A tab the piece is not on answers nothing: the filter is shared
+ * and may have been changed elsewhere after the piece was picked.
  */
 export function instrumentChoices(p: Instrumented | undefined, filter: string): string[] {
-  if (filter) return [];
-  const list = p ? pieceInstruments(p) : [];
+  if (!p || (filter && onInstrument(p, filter))) return [];
+  const list = pieceInstruments(p);
   return list.length > 1 ? list : [];
 }
 
+/**
+ * The instrument a session is filed under: the player's answer to the question
+ * above, else the tab in view — but only when the piece is on that tab. A piece
+ * the filter doesn't cover keeps its own tags (undefined) rather than landing on
+ * an instrument it is never played on; no piece record (a quick log) takes the tab.
+ */
+export function sessionInstrument(p: Instrumented | undefined, filter: string, picked?: string): string | undefined {
+  if (picked) return picked;
+  return p && !onInstrument(p, filter) ? undefined : filter || undefined;
+}
+
+/**
+ * Stored instrument ids stay English; the common eight have translations
+ * (settings.inst*), the long tail shows the id itself.
+ */
+export const INSTRUMENT_KEYS: Record<string, string> = {
+  Piano: 'settings.instPiano',
+  Guitar: 'settings.instGuitar',
+  Violin: 'settings.instViolin',
+  Cello: 'settings.instCello',
+  Flute: 'settings.instFlute',
+  Voice: 'settings.instVoice',
+  Drums: 'settings.instDrums',
+  Bass: 'settings.instBass',
+};
+
+/** Persisted id → label in the current language. */
+export const instrumentName = (v: string, t: (key: string) => string) => (INSTRUMENT_KEYS[v] ? t(INSTRUMENT_KEYS[v]) : v);
+
 /** What to print under a row on the All list; empty when the piece is untagged. */
-export function instrumentLabel(p: Instrumented): string {
-  return pieceInstruments(p).join(' · ');
+export function instrumentLabel(p: Instrumented, name: (v: string) => string = (v) => v): string {
+  return pieceInstruments(p).map(name).join(' · ');
 }
 
 /**
@@ -51,4 +82,14 @@ export function toggleInstrument(p: Instrumented, inst: string): { instruments: 
   const list = pieceInstruments(p);
   const next = list.includes(inst) ? list.filter((i) => i !== inst) : [...list, inst];
   return { instruments: next, instrument: next[0] };
+}
+
+/**
+ * Drop tags for instruments the player no longer has, as a patch for the store
+ * (empty when nothing changes). A piece left with none reads as "every instrument".
+ */
+export function keepInstruments(p: Instrumented, kept: string[]): { instruments?: string[]; instrument?: string } {
+  const list = pieceInstruments(p);
+  const next = list.filter((i) => kept.includes(i));
+  return next.length === list.length ? {} : { instruments: next, instrument: next[0] };
 }

@@ -1,7 +1,7 @@
 // A piece can be played on several instruments; untagged means all of them.
 import assert from 'node:assert';
 
-import { instrumentChoices, instrumentLabel, onInstrument, pieceInstruments, toggleInstrument } from '../src/lib/instrument-math.ts';
+import { instrumentChoices, instrumentLabel, instrumentName, keepInstruments, onInstrument, pieceInstruments, sessionInstrument, toggleInstrument } from '../src/lib/instrument-math.ts';
 
 // reading the set, old field and new
 assert.deepEqual(pieceInstruments({}), []);
@@ -27,6 +27,11 @@ assert.equal(onInstrument({ instruments: ['Guitar', 'Violin'] }, 'Cello'), false
 assert.equal(instrumentLabel({}), '');
 assert.equal(instrumentLabel({ instrument: 'Guitar' }), 'Guitar');
 assert.equal(instrumentLabel({ instruments: ['Guitar', 'Violin'] }), 'Guitar · Violin');
+// display names translate the common ids and pass the long tail through
+const fakeT = (k: string) => `<${k}>`;
+assert.equal(instrumentName('Piano', fakeT), '<settings.instPiano>');
+assert.equal(instrumentName('Oud', fakeT), 'Oud');
+assert.equal(instrumentLabel({ instruments: ['Guitar', 'Oud'] }, (v) => instrumentName(v, fakeT)), '<settings.instGuitar> · Oud');
 
 // toggling adds, removes, and keeps `instrument` pointing at the first
 assert.deepEqual(toggleInstrument({ instrument: 'Guitar' }, 'Violin'), { instruments: ['Guitar', 'Violin'], instrument: 'Guitar' });
@@ -42,6 +47,8 @@ assert.deepEqual(toggleInstrument(once, 'Violin').instruments, ['Guitar']);
 const both = { instruments: ['Guitar', 'Violin'] };
 assert.deepEqual(instrumentChoices(both, ''), ['Guitar', 'Violin']); // two tags, no tab — ask
 assert.deepEqual(instrumentChoices(both, 'Guitar'), []); // the tab in view already answered
+assert.deepEqual(instrumentChoices(both, 'Cello'), ['Guitar', 'Violin']); // a tab the piece isn't on answers nothing
+assert.deepEqual(instrumentChoices({ instrument: 'Piano' }, 'Violin'), []); // one tag still files itself
 assert.deepEqual(instrumentChoices({ instrument: 'Guitar' }, ''), []); // one tag, nothing to ask
 assert.deepEqual(instrumentChoices({}, ''), []); // untagged counts everywhere
 assert.deepEqual(instrumentChoices({ instruments: [] }, ''), []);
@@ -50,5 +57,19 @@ assert.deepEqual(instrumentChoices(undefined, ''), []); // a focus with no piece
 assert.deepEqual(instrumentChoices({ instruments: ['Cello', 'Bass', 'Violin'] }, ''), ['Cello', 'Bass', 'Violin']);
 // the old single field reads the same as a one-entry set
 assert.deepEqual(instrumentChoices({ instrument: 'Guitar', instruments: ['Guitar', 'Violin'] }, ''), ['Guitar', 'Violin']);
+
+// where a session is filed: the answer, else the tab — only when the piece is on it
+assert.equal(sessionInstrument(both, 'Cello', 'Violin'), 'Violin'); // the player's answer wins
+assert.equal(sessionInstrument(both, 'Guitar'), 'Guitar'); // the tab in view, piece is on it
+assert.equal(sessionInstrument({ instrument: 'Piano' }, 'Violin'), undefined); // piano piece on the violin tab keeps its own tag
+assert.equal(sessionInstrument({}, 'Violin'), 'Violin'); // untagged counts everywhere
+assert.equal(sessionInstrument(undefined, 'Violin'), 'Violin'); // a quick log with no piece takes the tab
+assert.equal(sessionInstrument(both, ''), undefined); // the All tab names nothing
+
+// removing an instrument in settings drops its tag; the last one gone reads as untagged
+assert.deepEqual(keepInstruments({ instruments: ['Guitar', 'Violin'] }, ['Guitar', 'Violin']), {});
+assert.deepEqual(keepInstruments({ instruments: ['Violin', 'Guitar'] }, ['Guitar']), { instruments: ['Guitar'], instrument: 'Guitar' });
+assert.deepEqual(keepInstruments({ instrument: 'Violin' }, ['Guitar']), { instruments: [], instrument: undefined });
+assert.deepEqual(keepInstruments({}, ['Guitar']), {});
 
 console.log('instrument ok');

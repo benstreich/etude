@@ -7,9 +7,9 @@ import { AppState } from 'react-native';
 import { forPiece, type Attachment } from './attachment-math';
 import { removeFolderIn, renameFolderIn, validFolderName } from './folder-math';
 import type { LadderConfig } from './ladder-math';
-import { pieceInstruments } from './instrument-math';
+import { keepInstruments, pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
-import { runAutoBackup } from './backup';
+import { missingFiles, runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
 import { success } from './haptics';
 import { resolveRecordingUri, toStoredUri } from './doc-path';
@@ -21,7 +21,7 @@ import { syncReminder } from './reminders';
 import { applySessionUpdate, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
-import { computeBestStreak, computeStreak, dateKey, graceFor, type StreakMode } from './streak-math';
+import { computeBestStreak, computeStreak, dateKey, graceFor, nextBestStreak, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
 export { dateKey };
@@ -181,10 +181,11 @@ function seed(): State {
     bestStreak: 0,
     totalMin: 0,
     // two starter techniques so the Practice picker isn't bare — ordinary pieces of
-    // kind 'Technique' (#83), deletable like any other
+    // kind 'Technique' (#83), deletable like any other. Named in the device language,
+    // the same strings the Repertoire preset chips use (a fresh install is 'system').
     pieces: [
-      { id: 'tech-scales', name: 'Scales & arpeggios', by: '', stage: 0, pct: 10, kind: 'Technique' },
-      { id: 'tech-sight', name: 'Sight reading', by: '', stage: 0, pct: 10, kind: 'Technique' },
+      { id: 'tech-scales', name: i18n.t('repertoire.preset.scales', { locale: resolveLang('system') }), by: '', stage: 0, pct: 10, kind: 'Technique' },
+      { id: 'tech-sight', name: i18n.t('repertoire.preset.sightReading', { locale: resolveLang('system') }), by: '', stage: 0, pct: 10, kind: 'Technique' },
     ],
     recordings: [],
     attachments: [],
@@ -274,10 +275,13 @@ type Store = State & {
   toast: string | null;
   showToast: (msg: string) => void;
   /** `spot` (#91): the TroubleSpot id the minutes went to; omit for the whole piece. */
-  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string, spot?: string) => string;
+  /** `start`: the session's real wall-clock start, so one filed to the day it began keeps its time of day across midnight. */
+  logMinutes: (min: number, title: string, meta: string, date?: string, planId?: string, instrument?: string, spot?: string, start?: number) => string;
   addPlan: (name: string) => string;
   updatePlan: (id: string, patch: Partial<Pick<Plan, 'name' | 'segments'>>) => void;
   removePlan: (id: string) => void;
+  /** Leaving the editor: drops a plan still empty and default-named, restores a blank name. No toast. */
+  tidyPlan: (id: string, defaultName: string) => void;
   /** Upserts today's (or `date`'s) tempo entry for a piece and mirrors it into currentBpm. */
   logTempo: (pieceId: string, bpm: number, date?: string) => void;
   deleteTempoEntry: (pieceId: string, date: string) => void;
@@ -294,7 +298,8 @@ type Store = State & {
   /** Past sessions keep their `spot` id; only the spot itself goes. */
   removeSpot: (pieceId: string, spotId: string) => void;
   /** Restore-from-backup: replaces everything, running the blob through migrate() first. */
-  restoreBackup: (stateObj: object) => void;
+  /** Replaces the state; returns how many recordings and scores were dropped because their files are gone. */
+  restoreBackup: (stateObj: object) => number;
   /** The persisted state only — what a backup file should contain. */
   backupState: () => State;
   addPiece: (name: string, by?: string, instrument?: string, artwork?: string) => void;
@@ -329,7 +334,8 @@ type Store = State & {
   addAttachments: (list: Attachment[]) => void;
   renameAttachment: (id: string, name: string) => void;
   deleteAttachment: (id: string) => void;
-  updateSettings: (patch: Partial<Settings & { dailyGoal: number }>) => void;
+  /** stageMap: old stage index → new one, from stageRemap, when the stage list loses an entry */
+  updateSettings: (patch: Partial<Settings & { dailyGoal: number }>, stageMap?: number[]) => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -338,6 +344,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<State | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // false until the saved blob was actually read: after a failed read the seed
+  // on screen must never be written over the user's real data
+  const canPersist = useRef(false);
   // Reactive clock: without it, render-body dates freeze (react-compiler caches
   // zero-dep expressions) and the whole UI shows yesterday after midnight.
   const [now, setNow] = useState(() => Date.now());
@@ -382,7 +391,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           raw = await legacy.getItem(KEY);
         } catch {}
       }
-      const next = migrate(raw, seed());
+      const fresh = seed();
+      const next = migrate(raw, fresh);
+      // migrate hands back the seed itself for an unreadable blob — keep a copy
+      // aside before the first save replaces it, so it can still be rescued
+      if (raw && next === fresh) await Storage.setItem(`${KEY}.corrupt-${Date.now()}`, raw).catch(() => {});
+      canPersist.current = true;
       // first hydration stamps the install; upgrades from before the field count from the upgrade
       setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });
     };
@@ -391,27 +405,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (state)
-      Storage.setItem(KEY, JSON.stringify(state)).catch(() =>
-        setToast(tr('toast.saveFailed'))
-      );
+    if (state && canPersist.current)
+      Storage.setItem(KEY, JSON.stringify(state)).catch(() => {
+        setToast(tr('toast.saveFailed'));
+        clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(null), 2400);
+      });
   }, [state]);
 
   // keep the scheduled daily notification in sync with the setting; also runs
   // on app start, so a permission granted later in system settings self-heals
+  // lang is a dep so the notification text and channel name follow a language
+  // switch (this runs after the locale effect above). Only a changed reminder
+  // or sound toasts on denial — not the launch resync, not a language switch.
   const reminder = state?.reminder;
   const reminderSound = state?.sounds ?? true;
+  const reminderSynced = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (reminder === undefined) return;
+    const key = `${reminder}|${reminderSound}`;
+    const changed = reminderSynced.current !== undefined && reminderSynced.current !== key;
+    reminderSynced.current = key;
     syncReminder(reminder, reminderSound)
       .then((ok) => {
-        if (ok) return;
+        if (ok || !changed) return;
         setToast(tr('toast.enableNotifications'));
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(null), 2400);
       })
       .catch(() => {});
-  }, [reminder, reminderSound]);
+  }, [reminder, reminderSound, lang]);
 
   // auto backup, checked once per hydration / foreground / midnight / setting
   // change — not per state change, so it's not a sync dir scan on every edit
@@ -422,7 +445,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
   useEffect(() => {
-    if (stateRef.current && autoBackupDays > 0)
+    // a seed shown after a failed read would overwrite today's real auto backup
+    if (stateRef.current && canPersist.current && autoBackupDays > 0)
       runAutoBackup(stateRef.current, autoBackupDays, dateKey(new Date(now)));
   }, [hydrated, autoBackupDays, now]);
 
@@ -434,10 +458,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   };
 
-  const logMinutes: Store['logMinutes'] = (min, title, meta, date = dateKey(), planId, instrument, spot) => {
+  const logMinutes: Store['logMinutes'] = (min, title, meta, date = dateKey(), planId, instrument, spot, start) => {
     const id = uid();
-    // wall-clock start only for sessions logged on the day itself; backdated logs have no time of day
-    const at = date === dateKey() ? Date.now() : undefined;
+    // wall-clock time of day: a timed session's real start (it is filed to the day it
+    // began, so one crossing midnight keeps its evening time), else now for a log made
+    // on the day itself; backdated logs have no time of day
+    const at = start !== undefined && dateKey(new Date(start)) === date ? start : date === dateKey() ? Date.now() : undefined;
     // read off the live state before the update: a goal crossing or a streak
     // growing are read-only questions about what this log is about to change,
     // not part of computing the next state itself
@@ -495,6 +521,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t('toast.planDeleted'));
   };
 
+  const tidyPlan: Store['tidyPlan'] = (id, defaultName) => {
+    setState((s) => {
+      const p = s?.plans.find((x) => x.id === id);
+      if (!s || !p) return s;
+      const name = p.name.trim();
+      if (!p.segments.length && (!name || name === defaultName)) return { ...s, plans: s.plans.filter((x) => x.id !== id) };
+      return name ? s : { ...s, plans: s.plans.map((x) => (x.id === id ? { ...x, name: defaultName } : x)) };
+    });
+  };
+
   const logTempo: Store['logTempo'] = (pieceId, bpm, date = dateKey()) => {
     setState((s) =>
       s
@@ -546,9 +582,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       s
         ? {
             ...s,
-            pieces: s.pieces.map((p) =>
-              p.id === pieceId ? { ...p, tempoLog: (p.tempoLog ?? []).filter((e) => e.date !== date) } : p
-            ),
+            pieces: s.pieces.map((p) => {
+              if (p.id !== pieceId) return p;
+              const old = p.tempoLog ?? [];
+              const log = old.filter((e) => e.date !== date);
+              // currentBpm is set by logging, so dropping the newest entry it came
+              // from falls back to the one before it rather than keeping the deleted value
+              const newest = old[old.length - 1];
+              const stale = newest?.date === date && p.currentBpm === newest.bpm;
+              return { ...p, tempoLog: log, ...(stale ? { currentBpm: log[log.length - 1]?.bpm } : {}) };
+            }),
           }
         : s
     );
@@ -568,12 +611,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setState((s) => {
       if (!s) return s;
       const next = applySessionUpdate(s, id, patch);
-      if (next === s || patch.min === undefined) return next;
-      // an edited day can complete a streak, same monotonic bump as logMinutes
-      return {
-        ...next,
-        bestStreak: Math.max(next.bestStreak, computeBestStreak(next.minutesByDate, next.breakDays, graceFor(next.streakMode))),
-      };
+      // any change to the day totals — minutes edited, or a session moved to another
+      // date — can complete a streak or break the run that made the best
+      if (next === s || next.minutesByDate === s.minutesByDate) return next;
+      const best = (m: Record<string, number>) => computeBestStreak(m, s.breakDays, graceFor(s.streakMode));
+      return { ...next, bestStreak: nextBestStreak(s.bestStreak, best(s.minutesByDate), best(next.minutesByDate)) };
     });
   };
 
@@ -589,7 +631,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // same pct rule as cyclePiece so the repertoire bar stays consistent
           if (patch.stage !== undefined) {
             next.pct = stagePct(patch.stage, n);
-            next.stageLog = appendStageLog(p.stageLog, dateKey(), patch.stage);
+            next.stageLog = appendStageLog(p.stageLog, dateKey(), patch.stage, p.stage);
           }
           return next;
         }),
@@ -603,12 +645,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const sess = s.sessions.find((x) => x.id === id);
       if (!sess) return s;
       const dayMin = s.minutesByDate[sess.date];
+      const minutesByDate = dayMin === undefined ? s.minutesByDate : { ...s.minutesByDate, [sess.date]: Math.max(0, dayMin - sess.min) };
+      // the deleted session may have been the bridge in the best run
+      const best = (m: Record<string, number>) => computeBestStreak(m, s.breakDays, graceFor(s.streakMode));
       return {
         ...s,
         sessions: s.sessions.filter((x) => x.id !== id),
         totalMin: Math.max(0, s.totalMin - sess.min),
-        minutesByDate:
-          dayMin === undefined ? s.minutesByDate : { ...s.minutesByDate, [sess.date]: Math.max(0, dayMin - sess.min) },
+        minutesByDate,
+        bestStreak: nextBestStreak(s.bestStreak, best(s.minutesByDate), best(minutesByDate)),
       };
     });
     showToast(t('toast.sessionDeleted'));
@@ -635,7 +680,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   pct: 10,
                   addedAt: Date.now(),
                   kind,
-                  ...(artwork ? { artwork } : {}),
+                  // '' = "looked, none": a hand-made piece must not get the cover backfill's first hit
+                  ...(artwork ? { artwork } : kind === 'Piece' ? { artwork: '' } : {}),
                   instrument: instrument ?? (kind === 'Piece' ? primaryOf(s.instruments, s.primaryInstrument) || undefined : undefined),
                 },
                 ...s.pieces,
@@ -653,6 +699,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addTechnique = (name: string) => {
     if (!name.trim()) return;
+    // an archived technique is hidden from the chips' "selected" state, so adding it
+    // again means bringing it back, not a dead "already in repertoire"
+    const shelved = state.pieces.find((p) => p.kind === 'Technique' && p.archived && p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (shelved) return setArchived(shelved.id, false);
     const dup = insertPiece('Technique', name);
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.techniqueAdded'));
   };
@@ -670,7 +720,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         pieces: s.pieces.map((p) => {
           if (p.id !== id) return p;
           const stage = (Math.min(p.stage, n - 1) + 1) % n;
-          return { ...p, stage, pct: stagePct(stage, n), stageLog: appendStageLog(p.stageLog, dateKey(), stage) };
+          return { ...p, stage, pct: stagePct(stage, n), stageLog: appendStageLog(p.stageLog, dateKey(), stage, p.stage) };
         }),
       };
     });
@@ -707,6 +757,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             attachments: s.attachments.map((a) => (a.piece === old ? { ...a, piece: clean } : a)),
             plans: s.plans.map((pl) => ({ ...pl, segments: pl.segments.map((seg) => (seg.focus.name === old && seg.focus.kind === kind ? { ...seg, focus: { ...seg.focus, name: clean } } : seg)) })),
             quickLogFocus: s.quickLogFocus?.name === old && s.quickLogFocus.kind === kind ? { ...s.quickLogFocus, name: clean } : s.quickLogFocus,
+            // a session in flight is saved under its focus name too — and revived from it after a restart
+            liveSession: s.liveSession?.name === old && s.liveSession.kind === kind ? { ...s.liveSession, name: clean } : s.liveSession,
           }
         : s
     );
@@ -720,9 +772,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // the piece's scores go with it, files included — nothing orphaned in attachments/
       const orphaned = gone ? forPiece(s.attachments, gone.name) : [];
       deleteAttachmentFiles(orphaned.map((a) => a.id));
+      const pieces = s.pieces.filter((p) => p.id !== id);
+      // routine segments join on the name too; keep them while a same-named piece remains
+      const kind = gone?.kind ?? 'Piece';
+      const segGone = !!gone && !pieces.some((p) => p.name === gone.name && (p.kind ?? 'Piece') === kind);
       return {
         ...s,
-        pieces: s.pieces.filter((p) => p.id !== id),
+        pieces,
+        plans: segGone ? s.plans.map((pl) => ({ ...pl, segments: pl.segments.filter((sg) => !(sg.focus.name === gone.name && sg.focus.kind === kind)) })) : s.plans,
         attachments: orphaned.length ? s.attachments.filter((a) => !orphaned.includes(a)) : s.attachments,
         quickLogFocus: gone ? clearFocus(s, gone.name, gone.kind ?? 'Piece') : s.quickLogFocus,
       };
@@ -743,7 +800,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return {
         ...s,
         pieces: s.pieces.map((p) => (p.id === id ? { ...p, archived } : p)),
-        quickLogFocus: archived && target ? clearFocus(s, target.name, 'Piece') : s.quickLogFocus,
+        quickLogFocus: archived && target ? clearFocus(s, target.name, target.kind ?? 'Piece') : s.quickLogFocus,
       };
     });
     showToast(t(archived ? 'toast.archived' : 'toast.restored'));
@@ -854,20 +911,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     showToast(t('toast.scoreDeleted'));
   };
 
-  const updateSettings: Store['updateSettings'] = (patch) => {
+  const updateSettings: Store['updateSettings'] = (patch, stageMap) => {
     setState((s) => {
       if (!s) return s;
       const next = { ...s, ...patch };
+      // a removed instrument must not linger as a piece tag: it would hide the piece
+      // from every remaining tab with no chip left to untick it
+      if (patch.instruments) {
+        const kept = patch.instruments;
+        next.pieces = next.pieces.map((p) => ({ ...p, ...keepInstruments(p, kept) }));
+      }
       // stages changed → clamp the index so none dangles, and rescale pct with it,
       // otherwise the bar keeps the old scale while the label moves (e.g. 3→4
-      // stages left a "Polishing" piece showing 100%)
+      // stages left a "Polishing" piece showing 100%). A removed stage remaps
+      // later pieces down with it, or they'd silently jump a stage ahead.
       if (patch.stages) {
         const n = patch.stages.length;
         next.pieces = next.pieces.map((p) => {
-          const stage = Math.min(p.stage, n - 1);
-          return { ...p, stage, pct: stagePct(stage, n), stageLog: stage === p.stage ? p.stageLog : appendStageLog(p.stageLog, dateKey(), stage) };
+          const stage = Math.min(stageMap?.[p.stage] ?? p.stage, n - 1);
+          return { ...p, stage, pct: stagePct(stage, n), stageLog: stage === p.stage ? p.stageLog : appendStageLog(p.stageLog, dateKey(), stage, p.stage) };
         });
       }
+      // looser streak rules can lengthen past runs; best must never trail the current streak
+      if (patch.breakDays || patch.streakMode)
+        next.bestStreak = Math.max(s.bestStreak, computeBestStreak(next.minutesByDate, next.breakDays, graceFor(next.streakMode)));
       return next;
     });
   };
@@ -900,6 +967,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addPlan,
     updatePlan,
     removePlan,
+    tidyPlan,
     logTempo,
     deleteTempoEntry,
     addSpot,
@@ -909,7 +977,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSessionNote,
     updateSession,
     updatePiece,
-    restoreBackup: (stateObj: object) => setState(migrate(JSON.stringify(stateObj), seed())),
+    restoreBackup: (stateObj: object) => {
+      // a session in flight when the backup was taken is long over — reviving it
+      // would log its minutes under today
+      const next = { ...migrate(JSON.stringify(stateObj), seed()), liveSession: null };
+      // an auto backup carries no files, and anything deleted since is gone from
+      // disk: entries pointing at nothing would only show blank players and pages
+      const gone = missingFiles([...next.recordings.map((r) => r.uri), ...next.attachments.flatMap((a) => a.files)]);
+      const recordings = next.recordings.filter((r) => !gone.has(r.uri));
+      const attachments = next.attachments.filter((a) => !a.files.some((f) => gone.has(f)));
+      // an explicit restore is the user's data now, even if the launch read failed
+      canPersist.current = true;
+      setState({ ...next, recordings, attachments });
+      return next.recordings.length - recordings.length + next.attachments.length - attachments.length;
+    },
     backupState: () => state,
     addPiece,
     addTechnique,

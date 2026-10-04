@@ -21,3 +21,9 @@ export const parseReminderTime = (label: string): { hour: number; minute: number
 /** Canonical display label matching the presets: "5:45 PM". */
 export const reminderLabel = ({ hour, minute }: { hour: number; minute: number }) =>
   `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
+
+/** The stored label shown in the user's language: German reads the 24-hour "19:00". The stored value stays canonical. */
+export const reminderDisplay = (label: string, lang: string) => {
+  const t = lang === 'de' ? parseReminderTime(label) : null;
+  return t ? `${t.hour}:${String(t.minute).padStart(2, '0')}` : label;
+};

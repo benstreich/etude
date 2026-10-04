@@ -64,6 +64,9 @@ public class PitchInputModule: Module {
     let format = input.outputFormat(forBus: 0)
     rate = format.sampleRate
 
+    // A start that failed below may have left its tap behind, and installing a
+    // second one on the same bus raises an uncatchable NSException.
+    input.removeTap(onBus: 0)
     input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
       guard let self, let channel = buffer.floatChannelData?[0] else { return }
       self.lock.lock()
@@ -77,7 +80,14 @@ public class PitchInputModule: Module {
     }
 
     engine.prepare()
-    try engine.start()
+    do {
+      try engine.start()
+    } catch {
+      // running stays false, so stop() won't clean up after us — do it here
+      input.removeTap(onBus: 0)
+      try? session.setActive(false, options: .notifyOthersOnDeactivation)
+      throw error
+    }
     running = true
   }
 

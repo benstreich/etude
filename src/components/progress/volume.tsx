@@ -32,8 +32,9 @@ export function VolumeSection({ mbd, monday, sessions, inst }: SectionProps) {
     [store.t('progress.thisWeek'), String(weekTotal), store.t('progress.minUnit')],
     [store.t('progress.avgPerDay'), empty ? '—' : String(Math.round(weekTotal / Math.max(1, weekPracticed))), empty ? '' : store.t('progress.minUnit')],
     [store.t('progress.allTime'), String(Math.floor(allMin / 60)), store.t('progress.hrUnit')],
-    [store.t('settings.bestStreak'), String(store.bestStreak), store.t('settings.daysUnit')],
   ];
+  // with streaks switched off there is no streak to have a best of
+  if (store.streakMode !== 'off') cells.push([store.t('settings.bestStreak'), String(store.bestStreak), store.t('settings.daysUnit', { count: store.bestStreak })]);
 
   return (
     <Card>

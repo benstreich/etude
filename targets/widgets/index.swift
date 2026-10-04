@@ -40,11 +40,17 @@ struct Snapshot {
   var today = 0
   var goal = 45
   var streak = 0
+  var streakDays = -1 // days after `day` the streak survives; -1 = an old snapshot
   var week: [Int] = Array(repeating: 0, count: 7)
   var nextFocus: String?
   // #80: the in-app accent per scheme; the brand terracotta until the app has pushed one
   var accentLight: String?
   var accentDark: String?
+  var labels: [String: String] = [:]
+
+  func label(_ key: String, _ english: String) -> String {
+    labels[key].flatMap { $0.isEmpty ? nil : $0 } ?? english
+  }
 
   var accent: Color {
     let light = accentLight.flatMap { Color(hexString: $0) } ?? Color(hex: 0xB34A2E)
@@ -58,11 +64,31 @@ struct Snapshot {
     s.today = d.integer(forKey: "today")
     s.goal = max(1, d.integer(forKey: "goal"))
     s.streak = d.integer(forKey: "streak")
+    s.streakDays = (d.object(forKey: "streakDays") as? Int) ?? -1
     s.week = (d.array(forKey: "week") as? [Int]) ?? s.week
     s.nextFocus = d.string(forKey: "nextFocus")
     s.accentLight = (d.array(forKey: "accentLight") as? [String])?.first
     s.accentDark = (d.array(forKey: "accentDark") as? [String])?.first
+    s.labels = (d.dictionary(forKey: "labels") as? [String: String]) ?? [:]
+    s.rollOver(from: d.string(forKey: "day"))
     return s
+  }
+
+  /// Only the running app writes the snapshot, so after midnight it still holds
+  /// yesterday: today becomes 0, the week slides along with zeros, and the streak
+  /// is over once the gap outruns `streakDays`. The app's next push replaces it.
+  mutating func rollOver(from day: String?) {
+    let fmt = DateFormatter()
+    fmt.calendar = Calendar(identifier: .gregorian)
+    fmt.locale = Locale(identifier: "en_US_POSIX")
+    fmt.dateFormat = "yyyy-MM-dd"
+    guard let day, let then = fmt.date(from: day) else { return }
+    let cal = Calendar.current
+    let gap = cal.dateComponents([.day], from: cal.startOfDay(for: then), to: cal.startOfDay(for: .now)).day ?? 0
+    guard gap > 0 else { return }
+    today = 0
+    week = gap >= 7 ? Array(repeating: 0, count: 7) : Array(week.dropFirst(gap)) + Array(repeating: 0, count: gap)
+    if gap > (streakDays >= 0 ? streakDays : 1) { streak = 0 }
   }
 
   var frac: Double { min(1, Double(today) / Double(goal)) }
@@ -79,8 +105,11 @@ struct Provider: TimelineProvider {
     completion(Entry(date: .now, snap: Snapshot.load()))
   }
   func getTimeline(in _: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-    // data pushes come via WidgetCenter.reloadAllTimelines(); refresh hourly as a fallback
-    completion(Timeline(entries: [Entry(date: .now, snap: Snapshot.load())], policy: .after(.now.addingTimeInterval(3600))))
+    // data pushes come via WidgetCenter.reloadAllTimelines(); refresh hourly as a
+    // fallback, and at midnight so the day rolls over (Snapshot.rollOver)
+    let midnight = Calendar.current.startOfDay(for: .now.addingTimeInterval(86400))
+    let next = min(.now.addingTimeInterval(3600), midnight)
+    completion(Timeline(entries: [Entry(date: .now, snap: Snapshot.load())], policy: .after(next)))
   }
 }
 
@@ -120,7 +149,7 @@ struct SmallView: View {
       }
       Spacer()
       Text("\(snap.today) / \(snap.goal)").font(.system(size: 17, weight: .bold, design: .rounded)).foregroundColor(.ink)
-      Text("minutes today").font(.system(size: 11)).foregroundColor(.subtle)
+      Text(snap.label("minutesToday", "minutes today")).font(.system(size: 11)).foregroundColor(.subtle)
     }
   }
 }
@@ -131,12 +160,13 @@ struct MediumView: View {
     HStack(spacing: 14) {
       VStack(alignment: .leading, spacing: 3) {
         Text("♪ Étude").font(.system(size: 12, weight: .semibold)).foregroundColor(.ink)
-        Text("\(snap.today) / \(snap.goal) min").font(.system(size: 22, weight: .bold, design: .rounded)).foregroundColor(.ink)
-        Text([snap.streak > 0 ? "\(snap.streak)-day streak" : nil, snap.nextFocus.map { "\($0) next" }].compactMap { $0 }.joined(separator: " · "))
+        Text("\(snap.today) / \(snap.goal) \(snap.label("min", "min"))").font(.system(size: 22, weight: .bold, design: .rounded)).foregroundColor(.ink)
+        // `streak` and `next` arrive formatted; a rolled-over snapshot keeps the streak whole or zeroes it
+        Text([snap.streak > 0 ? snap.label("streak", "\(snap.streak)-day streak") : nil, snap.nextFocus.map { snap.label("next", "\($0) next") }].compactMap { $0 }.joined(separator: " · "))
           .font(.system(size: 11.5)).foregroundColor(.subtle).lineLimit(1)
         Spacer()
         Link(destination: URL(string: "etude://practice")!) {
-          Text("Practice")
+          Text(snap.label("practice", "Practice"))
             .font(.system(size: 13, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: 110, height: 32)
@@ -181,7 +211,18 @@ struct EtudeWidgetView: View {
       default: SmallView(snap: entry.snap)
       }
     }
-    .containerBackground(Color.paper, for: .widget)
+    .modifier(PaperBackground())
+  }
+}
+
+/// containerBackground is iOS 17+ (and required there); the target deploys to 16.4
+struct PaperBackground: ViewModifier {
+  @ViewBuilder func body(content: Content) -> some View {
+    if #available(iOS 17.0, *) {
+      content.containerBackground(Color.paper, for: .widget)
+    } else {
+      content.padding().background(Color.paper)
+    }
   }
 }
 

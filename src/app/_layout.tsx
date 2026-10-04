@@ -13,7 +13,7 @@ import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
 import { usePathname, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -51,11 +51,17 @@ function TabIcon({ focused, children }: { focused: boolean; children: React.Reac
 }
 
 function NavItem({ icon, label, active, onPress }: { icon: React.ReactNode; label: string; active: boolean; onPress: () => void }) {
-  const { C } = useTheme();
+  const { C, fs } = useTheme();
   return (
-    <Pressable onPress={onPress} style={{ alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      style={{ alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10 }}>
       <TabIcon focused={active}>{icon}</TabIcon>
-      <Text style={{ fontFamily: F.bodySemi, fontSize: 10.5, letterSpacing: 0.8, textTransform: 'uppercase', color: active ? C.accent : C.sub }}>{label}</Text>
+      <Text numberOfLines={1} style={{ fontFamily: F.bodySemi, fontSize: fs(10.5), letterSpacing: 0.8, textTransform: 'uppercase', color: active ? C.accent : C.sub }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -67,13 +73,16 @@ function NavItem({ icon, label, active, onPress }: { icon: React.ReactNode; labe
  * ponytail: doesn't replicate tabBarHideOnKeyboard — the one screen that needs it
  * (Practice's search field) already hides this bar for its own reason once running.
  */
-function StaffNav({ state, navigation, descriptors, insets }: BottomTabBarProps) {
+function StaffNav({ state, navigation, descriptors, insets, onShown }: BottomTabBarProps & { onShown: (shown: boolean) => void }) {
   const { C } = useTheme();
   const store = useStore();
   const route = state.routes[state.index];
   const tabBarStyle = descriptors[route.key]?.options.tabBarStyle as { display?: string } | undefined;
-  if (tabBarStyle?.display === 'none') return null;
-  if (!['index', 'repertoire', 'tools', 'practice'].includes(route.name)) return null;
+  const shown = tabBarStyle?.display !== 'none' && ['index', 'repertoire', 'tools', 'practice'].includes(route.name);
+  // the shell lifts the toast and RunPill by the nav's height only while it is
+  // really on screen — a running Practice session hides it on a tab path
+  useEffect(() => onShown(shown), [shown, onShown]);
+  if (!shown) return null;
   const color = (name: string) => (route.name === name ? C.accent : C.sub);
   const items: { name: string; label: string; icon: React.ReactNode }[] = [
     {
@@ -94,7 +103,7 @@ function StaffNav({ state, navigation, descriptors, insets }: BottomTabBarProps)
   return (
     <View style={{ backgroundColor: C.bg, paddingBottom: insets.bottom }}>
       <View style={{ height: 1, backgroundColor: C.cardBorder, marginHorizontal: 24 }} />
-      <View style={{ height: NAV_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 12 }}>
+      <View accessibilityRole="tablist" style={{ minHeight: NAV_H, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 12 }}>
         {items.map((it) => (
           <NavItem key={it.name} icon={it.icon} label={it.label} active={route.name === it.name} onPress={() => navigation.navigate(it.name)} />
         ))}
@@ -105,7 +114,7 @@ function StaffNav({ state, navigation, descriptors, insets }: BottomTabBarProps)
 
 export default function RootLayout() {
   const insets = useSafeAreaInsets();
-  const [loaded] = useFonts({
+  const [loaded, fontError] = useFonts({
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
@@ -116,7 +125,9 @@ export default function RootLayout() {
     Bravura: require('../../assets/fonts/Bravura.otf'),
   });
 
-  if (!loaded) return null;
+  // a font that fails to load (a corrupt asset after an update) falls back to the
+  // system face; waiting on it would hold the splash screen forever
+  if (!loaded && !fontError) return null;
 
   return (
     // the root gesture handler the score viewer's pinch/pan needs (#60)
@@ -138,13 +149,17 @@ export default function RootLayout() {
 // no tab, so without this the run looks lost the moment you switch away
 function RunPill({ bottom }: { bottom: number }) {
   const { C } = useTheme();
-  const { plans, t } = useStore();
+  const { plans, liveSession, t } = useStore();
   const active = useActiveRun();
   useTransientPlan(); // the suggested session (#95) is a plan the store never sees
   const pathname = usePathname();
   const router = useRouter();
   const plan = active && resolvePlan(plans, active.planId);
-  if (!plan || pathname === '/plan/run') return null;
+  // a free session counts too: one left with Android back, or revived after a
+  // restart before Practice was ever opened, had no way back but the tab
+  const session = !plan && liveSession && pathname !== '/practice' ? liveSession : null;
+  if (!session && (!plan || pathname === '/plan/run')) return null;
+  const pillLabel = t('planRun.inProgress', { name: plan ? plan.name.trim() || t('practice.defaultPlanName') : (session?.name ?? '') });
   return (
     <Pressable
       style={{
@@ -158,18 +173,26 @@ function RunPill({ bottom }: { bottom: number }) {
         borderRadius: 999,
         paddingVertical: 10,
         paddingHorizontal: 18,
+        maxWidth: '90%',
       }}
-      onPress={() => router.push({ pathname: '/plan/run', params: { id: plan.id } })}>
-      <Text style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg }}>
-        ▶ {t('planRun.inProgress', { name: plan.name })}
+      accessibilityRole="button"
+      accessibilityLabel={pillLabel}
+      onPress={() => (plan ? router.push({ pathname: '/plan/run', params: { id: plan.id } }) : router.push('/practice'))}>
+      <Text numberOfLines={1} style={{ fontFamily: F.bodySemi, fontSize: 13, color: C.bg, flexShrink: 1 }}>
+        ▶ {pillLabel}
       </Text>
     </Pressable>
   );
 }
 
 function Shell({ insets }: { insets: { bottom: number } }) {
-  const { C, dark } = useTheme();
+  const { C, dark, reduceMotion } = useTheme();
   const { onboarded, t } = useStore();
+  // the staff nav only shows on the four tab screens (and not under a running
+  // Practice session); elsewhere the pill and toast sit on the home indicator
+  // instead of floating a nav's height up. StaffNav reports what it renders.
+  const [navShown, setNavShown] = useState(false);
+  const navH = navShown ? NAV_H : 0;
   // Shell only mounts once fonts AND the store are ready (StoreProvider renders
   // null until hydration) — hiding here avoids a bare-window flash on cold start
   useEffect(() => {
@@ -181,7 +204,7 @@ function Shell({ insets }: { insets: { bottom: number } }) {
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <StatusBar style={dark ? 'light' : 'dark'} />
         <Onboarding />
-        <Toast />
+        <Toast bottom={insets.bottom + 24} />
       </View>
     );
   return (
@@ -190,10 +213,10 @@ function Shell({ insets }: { insets: { bottom: number } }) {
           <Tabs
             // back goes to the previous screen, not to Home (#85)
             backBehavior="history"
-            tabBar={(p) => <StaffNav {...p} />}
+            tabBar={(p) => <StaffNav {...p} onShown={setNavShown} />}
             screenOptions={{
               headerShown: false,
-              animation: 'shift',
+              animation: reduceMotion ? 'none' : 'shift',
               sceneStyle: { backgroundColor: C.bg },
             }}>
             <Tabs.Screen name="index" options={{ title: t('tabs.home') }} />
@@ -215,8 +238,9 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="tuner" options={{ href: null }} />
             <Tabs.Screen name="score" options={{ href: null }} />
           </Tabs>
-          <RunPill bottom={NAV_H + insets.bottom + 12} />
-          <Toast />
+          <RunPill bottom={navH + insets.bottom + 12} />
+          {/* clears the RunPill too, whether or not a routine is running */}
+          <Toast bottom={navH + insets.bottom + 64} />
           <WidgetSync />
         </View>
   );

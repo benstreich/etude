@@ -2,12 +2,21 @@
 // Node-runnable, no React, no Date.now — "today" is always passed in.
 import { addDays, calibration, pieceRatings, ratingTrend, type Calibration } from './rating-math.ts';
 import type { Piece, Recording, Session, StageEntry } from './store';
+import { dateKey } from './streak-math.ts';
 
-/** Append a stage change: ascending, one entry per day (last write wins), no-op when the stage did not change. */
-export function appendStageLog(log: StageEntry[] | undefined, date: string, stage: number): StageEntry[] {
-  const cur = log ?? [];
+// undated baseline: the stage a piece had before its first recorded change
+const BASELINE = '0000-00-00';
+
+/** Append a stage change: ascending, one entry per day (last write wins), no-op when the stage did not change. `prev` is the stage before this change. */
+export function appendStageLog(log: StageEntry[] | undefined, date: string, stage: number, prev?: number): StageEntry[] {
+  // a piece added this run has no log yet; without a baseline its first promotion reads as no move
+  const cur = log?.length ? log : prev !== undefined && prev !== stage ? [{ date: BASELINE, stage: prev }] : [];
   const last = cur[cur.length - 1];
-  if (last && last.date === date) return [...cur.slice(0, -1), { date, stage }];
+  if (last && last.date === date) {
+    // the only entry is the add-day backfill: keep it as the baseline rather than overwrite it
+    if (cur.length === 1 && last.stage !== stage) return [{ date: BASELINE, stage: last.stage }, { date, stage }];
+    return [...cur.slice(0, -1), { date, stage }];
+  }
   if (last && last.stage === stage) return cur;
   return [...cur, { date, stage }];
 }
@@ -21,7 +30,8 @@ export type Movement =
   | { kind: 'rating'; delta: number }
   | { kind: 'stalled'; days: number }
   | { kind: 'due'; days: number }
-  | { kind: 'new' };
+  | { kind: 'new' }
+  | { kind: 'steady' };
 
 export type PieceMove = {
   piece: Piece;
@@ -75,13 +85,16 @@ export function pieceMovement(piece: Piece, sessions: Session[], todayKey: strin
   const idle = last ? daysBetween(last, todayKey) : null;
   if (idle !== null && idle >= DUE_DAYS && piece.stage >= stagesCount - 1) return { ...base, move: { kind: 'due', days: idle } };
   if (idle !== null && idle >= STALLED_DAYS) return { ...base, move: { kind: 'stalled', days: idle } };
-  return { ...base, move: { kind: 'new' } };
+  // "new" only for a piece that is actually new: never played, or added inside the window
+  const added = piece.addedAt ? dateKey(new Date(piece.addedAt)) : null;
+  if (own.length === 0 || (added !== null && added >= cut)) return { ...base, move: { kind: 'new' } };
+  return { ...base, move: { kind: 'steady' } };
 }
 
-const KIND_ORDER: Movement['kind'][] = ['stage', 'tempo', 'rating', 'stalled', 'due', 'new'];
-const size = (m: Movement) => (m.kind === 'stage' ? m.to - m.from : m.kind === 'tempo' ? m.deltaBpm : m.kind === 'rating' ? m.delta : m.kind === 'new' ? 0 : m.days);
+const KIND_ORDER: Movement['kind'][] = ['stage', 'tempo', 'rating', 'stalled', 'due', 'new', 'steady'];
+const size = (m: Movement) => (m.kind === 'stage' ? m.to - m.from : m.kind === 'tempo' ? m.deltaBpm : m.kind === 'rating' ? m.delta : m.kind === 'new' || m.kind === 'steady' ? 0 : m.days);
 
-/** Movers first (biggest first), then stalled, due, new. */
+/** Movers first (biggest first), then stalled, due, new, steady. */
 export function rankMovement(list: PieceMove[]): PieceMove[] {
   return [...list].sort((a, b) => {
     const k = KIND_ORDER.indexOf(a.move.kind) - KIND_ORDER.indexOf(b.move.kind);
@@ -136,7 +149,8 @@ export function monthDiff(pieces: Piece[], sessions: Session[], todayKey: string
   const from = [`${thisM}-01`, `${lastM}-01`];
   const to = [todayKey, `${lastM}-${day}`];
   const inRange = (key: string, i: number) => key >= from[i] && key <= to[i];
-  const keyOfMs = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  // local calendar day, like every other dateKey — toISOString would bucket by UTC
+  const keyOfMs = (ms: number) => dateKey(new Date(ms));
 
   const out: MonthDiff = { pieces: [0, 0], promoted: [0, 0], hours: [0, 0], bpm: [0, 0], stars: [null, null] };
   for (const i of [0, 1] as const) {
@@ -162,7 +176,9 @@ export function recordingPair(recs: Recording[]): [Recording, Recording] | null 
   if (recs.length < 2) return null;
   const sorted = [...recs].sort((a, b) => (a.date === b.date ? (a.at ?? 0) - (b.at ?? 0) : a.date < b.date ? -1 : 1));
   const starred = sorted.filter((r) => r.starred);
-  const latest = starred[starred.length - 1] ?? sorted[sorted.length - 1];
+  let latest = starred[starred.length - 1] ?? sorted[sorted.length - 1];
+  // a lone star on the oldest take belongs in the "first" slot, against the newest
+  if (latest === sorted[0]) latest = sorted[sorted.length - 1];
   const first = starred.find((r) => r !== latest) ?? sorted.find((r) => r !== latest)!;
   return [first, latest];
 }

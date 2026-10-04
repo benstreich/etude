@@ -2,15 +2,21 @@
 // tempo-ladder deltas, recap-card stats. Node-runnable (see scripts/check-growth.ts).
 
 // explicit .ts so the node check runner (--experimental-strip-types) can resolve it
+import { isQuickLog } from './session-math.ts';
 import { computeBestStreak, dateKey } from './streak-math.ts';
 
 // labels are English literals, localized at display time (session-review.tsx),
 // so this module and its check script run without the i18n runtime
 export type Achievement = { kind: 'streak' | 'milestone' | 'challenge'; label: string };
 
-const shiftKey = (key: string, days: number) => {
+const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const parseKey = (key: string) => {
   const [y, m, d] = key.split('-').map(Number);
-  return dateKey(new Date(y, m - 1, d + days));
+  return new Date(y, m - 1, d);
+};
+const shiftKey = (key: string, days: number) => {
+  const d = parseKey(key);
+  return dateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
 };
 
 // last-7-days total ending at `end`
@@ -29,8 +35,9 @@ export function achievements(opts: {
   today: string;
   /** #105: this session carried the monthly challenge over its line (unmet before it, met after). */
   challengeJustMet?: boolean;
+  breakDays?: string[];
 }): Achievement[] {
-  const { streak, sessionCount, minutesByDate, dailyGoal, today, challengeJustMet } = opts;
+  const { streak, sessionCount, minutesByDate, dailyGoal, today, challengeJustMet, breakDays = [] } = opts;
   const out: Achievement[] = [];
   if (streak >= 2) out.push({ kind: 'streak', label: `${streak}-day streak` });
   // after the streak, before the milestones: it never displaces a streak chip, and the cap below does the rest
@@ -43,8 +50,8 @@ export function achievements(opts: {
       let best = true;
       for (const key of Object.keys(minutesByDate)) {
         if (key >= today || !(minutesByDate[key] > 0)) continue;
-        // windows ending on each practiced day cover all maxima
-        if (key < shiftKey(today, -6) && weekTotal(minutesByDate, key) >= thisWeek) {
+        // windows ending on each practiced day cover all maxima, overlapping ones included
+        if (weekTotal(minutesByDate, key) >= thisWeek) {
           best = false;
           break;
         }
@@ -54,9 +61,16 @@ export function achievements(opts: {
       if (best && hasHistory) out.push({ kind: 'milestone', label: 'Best week yet' });
     }
     if (dailyGoal > 0) {
+      // 7 practice days back: a break day under the goal is skipped, not a miss
+      let counted = 0;
       let all = true;
-      for (let i = 0; i < 7; i++) if ((minutesByDate[shiftKey(today, -i)] ?? 0) < dailyGoal) all = false;
-      if (all) out.push({ kind: 'milestone', label: 'Goal hit 7 days straight' });
+      for (let i = 0; counted < 7 && i < 70 && all; i++) {
+        const key = shiftKey(today, -i);
+        const min = minutesByDate[key] ?? 0;
+        if (min >= dailyGoal) counted++;
+        else if (!breakDays.includes(DOW[parseKey(key).getDay()])) all = false;
+      }
+      if (all && counted === 7) out.push({ kind: 'milestone', label: 'Goal hit 7 days straight' });
     }
   }
   return out.slice(0, 2);
@@ -86,13 +100,15 @@ export type RecapStats = {
 
 /** Stats for a recap card. Pass `month` (0-based) for a monthly card, omit for year-so-far. */
 export function recapStats(opts: {
-  sessions: { title: string; min: number; date: string }[];
+  sessions: { title: string; meta?: string; min: number; date: string }[];
   minutesByDate: Record<string, number>;
   breakDays: string[];
+  /** relaxed-mode grace, so "longest streak" agrees with the app's streak */
+  graceDays?: number;
   year: number;
   month?: number;
 }): RecapStats {
-  const { sessions, minutesByDate, breakDays, year, month } = opts;
+  const { sessions, minutesByDate, breakDays, graceDays = 0, year, month } = opts;
   const prefix = month === undefined ? `${year}-` : `${year}-${String(month + 1).padStart(2, '0')}-`;
   const inPeriod: Record<string, number> = {};
   let totalMin = 0;
@@ -106,12 +122,13 @@ export function recapStats(opts: {
     if (key.startsWith(`${year}-`)) monthlyMinutes[Number(key.slice(5, 7)) - 1] += min;
   }
   const byPiece: Record<string, number> = {};
-  for (const s of sessions) if (s.date.startsWith(prefix)) byPiece[s.title] = (byPiece[s.title] ?? 0) + s.min;
+  // a focus-less quick log is not a piece, so it can never be the top one
+  for (const s of sessions) if (s.date.startsWith(prefix) && !isQuickLog(s)) byPiece[s.title] = (byPiece[s.title] ?? 0) + s.min;
   const top = Object.entries(byPiece).sort((a, b) => b[1] - a[1])[0];
   return {
     totalMin,
     daysPracticed,
-    longestStreak: computeBestStreak(inPeriod, breakDays),
+    longestStreak: computeBestStreak(inPeriod, breakDays, graceDays),
     topPiece: top ? top[0] : null,
     monthlyMinutes,
   };

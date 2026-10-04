@@ -53,6 +53,9 @@ assert.deepEqual(consistency({}, '2026-09-10', true, 2), { perWeek: [0, 0], curr
 // --- ratingSummary: hidden below 5 rated, best piece needs 3 rated sessions
 assert.deepEqual(ratingSummary(sessions.slice(0, 4)), { avgRating: null, bestPiece: null });
 assert.deepEqual(ratingSummary(sessions), { avgRating: 3.2, bestPiece: 'Nocturne' });
+// three five-star quick logs count towards the average but never become the best-rated piece
+const quick = [1, 2, 3].map((d) => ({ title: 'Quick log', meta: 'Logged', min: 10, date: `2026-09-0${d}`, rating: 5 }));
+assert.equal(ratingSummary([...sessions, ...quick]).bestPiece, 'Nocturne');
 
 // --- minPerBpm: minutes since the first entry over BPM gained
 const log = [{ date: '2026-09-01', bpm: 80 }, { date: '2026-09-10', bpm: 90 }];
@@ -63,7 +66,7 @@ assert.equal(minPerBpm([{ date: '2026-09-01', bpm: 90 }, { date: '2026-09-10', b
 console.log('check-stats: all assertions passed');
 
 // ---- #61 insights
-import { concentration, focusDrift, goalCalibration, interleaving, projection, qualityDrivers, rollingMean, staleness, streakSurvival, tempoForecast, weeklyTotals } from '../src/lib/stats-math.ts';
+import { concentration, driftFloor, focusDrift, goalCalibration, interleaving, projection, qualityDrivers, rollingMean, staleness, streakSurvival, tempoForecast, weeklyTotals } from '../src/lib/stats-math.ts';
 
 // --- tempoForecast: 2 BPM/day → 122 reached 10 days after the last entry; too short a log → null
 const tlog = [0, 7, 14, 21].map((d) => ({ date: `2026-08-${String(1 + d).padStart(2, '0')}`, bpm: 60 + 2 * d }));
@@ -73,6 +76,9 @@ assert.equal(fc.reachDate, '2026-09-01'); // 102 → 122 at 2/day = 10 days afte
 assert.equal(fc.plateau, false);
 assert.equal(tempoForecast(tlog.slice(0, 3), 122, '2026-08-23', []), null);
 assert.equal(tempoForecast(tlog, 90, '2026-08-23', [])!.reachDate, null); // already past the target
+// 1 BPM a month towards a target 100 BPM away is years out: no date rather than a fantasy one
+const slow = ['2026-01-01', '2026-01-31', '2026-03-02', '2026-04-01'].map((date, i) => ({ date, bpm: 60 + i }));
+assert.equal(tempoForecast(slow, 160, '2026-04-02', [])!.reachDate, null);
 // plateau: plenty of recent minutes, nothing above the pre-window best
 const flat = [{ date: '2026-07-01', bpm: 80 }, { date: '2026-07-10', bpm: 84 }, { date: '2026-08-20', bpm: 84 }, { date: '2026-09-01', bpm: 83 }];
 assert.equal(tempoForecast(flat, 120, '2026-09-05', [{ min: 70, date: '2026-08-30' }])!.plateau, true);
@@ -107,6 +113,14 @@ assert.equal(sv.typicalLength, 2);
 assert.equal(sv.breakWeekday, 2); // breaks on Thu, Wed, Tue — a three-way tie resolves to the lowest weekday
 assert.deepEqual(sv.lengths, [3, 2, 1]);
 assert.equal(streakSurvival({ '2026-08-03': 20 }, '2026-09-04'), null);
+// Sunday off: a run carries over the weekend, and a Saturday run is still alive on Monday
+const mbdSun: Record<string, number> = {};
+for (const d of ['03', '04', '05', '06', '07', '08', '10', '11', '14', '15', '17', '20']) mbdSun[`2026-08-${d}`] = 20;
+mbdSun['2026-09-05'] = 20;
+const svSun = streakSurvival(mbdSun, '2026-09-07', ['Sunday'])!;
+assert.deepEqual(svSun.lengths, [8, 3, 1]);
+assert.equal(svSun.breakWeekday, 2); // breaks on Wed, Tue, Fri — never "on Sunday"
+assert.equal(streakSurvival(mbdSun, '2026-09-07')!.count, 6, 'without break days every Sunday ends a run');
 
 // --- projection: 30 min/day for the last 56 days → next milestone 50 h, 44 days out
 const daily: Record<string, number> = {};
@@ -162,6 +176,10 @@ assert.deepEqual(drift.series.map((x) => x.title), ['b', 'a', 'c', 'd', '']); //
 assert.deepEqual(drift.series[1].share, [0.75, 0.5, 0.25, 0]);
 assert.ok(Math.abs(drift.series[4].share[3] - 10 / 60) < 1e-9);
 assert.equal(focusDrift([{ title: 'a', min: 30, date: '2026-09-01' }], '2026-09-01', true), null);
+// the floor it counts, for the locked row's sentence: same window, same weeks
+assert.deepEqual(driftFloor([], '2026-09-01', true), { weeks: 0, foci: 0 });
+assert.deepEqual(driftFloor([{ title: 'a', min: 30, date: '2026-09-01' }, { title: 'a', min: 5, date: '2026-09-02' }], '2026-09-01', true), { weeks: 1, foci: 1 });
+assert.deepEqual(driftFloor([{ title: 'a', min: 30, date: '2025-01-01' }], '2026-09-01', true), { weeks: 0, foci: 0 }); // outside the 12 weeks
 
 // --- weeklyTotals + rollingMean
 const wt = weeklyTotals({ '2026-08-11': 30, '2026-08-13': 30, '2026-08-25': 15, '2026-09-01': 45 }, '2026-09-01', true, 4);

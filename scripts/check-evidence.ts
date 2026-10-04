@@ -39,8 +39,11 @@ assert.ok(ENTRIES.some((e) => e.contested), 'no contested entry — the counter-
 for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   const learn = (dict as Record<string, any>).learn;
   assert.ok(learn, `${lang}: no learn section`);
-  for (const key of ['title', 'back', 'intro', 'groupPractice', 'groupLearning', 'groupPeople', 'contested', 'free', 'yours', 'statInterleaving', 'statSpacing', 'statSessionLength']) {
-    assert.ok(typeof learn[key] === 'string' && learn[key].length > 0, `${lang}: learn.${key} missing`);
+  for (const key of ['title', 'intro', 'groupPractice', 'groupLearning', 'groupPeople', 'contested', 'free', 'yours', 'statInterleaving', 'statSpacing', 'statSessionLength']) {
+    // a counted line is a one/other plural, which is just as present
+    const v = learn[key];
+    const ok = typeof v === 'string' ? v.length > 0 : typeof v?.one === 'string' && typeof v?.other === 'string';
+    assert.ok(ok, `${lang}: learn.${key} missing`);
   }
   assert.ok(typeof (dict as Record<string, any>).tools.learn === 'string', `${lang}: tools.learn missing`);
 

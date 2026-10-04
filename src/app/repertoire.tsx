@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -9,10 +9,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NoteIcon, SearchIcon } from '@/components/icons';
 import { MeasureBar } from '@/components/motifs';
 import { RecordingsList } from '@/components/recordings';
+import { confirmRemovePiece } from '@/components/confirm-remove';
+import { primaryOf } from '@/lib/cue-voice';
 import { Text } from '@/components/text';
 import { Card, Overline, SearchField, SectionHead, Sheet, stageColor, UnderlineTabs, useInstrumentFilter } from '@/components/ui';
 import { groupByFolder, MAX_FOLDER_NAME, MAX_FOLDERS } from '@/lib/folder-math';
-import { onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
+import { instrumentName, onInstrument, pieceInstruments, toggleInstrument } from '@/lib/instrument-math';
 import { staleness } from '@/lib/stats-math';
 import { dayLabel, Piece, Recording, useStore } from '@/lib/store';
 import { F, themed, useC, useTheme, type T } from '@/lib/theme';
@@ -34,16 +36,9 @@ function Cover({ uri, size = 44 }: { uri?: string; size?: number }) {
   );
 }
 
-const PRESET_TECHNIQUES = [
-  'Scales & arpeggios',
-  'Sight reading',
-  'Ear training',
-  'Improvisation',
-  'Rhythm & metronome',
-  'Chords & voicings',
-  'Finger exercises',
-  'Music theory',
-];
+// keys under repertoire.preset, shown and stored in the current language; a
+// technique added earlier keeps the name it was added with
+const PRESET_TECHNIQUES = ['scales', 'sightReading', 'earTraining', 'improvisation', 'rhythm', 'chords', 'fingerExercises', 'theory'];
 
 export default function Repertoire() {
   const s = useS();
@@ -73,6 +68,9 @@ export default function Repertoire() {
     setCreating(null);
     setSuggestions({ q: '', list: [] });
     setCustomTech('');
+    // a dismissed draft must not ride along into the next piece added
+    setArtist('');
+    setAddInst(null);
   };
 
   const addTech = (t: string) => {
@@ -82,6 +80,7 @@ export default function Repertoire() {
   };
 
   const { reduceMotion } = useTheme();
+  const presets = PRESET_TECHNIQUES.map((k) => store.t(`repertoire.preset.${k}`));
 
   // A folder is created from the piece sheet and the piece goes straight into it —
   // making an empty folder and then filing something into it is two trips for one
@@ -135,26 +134,28 @@ export default function Repertoire() {
   // search or an instrument tab that matches nothing is a filter to clear, and
   // telling someone with forty pieces that they have none is a lie either way.
   const filtering = listQ.length > 0 || !!inst;
+  // a search must never hide its only matches inside the collapsed section
+  const techOpen = store.showTechniques || listQ.length > 0;
   const clearFilters = () => {
     setListQuery('');
     if (inst) store.updateSettings({ instrumentFilter: '' });
   };
 
   // invested time from the session log, matched by title — pieces and
-  // techniques are both logged under their display name
-  const investedIn = (name: string) => {
-    let min = 0;
-    let last: string | null = null;
+  // techniques are both logged under their display name. One pass over the
+  // sessions, not several per row: the log runs to thousands of entries.
+  const byTitle = useMemo(() => {
+    const m = new Map<string, { min: number; last: string | null; dates: string[] }>();
     for (const sess of store.sessions) {
-      if (sess.title === name) {
-        min += sess.min;
-        if (!last || sess.date > last) last = sess.date;
-      }
+      const e = m.get(sess.title) ?? { min: 0, last: null, dates: [] };
+      e.min += sess.min;
+      if (!e.last || sess.date > e.last) e.last = sess.date;
+      e.dates.push(sess.date);
+      m.set(sess.title, e);
     }
-    return { min, last };
-  };
-  const stats = (p: Piece) => investedIn(p.name);
-  const stale = (p: Piece) => staleness(store.sessions.filter((x) => x.title === p.name).map((x) => x.date), store.today);
+    return m;
+  }, [store.sessions]);
+  const stats = (p: Piece) => byTitle.get(p.name) ?? { min: 0, last: null, dates: [] };
 
   // song/artist suggestions from the iTunes Search API (public, no key)
   useEffect(() => {
@@ -231,9 +232,13 @@ export default function Repertoire() {
   const renderRow = (p: Piece, i: number) => {
     const st = stats(p);
     const n = store.stages.length;
-    const dueNote = p.stage >= n - 1 && stale(p)?.due ? store.t('repertoire.dueForReview', { days: stale(p)!.daysSince }) : '';
+    const stale = p.stage >= n - 1 ? staleness(st.dates, store.today) : null;
+    const dueNote = stale?.due ? store.t('repertoire.dueForReview', { days: stale.daysSince }) : '';
     return (
-      <Animated.View key={p.id} layout={LinearTransition.duration(260)} exiting={FadeOut.duration(180)}>
+      <Animated.View
+        key={p.id}
+        layout={reduceMotion ? undefined : LinearTransition.duration(260)}
+        exiting={reduceMotion ? undefined : FadeOut.duration(180)}>
         <Pressable
           style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}
           onPress={() => router.push(`/piece/${p.id}`)}
@@ -283,7 +288,7 @@ export default function Repertoire() {
       </View>
       <View style={s.titleRow}>
         <Text style={s.title}>{store.t('tabs.repertoire')}</Text>
-        <Pressable testID="repertoire-add" style={s.fabBtn} onPress={() => setAddOpen(true)}>
+        <Pressable testID="repertoire-add" style={s.fabBtn} accessibilityRole="button" accessibilityLabel={store.t('repertoire.addToRepertoire')} onPress={() => setAddOpen(true)}>
           <Text style={s.fabText}>+</Text>
         </Pressable>
       </View>
@@ -291,7 +296,7 @@ export default function Repertoire() {
       {store.instruments.length > 1 && (
         <View style={s.filterRow}>
           <UnderlineTabs
-            options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: i }))]}
+            options={[{ key: '', label: store.t('common.all') }, ...store.instruments.map((i) => ({ key: i, label: instrumentName(i, store.t) }))]}
             value={inst}
             onChange={(v) => store.updateSettings({ instrumentFilter: v })}
           />
@@ -331,7 +336,7 @@ export default function Repertoire() {
           <View style={{ gap: 12 }}>
             <Overline>{store.t('repertoire.orStartTechnique')}</Overline>
             <View style={s.chipWrap}>
-              {PRESET_TECHNIQUES.filter((t) => !store.techniques.includes(t)).slice(0, 6).map((t) => (
+              {presets.filter((t) => !store.techniques.includes(t)).slice(0, 6).map((t) => (
                 <Pressable key={t} style={s.chip} onPress={() => store.addTechnique(t)}>
                   <Text style={s.chipText}>
                     <Text style={{ color: C.accent }}>+ </Text>
@@ -395,10 +400,10 @@ export default function Repertoire() {
         <View style={{ gap: 6 }}>
           <SectionHead
             label={store.t('repertoire.techniques')}
-            open={store.showTechniques}
+            open={techOpen}
             onToggle={() => store.updateSettings({ showTechniques: !store.showTechniques })}
           />
-          {store.showTechniques && (
+          {techOpen && (
             <View>
               {techniques.map((p, i) => (
                 <Pressable key={p.id} style={[s.techRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]} onPress={() => router.push(`/piece/${p.id}`)}>
@@ -409,9 +414,12 @@ export default function Repertoire() {
                     {/* never practised has no "last" day to name — the piece rows
                         above take the same branch, so keep the two reading alike */}
                     <Text style={s.techMeta}>
-                      {stats(p).min > 0 && stats(p).last
-                        ? store.t('repertoire.invested', { min: stats(p).min, day: dayLabel(stats(p).last!, store.today, store.t, store.lang) })
-                        : store.t('repertoire.notPractisedYet')}
+                      {(() => {
+                        const st = stats(p);
+                        return st.min > 0 && st.last
+                          ? store.t('repertoire.invested', { min: st.min, day: dayLabel(st.last, store.today, store.t, store.lang) })
+                          : store.t('repertoire.notPractisedYet');
+                      })()}
                     </Text>
                   </View>
                   {p.stage >= 0 && <Text style={[s.stageWord, { color: stageColor(C, p.stage, store.stages.length) }]}>{store.stages[Math.min(p.stage, store.stages.length - 1)]}</Text>}
@@ -477,7 +485,7 @@ export default function Repertoire() {
                     returnKeyType="done"
                   />
                   {name.length > 0 && (
-                    <Pressable hitSlop={8} onPress={() => setName('')}>
+                    <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('common.clearSearch')} onPress={() => setName('')}>
                       <Text style={s.clearText}>×</Text>
                     </Pressable>
                   )}
@@ -520,10 +528,10 @@ export default function Repertoire() {
                 {store.instruments.length > 1 && (
                   <View style={[s.chipWrap, { marginBottom: 10 }]}>
                     {store.instruments.map((i) => {
-                      const sel = (addInst ?? inst ?? '') === i || (!addInst && !inst && i === store.instruments[0]);
+                      const sel = (addInst ?? inst ?? '') === i || (!addInst && !inst && i === primaryOf(store.instruments, store.primaryInstrument));
                       return (
                         <Pressable key={i} style={[s.chip, sel && s.chipSel]} onPress={() => setAddInst(i)}>
-                          <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                          <Text style={[s.chipText, sel && { color: C.accent }]}>{instrumentName(i, store.t)}</Text>
                         </Pressable>
                       );
                     })}
@@ -540,7 +548,12 @@ export default function Repertoire() {
                     onSubmitEditing={() => add(creating, artist.trim())}
                     returnKeyType="done"
                   />
-                  <Pressable testID="add-confirm" style={s.plusBtn} onPress={() => add(creating, artist.trim())}>
+                  <Pressable
+                    testID="add-confirm"
+                    style={s.plusBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={store.t('repertoire.addToRepertoire')}
+                    onPress={() => add(creating, artist.trim())}>
                     <Text style={s.plusText}>+</Text>
                   </Pressable>
                 </View>
@@ -550,7 +563,7 @@ export default function Repertoire() {
             <>
             <Overline style={{ marginTop: 18, marginBottom: 10 }}>{store.t('repertoire.techniquesTapToggle')}</Overline>
             <View style={s.chipWrap}>
-              {[...new Set([...PRESET_TECHNIQUES, ...store.techniques])].map((t) => {
+              {[...new Set([...presets, ...store.techniques])].map((t) => {
                 const sel = store.techniques.includes(t);
                 return (
                   <Pressable key={t} style={[s.chip, sel && s.chipSel]} onPress={() => addTech(t)}>
@@ -566,16 +579,19 @@ export default function Repertoire() {
                 onChangeText={setCustomTech}
                 placeholder={store.t('repertoire.ownTechniquePlaceholder')}
                 placeholderTextColor={C.tertiary}
+                // add-only: the chips toggle, but typing an existing name must never delete it
                 onSubmitEditing={() => {
-                  addTech(customTech);
+                  store.addTechnique(customTech.trim());
                   setCustomTech('');
                 }}
                 returnKeyType="done"
               />
               <Pressable
                 style={s.plusBtn}
+                accessibilityRole="button"
+                accessibilityLabel={store.t('repertoire.addTechnique')}
                 onPress={() => {
-                  addTech(customTech);
+                  store.addTechnique(customTech.trim());
                   setCustomTech('');
                 }}>
                 <Text style={s.plusText}>+</Text>
@@ -587,8 +603,10 @@ export default function Repertoire() {
 
       {/* re-home an orphaned take: recordings join pieces by name, so this is a one-field write */}
       <Modal visible={moveTake !== null} transparent animationType="fade" onRequestClose={() => setMoveTake(null)}>
-        <Pressable style={s.backdrop} onPress={() => setMoveTake(null)}>
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <View style={s.backdrop}>
+          {/* behind the sheet, not around it — see Sheet in ui.tsx: a Pressable wrapping a ScrollView steals its drags on Android */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMoveTake(null)} accessible={false} />
+          <View style={s.sheet}>
             <Text style={s.sheetTitle}>{store.t('recordings.moveTitle')}</Text>
             <ScrollView style={{ maxHeight: 320 }}>
               {store.allPieces.map((p) => (
@@ -613,8 +631,8 @@ export default function Repertoire() {
             <Pressable style={s.moveCancel} onPress={() => setMoveTake(null)}>
               <Text style={s.moveCancelText}>{store.t('recordings.moveCancel')}</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* A Sheet, not a bare Modal: the "new folder" field sits at the bottom of
@@ -640,7 +658,7 @@ export default function Repertoire() {
                               store.updatePiece(menuPiece.id, patch);
                               setMenuPiece({ ...menuPiece, ...patch });
                             }}>
-                            <Text style={[s.chipText, sel && { color: C.accent }]}>{i}</Text>
+                            <Text style={[s.chipText, sel && { color: C.accent }]}>{instrumentName(i, store.t)}</Text>
                           </Pressable>
                         );
                       })}
@@ -724,10 +742,7 @@ export default function Repertoire() {
                 </Pressable>
                 <Pressable
                   style={s.sheetRow}
-                  onPress={() => {
-                    store.removePiece(menuPiece.id);
-                    closeMenu();
-                  }}>
+                  onPress={() => confirmRemovePiece(store, menuPiece, closeMenu)}>
                   <Text style={[s.sheetRowText, { color: C.accent }]}>{store.t('repertoire.remove')}</Text>
                 </Pressable>
               </>
@@ -754,8 +769,9 @@ export default function Repertoire() {
                     returnKeyType="done"
                     onSubmitEditing={saveRename}
                   />
-                  <Pressable style={s.plusBtn} accessibilityLabel={store.t('repertoire.saveFolder')} onPress={saveRename}>
-                    <Text style={s.fabText}>+</Text>
+                  {/* a rename saves; a "+" here read as adding a folder */}
+                  <Pressable style={s.saveBtn} hitSlop={8} onPress={saveRename}>
+                    <Text style={s.saveBtnText}>{store.t('repertoire.saveFolder')}</Text>
                   </Pressable>
                 </View>
                 <Pressable style={s.sheetRow} onPress={() => confirmDeleteFolder(folderMenu)}>
@@ -782,6 +798,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   input: { flex: 1, minWidth: 0, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine, paddingHorizontal: 0, fontFamily: F.body, fontSize: fs(15), color: C.ink },
   plusBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: C.ink, alignItems: 'center', justifyContent: 'center' },
   plusText: { color: C.ink, fontSize: fs(22), lineHeight: fs(24), fontFamily: F.body },
+  saveBtn: { height: 44, paddingHorizontal: 16, borderRadius: r(12), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  saveBtnText: { fontFamily: F.bodySemi, fontSize: fs(14.5), color: '#FFFFFF' },
   headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
   headMeta: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
   titleRow: { marginTop: 28, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
@@ -789,15 +807,16 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   row: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.hairline },
   rowTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   pieceName: { fontFamily: F.bodyMed, fontSize: fs(17), lineHeight: fs(22), color: C.ink },
-  techRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 60 },
+  techRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 8 },
   techMeta: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
   stageWord: { fontFamily: F.body, fontSize: fs(15) },
   composer: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(20), color: C.subStrong, marginTop: 1 },
   tag: { fontFamily: F.body, fontSize: fs(15), lineHeight: fs(22) },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
-  rowMeta: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
-  metaText: { fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
-  metaNote: { fontFamily: F.accent, fontSize: fs(13) },
+  // wraps rather than clipping the due note off-screen (long in German)
+  rowMeta: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 8, rowGap: 2 },
+  metaText: { flexShrink: 1, fontFamily: F.body, fontSize: fs(13), color: C.subStrong },
+  metaNote: { flexShrink: 1, fontFamily: F.accent, fontSize: fs(13) },
   hint: { fontFamily: F.body, fontSize: fs(14.5), color: C.tertiary, textAlign: 'center' },
   techHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   moreBtn: { width: 28, height: 28, borderRadius: r(14), alignItems: 'center', justifyContent: 'center', marginLeft: 6 },

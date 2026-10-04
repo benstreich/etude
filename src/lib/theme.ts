@@ -3,6 +3,7 @@
 // styles via themed(sheet) hooks; buildTheme memoizes per settings change.
 import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { useStore } from './store';
 
@@ -121,9 +122,13 @@ export function buildTheme(
 export function useTheme(): T {
   const { theme, accent, fontScale, radius, reduceMotion } = useStore();
   const systemDark = useColorScheme() === 'dark';
+  // Reanimated's layout animations already follow the OS setting; the Animated
+  // and flag-gated motion keyed off this has to as well (read once at launch)
+  const osReduce = useReducedMotion();
+  const reduce = reduceMotion || osReduce;
   return useMemo(
-    () => buildTheme({ theme, accent, fontScale, radius, reduceMotion }, systemDark),
-    [theme, accent, fontScale, radius, reduceMotion, systemDark],
+    () => buildTheme({ theme, accent, fontScale, radius, reduceMotion: reduce }, systemDark),
+    [theme, accent, fontScale, radius, reduce, systemDark],
   );
 }
 

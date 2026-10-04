@@ -8,7 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronIcon, SearchIcon } from '@/components/icons';
 import { Text } from '@/components/text';
+import { Toast } from '@/components/toast';
 import { tap, thud } from '@/lib/haptics';
+import { instrumentName } from '@/lib/instrument-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, useTheme, type Palette, type T } from '@/lib/theme';
 
@@ -48,6 +50,12 @@ export function useKeyboardLift() {
   return useAnimatedStyle(() => ({ paddingBottom: Math.abs(height.value) }));
 }
 
+/** The same lift for an overlay that is absolutely placed, so padding would not move it. */
+function useKeyboardRaise() {
+  const { height } = useReanimatedKeyboardAnimation();
+  return useAnimatedStyle(() => ({ transform: [{ translateY: height.value }] }));
+}
+
 /**
  * Bottom sheet in a <Modal> that can never be taller than the window it lives in (#75).
  * The sheet is flex-sized against the window and scrolls inside, and the container
@@ -81,6 +89,7 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const winH = useWindowDimensions().height;
   const lift = useKeyboardLift();
+  const raise = useKeyboardRaise();
   // the Modal has to outlive `visible` by one exit animation, or the sheet just
   // vanishes: `mounted` keeps the window, `shown` drives the slide
   const OUT_MS = reduceMotion ? 0 : 240;
@@ -115,14 +124,19 @@ export function Sheet({
     <Modal visible={mounted} transparent animationType="fade" onRequestClose={onClose}>
       {/* A Modal is its own native view tree, so the app's root handler in _layout
           does not reach inside it: without this, gestures in a sheet never fire. */}
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <RNPressable style={s.backdrop} onPress={onClose}>
+      <GestureHandlerRootView style={s.backdrop}>
+        {/* A sibling behind the sheet, never a wrapper around it: a Pressable that is
+            an ancestor of the scroll view becomes the JS responder for any drag that
+            starts on plain text, and on Android JSResponderHandler then intercepts
+            the MOVE events before the ScrollView reaches touch slop — a long sheet
+            simply would not scroll. */}
+        <RNPressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
         {shown && (
         <Animated.View
           entering={reduceMotion ? undefined : SlideInDown.duration(380).easing(Easing.bezier(0.33, 1, 0.68, 1))}
           exiting={reduceMotion ? undefined : SlideOutDown.duration(OUT_MS).easing(Easing.bezier(0.32, 0, 0.67, 0))}
           style={[s.avoid, lift, dragStyle, { paddingTop: insets.top, pointerEvents: 'box-none' }]}>
-          <RNPressable style={[s.sheet, { maxHeight: winH - insets.top - 12 }, fill && s.sheetFill, style]} onPress={() => {}}>
+          <View style={[s.sheet, { maxHeight: winH - insets.top - 12, paddingBottom: Math.max(40, insets.bottom + 16) }, fill && s.sheetFill, style]}>
             <GestureDetector gesture={pan}>
               <View style={s.dragZone}>
                 <View style={[s.grabber, !grabber && { opacity: 0.6 }]} />
@@ -141,14 +155,22 @@ export function Sheet({
               style={fill ? s.scrollFill : s.scroll}
               keyboardShouldPersistTaps="handled"
               scrollEnabled={scrollEnabled}
-              showsVerticalScrollIndicator={false}
+              // a long sheet has to look scrollable: a list that happens to end on a
+              // row edge read as complete. The bar only draws when the content
+              // overflows; on Android it stays up (thin, grey) instead of fading out.
+              showsVerticalScrollIndicator
+              persistentScrollbar
               contentContainerStyle={[align === 'bottom' && s.contentBottom, contentStyle]}>
               {children}
             </KeyboardAwareScrollView>
-          </RNPressable>
+          </View>
           </Animated.View>
         )}
-        </RNPressable>
+        {/* The app's toast lives in the root window, under this Modal: a validation
+            error toasted while the sheet stays open would never be seen. */}
+        <Animated.View style={[StyleSheet.absoluteFill, raise, { pointerEvents: 'none' }]}>
+          <Toast inModal bottom={insets.bottom + 24} />
+        </Animated.View>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -182,15 +204,31 @@ const AnimatedRNText = Animated.createAnimatedComponent(RNText);
  * omitted = read-only. Rating a session is a tap that deserves a reply: the
  * selected star scales to 1.14 and settles, and its colour crossfades.
  */
-export const Stars = ({ value, onChange, size = 28 }: { value?: number; onChange?: (v: number | undefined) => void; size?: number }) => (
-  <View style={{ flexDirection: 'row', gap: size * 0.25 }} accessibilityRole="adjustable" accessibilityValue={{ now: value ?? 0, min: 0, max: 5 }}>
-    {[1, 2, 3, 4, 5].map((n) => (
-      <Star key={n} n={n} on={value !== undefined && n <= value} disabled={!onChange} size={size} onPress={() => onChange?.(value === n ? undefined : n)} />
-    ))}
-  </View>
-);
+export const Stars = ({ value, onChange, size = 28 }: { value?: number; onChange?: (v: number | undefined) => void; size?: number }) => {
+  const { t } = useStore();
+  const label = (n: number) => t('common.starsOf', { n });
+  // read-only: one element that says the rating; editable: five buttons, the chosen one selected
+  return (
+    <View
+      style={{ flexDirection: 'row', gap: size * 0.25 }}
+      accessible={!onChange}
+      accessibilityLabel={onChange ? undefined : label(value ?? 0)}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          on={value !== undefined && n <= value}
+          selected={value === n}
+          label={label(n)}
+          disabled={!onChange}
+          size={size}
+          onPress={() => onChange?.(value === n ? undefined : n)}
+        />
+      ))}
+    </View>
+  );
+};
 
-function Star({ n, on, disabled, size, onPress }: { n: number; on: boolean; disabled: boolean; size: number; onPress: () => void }) {
+function Star({ on, selected, label, disabled, size, onPress }: { on: boolean; selected: boolean; label: string; disabled: boolean; size: number; onPress: () => void }) {
   const C = useC();
   const { reduceMotion } = useTheme();
   const scale = useSharedValue(1);
@@ -217,7 +255,9 @@ function Star({ n, on, disabled, size, onPress }: { n: number; on: boolean; disa
         tap();
         onPress();
       }}
-      accessibilityLabel={`${n}`}>
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected, disabled }}>
       <AnimatedRNText style={[{ fontSize: size, lineHeight: size * 1.15 }, style]}>{on ? '★' : '☆'}</AnimatedRNText>
     </Pressable>
   );
@@ -234,11 +274,16 @@ export const InstrumentFilter = ({ style }: { style?: ViewProps['style'] }) => {
   if (store.instruments.length < 2) return null;
   const sel = store.instruments.includes(store.instrumentFilter) ? store.instrumentFilter : '';
   return (
-    <View style={[s.segTrack, style]}>
+    <View style={[s.segTrack, style]} accessibilityRole="tablist">
       {['', ...store.instruments].map((inst) => (
-        <Pressable key={inst} style={[s.segBtn, sel === inst && s.segBtnSel]} onPress={() => store.updateSettings({ instrumentFilter: inst })}>
+        <Pressable
+          key={inst}
+          style={[s.segBtn, sel === inst && s.segBtnSel]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: sel === inst }}
+          onPress={() => store.updateSettings({ instrumentFilter: inst })}>
           <Text style={[s.segText, sel === inst && { color: C.ink }]} numberOfLines={1}>
-            {inst || store.t('common.all')}
+            {inst ? instrumentName(inst, store.t) : store.t('common.all')}
           </Text>
         </Pressable>
       ))}
@@ -275,6 +320,7 @@ export function SearchField({
         placeholderTextColor={C.tertiary}
         autoCorrect={false}
         clearButtonMode="while-editing"
+        maxFontSizeMultiplier={1.4}
       />
     </View>
   );
@@ -288,7 +334,7 @@ export function SectionHead({ label, open, onToggle, testID }: { label: string; 
   const s = useS();
   const C = useC();
   return (
-    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle} testID={testID}>
+    <Pressable hitSlop={8} style={s.sectionHead} onPress={onToggle} testID={testID} accessibilityRole="button" accessibilityState={{ expanded: open }}>
       <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
         <ChevronIcon color={C.tertiary} size={10} />
       </View>
@@ -360,6 +406,7 @@ export function EntryRow({
       testID={testID}
       disabled={disabled || !onPress}
       onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
       style={({ pressed }) => [
         s.entryRow,
         top && s.entryRowTop,
@@ -389,7 +436,7 @@ export function BackLink({ label, onPress }: { label: string; onPress: () => voi
   const s = useS();
   const C = useC();
   return (
-    <Pressable hitSlop={8} onPress={onPress} style={s.backLink}>
+    <Pressable hitSlop={8} accessibilityRole="button" onPress={onPress} style={s.backLink}>
       <View style={{ transform: [{ scaleX: -1 }] }}>
         <ChevronIcon color={C.accent} size={12} />
       </View>
@@ -435,28 +482,35 @@ export function UnderlineTabs<K extends string>({
     }
   };
 
+  // only the selected tab's own layout places the rule: the first tab to report
+  // used to mark it placed, so a later-selected tab slid in from the left
   const onTabLayout = (key: K, x: number, w: number) => {
     layouts.current.set(key, { x, width: w });
-    if (key === value) driveTo({ x, width: w }, !placed.current);
+    if (key !== value) return;
+    driveTo({ x, width: w }, !placed.current);
     placed.current = true;
   };
 
   // the value can change from outside a tap too (e.g. a stored setting loading in)
   useEffect(() => {
     const l = layouts.current.get(value);
-    if (l) driveTo(l, !placed.current);
+    if (!l) return;
+    driveTo(l, !placed.current);
+    placed.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   const ruleStyle = useAnimatedStyle(() => ({ left: left.value, width: width.value }));
 
   return (
-    <View style={[s.tabsRow, { gap }]}>
+    <View style={[s.tabsRow, { gap }]} accessibilityRole="tablist">
       {options.map((o) => {
         const active = o.key === value;
         return (
           <Pressable
             key={o.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             onPress={() => {
               if (!active) tap();
               onChange(o.key);
@@ -488,6 +542,7 @@ export function Stepper({
   coarseStep,
   size = 38,
   suffix,
+  label,
   onChange,
 }: {
   value: number;
@@ -497,28 +552,35 @@ export function Stepper({
   coarseStep?: number;
   size?: 30 | 38 | 44;
   suffix?: string;
+  /** What is being stepped, for screen readers — a bare "−" says nothing. */
+  label?: string;
   onChange: (v: number) => void;
 }) {
   const s = useS();
   const C = useC();
+  const store = useStore();
   const glyphColor = size === 30 ? C.accent : C.ink;
   const clamp = (v: number) => Math.min(max, Math.max(min, v));
 
-  const btn = (delta: number, label: string, key: string) => {
+  const btn = (delta: number, glyph: string, key: string) => {
     const next = clamp(value + delta);
     const disabled = next === value;
+    const action = store.t(delta < 0 ? 'common.decreaseBy' : 'common.increaseBy', { n: Math.abs(delta) });
     return (
       <Pressable
         key={key}
         hitSlop={size === 30 ? 7 : undefined}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        accessibilityLabel={label ? `${label}: ${action}` : action}
         onPress={() => {
           if (disabled) return;
           tap();
           onChange(next);
         }}
         style={[s.stepBtn, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={[s.stepGlyph, { color: disabled ? C.faint : glyphColor }]}>{label}</Text>
+        <Text style={[s.stepGlyph, { color: disabled ? C.faint : glyphColor }]}>{glyph}</Text>
       </Pressable>
     );
   };
@@ -546,7 +608,18 @@ export function Stepper({
  * they finish together; the row around it (label + hint + switch) is the
  * caller's Pressable, matching the metronome's existing switch row.
  */
-export function Switch({ value, onChange, testID }: { value: boolean; onChange: (v: boolean) => void; testID?: string }) {
+export function Switch({
+  value,
+  onChange,
+  testID,
+  accessibilityLabel,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  testID?: string;
+  /** The row's label — without it a screen reader announces only "switch, off". */
+  accessibilityLabel?: string;
+}) {
   const s = useS();
   const C = useC();
   const { reduceMotion } = useTheme();
@@ -560,6 +633,7 @@ export function Switch({ value, onChange, testID }: { value: boolean; onChange: 
     <Pressable
       testID={testID}
       accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value }}
       onPress={() => {
         tap();
@@ -613,6 +687,7 @@ export function ActionChip({
     <Pressable
       hitSlop={5}
       disabled={disabled}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       testID={testID}
@@ -711,10 +786,10 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   dragZone: { alignSelf: 'stretch', alignItems: 'center', paddingTop: 2, paddingBottom: 12, marginTop: -6 },
   grabber: { width: 36, height: 4.5, borderRadius: r(999), backgroundColor: C.chartInactive },
   segTrack: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: C.track, borderRadius: r(999), padding: 2.5 },
-  searchField: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine },
+  searchField: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, borderBottomWidth: 1, borderBottomColor: C.staffLine },
   searchInput: { flex: 1, fontFamily: F.body, fontSize: fs(17), color: C.ink, padding: 0 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  segBtn: { height: 26, paddingHorizontal: 12, borderRadius: r(999), alignItems: 'center', justifyContent: 'center', maxWidth: 120 },
+  segBtn: { minHeight: 26, paddingVertical: 4, paddingHorizontal: 12, borderRadius: r(999), alignItems: 'center', justifyContent: 'center', maxWidth: 120 },
   segBtnSel: { backgroundColor: C.card, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   segText: { fontFamily: F.bodySemi, fontSize: fs(12), color: C.sub },
   card: { padding: 20 },
@@ -740,7 +815,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backLinkText: { fontFamily: F.bodySemi, fontSize: fs(15), color: C.accent },
   tabsRow: { position: 'relative', flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.staffLine },
-  tabItem: { height: 36, justifyContent: 'center' },
+  tabItem: { minHeight: 36, paddingVertical: 6, justifyContent: 'center' },
   tabText: { fontFamily: F.bodySemi, fontSize: fs(14) },
   tabRule: { position: 'absolute', bottom: -1, height: 2 },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -751,7 +826,7 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   stepSuffix: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
   switchTrack: { width: 51, height: 31, borderRadius: r(16), padding: 2, justifyContent: 'center' },
   switchKnob: { width: 27, height: 27, borderRadius: r(14), backgroundColor: C.card, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
-  chipAction: { height: 34, paddingHorizontal: 13, borderRadius: r(8), flexDirection: 'row', alignItems: 'center', gap: 7 },
+  chipAction: { minHeight: 34, paddingVertical: 6, paddingHorizontal: 13, borderRadius: r(8), flexDirection: 'row', alignItems: 'center', gap: 7 },
   chipActionText: { fontFamily: F.bodyMed, fontSize: fs(13.5) },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   statsRow: { flexDirection: 'row', borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.staffLine, paddingVertical: 16 },

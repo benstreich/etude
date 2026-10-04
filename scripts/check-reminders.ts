@@ -3,7 +3,14 @@
 // silently scheduling a notification at the wrong hour.
 import assert from 'node:assert';
 
-import { parseReminderTime, reminderLabel } from '../src/lib/reminder-time.ts';
+import { parseReminderTime, reminderDisplay, reminderLabel } from '../src/lib/reminder-time.ts';
+
+// --- display: German reads 24-hour, English keeps the canonical label --------
+assert.equal(reminderDisplay('7:00 PM', 'de'), '19:00');
+assert.equal(reminderDisplay('9:05 AM', 'de'), '9:05');
+assert.equal(reminderDisplay('12:30 AM', 'de'), '0:30');
+assert.equal(reminderDisplay('7:00 PM', 'en'), '7:00 PM');
+assert.equal(reminderDisplay('Off', 'de'), 'Off', 'a non-time passes through for the caller to translate');
 
 // --- accepted forms -------------------------------------------------------
 assert.deepEqual(parseReminderTime('7:00 PM'), { hour: 19, minute: 0 });

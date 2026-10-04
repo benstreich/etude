@@ -1,7 +1,7 @@
 // Self-check for the pure session-edit math. Run: npm run check:session
 import assert from 'node:assert/strict';
 
-import { applySessionUpdate, LIVE_GRACE_MS, restoreLive } from '../src/lib/session-math.ts';
+import { applySessionUpdate, isQuickLog, LIVE_GRACE_MS, QUICK_META, QUICK_TITLE, restoreLive, sessionTitle } from '../src/lib/session-math.ts';
 
 const base = () => ({
   sessions: [
@@ -79,5 +79,12 @@ assert.deepEqual(night, { accum: 120, startedAt: null });
 
 // a heartbeat that predates the start (clock skew, restored backup) clamps at 0
 assert.deepEqual(restoreLive({ startedAt: t0, accum: 30, lastSeen: t0 - 5000 }, t0 + 2 * LIVE_GRACE_MS), { accum: 30, startedAt: null });
+
+// quick logs are stored in English and shown in the UI language; a piece that happens to share the name is not one
+const de = (k: string) => (k === 'home.quickLog' ? 'Schnelleintrag' : k);
+assert.equal(sessionTitle({ title: QUICK_TITLE, meta: QUICK_META }, de), 'Schnelleintrag');
+assert.equal(sessionTitle({ title: 'Nocturne', meta: 'Piece' }, de), 'Nocturne');
+assert.equal(isQuickLog({ title: QUICK_TITLE, meta: 'Piece' }), false);
+assert.equal(isQuickLog({ title: QUICK_TITLE }), true, 'title-only aggregates still match');
 
 console.log('check-session: all assertions passed');

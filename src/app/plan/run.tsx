@@ -1,7 +1,7 @@
 // Guided plan runner (#17) — replaces the plain timer while a plan runs.
 // One session is logged per segment, so focus stats stay per piece/technique.
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
@@ -16,16 +16,21 @@ import { Text } from '@/components/text';
 import { EntryRow, Overline, PulseRing, useInstrumentFilter } from '@/components/ui';
 import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
-import { getActiveRun, resolvePlan, setActiveRun, setTransientPlan, useTransientPlan } from '@/lib/plan-run-state';
+import { getActiveRun, getTransientPlan, resolvePlan, setActiveRun, setTransientPlan, TRANSIENT_PLAN_ID, useTransientPlan } from '@/lib/plan-run-state';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
-import { useStore } from '@/lib/store';
+import { dateKey, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
 export default function PlanRunner() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  // tab screens stay mounted — key-remount resets the run state when a
-  // different plan is started, else the old run's segment index leaks in
-  return <Runner key={id} id={id} />;
+  // `run`: a token every fresh start passes (resuming passes none). Tab screens
+  // stay mounted, so the key-remount is what gives each start a clean run —
+  // without it a second start of the same routine reopened the finished one's
+  // review / ended state. The last token is kept so a resume (no token) never
+  // remounts the run in flight.
+  const { id, run } = useLocalSearchParams<{ id: string; run?: string }>();
+  const [token, setToken] = useState(run ?? '');
+  if (run && run !== token) setToken(run);
+  return <Runner key={`${id}:${run || token}`} id={id} />;
 }
 
 function Runner({ id }: { id: string }) {
@@ -36,14 +41,20 @@ function Runner({ id }: { id: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const metro = useMetronome();
+  const focused = useIsFocused();
 
   // a saved routine, or the unsaved "Suggested for today" plan (#95), which lives
   // in plan-run-state rather than the store and is dropped once the run is over
   useTransientPlan();
   const plan = resolvePlan(store.plans, id);
+  // the transient plan this runner was started with, if any: a restart of the
+  // suggested session remounts the runner (new run token) after the card has
+  // already set the next plan, and the old runner's cleanup must not drop that one
+  const [ownTransient] = useState(() => (id === TRANSIENT_PLAN_ID ? getTransientPlan() : null));
   useEffect(() => () => {
-    if (!getActiveRun()) setTransientPlan(null); // leaving with no run in flight: nothing to come back to
-  }, []);
+    // leaving with no run in flight: nothing to come back to
+    if (ownTransient && !getActiveRun() && getTransientPlan() === ownTransient) setTransientPlan(null);
+  }, [ownTransient]);
   // resume the run-in-progress if this screen was unmounted mid-run (tab switch)
   const [resumed] = useState(() => {
     const r = getActiveRun();
@@ -69,21 +80,52 @@ function Runner({ id }: { id: string }) {
   const [accum, setAccum] = useState(resumed?.accum ?? 0);
   const [seconds, setSeconds] = useState(resumed?.accum ?? 0);
   const [review, setReview] = useState<ReviewSession | null>(null);
+  // ended with nothing to review: this tab stays mounted after router.back(), so
+  // the clock must stop or the auto-advance would end (and go back) every tick
+  const [over, setOver] = useState(false);
   const [metroOpen, setMetroOpen] = useState(false);
   const [runStart] = useState(() => resumed?.runStart ?? Date.now());
+  // what has actually been logged, so the review reports real minutes and never
+  // points at a break (which logs nothing)
+  const logged = useRef({ min: resumed?.loggedMin ?? 0, lastId: resumed?.lastId ?? '' });
   const paused = startedAt === null;
 
+  // segments removed in the editor mid-run: land on the last one that still exists
+  const segCount = plan?.segments.length ?? 0;
+  if (segCount > 0 && idx >= segCount) setIdx(segCount - 1);
   const seg = plan?.segments[idx];
   const segSec = (seg?.min ?? 0) * 60;
+  const planName = plan ? plan.name.trim() || store.t('practice.defaultPlanName') : '';
 
   // mirror the run into the module singleton so it survives unmounts and the
-  // shell can offer a way back. ponytail: while this screen is unmounted the
-  // segment can overrun; on return one auto-advance logs the planned minutes
-  // and the run continues from now — overflow beyond one segment isn't spread.
+  // shell can offer a way back. While this screen is unmounted (or JS is asleep
+  // behind a locked screen) the segment can overrun; on return the auto-advance
+  // carries the overrun into the next segments, so no practice time is lost.
   useEffect(() => {
-    if (!plan || review) return;
-    setActiveRun({ planId: plan.id, idx, startedAt, accum, runStart });
-  }, [plan, idx, startedAt, accum, runStart, review]);
+    if (!plan || review || over) return;
+    setActiveRun({ planId: plan.id, idx, startedAt, accum, runStart, loggedMin: logged.current.min, lastId: logged.current.lastId });
+  }, [plan, idx, startedAt, accum, runStart, review, over]);
+
+  // every segment removed (or the routine deleted) mid-run: end the run rather
+  // than strand a blank screen with no way out. Only leave if we're on screen —
+  // this tab stays mounted, and backing out of the editor that did it is wrong.
+  const stranded = !review && !seg;
+  useEffect(() => {
+    if (!stranded || getActiveRun()?.planId !== id) return;
+    if (metro.running) metro.toggle();
+    setActiveRun(null);
+    hideSessionNotice();
+    if (focused) router.back();
+  }, [stranded, id, metro, router, focused]);
+
+  // startSegment sets each later segment's tempo; the first one needs it once too
+  const metroApplied = useRef(!!resumed);
+  useEffect(() => {
+    if (metroApplied.current || !seg) return;
+    metroApplied.current = true;
+    if (metro.running && seg.bpm) metro.setBpm(seg.bpm);
+    if (metro.running && seg.focus.kind === 'Break') metro.toggle(); // silence for the rest (#59)
+  }, [seg, metro]);
 
   // the run's foreground service (Android), so the routine survives the screen
   // going off; the segment's own clock ticks in the notification. Taken down
@@ -92,18 +134,18 @@ function Runner({ id }: { id: string }) {
   const segName = seg ? (seg.focus.kind === 'Break' ? store.t('planRun.break') : seg.focus.name) : '';
   const pausedWord = store.t('practice.paused');
   useEffect(() => {
-    if (!plan || !seg || review) return;
+    if (!plan || !seg || review || over) return;
     const elapsedMs = accum * 1000 + (startedAt !== null ? Date.now() - startedAt : 0);
-    showSessionNotice({ title: plan.name, subtitle: startedAt !== null ? segName : `${segName} · ${pausedWord}`, running: startedAt !== null, elapsedMs });
-  }, [plan, seg, segName, pausedWord, startedAt, accum, review]);
+    showSessionNotice({ title: planName, subtitle: startedAt !== null ? segName : `${segName} · ${pausedWord}`, running: startedAt !== null, elapsedMs });
+  }, [plan, planName, seg, segName, pausedWord, startedAt, accum, review, over]);
 
   useEffect(() => {
-    if (startedAt === null || review) return;
+    if (startedAt === null || review || over) return;
     const tick = () => setSeconds(accum + Math.floor((Date.now() - startedAt) / 1000));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [startedAt, accum, review]);
+  }, [startedAt, accum, review, over]);
 
   const isBreak = seg?.focus.kind === 'Break';
 
@@ -113,64 +155,82 @@ function Runner({ id }: { id: string }) {
     // the run's answer only applies to segments actually played on that instrument:
     // a piano-only piece sitting in a violin routine keeps its own tag
     const segPiece = store.allPieces.find((p) => p.name === seg.focus.name);
-    const on = runInst && onInstrument(segPiece ?? {}, runInst) ? runInst : inst || undefined;
-    return store.logMinutes(min, seg.focus.name, seg.focus.kind, undefined, plan.id, on);
+    // …and the tab in view only applies to a piece that is on it, same as Practice
+    const on = runInst && onInstrument(segPiece ?? {}, runInst) ? runInst : segPiece && !onInstrument(segPiece, inst) ? undefined : inst || undefined;
+    // filed under the day the segment began, so a run across midnight doesn't empty the evening
+    const segStart = Date.now() - sec * 1000;
+    const sessId = store.logMinutes(min, seg.focus.name, seg.focus.kind, dateKey(new Date(segStart)), plan.id, on, undefined, segStart);
+    logged.current = { min: logged.current.min + min, lastId: sessId };
+    return sessId;
   };
 
-  const startSegment = (i: number) => {
+  // carry: seconds already played past the previous segment's end
+  const startSegment = (i: number, carry = 0) => {
     if (!plan) return;
     setIdx(i);
-    setAccum(0);
-    setSeconds(0);
+    setAccum(carry);
+    setSeconds(carry);
     setStartedAt(Date.now());
     const next = plan.segments[i];
     if (metro.running && next.bpm) metro.setBpm(next.bpm);
     if (metro.running && next.focus.kind === 'Break') metro.toggle(); // silence for the rest (#59)
   };
 
-  const finish = (lastId: string) => {
-    if (!plan) return;
+  const abandon = () => {
+    setOver(true);
     if (metro.running) metro.toggle();
     setActiveRun(null);
     hideSessionNotice();
-    // break segments don't count as practice (#59)
-    const total = plan.segments.slice(0, idx).reduce((a, x) => a + (x.focus.kind === 'Break' ? 0 : x.min), 0) + (isBreak ? 0 : Math.round(seconds / 60));
-    setStartedAt(null);
-    setReview({ id: lastId, min: Math.max(1, total), focusName: plan.name, start: runStart, end: Date.now() });
+    router.back();
   };
 
-  const advance = (sec: number) => {
+  const finish = (lastId: string) => {
     if (!plan) return;
-    const sessId = logSegment(sec);
+    // nothing logged at all (only breaks, or skipped through): no session to review
+    const sessId = lastId || logged.current.lastId;
+    if (!sessId) return abandon();
+    if (metro.running) metro.toggle();
+    setActiveRun(null);
+    hideSessionNotice();
+    setStartedAt(null);
+    // logged minutes, not planned ones — breaks and skips count nothing (#59)
+    setReview({ id: sessId, min: Math.max(1, logged.current.min), focusName: planName, start: runStart, end: Date.now() });
+  };
+
+  // sec 0: skipped before anything worth logging
+  const advance = (sec: number, carry = 0) => {
+    if (!plan) return;
+    const sessId = sec > 0 ? logSegment(sec) : '';
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    if (idx + 1 < plan.segments.length) startSegment(idx + 1);
+    if (idx + 1 < plan.segments.length) startSegment(idx + 1, carry);
     else finish(sessId);
   };
 
   // auto-advance at segment end
   // ponytail: checked on the 1s tick, not a precise deadline timer — ±1s is fine here
-  const wantAdvance = !!seg && seconds >= segSec && !paused && !review;
+  const wantAdvance = !!seg && seconds >= segSec && !paused && !review && !over;
   const advanceRef = useRef(advance);
   useEffect(() => {
     advanceRef.current = advance;
   });
   useEffect(() => {
-    if (wantAdvance) advanceRef.current(segSec);
-  }, [wantAdvance, segSec]);
+    // idx in deps: an overrun longer than the next segment cascades through it too
+    if (wantAdvance) advanceRef.current(segSec, seconds - segSec);
+  }, [wantAdvance, segSec, idx, seconds]);
 
   if (!plan || !seg) return null;
 
   const end = () => {
-    const midSegment = seconds > 0 && seconds < segSec;
+    // confirm only when ending saves this segment — breaks and <30 s later segments save nothing
+    const saves = !isBreak && (seconds >= 30 || (idx === 0 && seconds > 0));
+    const midSegment = saves && seconds < segSec;
     const doEnd = () => {
-      if (seconds >= 30) advance(seconds);
-      else if (idx > 0 || seconds > 0) finish(logSegment(Math.max(60, seconds)));
-      else {
-        if (metro.running) metro.toggle();
-        setActiveRun(null);
-        hideSessionNotice();
-        router.back();
-      }
+      if (seconds >= 30) {
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        finish(logSegment(seconds));
+      } else if (idx > 0) finish(''); // review what was already logged
+      else if (seconds > 0) finish(logSegment(60));
+      else abandon();
     };
     if (!midSegment) return doEnd();
     if (Platform.OS === 'web') {
@@ -194,6 +254,7 @@ function Runner({ id }: { id: string }) {
   const shown = isBreak ? Math.max(0, segSec - seconds) : seconds;
   const mm = String(Math.floor(shown / 60)).padStart(2, '0');
   const ss = String(shown % 60).padStart(2, '0');
+  const timerLabel = store.t(isBreak ? 'planRun.timerLabelBreak' : 'planRun.timerLabel', { min: Math.floor(shown / 60), sec: shown % 60 });
   const chipBpm = metro.running ? metro.bpm : (seg.bpm ?? null);
   const nextSeg = plan.segments[idx + 1];
   const nextLabel = nextSeg ? (nextSeg.focus.kind === 'Break' ? store.t('planRun.break') : nextSeg.focus.name) : undefined;
@@ -208,7 +269,7 @@ function Runner({ id }: { id: string }) {
     <View style={[s.page, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20 }]}>
       <View style={s.topRow}>
         <Text style={s.planName} numberOfLines={1}>
-          {plan.name}
+          {planName}
         </Text>
         <Pressable testID="run-end" hitSlop={10} onPress={end}>
           <Text style={s.endLink}>{store.t('planRun.end')}</Text>
@@ -224,7 +285,7 @@ function Runner({ id }: { id: string }) {
         <Text style={s.segTitle} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={s.timer} numberOfLines={1} adjustsFontSizeToFit>
+        <Text testID="run-timer" style={s.timer} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="timer" accessibilityLabel={timerLabel}>
           {mm}:{ss}
         </Text>
         <Text style={s.of}>{isBreak ? store.t('planRun.breakHint') : store.t('planRun.ofMin', { min: seg.min })}</Text>
@@ -274,14 +335,14 @@ function Runner({ id }: { id: string }) {
           title={idx + 1 < plan.segments.length ? store.t('planRun.next') : store.t('planRun.finish')}
           subline={nextLabel}
           right={null}
-          onPress={() => advance(Math.max(60, seconds))}
+          onPress={() => advance(seconds >= 30 ? seconds : 0)}
         />
       </View>
 
       <InstrumentAsk
         visible={askInst}
-        name={plan.name}
-        subline={store.t('instrumentAsk.sublineRoutine', { name: plan.name })}
+        name={planName}
+        subline={store.t('instrumentAsk.sublineRoutine', { name: planName })}
         choices={[
           ...new Set(
             plan.segments.flatMap((sg) =>

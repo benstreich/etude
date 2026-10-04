@@ -1,12 +1,13 @@
 // Tempo ladder (#17) — per-piece BPM log with a small line chart, a delta
 // chip for the month, and a stepper sheet to log today's tempo.
 import React, { useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { LadderRows } from '@/components/ladder-tally';
 import { MetronomeButton } from '@/components/metronome';
+import { MetNote } from '@/components/motifs';
 import { Text } from '@/components/text';
 import { Card, Overline } from '@/components/ui';
 import { tempoDelta } from '@/lib/growth-math';
@@ -15,7 +16,7 @@ import { MAX_BPM } from '@/lib/metronome-math';
 import { maybeRequestReview } from '@/lib/review';
 import { dayLabel, Piece, useStore } from '@/lib/store';
 import { tempoTerm } from '@/lib/tempo';
-import { F, themed, useC, type T } from '@/lib/theme';
+import { F, themed, useC, useTheme, type T } from '@/lib/theme';
 
 const CHART_H = 96;
 
@@ -68,6 +69,7 @@ function TempoChart({ log, target }: { log: { date: string; bpm: number }[]; tar
 export function TempoLadder({ piece }: { piece: Piece }) {
   const s = useS();
   const C = useC();
+  const { fs } = useTheme();
   const store = useStore();
   const [logOpen, setLogOpen] = useState(false);
   const log = piece.tempoLog ?? [];
@@ -86,13 +88,31 @@ export function TempoLadder({ piece }: { piece: Piece }) {
     if (reached) setTimeout(() => maybeRequestReview(store), 1500);
   };
   const delta = tempoDelta(log, store.today);
+  // a small Delete sits in a scrolling page; one stray touch shouldn't drop a history point
+  const confirmDeleteEntry = (e: { date: string; bpm: number }) => {
+    const title = store.t('tempoLadder.deleteConfirm', { bpm: e.bpm, day: dayLabel(e.date, store.today, store.t, store.lang) });
+    const doDelete = () => store.deleteTempoEntry(piece.id, e.date);
+    // ponytail: Alert.alert is a no-op on web; window.confirm covers it
+    if (Platform.OS === 'web') {
+      if (window.confirm(title)) doDelete();
+      return;
+    }
+    Alert.alert(title, undefined, [
+      { text: store.t('editSession.cancel'), style: 'cancel' },
+      { text: store.t('tempoLadder.delete'), style: 'destructive', onPress: doDelete },
+    ]);
+  };
 
   if (log.length === 0)
     return (
       <View style={{ gap: 12 }}>
         <Pressable testID="tempo-log-open" onPress={openLog}>
           <Card style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={s.ghostGlyph}>♩=</Text>
+            {/* the note through SVG, never Text (see MetNote) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+              <MetNote size={fs(17)} color={C.sub} />
+              <Text style={s.ghostGlyph}>=</Text>
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={s.ghostTitle}>{store.t('tempoLadder.title')}</Text>
               <Text style={s.ghostSub}>{store.t('tempoLadder.emptyHint')}</Text>
@@ -154,19 +174,18 @@ export function TempoLadder({ piece }: { piece: Piece }) {
         </View>
       </Card>
 
-      {log.length > 1 && (
-        <Card style={{ paddingVertical: 4, paddingHorizontal: 16 }}>
-          {[...log].reverse().slice(0, 5).map((e, i) => (
-            <View key={e.date} style={[s.entryRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
-              <Text style={s.entryDate}>{dayLabel(e.date, store.today, store.t, store.lang)}</Text>
-              <Text style={s.entryBpm}>{e.bpm} BPM</Text>
-              <Pressable hitSlop={8} onPress={() => store.deleteTempoEntry(piece.id, e.date)}>
-                <Text style={s.entryDelete}>{store.t('tempoLadder.delete')}</Text>
-              </Pressable>
-            </View>
-          ))}
-        </Card>
-      )}
+      {/* even a single entry: a lone wrong tempo must still be deletable */}
+      <Card style={{ paddingVertical: 4, paddingHorizontal: 16 }}>
+        {[...log].reverse().slice(0, 5).map((e, i) => (
+          <View key={e.date} style={[s.entryRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.hairline }]}>
+            <Text style={s.entryDate}>{dayLabel(e.date, store.today, store.t, store.lang)}</Text>
+            <Text style={s.entryBpm}>{e.bpm} BPM</Text>
+            <Pressable hitSlop={8} onPress={() => confirmDeleteEntry(e)}>
+              <Text style={s.entryDelete}>{store.t('tempoLadder.delete')}</Text>
+            </Pressable>
+          </View>
+        ))}
+      </Card>
 
       <LogSheet visible={logOpen} draft={draft} setDraft={setDraft} onSave={save} onClose={() => setLogOpen(false)} />
     </View>

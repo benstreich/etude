@@ -28,6 +28,7 @@ export function SessionReview({
   onClose,
   onToggleTake,
   onImportTake,
+  importing = false,
   recording = false,
 }: {
   session: ReviewSession | null;
@@ -35,6 +36,8 @@ export function SessionReview({
   /** Toggles the caller's recorder; omit to hide the "Attach take" button. */
   onToggleTake?: () => void;
   onImportTake?: () => void;
+  /** An import is copying files in; the chip says so and ignores taps. */
+  importing?: boolean;
   recording?: boolean;
 }) {
   const s = useS();
@@ -92,6 +95,7 @@ export function SessionReview({
         dailyGoal: store.dailyGoal,
         today: store.today,
         challengeJustMet: justMet,
+        breakDays: store.breakDays,
       })
     : [];
   // "Best week yet" is an earned moment (#68): ask for a review once the chord has
@@ -129,7 +133,7 @@ export function SessionReview({
   };
 
   return (
-    <Modal visible transparent={false} animationType="slide" onRequestClose={close}>
+    <Modal visible transparent={false} animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={close}>
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         <KeyboardAwareScrollView
           bottomOffset={16}
@@ -162,13 +166,14 @@ export function SessionReview({
               {!!spotLabel && <Text style={s.meta}>{spotLabel}</Text>}
             </View>
             {chips.length > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              // wraps: a streak and a challenge chip side by side outrun the screen in German
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 8, rowGap: 4, marginTop: 8 }}>
                 {chips.map((c, i) => (
                   <React.Fragment key={c.label}>
                     {i > 0 && <Text style={s.chipSep}>|</Text>}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       {c.kind === 'streak' && <FlameIcon />}
-                      <Text style={s.meta}>{chipText(c)}</Text>
+                      <Text style={[s.meta, { flexShrink: 1 }]}>{chipText(c)}</Text>
                     </View>
                   </React.Fragment>
                 ))}
@@ -210,7 +215,12 @@ export function SessionReview({
                 />
                 {/* a take doesn't have to come from this phone's mic */}
                 {onImportTake && !recording && (
-                  <ActionChip icon={() => null} label={store.t('sessionReview.importTake')} onPress={onImportTake} />
+                  <ActionChip
+                    icon={() => null}
+                    label={store.t(importing ? 'piece.importing' : 'sessionReview.importTake')}
+                    disabled={importing}
+                    onPress={onImportTake}
+                  />
                 )}
               </ChipRow>
             </View>
@@ -226,7 +236,8 @@ export function SessionReview({
               </Svg>
             }
             testID="review-save"
-            title={store.t('sessionReview.saveSession')}
+            // the session was logged when the timer stopped; this only closes, as every other exit does
+            title={store.t('sessionReview.done')}
             right={null}
             onPress={close}
           />

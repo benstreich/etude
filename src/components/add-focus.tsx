@@ -26,9 +26,12 @@ export function AddFocus({ onAdded, onOpenChange }: { onAdded?: (focus: Focus) =
   const submit = () => {
     const n = name.trim();
     if (!n) return;
+    // the store refuses a twin differing only in case or kind; hand back the one
+    // that exists, or the caller would point at a piece no record carries
+    const existing = store.allPieces.find((p) => p.name.trim().toLowerCase() === n.toLowerCase());
     if (kind === 'Piece') store.addPiece(n);
     else store.addTechnique(n);
-    onAdded?.({ name: n, kind });
+    onAdded?.(existing ? { name: existing.name, kind: existing.kind ?? 'Piece' } : { name: n, kind });
     setName('');
     toggle(false);
   };
@@ -42,9 +45,14 @@ export function AddFocus({ onAdded, onOpenChange }: { onAdded?: (focus: Focus) =
 
   return (
     <View style={s.form}>
-      <View style={s.kindRow}>
+      <View style={s.kindRow} accessibilityRole="radiogroup">
         {(['Piece', 'Technique'] as const).map((k) => (
-          <Pressable key={k} style={[s.kindChip, kind === k && s.kindChipSel]} onPress={() => setKind(k)}>
+          <Pressable
+            key={k}
+            style={[s.kindChip, kind === k && s.kindChipSel]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: kind === k }}
+            onPress={() => setKind(k)}>
             <Text style={[s.kindText, kind === k && { color: C.accent }]}>
               {store.t(k === 'Piece' ? 'addFocus.piece' : 'addFocus.technique')}
             </Text>
@@ -65,7 +73,7 @@ export function AddFocus({ onAdded, onOpenChange }: { onAdded?: (focus: Focus) =
         <Pressable style={[s.addBtn, !name.trim() && { opacity: 0.4 }]} disabled={!name.trim()} onPress={submit}>
           <Text style={s.addBtnText}>{store.t('addFocus.add')}</Text>
         </Pressable>
-        <Pressable hitSlop={8} onPress={() => { toggle(false); setName(''); }}>
+        <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={store.t('addFocus.cancel')} onPress={() => { toggle(false); setName(''); }}>
           <Text style={s.cancel}>×</Text>
         </Pressable>
       </View>
@@ -78,7 +86,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   newChipText: { fontFamily: F.bodySemi, fontSize: fs(13.5), color: C.accent },
   form: { gap: 10, width: '100%' },
   kindRow: { flexDirection: 'row', gap: 8 },
-  kindChip: { backgroundColor: C.track, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 13 },
+  // a transparent border at rest, so the selected chip's accent border shows and nothing shifts
+  kindChip: { borderWidth: 1, borderColor: 'transparent', backgroundColor: C.track, borderRadius: r(999), paddingVertical: 7, paddingHorizontal: 13 },
   kindChipSel: { borderColor: C.accent, backgroundColor: C.accentTint },
   kindText: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.subStrong },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

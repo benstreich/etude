@@ -10,6 +10,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val RATE = 44100
 
@@ -29,10 +30,14 @@ class MicUnavailableException(cause: String) :
  */
 class PitchInputModule : Module() {
   private var recorder: AudioRecord? = null
-  private var thread: HandlerThread? = null
 
   @Volatile
   private var running = false
+
+  // One flag per capture session, not a shared one: a quick stop/start must
+  // never revive the previous session's thread by flipping the same flag back.
+  @Volatile
+  private var session: AtomicBoolean? = null
 
   // The ring. Guarded by `lock` because the capture thread writes it while the
   // JS thread reads it.
@@ -95,22 +100,41 @@ class PitchInputModule : Module() {
       throw MicUnavailableException("not initialized")
     }
 
+    // A mic held by a call or another recorder constructs fine and fails only
+    // here, without throwing: the recording state is the only signal.
+    try {
+      rec.startRecording()
+    } catch (e: Exception) {
+      rec.release()
+      throw MicUnavailableException(e.message ?: "start failed")
+    }
+    if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+      rec.release()
+      throw MicUnavailableException("busy")
+    }
+
     synchronized(lock) {
       writeIndex = 0
       filled = false
     }
 
-    recorder = rec
-    running = true
-    rec.startRecording()
+    val alive = AtomicBoolean(true)
+    synchronized(lock) {
+      session = alive
+      recorder = rec
+      running = true
+    }
 
     val t = HandlerThread("pitch-input").also { it.start() }
-    thread = t
     Handler(t.looper).post {
       val chunk = ShortArray(1024)
-      while (running) {
+      while (alive.get()) {
         val n = rec.read(chunk, 0, chunk.size)
-        if (n <= 0) continue
+        // Negative is an error (dead object, invalid operation) that retrying
+        // won't clear; looping on it pins a core at 100%.
+        if (n < 0) break
+        // the read that stop() interrupted belongs to a session that's over
+        if (n == 0 || !alive.get()) continue
         synchronized(lock) {
           for (i in 0 until n) {
             ring[writeIndex] = chunk[i]
@@ -119,18 +143,34 @@ class PitchInputModule : Module() {
           }
         }
       }
+      // Still this session: the loop died on a read error, not on stop(). Drop
+      // the session so the next start() opens a fresh recorder instead of
+      // returning early on a `running` that nothing is behind any more; and a
+      // dead recorder must not leave a stale window that reads as a held note.
+      synchronized(lock) {
+        if (session === alive) {
+          filled = false
+          running = false
+          session = null
+          recorder = null
+        }
+      }
+      // The thread owns the teardown, so release() can never race a read().
+      runCatching { rec.stop() }
+      rec.release()
+      t.quitSafely()
     }
   }
 
   private fun stop() {
-    if (!running) return
-    running = false
-    thread?.quitSafely()
-    thread = null
-    recorder?.let {
-      runCatching { it.stop() }
-      it.release()
+    val rec = synchronized(lock) {
+      if (!running) return
+      running = false
+      session?.set(false)
+      session = null
+      recorder.also { recorder = null }
     }
-    recorder = null
+    // Unblocks a read in progress; the capture thread then releases the recorder.
+    rec?.let { runCatching { it.stop() } }
   }
 }

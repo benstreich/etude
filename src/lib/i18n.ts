@@ -22,3 +22,11 @@ export const resolveLang = (setting: LanguageSetting): Lang => (setting === 'sys
 
 /** Translate outside React (notifications etc.) — uses the synced singleton locale. */
 export const tr = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts);
+
+/** A decimal in the reader's locale — German writes 3,5, not 3.5. `minDigits` lets an average drop a trailing ,0. */
+export const fmtNum = (v: number, digits: number, lang: string, minDigits = digits) =>
+  v.toLocaleString(lang, { minimumFractionDigits: minDigits, maximumFractionDigits: digits });
+
+/** "June 3" for a YYYY-MM-DD key, plus the year once it is not this one — a date years out must not read as this June. */
+export const fmtDay = (key: string, todayKey: string, lang: string) =>
+  new Date(key + 'T12:00:00').toLocaleDateString(lang, { month: 'long', day: 'numeric', ...(key.slice(0, 4) !== todayKey.slice(0, 4) && { year: 'numeric' }) });

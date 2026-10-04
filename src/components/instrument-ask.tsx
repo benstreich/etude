@@ -11,6 +11,7 @@ import { StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
 import { Sheet } from '@/components/ui';
+import { instrumentName } from '@/lib/instrument-math';
 import { useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -43,7 +44,7 @@ export function InstrumentAsk({
       <View style={{ gap: 8, paddingTop: 10 }}>
         {choices.map((i) => (
           <Pressable key={i} style={s.row} onPress={() => onPick(i)}>
-            <Text style={s.rowText}>{i}</Text>
+            <Text style={s.rowText}>{instrumentName(i, store.t)}</Text>
             <Text style={[s.chevron, { color: C.tertiary }]}>›</Text>
           </Pressable>
         ))}

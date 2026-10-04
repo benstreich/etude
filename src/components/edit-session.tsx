@@ -7,6 +7,7 @@ import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
 import { Sheet, Stars } from '@/components/ui';
 import { success } from '@/lib/haptics';
+import { sessionTitle } from '@/lib/session-math';
 import { dayLabel, Session, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
 
@@ -86,7 +87,14 @@ function Editor({
     ]);
 
   const stepBtn = (label: string, d: number, testID?: string) => (
-    <Pressable testID={testID} style={s.stepBtn} onPress={() => step(d)} onLongPress={() => holdStart(d)} onPressOut={holdEnd}>
+    <Pressable
+      testID={testID}
+      style={s.stepBtn}
+      accessibilityRole="button"
+      accessibilityLabel={store.t(d < 0 ? 'editSession.minutesLess' : 'editSession.minutesMore', { n: Math.abs(d) })}
+      onPress={() => step(d)}
+      onLongPress={() => holdStart(d)}
+      onPressOut={holdEnd}>
       <Text style={s.stepGlyph}>{label}</Text>
     </Pressable>
   );
@@ -102,7 +110,7 @@ function Editor({
               <Text style={s.label}>{store.t('editSession.focus')}</Text>
               <Pressable style={s.select} onPress={() => setPickerOpen((o) => !o)}>
                 <Text style={s.selectText} numberOfLines={1}>
-                  {focus.title}
+                  {sessionTitle(focus, store.t)}
                 </Text>
                 <Text style={s.chev}>{pickerOpen ? '▴' : '▾'}</Text>
               </Pressable>

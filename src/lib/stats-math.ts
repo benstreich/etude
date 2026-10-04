@@ -4,9 +4,10 @@
 // MIN_RATED rated sessions — noise is worse than nothing.
 
 // explicit .ts so the node check runner (--experimental-strip-types) can resolve it
+import { isQuickLog } from './session-math.ts';
 import { dateKey } from './streak-math.ts';
 
-export type RatedSession = { title: string; min: number; date: string; rating?: number; at?: number };
+export type RatedSession = { title: string; meta?: string; min: number; date: string; rating?: number; at?: number };
 
 /** Fewer rated sessions than this and a rating card stays hidden. */
 export const MIN_RATED = 5;
@@ -118,7 +119,8 @@ export type RatingSummary = { avgRating: number | null; bestPiece: string | null
 export function ratingSummary(sessions: RatedSession[]): RatingSummary {
   const r = rated(sessions);
   if (r.length < MIN_RATED) return { avgRating: null, bestPiece: null };
-  const best = ratingByFocus(r)
+  // the average counts quick logs; "best-rated piece" cannot name one
+  const best = ratingByFocus(r.filter((s) => !isQuickLog(s)))
     .filter((f) => f.avgRating !== null)
     .sort((a, b) => b.avgRating! - a.avgRating! || b.min - a.min)[0];
   return { avgRating: avg(r.map((s) => s.rating!)), bestPiece: best?.title ?? null };
@@ -150,12 +152,15 @@ const median = (xs: number[]) => {
 
 export type TempoForecast = { bpmPerWeek: number; reachDate: string | null; plateau: boolean };
 
+const MAX_FORECAST_DAYS = 730;
+
 /**
  * Learning curve for one piece. ponytail: a straight-line fit, not a logistic —
  * the tempo log is one point per day and rarely long enough to bend. Hidden
  * under 4 entries or 14 days of span. `reachDate` is null when the target is
- * already met, unset, or the trend is flat/negative. `plateau`: at least 60 min
- * of sessions in the last 3 weeks and no BPM above the pre-window best.
+ * already met, unset, the trend is flat/negative, or it lies over two years out.
+ * `plateau`: at least 60 min of sessions in the last 3 weeks and no BPM above
+ * the pre-window best.
  */
 export function tempoForecast(
   log: { date: string; bpm: number }[],
@@ -172,7 +177,9 @@ export function tempoForecast(
   const slope = sxx ? xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / sxx : 0;
   const last = ys[ys.length - 1];
   let reachDate: string | null = null;
-  if (target && slope > 0 && last < target) reachDate = shiftKey(log[log.length - 1].date, Math.ceil((target - last) / slope));
+  // past two years a straight line says nothing worth printing as a date
+  const days = slope > 0 && target ? Math.ceil((target - last) / slope) : Infinity;
+  if (target && last < target && days <= MAX_FORECAST_DAYS) reachDate = shiftKey(log[log.length - 1].date, days);
   const windowStart = shiftKey(today, -21);
   const before = log.filter((e) => e.date < windowStart);
   const recentBest = Math.max(0, ...log.filter((e) => e.date >= windowStart).map((e) => e.bpm));
@@ -248,28 +255,37 @@ export function concentration(sessions: { title: string; min: number }[]): Conce
   return { pct: Math.round((acc / total) * 100), top, total: mins.length };
 }
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export type StreakSurvival = { count: number; typicalLength: number; breakWeekday: number; lengths: number[] };
 
 /**
- * Past streaks (runs of consecutive practised days that have ended): their
- * typical length and the weekday they most often break on (0 = Sunday, the
- * first missed day). ponytail: plain consecutive days, break-day and grace
- * settings ignored. null under 3 ended streaks.
+ * Past streaks (runs of practised days that have ended): their typical length
+ * and the weekday they most often break on (0 = Sunday, the first missed day).
+ * An unpractised break day doesn't end a run, matching the app's streak;
+ * ponytail: grace ignored. null under 3 ended streaks.
  */
-export function streakSurvival(minutesByDate: Record<string, number>, today: string): StreakSurvival | null {
+export function streakSurvival(minutesByDate: Record<string, number>, today: string, breakDays: string[] = []): StreakSurvival | null {
+  const weekday = (key: string) => new Date(key + 'T12:00:00').getDay();
+  // the next day after `key` that isn't a break day (capped, in case every day is one)
+  const nextWorkday = (key: string) => {
+    let k = shiftKey(key, 1);
+    for (let i = 0; i < 6 && breakDays.includes(DAY_NAMES[weekday(k)]); i++) k = shiftKey(k, 1);
+    return k;
+  };
   const days = Object.keys(minutesByDate).filter((k) => minutesByDate[k] > 0 && k < today).sort();
   const runs: { len: number; end: string }[] = [];
   let len = 0;
   for (let i = 0; i < days.length; i++) {
-    len = i > 0 && daysBetween(days[i - 1], days[i]) === 1 ? len + 1 : 1;
+    len = i > 0 && days[i] <= nextWorkday(days[i - 1]) ? len + 1 : 1;
     const next = days[i + 1];
-    // a run reaching yesterday is still alive — it hasn't broken yet
-    if ((!next || daysBetween(days[i], next) > 1) && daysBetween(days[i], today) > 1) runs.push({ len, end: days[i] });
+    // a run whose next workday is today is still alive — it hasn't broken yet
+    if ((!next || next > nextWorkday(days[i])) && nextWorkday(days[i]) < today) runs.push({ len, end: days[i] });
   }
   if (runs.length < 3) return null;
   const counts: Record<number, number> = {};
   for (const r of runs) {
-    const wd = new Date(shiftKey(r.end, 1) + 'T12:00:00').getDay();
+    const wd = weekday(nextWorkday(r.end));
     counts[wd] = (counts[wd] ?? 0) + 1;
   }
   const breakWeekday = Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
@@ -363,7 +379,31 @@ export type FocusDrift = { weeks: string[]; series: { title: string; share: numb
  * caller labels it "Other"). Shares within a week sum to 1; an empty week is all
  * zeros. null under 2 focuses or 4 weeks with practice — no drift to show yet.
  */
-export function focusDrift(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = 12, top = 4): FocusDrift | null {
+export const DRIFT_MIN_WEEKS = 4; // weeks with practice in the window
+export const DRIFT_MIN_FOCI = 2; // different pieces/techniques in the window
+export const DRIFT_WEEKS = 12;
+
+export function focusDrift(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = DRIFT_WEEKS, top = 4): FocusDrift | null {
+  const { keys, byTitle, totals } = driftTally(sessions, today, mondayStart, weeks);
+  const titles = Object.keys(byTitle).sort((a, b) => byTitle[b].reduce((x, y) => x + y, 0) - byTitle[a].reduce((x, y) => x + y, 0));
+  if (titles.length < DRIFT_MIN_FOCI || totals.filter((t) => t > 0).length < DRIFT_MIN_WEEKS) return null;
+  const keep = titles.slice(0, top);
+  const rest = titles.slice(top);
+  const series = keep.map((title) => ({ title, share: byTitle[title].map((m, w) => (totals[w] ? m / totals[w] : 0)) }));
+  if (rest.length) series.push({ title: '', share: keys.map((_, w) => (totals[w] ? rest.reduce((a, t) => a + byTitle[t][w], 0) / totals[w] : 0)) });
+  return { weeks: keys, series };
+}
+
+/**
+ * What focusDrift's floor counts — weeks with practice and different focuses in
+ * its window — so a locked Focus drift row can say what is still missing.
+ */
+export function driftFloor(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks = DRIFT_WEEKS): { weeks: number; foci: number } {
+  const { byTitle, totals } = driftTally(sessions, today, mondayStart, weeks);
+  return { weeks: totals.filter((t) => t > 0).length, foci: Object.keys(byTitle).length };
+}
+
+function driftTally(sessions: { title: string; min: number; date: string }[], today: string, mondayStart: boolean, weeks: number) {
   const first = weekKey(today, mondayStart);
   const keys: string[] = [];
   for (let i = weeks - 1; i >= 0; i--) keys.push(shiftKey(first, -7 * i));
@@ -376,13 +416,7 @@ export function focusDrift(sessions: { title: string; min: number; date: string 
     (byTitle[s.title] ??= keys.map(() => 0))[w] += s.min;
     totals[w] += s.min;
   }
-  const titles = Object.keys(byTitle).sort((a, b) => byTitle[b].reduce((x, y) => x + y, 0) - byTitle[a].reduce((x, y) => x + y, 0));
-  if (titles.length < 2 || totals.filter((t) => t > 0).length < 4) return null;
-  const keep = titles.slice(0, top);
-  const rest = titles.slice(top);
-  const series = keep.map((title) => ({ title, share: byTitle[title].map((m, w) => (totals[w] ? m / totals[w] : 0)) }));
-  if (rest.length) series.push({ title: '', share: keys.map((_, w) => (totals[w] ? rest.reduce((a, t) => a + byTitle[t][w], 0) / totals[w] : 0)) });
-  return { weeks: keys, series };
+  return { keys, byTitle, totals };
 }
 
 /** Minutes per calendar week for the last `weeks` weeks, oldest first, the current week last. */

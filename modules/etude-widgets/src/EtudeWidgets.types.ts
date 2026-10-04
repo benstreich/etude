@@ -1,12 +1,16 @@
 /** Snapshot the home/lock-screen widgets render. Written after anything that
  * changes today's numbers; native side persists it (SharedPreferences / App Group). */
 export type WidgetData = {
+  day: string; // dateKey the snapshot belongs to; native rolls it over to a later day
   today: number; // minutes practiced today
   goal: number; // daily goal in minutes
   streak: number; // current display streak (days)
+  streakDays: number; // days after `day` the streak survives with no more practice (0-7)
   week: number[]; // last 7 days of minutes, oldest first, today last
   nextFocus: string | null; // suggested next piece/technique, if any
   /** #80: the in-app accent as [accent, mid, soft] hex, one triple per scheme; empty = brand terracotta */
   accentLight: string[];
   accentDark: string[];
+  /** In-app language strings; `streak` and `next` arrive already formatted. Native falls back to English. */
+  labels: { minutesToday: string; min: string; practice: string; streak: string; next: string };
 };

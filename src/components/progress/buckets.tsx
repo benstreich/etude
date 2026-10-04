@@ -15,29 +15,39 @@ import type { SectionProps } from './types';
 function BucketRow({ label, b, value }: { label: string; b: Bucket; value: string }) {
   const s = useS();
   const C = useC();
+  const store = useStore();
   return (
     <View style={s.bucketRow}>
       <Text style={[s.bucketLabel, b.n === 0 && { color: C.tertiary }]}>{label}</Text>
       <Text style={s.skillLevel}>{b.n === 0 ? '—' : value}</Text>
-      <Text style={[s.bucketStars, { color: b.avgRating === null ? C.tertiary : C.accent }]}>{stars(b.avgRating)}</Text>
+      <Text style={[s.bucketStars, { color: b.avgRating === null ? C.tertiary : C.accent }]}>{stars(b.avgRating, store.lang)}</Text>
     </View>
   );
 }
 
-// both cards hide below MIN_RATED rated sessions in the period rather than showing noise (#54)
+// both cards hide below MIN_RATED rated sessions rather than showing noise (#54).
+// The floor is judged on the whole history: judged on the period, a short one
+// hid the card together with its own picker, leaving no way back to a longer one.
+function TooFewInPeriod() {
+  const s = useS();
+  const store = useStore();
+  return <Text style={s.detailEmpty}>{store.t('progress.notEnoughRatedInPeriod')}</Text>;
+}
 
 /** Minutes and average stars by morning / afternoon / evening. */
 export function TimeOfDaySection({ sessions }: SectionProps) {
   const store = useStore();
   const { inPeriod, picker } = usePeriod(sessions);
-  if (rated(inPeriod).length < MIN_RATED) return null;
+  if (rated(sessions).length < MIN_RATED) return null;
   const buckets = byTimeOfDay(inPeriod);
   return (
     <Card>
       <PeriodHead title={store.t('progress.bestTimeOfDay')} picker={picker} style={{ marginBottom: 12 }} />
-      {buckets.map((b, i) => (
-        <BucketRow key={b.label} label={store.t(`progress.${TIME_OF_DAY[i]}`)} b={b} value={fmtTime(b.min, store.t)} />
-      ))}
+      {rated(inPeriod).length < MIN_RATED ? (
+        <TooFewInPeriod />
+      ) : (
+        buckets.map((b, i) => <BucketRow key={b.label} label={store.t(`progress.${TIME_OF_DAY[i]}`)} b={b} value={fmtTime(b.min, store.t)} />)
+      )}
     </Card>
   );
 }
@@ -46,13 +56,11 @@ export function TimeOfDaySection({ sessions }: SectionProps) {
 export function SessionLengthSection({ sessions }: SectionProps) {
   const store = useStore();
   const { inPeriod, picker } = usePeriod(sessions);
-  if (rated(inPeriod).length < MIN_RATED) return null;
+  if (rated(sessions).length < MIN_RATED) return null;
   return (
     <Card>
       <PeriodHead title={store.t('progress.sessionLength')} picker={picker} style={{ marginBottom: 12 }} />
-      {byLength(inPeriod).map((b) => (
-        <BucketRow key={b.label} label={b.label} b={b} value={String(b.n)} />
-      ))}
+      {rated(inPeriod).length < MIN_RATED ? <TooFewInPeriod /> : byLength(inPeriod).map((b) => <BucketRow key={b.label} label={b.label} b={b} value={String(b.n)} />)}
     </Card>
   );
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert';
 
 import {
   clearTrim,
+  cutsEnd,
   dragHandle,
   dragTrim,
   inPoint,
@@ -63,5 +64,15 @@ assert.equal(timeAt({ sec: 100 }, 50, 100), 50);
 assert.equal(timeAt({ sec: 100 }, -10, 100), 0);
 assert.equal(timeAt({ sec: 100 }, 250, 100), 100);
 assert.equal(timeAt({ sec: 100 }, 10, 0), 100); // zero width never divides by zero
+
+
+// the out point holds only when one was set, and only short of the file's real end
+assert.equal(cutsEnd({ sec: 10 }, 10.4), false); // untrimmed: the file ends itself
+assert.equal(cutsEnd({ sec: 10, end: 10 }, 10.4), true); // dragged to the stored whole-second length — still 0.4 s short of the real end
+assert.equal(cutsEnd({ sec: 10, end: 10.4 }, 10.4), false); // at the real end: nothing to cut
+assert.equal(cutsEnd({ sec: 10, end: 10.38 }, 10.4), false); // within the slack of it
+assert.equal(cutsEnd({ sec: 10, end: 6 }, 10.4), true);
+assert.equal(cutsEnd({ sec: 10, end: 10 }, NaN), false); // duration unknown: the stored length stands in
+assert.equal(cutsEnd({ sec: 10, end: 9 }, 0), true);
 
 console.log('trim ok');

@@ -5,8 +5,14 @@ Widgets need a native build — they never appear in Expo Go.
 ## How it works
 
 After anything that changes today's numbers, `WidgetSync` (mounted in the Shell)
-pushes `{today, goal, streak, week[7], nextFocus, accentLight[3], accentDark[3]}` through the local module
-`modules/etude-widgets`:
+pushes `{day, today, goal, streak, streakDays, week[7], nextFocus, accentLight[3], accentDark[3], labels}` through the local module
+`modules/etude-widgets`. `labels` carries the widget's strings in the in-app
+language (English is the native fallback). `day` lets both platforms roll a stale
+snapshot over after midnight — today 0, the week shifted, and the streak zeroed once
+the gap is longer than `streakDays` (how long the app's own streak rules, grace and
+break days included, keep it alive with no more practice) —
+since only the running app ever writes one; iOS also schedules a timeline refresh
+at midnight.
 
 - **Android**: written to `SharedPreferences("etude.widgets")`, then both
   `AppWidgetProvider`s repaint. The providers, layouts, and manifest receivers all

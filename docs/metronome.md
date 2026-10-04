@@ -89,7 +89,7 @@ itself is a bare `play()`.
 
 `modules/metronome-controls` is a local Expo module (autolinked from `modules/`, no `package.json`
 entry needed). It exposes `show` / `update` / `hide` and emits `onCommand` with `inc` | `dec` |
-`toggle`; JS decides that those mean ±5 BPM. `startTicking` / `updateTicking` / `stopTicking` drive
+`toggle` (plus iOS's one-way `play` / `pause`); JS decides that those mean ±5 BPM. `startTicking` / `updateTicking` / `stopTicking` drive
 the beat engine described above: tempo, accent pattern, subdivision, sound set and volume. The engine
 does not depend on the service — it starts on the JS call, while `startForegroundService()` is still
 creating the service — so a start from the lock screen clicks at once too. The service's job is the

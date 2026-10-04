@@ -61,6 +61,30 @@ assert.deepEqual(
   ['Woodshedding', 'Polishing', 'Gig-ready'],
 );
 
+// a blob saved since the conversion carries both: the stages list wins (renames and
+// added stages survive a relaunch), the legacy key is dropped, and a stage index
+// past the list is clamped to the last stage
+const relaunch = migrate(
+  save({ stages: ['A', 'B', 'C', 'D'], stageLabels: { Learning: 'X' }, pieces: [{ id: 'a', stage: 3 }, { id: 'b', stage: 9 }] }),
+  seed(),
+) as any;
+assert.deepEqual(relaunch.stages, ['A', 'B', 'C', 'D']);
+assert.equal('stageLabels' in relaunch, false);
+assert.deepEqual(relaunch.pieces.map((p: any) => p.stage), [3, 3]);
+
+// null entries in the lists are dropped instead of throwing
+const holes = migrate(save({ pieces: [null, { id: 'a' }], recordings: [null], sessions: [null, 3, { id: 's' }] }), seed()) as any;
+assert.deepEqual(holes.pieces.map((p: any) => p.id), ['a']);
+assert.deepEqual(holes.recordings, []);
+assert.deepEqual(holes.sessions.map((x: any) => x.id), ['s']);
+
+// stage log backfill uses the local calendar day, like every other dateKey
+{
+  const at = new Date(2026, 0, 1, 0, 30).getTime();
+  const p = migrate(save({ pieces: [{ id: 'a', stage: 0, addedAt: at }] }), seed()) as any;
+  assert.equal(p.pieces[0].stageLog[0].date, '2026-01-01');
+}
+
 // legacy metroBeatsPerBar → time signature, but never over a saved one
 assert.equal(migrate(save({ pieces: [], metroBeatsPerBar: 3 }), seed()).metroTimeSig, '3/4');
 assert.equal(migrate(save({ pieces: [], metroBeatsPerBar: 3, metroTimeSig: '6/8' }), seed()).metroTimeSig, '6/8');
@@ -104,5 +128,8 @@ const tech = migrate(save({ pieces: [{ id: 'p1', name: 'Scales & arpeggios', sta
 assert.deepEqual(tech.pieces.map((p: any) => [p.name, p.kind ?? 'Piece']), [['Scales & arpeggios', 'Piece'], ['Sight reading', 'Technique']]);
 assert.equal(tech.pieces[1].id, 'tech-sight-reading');
 assert.equal('techniques' in tech, false);
+// names that slug alike still get distinct ids; an all-non-ASCII name gets a fallback
+const slugs = migrate(save({ pieces: [], techniques: ['C major', 'C-major', 'Ü', 'ß'] }), seed()) as any;
+assert.deepEqual(slugs.pieces.map((p: any) => p.id), ['tech-c-major', 'tech-c-major-2', 'tech-item', 'tech-item-2']);
 
 console.log('check-migrate: all assertions passed');

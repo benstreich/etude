@@ -22,48 +22,53 @@ export class NoPdfRendererError extends Error {}
 
 /**
  * Picks one or more files and copies them under `attachments/<id>/`. Returns
- * the attachments to store, or an empty array when the user cancels.
+ * the attachments to store (empty when the user cancels) and the first error,
+ * if any file failed: UnsupportedFileError for anything that isn't a PDF or an
+ * image, NoPdfRendererError for a PDF in Expo Go, where there's no native renderer.
  *
- * Throws UnsupportedFileError for anything that isn't a PDF or an image, and
- * NoPdfRendererError for a PDF in Expo Go, where there's no native renderer.
+ * Each file stands alone: one bad file used to throw away the ones already
+ * copied, leaving their folders on disk with nothing in the store pointing at them.
  */
-export async function pickAttachments(piece: string): Promise<Attachment[]> {
+export async function pickAttachments(piece: string): Promise<{ added: Attachment[]; error?: unknown }> {
   const res = await DocumentPicker.getDocumentAsync({
     type: ['application/pdf', 'image/*'],
     multiple: true,
     copyToCacheDirectory: true,
   });
-  if (res.canceled) return [];
+  if (res.canceled) return { added: [] };
 
-  const out: Attachment[] = [];
+  const added: Attachment[] = [];
+  let error: unknown;
   for (const asset of res.assets) {
-    const kind = kindFor(asset.name, asset.mimeType);
-    if (!kind) throw new UnsupportedFileError(asset.name);
-    if (kind === 'pdf' && !PdfPages) throw new NoPdfRendererError(asset.name);
-
     const id = uid();
-    const dir = new Directory(Paths.document, dirFor(id));
-    dir.create({ intermediates: true, idempotent: true });
+    try {
+      const kind = kindFor(asset.name, asset.mimeType);
+      if (!kind) throw new UnsupportedFileError(asset.name);
+      if (kind === 'pdf' && !PdfPages) throw new NoPdfRendererError(asset.name);
 
-    let files: string[];
-    if (kind === 'pdf') {
-      const pages = await PdfPages!.render(asset.uri, dir.uri, PAGE_MAX_PX);
-      if (pages.length === 0) {
-        dir.delete();
-        throw new UnsupportedFileError(asset.name);
+      const dir = new Directory(Paths.document, dirFor(id));
+      dir.create({ intermediates: true, idempotent: true });
+
+      let files: string[];
+      if (kind === 'pdf') {
+        const pages = await PdfPages!.render(asset.uri, dir.uri, PAGE_MAX_PX);
+        if (pages.length === 0) throw new UnsupportedFileError(asset.name);
+        // the module writes straight into the directory, already 1.png, 2.png, …
+        files = pages.map((p) => toStoredUri(p.uri));
+      } else {
+        const ext = extOf(asset.name) || 'jpg';
+        const dest = new File(Paths.document, pageFile(id, 0, ext));
+        await new File(asset.uri).copy(dest);
+        files = [toStoredUri(dest.uri)];
       }
-      // the module writes straight into the directory, already 1.png, 2.png, …
-      files = pages.map((p) => toStoredUri(p.uri));
-    } else {
-      const ext = extOf(asset.name) || 'jpg';
-      const dest = new File(Paths.document, pageFile(id, 0, ext));
-      await new File(asset.uri).copy(dest);
-      files = [toStoredUri(dest.uri)];
-    }
 
-    out.push({ id, piece, name: displayName(asset.name), kind, files, addedAt: Date.now() });
+      added.push({ id, piece, name: displayName(asset.name), kind, files, addedAt: Date.now() });
+    } catch (e) {
+      error ??= e;
+      deleteAttachmentFiles([id]); // whatever this file got as far as writing
+    }
   }
-  return out;
+  return { added, error };
 }
 
 /** Removes an attachment's whole folder; missing files are not an error. */

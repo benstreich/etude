@@ -53,8 +53,10 @@ class PdfPagesModule : Module() {
       renderer.use { pdf ->
         return (0 until pdf.pageCount).map { i ->
           pdf.openPage(i).use { page ->
-            // scale the longest edge down to maxWidth; never scale a small page up
-            val scale = minOf(1.0, maxWidth / maxOf(page.width, page.height).toDouble())
+            // page sizes are PDF points (1/72 in), so an A4 page is only 842 tall:
+            // scale the longest edge up to maxWidth pixels, capped so a tiny page
+            // can't ask for a huge bitmap
+            val scale = minOf(4.0, maxWidth / maxOf(page.width, page.height).toDouble())
             val w = maxOf(1, (page.width * scale).toInt())
             val h = maxOf(1, (page.height * scale).toInt())
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)

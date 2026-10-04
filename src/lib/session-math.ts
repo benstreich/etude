@@ -43,6 +43,19 @@ export function restoreLive(ls: Pick<LiveSession, 'startedAt' | 'accum' | 'lastS
   return { accum: ls.accum + Math.max(0, Math.round((ls.lastSeen - ls.startedAt) / 1000)), startedAt: null };
 }
 
+/**
+ * A quick log with no focus is stored under these English literals — existing
+ * data and the CSV export depend on them — and translated only when shown.
+ */
+export const QUICK_TITLE = 'Quick log';
+export const QUICK_META = 'Logged';
+
+/** A focus-less quick log. Aggregates keyed by title alone pass no meta. */
+export const isQuickLog = (s: { title: string; meta?: string }) => s.title === QUICK_TITLE && (s.meta === undefined || s.meta === QUICK_META);
+
+/** The title to show for a session: a quick log reads in the UI language, not as stored. */
+export const sessionTitle = (s: { title: string; meta?: string }, t: (key: string) => string) => (isQuickLog(s) ? t('home.quickLog') : s.title);
+
 type Sess = { id: string; title: string; meta: string; min: number; date: string; note?: string; rating?: number };
 type Totals = { sessions: Sess[]; minutesByDate: Record<string, number>; totalMin: number };
 

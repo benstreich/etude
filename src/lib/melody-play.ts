@@ -3,11 +3,13 @@
 // Whole note = 1.6 s (quarter at 150), an empty bar rests half that. A bar holds
 // a day's sessions, so a day never runs longer than a whole note however it split.
 import { createAudioPlayer } from 'expo-audio';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { applyAudioMode } from './audio-mode';
 import { thud } from './haptics';
 import { midiFor, valueFor, type Bar, type MelodyKey, type MelodyNote } from './melody';
+import { metronomeRunning } from './metronome';
 import { pianoFor } from './piano-samples';
 
 const WHOLE_MS = 1600;
@@ -67,21 +69,25 @@ export function useMelodyPlayer() {
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const mounted = useRef(true);
 
-  const stop = () => {
+  // only refs and a state setter, so one stable function serves the effects below
+  const stop = useCallback(() => {
     run.current++;
     for (const t of timers.current) clearTimeout(t);
     timers.current.clear();
     for (const p of ringing.current) release(p);
     ringing.current.clear();
     if (mounted.current) setPlaying(null);
-  };
+  }, []);
   useEffect(
     () => () => {
       mounted.current = false;
       stop(); // leaving the screen silences it
     },
-    []
+    [stop]
   );
+  // Home and Score are tabs that stay mounted, so a blur has to silence it too —
+  // otherwise the tune plays on behind the next screen, and over its own melody
+  useFocusEffect(useCallback(() => stop, [stop]));
 
   // a note is released only after it has had time to decay under its successors,
   // the way a pianist lets the sustain carry — cutting it at the next attack is the robot
@@ -99,7 +105,9 @@ export function useMelodyPlayer() {
     stop();
     const mine = run.current;
     const live = () => mounted.current && run.current === mine;
-    applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
+    // a running metronome already holds a background mode; replacing it would
+    // silence its clicks once the phone locks
+    if (!metronomeRunning()) applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
     const total = bars.reduce((n, b) => n + b.notes.length, 0); // notes, not bars: a bar may hold several
     let index = 0; // position in the phrase, for the long crescendo towards today
     for (const bar of bars) {

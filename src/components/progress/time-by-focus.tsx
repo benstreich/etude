@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { Text } from '@/components/text';
 import { Bar, Card } from '@/components/ui';
+import { sessionTitle } from '@/lib/session-math';
 import { ratingByFocus } from '@/lib/stats-math';
 import { useStore } from '@/lib/store';
 import { useC } from '@/lib/theme';
@@ -27,9 +28,9 @@ export function TimeByFocusSection({ sessions }: SectionProps) {
       {focusRows.map((f) => (
         <View key={f.title} style={{ marginTop: 16 }}>
           <View style={s.skillRow}>
-            <Text style={s.skillName}>{f.title}</Text>
+            <Text style={s.skillName}>{sessionTitle(f, store.t)}</Text>
             <Text style={s.skillLevel}>
-              {f.avgRating !== null && <Text style={{ color: C.accent }}>{stars(f.avgRating)} · </Text>}
+              {f.avgRating !== null && <Text style={{ color: C.accent }}>{stars(f.avgRating, store.lang)} · </Text>}
               {fmtTime(f.min, store.t)}
             </Text>
           </View>

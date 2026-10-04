@@ -37,7 +37,7 @@ export function HearSection({ pieces }: SectionProps) {
             <Text style={s.skillName} numberOfLines={1}>
               {p.name}
             </Text>
-            <Text style={s.skillLevel}>{store.t('progress.hearDays', { days: daysApart(pair[0].date, pair[1].date) })}</Text>
+            <Text style={s.skillLevel}>{store.t('progress.hearDays', { count: daysApart(pair[0].date, pair[1].date) })}</Text>
           </Pressable>
           <RecordingsList recordings={pair} />
         </View>

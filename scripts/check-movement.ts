@@ -7,7 +7,10 @@ import { appendStageLog } from '../src/lib/movement-math.ts';
 
 // --- stage log ------------------------------------------------------------
 assert.deepEqual(appendStageLog(undefined, '2026-09-01', 1), [{ date: '2026-09-01', stage: 1 }]);
-assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 1 }], '2026-09-01', 2), [{ date: '2026-09-01', stage: 2 }], 'same day: last write wins');
+assert.deepEqual(appendStageLog([{ date: '2026-08-01', stage: 0 }, { date: '2026-09-01', stage: 1 }], '2026-09-01', 2), [{ date: '2026-08-01', stage: 0 }, { date: '2026-09-01', stage: 2 }], 'same day: last write wins');
+// a piece added this run (no log) or today (only its add-day backfill) keeps the stage it started on
+assert.deepEqual(appendStageLog(undefined, '2026-09-01', 1, 0), [{ date: '0000-00-00', stage: 0 }, { date: '2026-09-01', stage: 1 }], 'empty log: baseline seeded');
+assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 0 }], '2026-09-01', 1, 0), [{ date: '0000-00-00', stage: 0 }, { date: '2026-09-01', stage: 1 }], 'add-day backfill becomes the baseline');
 assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 1 }], '2026-09-03', 1), [{ date: '2026-09-01', stage: 1 }], 'same stage: no-op');
 assert.deepEqual(appendStageLog([{ date: '2026-09-01', stage: 0 }], '2026-09-03', 1), [{ date: '2026-09-01', stage: 0 }, { date: '2026-09-03', stage: 1 }]);
 assert.deepEqual(backfillStageLog({ stage: 2, addedAt: Date.parse('2026-05-04T10:00:00Z') }, '2026-09-14'), [{ date: '2026-05-04', stage: 2 }]);
@@ -41,6 +44,12 @@ assert.equal(pieceMovement(ratingUp, cs, today, stages).move.kind, 'rating');
 assert.deepEqual(pieceMovement(P('D'), [S('D', '2026-08-20')], today, stages).move, { kind: 'stalled', days: 25 });
 assert.deepEqual(pieceMovement(P('E', { stage: 2 }), [S('E', '2026-08-20')], today, stages).move, { kind: 'due', days: 25 }, 'ready + unplayed 21d beats stalled');
 assert.deepEqual(pieceMovement(P('F'), [], today, stages).move, { kind: 'new' });
+// played recently, nothing changed: a long-held piece is steady, a just-added one is new
+assert.deepEqual(pieceMovement(P('K', { addedAt: new Date(2025, 8, 1).getTime() }), [S('K', '2026-09-13')], today, stages).move, { kind: 'steady' });
+assert.deepEqual(pieceMovement(P('K', { addedAt: new Date(2026, 8, 1).getTime() }), [S('K', '2026-09-13')], today, stages).move, { kind: 'new' });
+// the first promotion of a piece added this run counts as a stage move
+const fresh = P('L', { stage: 1, stageLog: appendStageLog(undefined, '2026-09-10', 1, 0) });
+assert.deepEqual(pieceMovement(fresh, [S('L', '2026-09-10')], today, stages).move, { kind: 'stage', from: 0, to: 1 });
 assert.equal(pieceMovement(tempoUp, [S('B', '2026-09-10', 35), S('B', '2026-07-01', 99)], today, stages).minutes, 35, 'minutes inside window only');
 assert.deepEqual(pieceMovement(tempoUp, [S('B', '2026-09-10')], today, stages).spark, [100, 112], 'sparkline = tempo log in window');
 
@@ -64,11 +73,16 @@ const md = monthDiff([P('A', { addedAt: Date.parse('2026-09-02T00:00:00Z') })], 
 assert.deepEqual(md.pieces, [1, 0]);
 assert.deepEqual(md.hours, [1, 0.5]);
 assert.deepEqual(md.stars, [4, 3]);
+// addedAt buckets by the local calendar day, not the UTC one
+const localMidnight = monthDiff([P('A', { addedAt: new Date(2026, 8, 1, 0, 30).getTime() })], [], today);
+assert.deepEqual(localMidnight.pieces, [1, 0]);
 
 const R = (id: string, date: string, starred?: boolean) => ({ id, piece: 'A', date, uri: '', sec: 10, starred }) as any;
 assert.equal(recordingPair([R('1', '2026-01-01')]), null);
 assert.deepEqual(recordingPair([R('2', '2026-02-01'), R('1', '2026-01-01'), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '3']);
 assert.deepEqual(recordingPair([R('1', '2026-01-01'), R('2', '2026-02-01', true), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '2'], 'a starred newer one wins the "latest" slot');
+assert.deepEqual(recordingPair([R('1', '2026-01-01', true), R('2', '2026-02-01'), R('3', '2026-03-01')])!.map((r) => r.id), ['1', '3'], 'a starred oldest one pairs with the newest');
+assert.deepEqual(recordingPair([R('1', '2026-01-01'), R('2', '2026-02-01', true), R('3', '2026-03-01', true)])!.map((r) => r.id), ['2', '3'], 'two stars: first and last starred');
 // --- lastPlayed -----------------------------------------------------------
 // the newest session whose title is the piece's name; null when never played
 import { lastPlayed } from '../src/lib/movement-math.ts';
@@ -99,9 +113,18 @@ assert.deepEqual(sectionUnavailable('consistency', emptyInput), { reason: 'sessi
 assert.deepEqual(sectionUnavailable('goals', emptyInput), { reason: 'goals', have: 0, need: 0 });
 assert.deepEqual(sectionUnavailable('hear', emptyInput), { reason: 'recordings', have: 0, need: 0 });
 assert.deepEqual(sectionUnavailable('performable', emptyInput), { reason: 'ready', have: 0, need: 0 });
-assert.deepEqual(sectionUnavailable('rating', emptyInput), { reason: 'rated', have: 0, need: 1 });
+assert.deepEqual(sectionUnavailable('rating', emptyInput), { reason: 'ratedPiece', have: 0, need: 2 });
 assert.deepEqual(sectionUnavailable('timeOfDay', emptyInput), { reason: 'rated', have: 0, need: 5 });
 assert.deepEqual(sectionUnavailable('insights', emptyInput), { reason: 'history', have: 0, need: 7 });
+// focus drift states its own floor — never "needs 0 days"
+assert.deepEqual(sectionUnavailable('drift', emptyInput), { reason: 'driftWeeks', have: 0, need: 4 });
+const oneFocus = {
+  ...emptyInput,
+  sessions: ['2026-08-18', '2026-08-25', '2026-09-01', '2026-09-08'].map((date, n) => ({ id: `d${n}`, title: 'Asturias', meta: '', min: 20, date })),
+} as unknown as AvailabilityInput;
+assert.deepEqual(sectionUnavailable('drift', oneFocus), { reason: 'driftFoci', have: 1, need: 2 });
+const twoFoci = { ...oneFocus, sessions: [...oneFocus.sessions, { id: 'd9', title: 'Study', meta: '', min: 5, date: '2026-09-08' }] } as unknown as AvailabilityInput;
+assert.equal(sectionUnavailable('drift', twoFoci), null);
 
 const withData = {
   ...emptyInput,
@@ -126,7 +149,13 @@ assert.deepEqual(sectionUnavailable('hear', oneRec), { reason: 'recordings', hav
 // four rated sessions is still under the floor the cards enforce
 const fourRated = { ...withData, sessions: (withData.sessions as unknown[]).slice(0, 4) } as unknown as AvailabilityInput;
 assert.deepEqual(sectionUnavailable('timeOfDay', fourRated), { reason: 'rated', have: 4, need: 5 });
-assert.equal(sectionUnavailable('rating', fourRated), null, 'the per-piece rating chart only needs one');
+assert.equal(sectionUnavailable('rating', fourRated), null, 'the per-piece rating chart needs two on one piece, not five');
+// one rating on each of two pieces draws no line anywhere, so the switch must not claim it does
+const onePerPiece = { ...withData, sessions: [
+  { id: 'a', title: 'Asturias', meta: '', min: 20, date: '2026-09-01', rating: 4 },
+  { id: 'b', title: 'Study', meta: '', min: 20, date: '2026-09-02', rating: 3 },
+] } as unknown as AvailabilityInput;
+assert.deepEqual(sectionUnavailable('rating', onePerPiece), { reason: 'ratedPiece', have: 1, need: 2 });
 
 // nothing at the last stage yet
 const noReady = { ...withData, pieces: [{ id: 'p2', name: 'Study', stage: 0 }] } as unknown as AvailabilityInput;
@@ -137,7 +166,7 @@ console.log('check-movement: availability passed');
 import de from '../src/locales/de.json' with { type: 'json' };
 import en from '../src/locales/en.json' with { type: 'json' };
 
-const REASONS = ['sessions', 'pieces', 'rated', 'history', 'recordings', 'goals', 'ready'];
+const REASONS = ['sessions', 'pieces', 'rated', 'ratedPiece', 'history', 'driftWeeks', 'driftFoci', 'recordings', 'goals', 'ready', 'challenge'];
 for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   const prog = (dict as Record<string, any>).progress;
   for (const r of REASONS) {
@@ -146,7 +175,7 @@ for (const [lang, dict] of [['en', en], ['de', de]] as const) {
   for (const key of ['chartCalendar', 'chartLine', 'chartBars', 'chartEmpty']) {
     assert.ok(typeof prog[key] === 'string' && prog[key].length > 0, `${lang}: progress.${key} missing`);
   }
-  for (const k of ['rated', 'history']) {
+  for (const k of ['rated', 'ratedPiece', 'history', 'driftWeeks', 'driftFoci']) {
     assert.ok(prog.unavailable[k].includes('%{have}') && prog.unavailable[k].includes('%{need}'), `${lang}: ${k} must name both counts`);
   }
 }

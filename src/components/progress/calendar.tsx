@@ -6,6 +6,7 @@ import { Pressable } from '@/components/press';
 import { Text } from '@/components/text';
 import { Card } from '@/components/ui';
 import { heatLevel, mix, monthGrid } from '@/lib/heatmap-math';
+import { sessionTitle } from '@/lib/session-math';
 import { dateKey, dayLabel, useStore } from '@/lib/store';
 import { useTheme } from '@/lib/theme';
 
@@ -15,7 +16,7 @@ import type { SectionProps } from './types';
 /** A month of practice days, paged, with a per-day session detail. */
 export function CalendarSection({ mbd, sessions, onEditSession }: SectionProps) {
   const s = useS();
-  const { C, reduceMotion } = useTheme();
+  const { C, dark, reduceMotion } = useTheme();
   const store = useStore();
   const [selDate, setSelDate] = useState<string | null>(null);
   // month offset 0 = the current month; paging keeps the grid but a selected day belongs to one month only
@@ -46,15 +47,21 @@ export function CalendarSection({ mbd, sessions, onEditSession }: SectionProps) 
     <Card>
       <View style={s.monthHead}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Pressable hitSlop={10} onPress={() => pageMonth(1)}>
+          <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel={store.t('common.previousMonth')} onPress={() => pageMonth(1)}>
             <Text style={[s.monthChev, { color: C.sub }]}>‹</Text>
           </Pressable>
           <Text style={s.monthTitle}>{monthTitle}</Text>
-          <Pressable hitSlop={10} disabled={monthOff === 0} onPress={() => pageMonth(-1)}>
+          <Pressable
+            hitSlop={10}
+            disabled={monthOff === 0}
+            accessibilityRole="button"
+            accessibilityLabel={store.t('common.nextMonth')}
+            accessibilityState={{ disabled: monthOff === 0 }}
+            onPress={() => pageMonth(-1)}>
             <Text style={[s.monthChev, { color: monthOff === 0 ? C.faint : C.sub }]}>›</Text>
           </Pressable>
         </View>
-        <Text style={s.monthCount}>{store.t('progress.daysPracticed', { practiced, days: elapsedDays })}</Text>
+        <Text style={s.monthCount}>{store.t('progress.daysPracticed', { practiced, days: elapsedDays, count: elapsedDays })}</Text>
       </View>
       <View style={s.dowRow}>
         {dow.map((d, i) => (
@@ -73,11 +80,15 @@ export function CalendarSection({ mbd, sessions, onEditSession }: SectionProps) 
             const future = monthOff === 0 && day > elapsedDays;
             const isToday = monthOff === 0 && day === todayDayNum;
             const bg = future ? 'transparent' : [C.track, heat1, heat2, C.accent][level];
-            const num = future ? C.faint : [C.tertiary, C.accentDark, '#FFFFFF', '#FFFFFF'][level];
+            // readable on each heat shade: accentDark on the pale one is ~2:1 in dark mode, white on the mid one ~2.9:1 in light
+            const num = future ? C.faint : [C.tertiary, dark ? C.ink : C.accentDark, dark ? '#FFFFFF' : C.ink, '#FFFFFF'][level];
             return (
               <Pressable
                 key={di}
                 disabled={future}
+                accessibilityRole="button"
+                accessibilityLabel={`${dayLabel(key, store.today, store.t, store.lang)}, ${fmtTime(mbd[key] ?? 0, store.t)}`}
+                accessibilityState={{ selected: selDate === key, disabled: future }}
                 style={[
                   s.cell,
                   { backgroundColor: bg },
@@ -110,7 +121,7 @@ export function CalendarSection({ mbd, sessions, onEditSession }: SectionProps) 
             .map((sess) => (
               <Pressable key={sess.id} style={{ marginTop: 6 }} onPress={() => onEditSession(sess)}>
                 <View style={s.detailRow}>
-                  <Text style={s.detailTitle}>{sess.title}</Text>
+                  <Text style={s.detailTitle}>{sessionTitle(sess, store.t)}</Text>
                   <Text style={s.skillLevel}>
                     {!!sess.rating && <Text style={{ color: C.accent }}>★ {sess.rating} · </Text>}
                     {fmtTime(sess.min, store.t)}

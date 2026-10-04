@@ -7,6 +7,7 @@
 // is a pitch down (0.245..1.014) and none of them approaches expo-audio's
 // ceiling of 2.0. Rendering A..B an octave lower used to push A4/A#4/B4 above
 // concert pitch past that ceiling.
+import { MAX_REF_A, MIN_REF_A } from './tuner-math.ts';
 
 export const DRONE_NOTES = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'] as const;
 export type DroneNote = (typeof DRONE_NOTES)[number];
@@ -16,9 +17,10 @@ export const SAMPLE_OCTAVE = 4;
 /** Octaves the picker offers. */
 export const DRONE_OCTAVES = [2, 3, 4] as const;
 
-/** A4 range the reference stepper offers, for orchestras that tune high. */
-export const A4_MIN = 432;
-export const A4_MAX = 446;
+/** A4 range the reference stepper offers. The drone shares the tuner's
+ *  reference setting, so it shares its range too. */
+export const A4_MIN = MIN_REF_A;
+export const A4_MAX = MAX_REF_A;
 
 /**
  * Playback rates expo-audio honours: 0.1..2 on Android, 0.0..2 on iOS

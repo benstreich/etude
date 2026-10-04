@@ -12,6 +12,9 @@ const RULES: [string, CueVoice][] = [
   ['electric bass', 'pluck'],
   ['bass clarinet', 'bow'],
   ['double bass', 'bow'],
+  // "bassoon" hides "bass" and "flute" hides "lute": blown, not plucked
+  ['bassoon', 'bow'],
+  ['flute', 'bow'],
   // struck and shaken
   ['drum', 'perc'],
   ['percussion', 'perc'],
