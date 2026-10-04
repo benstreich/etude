@@ -9,8 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.benstreich.etude",
+      "appleTeamId": "MM5VJAMMV5",
       "infoPlist": {
-        "CFBundleDisplayName": "Étude"
+        "CFBundleDisplayName": "Étude",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.security.application-groups": [
