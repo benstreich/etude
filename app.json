@@ -39,7 +39,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "package": "com.benstreich.etude",
-      "versionCode": 14
+      "versionCode": 15
     },
     "web": {
       "output": "static",
