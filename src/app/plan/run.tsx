@@ -285,7 +285,7 @@ function Runner({ id }: { id: string }) {
         <Text style={s.segTitle} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={s.timer} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="timer" accessibilityLabel={timerLabel}>
+        <Text testID="run-timer" style={s.timer} numberOfLines={1} adjustsFontSizeToFit accessibilityRole="timer" accessibilityLabel={timerLabel}>
           {mm}:{ss}
         </Text>
         <Text style={s.of}>{isBreak ? store.t('planRun.breakHint') : store.t('planRun.ofMin', { min: seg.min })}</Text>

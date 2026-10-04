@@ -49,6 +49,13 @@ tags:
 - assertVisible: "Sight reading"
 # the last segment's button says Finish, not Next
 - assertVisible: "Finish"
+# play this one past 30 s: Next/Finish under 30 s logs nothing (no fake minute
+# for a skipped segment), so the review needs a segment that was really played
+- extendedWaitUntil:
+    visible:
+      id: "run-timer"
+      text: "(00:(3[2-9]|[45][0-9])|0 min (3[2-9]|[45][0-9]) s)"
+    timeout: 60000
 - tapOn:
     id: "run-next"
 
@@ -69,12 +76,12 @@ tags:
 - back
 - tapOn: "Home"
 
-# each segment was advanced early, and an early advance still logs a whole
-# minute, so two segments make two minutes
+# segment 1 was skipped within seconds and logs nothing; segment 2 ran ~35 s,
+# which rounds to one minute
 - scrollUntilVisible:
     element:
       id: "today-minutes"
     direction: UP
 - assertVisible:
     id: "today-minutes"
-    text: "^2$"
+    text: "^1$"

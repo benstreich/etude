@@ -33,7 +33,7 @@ tags:
 
 # the piece page is a stack screen with no tab bar: back to the list first
 - tapOn:
-    text: "Repertoire"
+    text: "Back"
     index: 0
 
 # a session on that piece offers the spot as a chip
