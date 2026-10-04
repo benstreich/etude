@@ -376,8 +376,8 @@
     "goal_month": "This month",
     "goal_year": "This year",
     "goalMet": "Goal met",
-    "goalAhead": "%{min} min to go — ahead of pace",
-    "goalBehind": "%{min} min behind pace",
+    "goalAhead": "%{time} to go — ahead of pace",
+    "goalBehind": "%{time} behind pace",
     "deadlines": "Coming up",
     "daysLeft": {
       "zero": "today",

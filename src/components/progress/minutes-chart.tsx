@@ -60,8 +60,11 @@ export function MinutesChart({
   const slot = w / n;
   const x = (i: number) => (n === 1 ? w / 2 : slot * i + slot / 2);
   const y = (min: number) => H - (min / top) * H;
+  // weekday names only for a run of consecutive days: 'all' draws 7-day buckets that
+  // all end on today's weekday, so a short history read "Mon Mon Mon Mon"
+  const daily = n < 2 || Date.parse(points[1].label) - Date.parse(points[0].label) <= 86400000;
   const fmtDate = (label: string) =>
-    new Date(label + 'T12:00:00').toLocaleDateString(lang, n <= 7 ? { weekday: 'short' } : { day: 'numeric', month: 'short' });
+    new Date(label + 'T12:00:00').toLocaleDateString(lang, daily && n <= 7 ? { weekday: 'short' } : { day: 'numeric', month: 'short' });
 
   return (
     <View style={s.wrap}>

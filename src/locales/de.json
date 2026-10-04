@@ -376,8 +376,8 @@
     "goal_month": "Dieser Monat",
     "goal_year": "Dieses Jahr",
     "goalMet": "Ziel erreicht",
-    "goalAhead": "Noch %{min} min — über Plan",
-    "goalBehind": "%{min} min hinter Plan",
+    "goalAhead": "Noch %{time} — über Plan",
+    "goalBehind": "%{time} hinter Plan",
     "deadlines": "Steht an",
     "daysLeft": {
       "zero": "heute",
