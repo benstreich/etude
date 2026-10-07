@@ -1,6 +1,8 @@
 // In-memory home for a running routine, so it survives tab switches and
 // screen unmounts, and so the shell can show a "routine in progress" pill.
-// Not persisted: an app kill ends the run, same as the practice timer.
+// Mirrored into the store (store.activeRun) and revived on hydration the way
+// the practice timer's liveSession is, so an app kill mid-segment no longer
+// drops that segment — the practice timer survives one, and a routine should too.
 import { useSyncExternalStore } from 'react';
 
 import type { Plan } from './store';
@@ -18,6 +20,8 @@ export type ActiveRun = {
   loggedMin: number;
   /** Id of the last session logged (breaks log none), for the review. */
   lastId: string;
+  /** heartbeat: the last moment the app was alive with this run going (session-math.restoreLive) */
+  lastSeen: number;
 };
 
 let run: ActiveRun | null = null;
@@ -30,8 +34,8 @@ const subscribe = (l: () => void) => {
 };
 
 export const getActiveRun = () => run;
-export const setActiveRun = (next: ActiveRun | null) => {
-  run = next;
+export const setActiveRun = (next: (Omit<ActiveRun, 'lastSeen'> & { lastSeen?: number }) | null) => {
+  run = next ? { ...next, lastSeen: next.lastSeen ?? Date.now() } : null;
   listeners.forEach((l) => l());
 };
 export const useActiveRun = () => useSyncExternalStore(subscribe, getActiveRun, getActiveRun);

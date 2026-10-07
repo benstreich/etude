@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -134,6 +134,17 @@ export default function Appearance() {
           ))}
         </View>
       </View>
+
+      {/* opt-in: Android drops the home-screen shortcut when the icon switches (store.iconAccent) */}
+      {Platform.OS !== 'web' && (
+        <View style={s.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.switchLabel}>{store.t('appearance.iconAccent')}</Text>
+            <Text style={s.switchHint}>{store.t(Platform.OS === 'android' ? 'appearance.iconAccentHintAndroid' : 'appearance.iconAccentHintIos')}</Text>
+          </View>
+          <Switch testID="appearance-icon-accent" accessibilityLabel={store.t('appearance.iconAccent')} value={store.iconAccent} onChange={(v) => store.updateSettings({ iconAccent: v })} />
+        </View>
+      )}
 
       <View style={s.switchRow}>
         <View style={{ flex: 1 }}>

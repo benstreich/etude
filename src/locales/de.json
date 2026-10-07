@@ -19,12 +19,12 @@
     "practice": "Üben",
     "progress": "Fortschritt",
     "repertoire": "Repertoire",
-    "settings": "Optionen",
+    "settings": "Einstellungen",
     "tools": "Werkzeuge"
   },
   "toast": {
     "saved": "Gespeichert",
-    "saveFailed": "Speichern fehlgeschlagen — der Gerätespeicher ist womöglich voll",
+    "saveFailed": "Speichern fehlgeschlagen: der Gerätespeicher ist womöglich voll",
     "enableNotifications": "Aktiviere Benachrichtigungen in den Systemeinstellungen, um Erinnerungen zu erhalten",
     "planDeleted": "Routine gelöscht",
     "sessionDeleted": "Einheit gelöscht",
@@ -71,12 +71,15 @@
     "accentOcean": "Ozean",
     "accentPlum": "Pflaume",
     "accentSlate": "Schiefer",
-    "accentHint": "App-Symbol und Widgets folgen der Akzentfarbe. Das Symbol wechselt, sobald du die App verlässt; auf manchen Android-Geräten dauert das einen Moment.",
-    "previewSample": "So wird sich Étude lesen."
+    "accentHint": "Die Widgets auf dem Startbildschirm folgen der Akzentfarbe. Das App-Symbol kann es auch, siehe unten.",
+    "iconAccent": "App-Symbol folgt der Akzentfarbe",
+    "iconAccentHintAndroid": "Das Symbol wechselt, sobald du die App verlässt. Android entfernt Étude dann vom Startbildschirm: füge es aus der App-Liste wieder hinzu. Widgets bleiben, wo sie sind.",
+    "iconAccentHintIos": "Das Symbol wechselt, sobald du die App verlässt; iOS zeigt dabei jedes Mal einen Hinweis.",
+    "previewSample": "So liest sich Étude."
   },
   "settings": {
     "breakEvery": "Pausenerinnerung",
-    "everyMin": "alle %{min} Min",
+    "everyMin": "alle %{min} Min.",
     "breakEveryHint": "Der Timer erinnert dich nach so vielen Minuten an eine Pause. Pausen halten die Einheit an und zählen nicht als Übung.",
     "title": "Einstellungen",
     "rate": "Gefällt dir Étude? Hinterlasse eine Bewertung",
@@ -86,11 +89,11 @@
     "primaryInstrumentHint": "Der Abschluss-Klang einer Einheit klingt nach diesem Instrument.",
     "melodyKey": "Tonart der Melodie",
     "majorKey": "%{key}-Dur",
-    "melodyKeyHint": "Die Notenzeile auf Home wird in dieser Tonart gelesen und gespielt. Gleiche Noten, transponiert.",
+    "melodyKeyHint": "Die Notenzeile auf der Startseite wird in dieser Tonart gelesen und gespielt. Gleiche Noten, transponiert.",
     "credits": "Klavier: Salamander Grand Piano von Alexander Holm, CC BY 3.0",
     "dailyGoal": "Tagesziel",
-    "quickLog": "Schnell-Log-Vorgaben",
-    "quickLogFocus": "Schnell-Log-Fokus",
+    "quickLog": "Schnelleintrag-Vorgaben",
+    "quickLogFocus": "Schnelleintrag-Fokus",
     "breakDays": "Pausentage",
     "streaks": "Serien",
     "reminders": "Übungserinnerungen",
@@ -98,7 +101,7 @@
     "stages": "Repertoire-Phasen",
     "yourName": "Dein Name",
     "autoBackups": "Automatische Backups",
-    "min": "min",
+    "min": "Min.",
     "nothingSpecific": "Nichts Bestimmtes",
     "none": "Keine",
     "off": "Aus",
@@ -138,7 +141,7 @@
     "errPresets": "Behalte mindestens eine Vorgabe",
     "errStages": "Mindestens zwei Phasen",
     "backupFailed": "Backup fehlgeschlagen",
-    "backupTooLarge": "Zu groß für eine Backup-Datei — über 150 MB an Aufnahmen und Noten",
+    "backupTooLarge": "Zu groß für eine Backup-Datei: über 150 MB an Aufnahmen und Noten",
     "preparingBackup": "Backup wird erstellt …",
     "exportFailed": "Export fehlgeschlagen",
     "restoreConfirmTitle": "Aus Backup wiederherstellen?",
@@ -147,8 +150,8 @@
     "restore": "Wiederherstellen",
     "backupRestored": "Backup wiederhergestellt",
     "backupRestoredMissing": {
-      "one": "Backup wiederhergestellt — 1 Aufnahme oder Notenblatt ließ sich nicht wiederherstellen",
-      "other": "Backup wiederhergestellt — %{count} Aufnahmen oder Notenblätter ließen sich nicht wiederherstellen"
+      "one": "Backup wiederhergestellt, 1 Aufnahme oder Notenblatt ließ sich nicht wiederherstellen",
+      "other": "Backup wiederhergestellt, %{count} Aufnahmen oder Notenblätter ließen sich nicht wiederherstellen"
     },
     "notABackup": "Diese Datei ist kein Étude-Backup",
     "restoreFromBackup": "Aus Backup wiederherstellen",
@@ -174,9 +177,9 @@
     "backupEverythingSub": "Eine Datei: Einheiten, Stücke, Aufnahmen, Noten, Einstellungen",
     "everyNDays": "Alle %{n} Tage",
     "exportCsv": "Einheiten als CSV exportieren",
-    "exportCsvSub": "Für Tabellen — Datum, Fokus, Minuten, Notiz",
+    "exportCsvSub": "Für Tabellen: Datum, Fokus, Minuten, Notiz",
     "restoreSub": "Ersetzt die Daten auf diesem Gerät",
-    "privacyFooter": "Étude speichert alles auf diesem Gerät. Sichere deine Daten vor einem Handywechsel — Aufnahmen sind enthalten.",
+    "privacyFooter": "Étude speichert alles auf diesem Gerät. Sichere deine Daten vor einem Handywechsel; Aufnahmen sind enthalten.",
     "minutesPerDay": "Minuten pro Tag",
     "namePlaceholder": "Name",
     "clearPresetHint": "Leere ein Feld, um die Vorgabe zu entfernen.",
@@ -186,14 +189,15 @@
     "moveDown": "Nach unten",
     "stagesHint": "In Reihenfolge, von der ersten bis zur letzten. Leere ein Feld, um es zu entfernen; mindestens zwei Phasen.",
     "streaksHint": "Streng beendet die Serie nach einem verpassten Tag; Entspannt verzeiht einen einzelnen verpassten Tag. Pausentage zählen nie dagegen, und das Nachtragen eines vergangenen Tages belebt die Serie in beiden Fällen wieder.",
-    "notifBlocked": "Mitteilungen für Étude sind aus — tippen, um die Systemeinstellungen zu öffnen.",
-    "autoBackupHint": "Speichert deine Einheiten, Stücke und Einstellungen im Speicher der App und behält die letzten drei. Aufnahmen und Notenseiten sind nicht enthalten — „Alles sichern“ deckt sie beim Handywechsel ab.",
+    "notifBlocked": "Benachrichtigungen für Étude sind aus. Tippen, um die Systemeinstellungen zu öffnen.",
+    "remindersBlocked": "Vom System blockiert",
+    "autoBackupHint": "Speichert deine Einheiten, Stücke und Einstellungen im Speicher der App und behält die letzten drei. Aufnahmen und Notenseiten sind nicht enthalten; „Alles sichern“ deckt sie beim Handywechsel ab.",
     "save": "Speichern",
     "about": "Über Étude",
     "howBuilt": "Wie Étude gebaut ist",
     "howBuiltSub": "Technik, Aufbau und was das Handy verlässt",
     "sourceCode": "Quellcode",
-    "sourceCodeSub": "Öffentlich lesbar — Étude bleibt eine bezahlte App",
+    "sourceCodeSub": "Öffentlich lesbar. Étude bleibt eine bezahlte App",
     "privacyPolicy": "Datenschutz",
     "privacyPolicySub": "Kurz, weil es wenig zu sagen gibt",
     "linkFailed": "Link konnte nicht geöffnet werden",
@@ -213,8 +217,8 @@
     "goodAfternoon": "Guten Tag",
     "goodEvening": "Guten Abend",
     "streak": {
-      "one": "1-Tag-Serie",
-      "other": "%{count}-Tage-Serie"
+      "one": "Serie: 1 Tag",
+      "other": "Serie: %{count} Tage"
     },
     "streakLine": {
       "one": "1 Tag in Folge",
@@ -229,18 +233,18 @@
       "title": "Die Notenzeile lesen",
       "intro": "Jeder Tag ist ein Takt, und jede geübte Einheit ist eine Note darin. Ein Tag füllt sich also beim Üben, und wie du ihn aufteilst, ist sein Rhythmus.",
       "pitchHead": "Die Tonhöhe",
-      "pitch": "Jedes Stück und jede Technik hat ihre eigene Note und behält sie. Kommst du zum selben Stück zurück, landet es auf derselben Linie — so wird dein Repertoire nach und nach zu einer Melodie, die du wiedererkennst.",
+      "pitch": "Jedes Stück und jede Technik hat ihre eigene Note und behält sie. Kommst du zum selben Stück zurück, landet es auf derselben Linie; so wird dein Repertoire nach und nach zu einer Melodie, die du wiedererkennst.",
       "lengthHead": "Die Notenlänge",
       "length": "Wie lange die Note gehalten wird, ist deine Übezeit, gemessen an deinem Tagesziel von %{goal} Min:",
       "aboutMin": "etwa %{min} Min",
       "marksHead": "Der Rest",
       "rest": "Ein Tag ohne Eintrag ist eine Pause.",
-      "fermata": "Übertriffst du das Ziel, bekommt die letzte Note des Tages eine Fermate — so lang gehalten, wie du magst.",
+      "fermata": "Übertriffst du das Ziel, bekommt die letzte Note des Tages eine Fermate, so lang gehalten, wie du magst.",
       "meterHead": "Die Taktart",
-      "meter": "Jeder Takt hat seine eigene. 4/4 ist ungefähr ein Tag, der das Ziel erreicht hat; 6/4 ein Tag, der halb so lang noch einmal war. Jede Einheit wird auf den nächsten Notenwert gerundet, darum kann ein Tag aus mehreren Einheiten etwa einen Schlag länger ausfallen. Das ist Absicht — ein Takt ist ein Tag, keine feste Taktart, und dauert genau so lang wie der Tag. Geschrieben wird sie nur dort, wo sie wechselt. Endet ein Tag zwischen zwei Schlägen, schliesst der Takt mit einer kurzen Pause, damit er genau das ergibt, was seine Taktart verspricht.",
+      "meter": "Jeder Takt hat seine eigene. 4/4 ist ungefähr ein Tag, der das Ziel erreicht hat; 6/4 ein Tag, der halb so lang noch einmal war. Jede Einheit wird auf den nächsten Notenwert gerundet, darum kann ein Tag aus mehreren Einheiten etwa einen Schlag länger ausfallen. Das ist Absicht: ein Takt ist ein Tag, keine feste Taktart, und dauert genau so lang wie der Tag. Geschrieben wird sie nur dort, wo sie wechselt. Endet ein Tag zwischen zwei Schlägen, schließt der Takt mit einer kurzen Pause, damit er genau das ergibt, was seine Taktart verspricht.",
       "key": "Die ganze Notenzeile wird in %{key} gelesen und gespielt. Ändern kannst du das in den Einstellungen."
     },
-    "staffHint": "Tag antippen zeigt sein Protokoll — Schnelleinträge landen dort",
+    "staffHint": "Tag antippen zeigt sein Protokoll; Schnelleinträge landen dort",
     "playMelody": "Diese Woche abspielen",
     "fullScore": "Deine Partitur, ganz",
     "todaysLog": "Heutiges Protokoll",
@@ -263,7 +267,7 @@
     "firstSession": "Deine erste Einheit",
     "guide1Pre": "Füge ein Stück hinzu oder wähle eine Technik unter ",
     "guide2Pre": "Tippe auf ",
-    "guide2Post": " — der Timer läuft auch bei ausgeschaltetem Bildschirm",
+    "guide2Post": ", der Timer läuft auch bei ausgeschaltetem Bildschirm",
     "guide3Pre": "Ohne Handy geübt? Trage es unten per ",
     "guide3Post": " ein",
     "quickLogFocus": "Fokus für Schnelleintrag",
@@ -272,7 +276,7 @@
   },
   "practice": {
     "session": "Einheit",
-    "breakDue": "%{min} Min — kurz Pause machen?",
+    "breakDue": "%{min} Min. Kurz Pause machen?",
     "startBreak": "Pause starten",
     "skip": "Überspringen",
     "onBreak": "In der Pause",
@@ -282,6 +286,8 @@
     "breakOverTitle": "Pause vorbei",
     "breakOverBody": "Weiter üben?",
     "micPermissionNeeded": "Mikrofonberechtigung erforderlich",
+    "micBlockedBody": "Der Mikrofonzugriff für Étude ist aus. Schalte ihn in den Systemeinstellungen ein, um eine Aufnahme zu machen.",
+    "takeAlreadyRunning": "Auf einem anderen Bildschirm läuft bereits eine Aufnahme",
     "recordStartFailed": "Aufnahme konnte nicht gestartet werden",
     "paused": "Pausiert",
     "running": "Läuft",
@@ -338,7 +344,7 @@
       "one": "Noch 1 Tag im Monat",
       "other": "Noch %{count} Tage im Monat"
     },
-    "insights": "Einsichten",
+    "insights": "Einblicke",
     "lengthMin": "%{range} Min",
     "weekend": "am Wochenende",
     "weekday": "an Wochentagen",
@@ -349,11 +355,11 @@
     "streakSentence": "Deine Serien reißen meist an Tag %{day}, am häufigsten an einem %{weekday}.",
     "paceSentence": "Im Tempo der letzten 8 Wochen erreichst du dieses Jahr %{hours} Stunden.",
     "milestoneSentence": "%{hours} Stunden Übung erreichst du etwa am %{date}.",
-    "dueSentence": "%{piece} wurde seit %{days} Tagen nicht gespielt — Zeit für eine Auffrischung.",
+    "dueSentence": "%{piece} wurde seit %{days} Tagen nicht gespielt, Zeit für eine Auffrischung.",
     "goalDailySentence": "Dein Ziel von %{goal} Minuten erreichst du an %{hitCurrent} % der Übungstage; mit %{suggested} Minuten wären es %{hitSuggested} %.",
     "goalWeeklySentence": "Dein Wochenziel von %{goal} Min. hast du in %{hitCurrent} % der letzten %{n} Wochen erreicht; mit %{suggested} Min. wären es %{hitSuggested} %.",
     "interleavingSentence": "Ein Übungstag berührt im Schnitt %{perDay} Schwerpunkte, eine Woche %{perWeek}.",
-    "drift": "Schwerpunkt-Verlauf",
+    "drift": "Fokus-Verlauf",
     "other": "Andere",
     "consistency": "Regelmäßigkeit",
     "avgDaysPerWeek": {
@@ -376,7 +382,7 @@
     "goal_month": "Dieser Monat",
     "goal_year": "Dieses Jahr",
     "goalMet": "Ziel erreicht",
-    "goalAhead": "Noch %{time} — über Plan",
+    "goalAhead": "Noch %{time}, über Plan",
     "goalBehind": "%{time} hinter Plan",
     "deadlines": "Steht an",
     "daysLeft": {
@@ -388,10 +394,10 @@
       "one": "1 Tag überfällig",
       "other": "%{count} Tage überfällig"
     },
-    "minUnit": "min",
+    "minUnit": "Min.",
     "hrUnit": "Std",
-    "timeHM": "%{h}h %{m}m",
-    "timeMin": "%{min} min",
+    "timeHM": "%{h} Std. %{m} Min.",
+    "timeMin": "%{min} Min.",
     "last7Days": "Letzte 7 Tage",
     "emptyTitle": "Deine Woche erscheint hier",
     "emptyText": "Trag deine erste Einheit ein und das Diagramm füllt sich.",
@@ -403,7 +409,7 @@
     "less": "weniger",
     "more": "mehr",
     "noSessionDetails": "Keine Einheiten an diesem Tag",
-    "timeByFocus": "Zeit nach Fokus",
+    "timeByFocus": "Zeit pro Fokus",
     "period7d": "7T",
     "period30d": "30T",
     "periodAll": "Alle",
@@ -427,9 +433,9 @@
       "changed": "Seit letztem Monat",
       "insights": "Einblicke",
       "timeByFocus": "Zeit pro Fokus",
-      "drift": "Fokus-Drift",
-      "consistency": "Regelmässigkeit",
-      "rating": "Bewertung über die Zeit",
+      "drift": "Fokus-Verlauf",
+      "consistency": "Regelmäßigkeit",
+      "rating": "Bewertung im Verlauf",
       "timeOfDay": "Beste Tageszeit",
       "sessionLength": "Länge der Einheit"
     },
@@ -438,7 +444,7 @@
     "moveStage": "%{from} → %{to}",
     "moveTempo": "+%{n} BPM",
     "moveRating": "+%{n} ★",
-    "moveStalled": "%{days} T. Pause",
+    "moveStalled": "stockt seit %{days} T.",
     "moveDue": "fällig · %{days} T.",
     "moveNew": "neu",
     "moveSteady": "stabil",
@@ -456,7 +462,7 @@
       "one": "1 Stück",
       "other": "%{count} Stücke"
     },
-    "performable": "Heute spielbar",
+    "performable": "Heute vorspielbar",
     "performableCount": "%{n} von %{m} frisch",
     "lastPlayed": "vor %{days} T.",
     "playedToday": "heute gespielt",
@@ -496,11 +502,11 @@
       "challenge": "Übe ein paar Wochen, um eine monatliche Herausforderung freizuschalten.",
       "sessions": "Erfasse zuerst eine Einheit.",
       "pieces": "Füge zuerst ein Stück zu deinem Repertoire hinzu.",
-      "rated": "Braucht %{need} bewertete Einheiten — du hast %{have}.",
-      "ratedPiece": "Braucht %{need} bewertete Einheiten eines Stücks — du hast %{have}.",
-      "history": "Braucht %{need} Tage Übung — du hast %{have}.",
-      "driftWeeks": "Braucht Übung in %{need} der letzten 12 Wochen — du hast %{have}.",
-      "driftFoci": "Braucht %{need} verschiedene Stücke oder Techniken in den letzten 12 Wochen — du hast %{have}.",
+      "rated": "Braucht %{need} bewertete Einheiten; du hast %{have}.",
+      "ratedPiece": "Braucht %{need} bewertete Einheiten eines Stücks; du hast %{have}.",
+      "history": "Braucht %{need} Tage Übung; du hast %{have}.",
+      "driftWeeks": "Braucht Übung in %{need} der letzten 12 Wochen; du hast %{have}.",
+      "driftFoci": "Braucht %{need} verschiedene Stücke oder Techniken in den letzten 12 Wochen; du hast %{have}.",
       "recordings": "Braucht ein Stück mit zwei Aufnahmen.",
       "goals": "Setze zuerst ein Tagesziel oder eine Frist für ein Stück.",
       "ready": "Braucht ein Stück in der letzten Phase."
@@ -523,12 +529,12 @@
     "folderOptions": "Ordneroptionen",
     "renameFolder": "Ordner umbenennen",
     "deleteFolder": "Ordner löschen",
-    "deleteFolderBody": "Die Stücke bleiben in deinem Repertoire — nur die Gruppierung entfällt.",
+    "deleteFolderBody": "Die Stücke bleiben in deinem Repertoire; nur die Gruppierung entfällt.",
     "errFolder": "Dieser Ordnername ist vergeben, leer oder zu lang",
     "saveFolder": "Speichern",
-    "dueForReview": "Seit %{days} Tagen nicht gespielt — Auffrischung fällig",
+    "dueForReview": "Seit %{days} Tagen nicht gespielt, Auffrischung fällig",
     "emptyTitle": "Woran arbeitest du gerade?",
-    "emptyText": "Füge das Stück hinzu, das du lernst — die Suche ergänzt den Künstler für dich.",
+    "emptyText": "Füge das Stück hinzu, das du lernst. Die Suche ergänzt den Künstler für dich.",
     "addAPiece": "Stück hinzufügen",
     "orStartTechnique": "Oder starte mit einer Technik",
     "invested": "%{min} Min. investiert · zuletzt %{day}",
@@ -547,13 +553,13 @@
     "createNamed": "+ „%{name}“ erstellen",
     "addingNamed": "„%{name}“ wird hinzugefügt",
     "artistOptional": "Künstler (optional)",
-    "techniquesTapToggle": "Techniken — tippen zum Hinzufügen oder Entfernen",
+    "techniquesTapToggle": "Techniken: tippen zum Hinzufügen oder Entfernen",
     "ownTechniquePlaceholder": "Deine eigene Technik …",
     "restore": "Ins Repertoire zurückholen",
     "archive": "Archivieren",
     "remove": "Entfernen",
     "instrumentsHint": "Wähle jedes Instrument, auf dem du das spielst.",
-    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
+    "instrumentsAll": "Kein Instrument gewählt: erscheint bei allen.",
     "searchList": "Repertoire durchsuchen",
     "noMatchesTitle": "Keine Treffer",
     "noMatchesText": "Kein Stück und keine Technik passt zu Suche und Instrument.",
@@ -574,8 +580,8 @@
   },
   "instrumentAsk": {
     "title": "Welches Instrument?",
-    "subline": "„%{name}“ gehört zu mehreren. Wähle das, auf dem du gerade spielst — die Minuten zählen dorthin.",
-    "sublineRoutine": "„%{name}“ enthält Stücke für mehrere Instrumente. Wähle das, auf dem du gerade spielst — dieser Durchlauf zählt dorthin.",
+    "subline": "„%{name}“ gehört zu mehreren. Wähle das, auf dem du gerade spielst; die Minuten zählen dorthin.",
+    "sublineRoutine": "„%{name}“ enthält Stücke für mehrere Instrumente. Wähle das, auf dem du gerade spielst; dieser Durchlauf zählt dorthin.",
     "change": "Instrument"
   },
   "compare": {
@@ -591,17 +597,17 @@
       "other": "%{count} Monate Abstand"
     },
     "playing": "%{which} läuft",
-    "flipHint": "Zum Wechseln tippen — die Position bleibt erhalten",
+    "flipHint": "Zum Wechseln tippen; die Position bleibt erhalten",
     "pickHint": "Tippe auf A oder B, um einen Take auf diesen Platz zu legen. Wählst du den Take vom anderen Platz, werden die beiden getauscht.",
     "goneTitle": "Diese Aufnahme gibt es nicht mehr",
-    "goneText": "Eine der beiden Aufnahmen wurde gelöscht — es bleibt nichts zum Vergleichen.",
+    "goneText": "Eine der beiden Aufnahmen wurde gelöscht; es bleibt nichts zum Vergleichen.",
     "playTake": "Take %{which} abspielen",
     "pauseTake": "Take %{which} pausieren",
     "putInSlot": "%{name} auf Platz %{which} legen"
   },
   "piece": {
     "forecast": "In diesem Tempo: %{target} BPM etwa am %{date}",
-    "plateau": "Plateau — drei Wochen ohne Tempozuwachs. Passage wechseln, langsamer, in Stücke teilen.",
+    "plateau": "Plateau: drei Wochen ohne Tempozuwachs. Passage wechseln, langsamer, in Stücke teilen.",
     "minPerBpm": "%{n} Min pro gewonnenem BPM",
     "added": "hinzugefügt am %{date}",
     "stage": "Phase",
@@ -610,8 +616,8 @@
     "total": "Gesamt",
     "sessionsStat": "Einheiten",
     "last": "Zuletzt",
-    "hoursMin": "%{h}h %{m}m",
-    "min": "%{count} Min",
+    "hoursMin": "%{h} Std. %{m} Min.",
+    "min": "%{count} Min.",
     "targetTempo": "Zieltempo",
     "masterBy": "Fertig bis",
     "addTargetDate": "Zieldatum setzen",
@@ -619,7 +625,7 @@
     "mastered": "Sitzt",
     "onTrack": "Im Plan",
     "behind": "Hinter Plan",
-    "deadlineDone": "Letzte Phase erreicht — stark.",
+    "deadlineDone": "Letzte Phase erreicht, stark.",
     "rename": "Umbenennen",
     "deadlineToday": "Das ist heute.",
     "deadlineIn": {
@@ -653,7 +659,7 @@
     "stopTake": "Stopp",
     "instruments": "Instrumente",
     "instrumentsHint": "Wird darauf geübt. Wähle mehrere, wenn du es auf mehreren spielst.",
-    "instrumentsAll": "Kein Instrument gewählt — erscheint bei allen.",
+    "instrumentsAll": "Kein Instrument gewählt: erscheint bei allen.",
     "importing": "Wird importiert …",
     "more": "Weitere Optionen"
   },
@@ -684,7 +690,7 @@
     "startPlan": "Routine starten",
     "newSegment": "Neues Segment",
     "editSegment": "Segment bearbeiten",
-    "notePlaceholder": "Notiz — z. B. Takte 12–24, langsam",
+    "notePlaceholder": "Notiz, z. B. Takte 12–24, langsam",
     "minutes": "Minuten",
     "metronome": "Metronom",
     "moveUp": "Nach oben",
@@ -694,7 +700,7 @@
   },
   "planRun": {
     "break": "Pause",
-    "breakHint": "Erholung — diese Zeit wird nicht gezählt",
+    "breakHint": "Erholung: diese Zeit wird nicht gezählt",
     "end": "Beenden",
     "endTitle": "Routine beenden?",
     "endMessage": "Das aktuelle Segment wird so gespeichert.",
@@ -704,7 +710,7 @@
     "metronomeBpm": "Metronom · %{bpm} BPM",
     "next": "Weiter",
     "finish": "Fertig",
-    "inProgress": "%{name} läuft — tippen zum Fortsetzen",
+    "inProgress": "%{name} läuft, tippen zum Fortsetzen",
     "timerLabel": "%{min} Min. %{sec} Sek.",
     "timerLabelBreak": "noch %{min} Min. %{sec} Sek."
   },
@@ -712,9 +718,9 @@
     "skip": "Überspringen",
     "tagline": "Übe bewusst.",
     "getStarted": "Los geht’s",
-    "privacyNote": "Alles bleibt auf deinem Gerät — kein Konto nötig",
+    "privacyNote": "Alles bleibt auf deinem Gerät, kein Konto nötig",
     "instrumentsTitle": "Was spielst du?",
-    "instrumentsSubline": "Wähle alles Passende — du kannst das jederzeit ändern.",
+    "instrumentsSubline": "Wähle alles Passende; du kannst das jederzeit ändern.",
     "instPiano": "Klavier",
     "instGuitar": "Gitarre",
     "instViolin": "Violine",
@@ -728,7 +734,7 @@
     "optional": "(optional)",
     "namePlaceholder": "Name",
     "goalTitle": "Ein Ziel, das du halten kannst",
-    "goalSubline": "Kurz und täglich schlägt lang und selten. Fang leicht an — erhöhen kannst du später.",
+    "goalSubline": "Kurz und täglich schlägt lang und selten. Fang leicht an; erhöhen kannst du später.",
     "minutesADay": "Minuten pro Tag",
     "reminderTitle": "Ein sanfter Stups?",
     "reminderSubline": "Eine Erinnerung pro Tag, nur an Tagen, an denen du noch nicht geübt hast.",
@@ -795,14 +801,14 @@
   },
   "tempoLadder": {
     "title": "Tempoleiter",
-    "emptyHint": "Logge dein heutiges Tempo, um loszulegen",
+    "emptyHint": "Trage dein heutiges Tempo ein, um loszulegen",
     "targetBpm": "Ziel %{bpm} BPM",
     "bpmNow": "BPM aktuell",
     "deltaThisMonth": "+%{delta} diesen Monat",
-    "logTodaysTempo": "Heutiges Tempo loggen",
+    "logTodaysTempo": "Heutiges Tempo eintragen",
     "delete": "Löschen",
     "todaysTempo": "Heutiges Tempo",
-    "logTempo": "Tempo loggen",
+    "logTempo": "Tempo eintragen",
     "auto": "Automatisch steigern",
     "autoHint": "Starte das Metronom, um Durchläufe zu zählen",
     "autoNeedsTarget": "Lege zuerst ein Zieltempo fest",
@@ -840,7 +846,7 @@
     "minutesPlaceholder": "Minuten",
     "addMoreAfterSaving": "Nach dem Speichern weiter eintragen",
     "add": "Hinzufügen",
-    "addedToast": "%{min} Min hinzugefügt · %{day}"
+    "addedToast": "%{min} Min. hinzugefügt · %{day}"
   },
   "sessionReview": {
     "challengeDone": "Monatliche Herausforderung geschafft",
@@ -857,8 +863,8 @@
     "attachHeading": "Take anhängen",
     "saveSession": "Einheit speichern",
     "streakChip": {
-      "one": "1-Tag-Serie",
-      "other": "%{count}-Tage-Serie"
+      "one": "Serie: 1 Tag",
+      "other": "Serie: %{count} Tage"
     },
     "firstSession": "Erste Einheit",
     "bestWeek": "Beste Woche bisher",
@@ -905,9 +911,10 @@
     "namePlaceholder": "Take benennen",
     "untitled": "Take",
     "unfiled": "Nicht zugeordnet",
+    "fileMissing": "Die Audiodatei dieser Aufnahme ist nicht mehr auf diesem Gerät",
     "deleteTitle": "Diese Aufnahme löschen?",
     "deleteBody": "„%{name}“ und die Audiodatei werden endgültig entfernt. Das lässt sich nicht rückgängig machen.",
-    "shareWholeHint": "Geteilt wird die ganze Aufnahme — der Trim steuert nur die Wiedergabe hier.",
+    "shareWholeHint": "Geteilt wird die ganze Aufnahme; der Trim steuert nur die Wiedergabe hier.",
     "delete": "Löschen",
     "trimmed": "Gekürzt",
     "reference": "Referenz",
@@ -925,7 +932,10 @@
     "trimSilenceNone": "Keine Stille zum Kürzen",
     "in": "Start",
     "out": "Ende",
-    "here": "Hier",
+    "here": "Abspielposition",
+    "hereHint": "Spiel die Aufnahme ab und setze eine Grenze dort, wo du gerade hörst",
+    "hereReady": "Pausiere, wo der Clip beginnen oder enden soll, und tippe auf Abspielposition",
+    "noWave": "Importierte Aufnahme: keine Wellenform, der Streifen zeigt nur die Zeit",
     "clipLength": "Ausschnitt %{len}",
     "moveTitle": "Take verschieben nach",
     "moveCancel": "Abbrechen",
@@ -944,7 +954,7 @@
     "shareFailed": "Diese Aufnahme ließ sich nicht teilen"
   },
   "recap": {
-    "challenge": "Monats-Herausforderung",
+    "challenge": "Monatliche Herausforderung",
     "challengeDays": "%{done} / %{target} Tage",
     "challengeMinutes": "%{done} / %{target} Min.",
     "onPace": "Auf Kurs für",
@@ -966,14 +976,14 @@
     "piecesFinished": "Stücke abgeschlossen",
     "bestMonth": "Bester Monat",
     "ofPracticeThisMonth": "geübt in diesem Monat",
-    "yearSoFarOverline": "%{year} — JAHR BISHER",
+    "yearSoFarOverline": "%{year} · JAHR BISHER",
     "hoursCount": {
       "one": "1 Stunde",
       "other": "%{count} Stunden"
     },
     "minCount": {
-      "one": "1 min",
-      "other": "%{count} min"
+      "one": "1 Min.",
+      "other": "%{count} Min."
     },
     "atInstrumentSinceJanuary": "%{instrument} seit Januar",
     "ofPracticeSinceJanuary": "geübt seit Januar",
@@ -1027,7 +1037,7 @@
   "score": {
     "title": "Noten",
     "add": "Hinzufügen",
-    "emptyHint": "Füge ein PDF oder ein Foto deiner Noten hinzu — sie öffnen sich hier und während einer Einheit.",
+    "emptyHint": "Füge ein PDF oder ein Foto deiner Noten hinzu; sie öffnen sich hier und während einer Einheit.",
     "pages": {
       "one": "%{count} Seite",
       "other": "%{count} Seiten"
@@ -1051,10 +1061,10 @@
   },
   "fullScore": {
     "title": "Deine Partitur",
-    "log": "Log",
+    "log": "Protokoll",
     "goalBeats": "%{min} Min. = 4 Schläge",
     "earlier": "Früher",
-    "startOfLog": "Anfang des Logs",
+    "startOfLog": "Anfang des Protokolls",
     "limitReached": "Die letzten %{count} Wochen",
     "showingWeeks": {
       "one": "zeigt 1 Woche",
@@ -1062,7 +1072,7 @@
     },
     "later": "Weniger Wochen",
     "thisIsToday": "Das ist heute",
-    "rest": "Eine Pause — nichts eingetragen"
+    "rest": "Eine Pause: nichts eingetragen"
   },
   "tools": {
     "title": "Werkzeuge",
@@ -1087,7 +1097,7 @@
   },
   "learn": {
     "title": "Übewissen",
-    "intro": "Was die Forschung wirklich über das Üben sagt — auch dort, wo die populäre Fassung übertreibt. Jede Aussage verlinkt ihre Quelle.",
+    "intro": "Was die Forschung wirklich über das Üben sagt, auch dort, wo die populäre Fassung übertreibt. Jede Aussage verlinkt ihre Quelle.",
     "groupPractice": "Wie man übt",
     "groupLearning": "Wie Lernen funktioniert",
     "groupPeople": "Lesenswerte Stimmen",
@@ -1104,12 +1114,12 @@
       "deliberatePractice": {
         "takeaway": "Stunden zählen, aber viel weniger als die Legende",
         "finding": "Die Geigenstudie von 1993 fand, dass die besten Studierenden mehr Einzelübezeit angesammelt hatten als die guten. Daraus wurde die Vorstellung, Könnerschaft sei vor allem Summe der Stunden.",
-        "caveat": "Die „10.000-Stunden-Regel“ steht nicht in dieser Arbeit — Ericsson hat den Begriff abgelehnt, und ihre eigenen Zahlen nennen 7.410 Stunden für die besten Geigenden mit 18 Jahren. Eine Replikation von 2019 fand, dass die gute Gruppe mehr geübt hatte als die beste, und eine Metaanalyse beziffert den Anteil des Übens an den Unterschieden in der Musik auf 23 %. Üben ist notwendig, nicht hinreichend."
+        "caveat": "Die „10.000-Stunden-Regel“ steht nicht in dieser Arbeit: Ericsson hat den Begriff abgelehnt, und ihre eigenen Zahlen nennen 7.410 Stunden für die besten Geigenden mit 18 Jahren. Eine Replikation von 2019 fand, dass die gute Gruppe mehr geübt hatte als die beste, und eine Metaanalyse beziffert den Anteil des Übens an den Unterschieden in der Musik auf 23 %. Üben ist notwendig, nicht hinreichend."
       },
       "slowPractice": {
         "takeaway": "Langsames Üben: überall, kaum untersucht",
         "finding": "Fast alle befragten klassischen Musikerinnen und Musiker üben langsam, und erfahrene Übende variieren das Tempo bewusst, statt in einem Tempo zu verharren.",
-        "caveat": "Es gibt keine belastbare kontrollierte Evidenz, dass langsames Üben an sich das Lernen verbessert. Der einzige randomisierte Test von Tempomustern blieb ohne Effekt, und eine weitere Studie fand, dass in einem Tempo Gelerntes sich schlecht auf ein anderes überträgt. Das Tempo zu variieren tun starke Übende — es beruht aber auf Gewohnheit und Beobachtung, nicht auf Beweis."
+        "caveat": "Es gibt keine belastbare kontrollierte Evidenz, dass langsames Üben an sich das Lernen verbessert. Der einzige randomisierte Test von Tempomustern blieb ohne Effekt, und eine weitere Studie fand, dass in einem Tempo Gelerntes sich schlecht auf ein anderes überträgt. Das Tempo zu variieren tun starke Übende, es beruht aber auf Gewohnheit und Beobachtung, nicht auf Beweis."
       },
       "interleaving": {
         "takeaway": "Mischen kann besser sein als Drillen",
@@ -1117,13 +1127,13 @@
         "caveat": "Die klassischen Studien sind Mathematikaufgaben und Labortastendrücke, keine Instrumente. Eine Übersicht von 2023 nennt den Nutzen im Sporttraining einen Mythos, und die große Übersicht zu Lerntechniken bewertet Verschachtelung nur als mittelmäßig belegt."
       },
       "mentalPractice": {
-        "takeaway": "Üben im Kopf wirkt — zusätzlich zum Instrument",
+        "takeaway": "Üben im Kopf wirkt, zusätzlich zum Instrument",
         "finding": "In der am besten abgesicherten Musikstudie verbesserte mentales und vokales Üben zusammen mit dem Spielen den Ausdruck stärker als Spielen allein. Es kostet nichts, macht keinen Lärm und belastet keine Sehne.",
-        "caveat": "Vorstellung allein schlug in dieser Studie nicht einmal gar kein Üben. Eine Metaanalyse 24 Jahre nach der ersten beziffert mentales Üben auf rund 1,7 % der Varianz, deutlich unter der oft zitierten Zahl, und keine der gepoolten Zahlen stammt von Musizierenden."
+        "caveat": "Vorstellung allein war in dieser Studie nicht besser als gar kein Üben. Eine Metaanalyse 24 Jahre nach der ersten beziffert mentales Üben auf rund 1,7 % der Varianz, deutlich unter der oft zitierten Zahl, und keine der gepoolten Zahlen stammt von Musizierenden."
       },
       "externalFocus": {
-        "takeaway": "An den Klang denken statt an die Finger — vielleicht",
-        "finding": "Musizierende, die auf das Instrument oder den entstehenden Klang achten sollten, wurden besser bewertet als jene, die auf ihre Hände achteten — passend zu zwei Jahrzehnten Bewegungsforschung.",
+        "takeaway": "An den Klang denken statt an die Finger, vielleicht",
+        "finding": "Musizierende, die auf das Instrument oder den entstehenden Klang achten sollten, wurden besser bewertet als jene, die auf ihre Hände achteten, passend zu zwei Jahrzehnten Bewegungsforschung.",
         "caveat": "Eine bayesianische Metaanalyse von 2024 zeigt, dass diese Literatur von Berichtsverzerrung geprägt ist. Korrigiert man dafür, ist der mittlere Effekt auf Leistung, Behalten und Transfer vernachlässigbar. Ausprobieren ja, als gesichert behandeln nein."
       },
       "exercise": {
@@ -1141,7 +1151,7 @@
         "caveat": "Das ist eine Häufigkeitszahl, keine Handlungsanweisung. Studien zu Aufwärmen und Prävention bei Musizierenden sind selten und schwach, Pausen und Belastungssteuerung also vernünftig, aber nicht belegt."
       },
       "spacing": {
-        "takeaway": "Verteilen — und den Abstand zum Termin passen",
+        "takeaway": "Verteilen, und den Abstand an den Termin anpassen",
         "finding": "Über Hunderte Experimente hinweg schlug dieselbe Übezeit, über Tage verteilt, dieselbe Zeit am Stück. Der beste Abstand wächst mit der Behaltensdauer: ein Vorspiel nächsten Monat verlangt größere Abstände als der Unterricht morgen.",
         "caveat": "Diese Synthese betrifft verbales Behalten, nicht Motorik. Die Richtung ist so gut belegt, wie Befunde nur sein können; die konkreten Abstände lassen sich nicht direkt aufs Instrument übertragen."
       },
@@ -1171,7 +1181,7 @@
       "klickstein": {
         "takeaway": "Handwerkliche Anleitung zu Üben, Auftritt und Gesundheit",
         "finding": "Gerald Klicksteins Buch und Website behandeln Übeabläufe, Auftrittsvorbereitung und die Gesundheit von Musizierenden.",
-        "caveat": "Erfahrenes Handwerkswissen, keine Evidenzübersicht — nützlich am Notenpult, aber keine Quelle für Forschungsbefunde."
+        "caveat": "Erfahrenes Handwerkswissen, keine Evidenzübersicht: nützlich am Notenpult, aber keine Quelle für Forschungsbefunde."
       }
     }
   }

@@ -3,6 +3,7 @@
 import { createAudioPlayer } from 'expo-audio';
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 import { toStoredUri } from './doc-path';
 
@@ -43,6 +44,9 @@ export async function pickRecordings(): Promise<{ added: ImportedTake[]; error?:
     const ext = asset.name.includes('.') ? asset.name.split('.').pop()!.toLowerCase() : 'm4a';
     const dest = new File(dir, `${uid()}.${ext}`);
     try {
+      // AVFoundation never loads these: the take would import, show 0:00 and play
+      // nothing, with no error anywhere. Refused up front so the toast says so.
+      if (Platform.OS === 'ios' && IOS_UNPLAYABLE.has(ext)) throw new Error(`unplayable on iOS: .${ext}`);
       await new File(asset.uri).copy(dest);
       added.push({ uri: toStoredUri(dest.uri), name: asset.name.replace(/\.[^.]+$/, ''), sec: await durationOf(dest.uri) });
     } catch (e) {
@@ -50,7 +54,15 @@ export async function pickRecordings(): Promise<{ added: ImportedTake[]; error?:
       try {
         if (dest.exists) dest.delete();
       } catch {}
+    } finally {
+      // the picker's own copy in the cache: a 200 MB import would otherwise sit
+      // there twice until the OS trims the cache
+      try {
+        new File(asset.uri).delete();
+      } catch {}
     }
   }
   return { added, error };
 }
+
+const IOS_UNPLAYABLE = new Set(['ogg', 'oga', 'opus', 'webm', 'wma']);

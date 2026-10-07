@@ -3,7 +3,19 @@
 // silently scheduling a notification at the wrong hour.
 import assert from 'node:assert';
 
-import { parseReminderTime, reminderDisplay, reminderLabel } from '../src/lib/reminder-time.ts';
+import { parseReminderTime, reminderDisplay, reminderFireDates, reminderLabel } from '../src/lib/reminder-time.ts';
+
+// --- skipping today: one-offs from tomorrow, local wall clock, DST-safe -------
+{
+  const now = new Date(2026, 2, 28, 20, 15); // Sat 28 Mar 2026, 20:15 — DST starts the next night in Europe
+  const dates = reminderFireDates(now, { hour: 19, minute: 0 }, 5);
+  assert.equal(dates.length, 5);
+  assert.deepEqual(dates.map((d) => [d.getDate(), d.getHours(), d.getMinutes()]), [[29, 19, 0], [30, 19, 0], [31, 19, 0], [1, 19, 0], [2, 19, 0]], 'tomorrow onwards at the wall-clock time, across the DST change and the month end');
+  assert.ok(dates.every((d, i) => i === 0 || d.getTime() > dates[i - 1].getTime()), 'ascending');
+  assert.ok(dates[0].getTime() > now.getTime(), 'never in the past');
+  // a time earlier than now still starts tomorrow — today was practised
+  assert.equal(reminderFireDates(now, { hour: 9, minute: 0 }, 1)[0].getDate(), 29);
+}
 
 // --- display: German reads 24-hour, English keeps the canonical label --------
 assert.equal(reminderDisplay('7:00 PM', 'de'), '19:00');

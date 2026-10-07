@@ -34,6 +34,15 @@ export function migrate<S>(raw: string | null, seedState: S): S {
   const isObj = (x: unknown) => !!x && typeof x === 'object';
   for (const k of ['pieces', 'recordings', 'sessions', 'attachments', 'plans'])
     if (Array.isArray(merged[k])) merged[k] = merged[k].filter(isObj);
+  // a list or map that is not one (a `null` written by hand, say) takes the seed's
+  // — the store indexes these on every render, and a restored backup carrying one
+  // would otherwise be persisted and throw on every launch after
+  const seedAny = seedState as any;
+  for (const k of ['sessions', 'recordings', 'instruments', 'breakDays', 'quickLog', 'stages', 'metroAccents'])
+    if (!Array.isArray(merged[k])) merged[k] = seedAny[k];
+  if (!isObj(merged.minutesByDate) || Array.isArray(merged.minutesByDate)) merged.minutesByDate = seedAny.minutesByDate;
+  // the in-flight routine mirror (store.activeRun): anything but a proper record is "none"
+  if (!isObj(merged.activeRun) || typeof merged.activeRun.planId !== 'string') merged.activeRun = null;
   // a stage index past the list (left by the stageLabels bug above) has no column to show in
   const lastStage = Array.isArray(merged.stages) && merged.stages.length ? merged.stages.length - 1 : Infinity;
   if (saved.metroBeatsPerBar && !saved.metroTimeSig) merged.metroTimeSig = `${saved.metroBeatsPerBar}/4`;

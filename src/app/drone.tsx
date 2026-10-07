@@ -45,11 +45,15 @@ export default function Drone() {
   useEffect(() => {
     if (!isLoaded) return;
     // expo-audio exposes these as native setters, not hook state — the compiler
-    // rule can't see that, hence the exemption
+    // rule can't see that, hence the exemption.
+    // Rate before loop: on iOS setting `loop` queues the next item at once, copying
+    // the current item's pitch algorithm — set loop first and the queued pass inherits
+    // the pitch-preserving default, so after the first 2 s the drone snapped back to
+    // the sample's octave (C2 jumped to C4). Varispeed set first is what gets copied.
     // eslint-disable-next-line react-hooks/immutability
-    player.loop = true;
     player.shouldCorrectPitch = false;
     player.setPlaybackRate(droneRate(note, octave, a4));
+    player.loop = true;
     if (playing) {
       applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' });
       player.play();

@@ -311,7 +311,9 @@ export function projection(minutesByDate: Record<string, number>, totalMin: numb
   if (perDay <= 0 || recentDays < MIN_PACE_DAYS) return null;
   const hoursByYearEnd = Math.round((yearMin + perDay * daysBetween(today, `${today.slice(0, 4)}-12-31`)) / 60);
   const milestoneH = [10, 25, 50, 100, 250, 500, 1000, 2500].find((h) => h * 60 > totalMin) ?? null;
-  const milestoneDate = milestoneH ? shiftKey(today, Math.ceil((milestoneH * 60 - totalMin) / perDay)) : null;
+  // the same horizon as the tempo forecast: "2500 hours around March 2075" is not a projection
+  const milestoneDays = milestoneH ? Math.ceil((milestoneH * 60 - totalMin) / perDay) : Infinity;
+  const milestoneDate = milestoneDays <= MAX_FORECAST_DAYS ? shiftKey(today, milestoneDays) : null;
   return { hoursByYearEnd, milestoneH, milestoneDate };
 }
 

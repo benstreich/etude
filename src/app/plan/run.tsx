@@ -3,7 +3,7 @@
 import * as Haptics from 'expo-haptics';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Alert, AppState, Platform, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,8 @@ import { EntryRow, Overline, PulseRing, useInstrumentFilter } from '@/components
 import { instrumentChoices, onInstrument } from '@/lib/instrument-math';
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun, getTransientPlan, resolvePlan, setActiveRun, setTransientPlan, TRANSIENT_PLAN_ID, useTransientPlan } from '@/lib/plan-run-state';
+import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
+import { LIVE_GRACE_MS, restoreLive } from '@/lib/session-math';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
 import { dateKey, useStore } from '@/lib/store';
 import { F, themed, useC, type T } from '@/lib/theme';
@@ -147,7 +149,49 @@ function Runner({ id }: { id: string }) {
     return () => clearInterval(t);
   }, [startedAt, accum, review, over]);
 
+  // The same rule a restart applies (session-math.restoreLive): the clock is
+  // wall-clock, so a routine left running overnight would otherwise come back
+  // with hours on the current segment and cascade them through every segment
+  // after it as logged practice. `seenAt` is the last moment JS was awake —
+  // Android freezes the tick with the screen off, but the AppState change
+  // itself still arrives, so this is stamped as the phone goes dark.
+  const seenAt = useRef(0); // stamped as the effect below arms, never in render
+  useEffect(() => {
+    if (startedAt === null || review || over) return;
+    seenAt.current = Date.now();
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active' && Date.now() - seenAt.current > LIVE_GRACE_MS) {
+        const r = restoreLive({ startedAt, accum, lastSeen: seenAt.current }, Date.now());
+        setAccum(r.accum);
+        setSeconds(r.accum);
+        setStartedAt(null);
+      }
+      seenAt.current = Date.now();
+    });
+    return () => sub.remove();
+  }, [startedAt, accum, review, over]);
+
   const isBreak = seg?.focus.kind === 'Break';
+
+  // a routine break with the screen off: the practice timer's break-over
+  // notification, armed for the rest of the break each time it (re)starts and
+  // cancelled on pause, advance or end. Scheduling is async, so one that resolves
+  // after its break was left (`stale`) cancels itself instead of firing anyway.
+  useEffect(() => {
+    if (!isBreak || startedAt === null || review || over) return;
+    let stale = false;
+    let id: string | null = null;
+    const left = segSec - accum;
+    if (left > 0)
+      scheduleBreakEnd(left).then((nid) => {
+        if (stale) cancelBreakEnd(nid);
+        else id = nid;
+      });
+    return () => {
+      stale = true;
+      cancelBreakEnd(id);
+    };
+  }, [isBreak, startedAt, accum, segSec, review, over]);
 
   const logSegment = (sec: number) => {
     if (!plan || !seg || seg.focus.kind === 'Break') return ''; // #59: rests are never logged
@@ -214,9 +258,11 @@ function Runner({ id }: { id: string }) {
     advanceRef.current = advance;
   });
   useEffect(() => {
-    // idx in deps: an overrun longer than the next segment cascades through it too
-    if (wantAdvance) advanceRef.current(segSec, seconds - segSec);
-  }, [wantAdvance, segSec, idx, seconds]);
+    // idx in deps: an overrun longer than the next segment cascades through it too.
+    // A break's overrun carries nothing: time spent past the end of a rest was not
+    // practice, and carrying it would log it under the next piece (#59).
+    if (wantAdvance) advanceRef.current(segSec, isBreak ? 0 : seconds - segSec);
+  }, [wantAdvance, segSec, idx, seconds, isBreak]);
 
   if (!plan || !seg) return null;
 

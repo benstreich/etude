@@ -11,7 +11,7 @@ import {
 import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 import { LEVEL_FLOOR, SAMPLE_MS } from '@/components/motifs';
 import { applyAudioMode, setRecordingFlags } from '@/lib/audio-mode';
@@ -19,12 +19,21 @@ import { detectSilence } from '@/lib/silence-math';
 import { toStoredUri, useStore } from '@/lib/store';
 import { downsample } from '@/lib/wave-math';
 
+// Which hook instance holds the live take. The practice screen and a piece page
+// each own a recorder, and ending the second one tears down the audio mode under
+// the first (iOS stops it outright) — so only one may record at a time.
+let liveOwner: symbol | null = null;
+
 /**
  * @param pieceName what the finished take is filed under, read at stop time so
  *   the caller can change focus mid-recording. Returning null discards the take.
  */
 export function useTakeRecorder(pieceName: () => string | null) {
   const store = useStore();
+  const owner = useRef(Symbol('take'));
+  const release = () => {
+    if (liveOwner === owner.current) liveOwner = null;
+  };
   const jsStop = useRef(false); // a JS-initiated stop; mutes the status listener below
   const finishRef = useRef<() => void>(() => {});
   const nameRef = useRef(pieceName);
@@ -57,10 +66,21 @@ export function useTakeRecorder(pieceName: () => string | null) {
   // dBFS -50..0 → 0..1. LiveWaveform owns the polling and hands each sample back
   // through onSample, which is what builds the saved waveform — metering is a
   // destructive read on Android, so it can only have one reader (see motifs.tsx).
-  const micLevel = useCallback(
-    () => Math.min(1, Math.max(LEVEL_FLOOR, ((recorder.getStatus().metering ?? -50) + 50) / 50)),
-    [recorder]
-  );
+  // The same poll notices a recorder the OS paused behind our back — a phone call,
+  // Siri, an alarm: iOS pauses the AVAudioRecorder on interruption and resumes
+  // players only, never recorders, so the take would otherwise end at the call
+  // while the UI kept saying "Recording". record() on a paused recorder resumes
+  // it; while the interruption lasts the call simply fails and is retried next tick.
+  const pausedRef = useRef(false);
+  const micLevel = useCallback(() => {
+    const st = recorder.getStatus();
+    if (!pausedRef.current && !st.isRecording && st.canRecord) {
+      try {
+        recorder.record();
+      } catch {}
+    }
+    return Math.min(1, Math.max(LEVEL_FLOOR, ((st.metering ?? -50) + 50) / 50));
+  }, [recorder]);
   const onSample = useCallback((v: number) => {
     waveRef.current.push(v);
   }, []);
@@ -73,13 +93,27 @@ export function useTakeRecorder(pieceName: () => string | null) {
       recorder.pause();
       recAccumMs.current += Date.now() - recStart.current;
     }
+    pausedRef.current = !paused;
     setPaused((p) => !p);
   };
 
   // shared finalize; stopNative=false when the recorder already stopped on its own
   // and there is nothing left to stop — just bank what was recorded so far
   const end = async (stopNative: boolean) => {
-    const totalMs = recAccumMs.current + (paused ? 0 : Date.now() - recStart.current);
+    const wallMs = recAccumMs.current + (paused ? 0 : Date.now() - recStart.current);
+    // the recorder's own count of recorded audio, read before stop: it excludes
+    // time an interruption kept the mic closed, which the wall clock cannot know.
+    // Trusted only when it falls clearly short (an interruption is seconds to
+    // minutes); the encoder's own lag runs a fraction of a second behind the
+    // clock on every take and must not shorten them.
+    let nativeMs = 0;
+    try {
+      nativeMs = recorder.getStatus().durationMillis || 0;
+    } catch {}
+    const interrupted = nativeMs > 0 && wallMs - nativeMs > 2000;
+    const totalMs = interrupted ? nativeMs : wallMs;
+    release();
+    pausedRef.current = false;
     setRecording(false);
     setPaused(false);
     setRecordingFlags({});
@@ -104,7 +138,9 @@ export function useTakeRecorder(pieceName: () => string | null) {
     // locked has a few seconds of samples for minutes of audio, and spreading them
     // evenly put the auto-trim bounds (and the drawn wave) nowhere near the music.
     // Too few samples for the length: save no wave and no trim rather than wrong ones.
-    const covered = raw.length >= (0.8 * totalMs) / SAMPLE_MS;
+    // Same when the recorder lost time to an interruption: the samples then span
+    // more wall time than the audio does, and no longer map onto it.
+    const covered = raw.length >= (0.8 * wallMs) / SAMPLE_MS && !interrupted;
     const piece = nameRef.current();
     // No focus at stop time — the piece was deleted, or the screen was left with a
     // take still running. Dropping it here lost the audio *and* leaked the file:
@@ -140,6 +176,7 @@ export function useTakeRecorder(pieceName: () => string | null) {
   useEffect(
     () => () => {
       if (!recordingRef.current) return;
+      release();
       setRecordingFlags({});
       applyAudioMode({ playsInSilentMode: true });
     },
@@ -161,8 +198,20 @@ export function useTakeRecorder(pieceName: () => string | null) {
     }
   };
   const start = async () => {
-    const { granted } = await requestRecordingPermissionsAsync();
-    if (!granted) return store.showToast(store.t('practice.micPermissionNeeded'));
+    // another screen's take is still running — see liveOwner
+    if (liveOwner && liveOwner !== owner.current) return store.showToast(store.t('practice.takeAlreadyRunning'));
+    const { granted, canAskAgain } = await requestRecordingPermissionsAsync();
+    if (!granted) {
+      // the OS won't ask again (iOS always, Android after two refusals): a toast
+      // on every tap is a dead end — say where the switch is, as the tuner does
+      if (!canAskAgain && Platform.OS !== 'web')
+        return Alert.alert(store.t('practice.micPermissionNeeded'), store.t('practice.micBlockedBody'), [
+          { text: store.t('settings.cancel'), style: 'cancel' },
+          { text: store.t('tuner.openSettings'), onPress: () => Linking.openSettings() },
+        ]);
+      return store.showToast(store.t('practice.micPermissionNeeded'));
+    }
+    liveOwner = owner.current;
     try {
       // Android 13+: background recording runs a foreground service, which needs
       // notification permission or prepare throws. Denied → record foreground-only.
@@ -181,12 +230,14 @@ export function useTakeRecorder(pieceName: () => string | null) {
       await recorder.prepareToRecordAsync();
       recorder.record();
     } catch {
+      release();
       setRecordingFlags({});
       applyAudioMode({ playsInSilentMode: true }); // undo record-mode routing (see end)
       return store.showToast(store.t('practice.recordStartFailed'));
     }
     recStart.current = Date.now();
     recAccumMs.current = 0;
+    pausedRef.current = false;
     setRecording(true);
   };
 
@@ -196,6 +247,8 @@ export function useTakeRecorder(pieceName: () => string | null) {
     // notification's Stop banked meanwhile must not have its (now stored) file deleted
     if (!recordingRef.current) return;
     recordingRef.current = false;
+    release();
+    pausedRef.current = false;
     setRecording(false);
     setPaused(false);
     setRecordingFlags({});

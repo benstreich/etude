@@ -25,14 +25,32 @@ const load = (): IconModule | null => {
 export const iconNameFor = (accent: AccentName): string | null =>
   accent === 'terracotta' ? null : accent.charAt(0).toUpperCase() + accent.slice(1);
 
-/** Switch the launcher icon to the accent's colour, only when it differs — on some Android launchers a switch closes the app for a moment. */
-export async function applyAccentIcon(accent: AccentName) {
+/** The alternate icon currently active, null for the default; null too where icons can't switch. */
+export function currentIconName(): string | null {
   const m = load();
-  if (!m?.supportsAlternateIcons) return;
+  if (!m?.supportsAlternateIcons) return null;
+  try {
+    return m.getAppIconName();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Switch the launcher icon to the accent's colour, only when it differs — on some
+ * Android launchers a switch closes the app for a moment. Resolves true when the
+ * icon actually changed, so the caller can repaint what pointed at the old one.
+ */
+export async function applyAccentIcon(accent: AccentName): Promise<boolean> {
+  const m = load();
+  if (!m?.supportsAlternateIcons) return false;
   const want = iconNameFor(accent);
   try {
-    if (m.getAppIconName() !== want) await m.setAlternateAppIcon(want);
+    if (m.getAppIconName() === want) return false;
+    await m.setAlternateAppIcon(want);
+    return true;
   } catch {
     // unsupported launcher or a mid-switch race — nothing the user can act on
+    return false;
   }
 }

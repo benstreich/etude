@@ -31,6 +31,7 @@ import { Toast } from '@/components/toast';
 import { WidgetSync } from '@/components/widget-sync';
 import { MetronomeProvider } from '@/lib/metronome';
 import { resolvePlan, useActiveRun, useTransientPlan } from '@/lib/plan-run-state';
+import { onReminderOpened } from '@/lib/reminders';
 import { StoreProvider, useStore } from '@/lib/store';
 import { F, useTheme } from '@/lib/theme';
 
@@ -188,6 +189,9 @@ function RunPill({ bottom }: { bottom: number }) {
 function Shell({ insets }: { insets: { bottom: number } }) {
   const { C, dark, reduceMotion } = useTheme();
   const { onboarded, t } = useStore();
+  const router = useRouter();
+  // the daily reminder's tap lands on Practice, not on whatever screen was last open
+  useEffect(() => onReminderOpened(() => router.push('/practice')), [router]);
   // the staff nav only shows on the four tab screens (and not under a running
   // Practice session); elsewhere the pill and toast sit on the home indicator
   // instead of floating a nav's height up. StaffNav reports what it renders.

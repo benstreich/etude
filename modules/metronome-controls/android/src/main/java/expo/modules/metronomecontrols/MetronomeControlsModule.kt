@@ -522,10 +522,14 @@ class MetronomeControlsService : Service() {
     // and earlier it cannot be swiped away — so it carries its own Stop (a template
     // shows three actions at most, hence Play + Stop), and a swipe where allowed stops too.
     if (running) {
+      // Android 14 lets a foreground-service notification be swiped away unless it is
+      // MediaStyle; without a delete intent the swipe left the Ticker and its wake
+      // lock clicking with no notification and no way to stop short of reopening the app
       builder
         .addAction(android.R.drawable.ic_media_previous, label("slower", "Slower"), button(ACTION_DEC))
         .addAction(android.R.drawable.ic_media_pause, label("pause", "Pause"), button(ACTION_TOGGLE))
         .addAction(android.R.drawable.ic_media_next, label("faster", "Faster"), button(ACTION_INC))
+        .setDeleteIntent(button(ACTION_STOP))
     } else {
       builder
         .addAction(android.R.drawable.ic_media_play, label("play", "Play"), button(ACTION_TOGGLE))

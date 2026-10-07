@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 
 import { tr } from './i18n';
-import { parseReminderTime } from './reminder-time';
+import { parseReminderTime, reminderFireDates } from './reminder-time';
+import { dateKey } from './streak-math';
 
 // ponytail: expo-notifications throws on load in Expo Go Android (SDK 53+ removed
 // push there) — require in try/catch so Expo Go doesn't crash; reminders no-op there.
@@ -35,7 +36,24 @@ export { parseReminderTime, reminderDisplay, reminderLabel } from './reminder-ti
 const PING = 'cue_reminder.wav';
 const REMINDER_ID = 'daily-reminder';
 
-export async function syncReminder(reminder: string, sounds = true): Promise<boolean> {
+type SyncOptions = {
+  /**
+   * Ask the OS for permission if it hasn't been granted. Only a change the user
+   * just made may prompt — the launch resync used to, and on Android 13+ one
+   * "Don't allow" then brought the system sheet back on every cold start.
+   */
+  prompt?: boolean;
+  /**
+   * Today already has practice logged: the reminder promises to stay quiet on
+   * such days. A repeating daily trigger cannot skip one, so the reminder is
+   * armed as one-offs from tomorrow instead and re-armed on every sync (launch,
+   * foreground, midnight, each log) — the daily trigger returns once a day has
+   * no practice yet.
+   */
+  practisedToday?: boolean;
+};
+
+export async function syncReminder(reminder: string, sounds = true, { prompt = false, practisedToday = false }: SyncOptions = {}): Promise<boolean> {
   if (Platform.OS === 'web' || !Notifications) return true; // ponytail: no web notifications — mobile-first app; null in Expo Go Android
   // cancel only the daily reminder — a pending break-over notification (a
   // time-interval trigger) must survive. Cancelling every non-interval request
@@ -48,7 +66,8 @@ export async function syncReminder(reminder: string, sounds = true): Promise<boo
   );
   const time = parseReminderTime(reminder);
   if (reminder === 'Off' || !time) return true;
-  const { granted } = await Notifications.requestPermissionsAsync();
+  const have = await Notifications.getPermissionsAsync();
+  const granted = have.granted || (prompt && have.canAskAgain && (await Notifications.requestPermissionsAsync()).granted);
   if (!granted) return false;
   // Android fixes a channel's sound once it exists, so each sound gets its own
   // channel; the unused one and the legacy 'reminders' channel are removed
@@ -63,17 +82,45 @@ export async function syncReminder(reminder: string, sounds = true): Promise<boo
       sound: sounds ? PING : 'default',
     });
   }
-  await Notifications.scheduleNotificationAsync({
-    identifier: REMINDER_ID,
-    content: { title: tr('reminders.notifTitle'), body: tr('reminders.notifBody'), sound: sounds ? PING : 'default' },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: time.hour,
-      minute: time.minute,
-      channelId: Platform.OS === 'android' ? channelId : undefined,
-    },
-  });
+  const content = { title: tr('reminders.notifTitle'), body: tr('reminders.notifBody'), sound: sounds ? PING : 'default' };
+  const channel = Platform.OS === 'android' ? channelId : undefined;
+  if (!practisedToday) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: REMINDER_ID,
+      content,
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: time.hour, minute: time.minute, channelId: channel },
+    });
+    return true;
+  }
+  for (const date of reminderFireDates(new Date(), time))
+    await Notifications.scheduleNotificationAsync({
+      identifier: `${REMINDER_ID}-${dateKey(date)}`,
+      content,
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: channel },
+    });
   return true;
+}
+
+/**
+ * Opens Practice when the reminder is tapped — from the background and from a
+ * cold start alike. The launch response is cleared once handled; it otherwise
+ * stays the "last response" and would re-open Practice on every later start.
+ */
+export function onReminderOpened(open: () => void): () => void {
+  if (Platform.OS === 'web' || !Notifications) return () => {};
+  const N = Notifications;
+  const isReminder = (r: import('expo-notifications').NotificationResponse | null) => !!r && r.notification.request.identifier.startsWith(REMINDER_ID);
+  N.getLastNotificationResponseAsync()
+    .then((r) => {
+      if (!isReminder(r)) return;
+      N.clearLastNotificationResponseAsync().catch(() => {});
+      open();
+    })
+    .catch(() => {});
+  const sub = N.addNotificationResponseReceivedListener((r) => {
+    if (isReminder(r)) open();
+  });
+  return () => sub.remove();
 }
 
 /**

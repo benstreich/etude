@@ -14,6 +14,20 @@
         "CFBundleDisplayName": "Étude",
         "ITSAppUsesNonExemptEncryption": false
       },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1", "1C8F.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          }
+        ]
+      },
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.benstreich.etude"
@@ -148,7 +162,7 @@
               "appExtensions": [
                 {
                   "bundleIdentifier": "com.benstreich.etude.widget",
-                  "targetName": "EtudeWidgets",
+                  "targetName": "EtudeHomeWidget",
                   "entitlements": {
                     "com.apple.security.application-groups": [
                       "group.com.benstreich.etude"

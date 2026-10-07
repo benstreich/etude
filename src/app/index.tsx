@@ -100,7 +100,13 @@ export default function Home() {
   const bars = barsFor(staffDates.map(dateKey), store.minutesByDate, store.sessions, store.melodyKey).map((b, i) => ({ ...b, day: dow[staffDates[i].getDay()], isToday: b.date === store.today }));
   const goalMet = dayMin >= store.dailyGoal;
   const playFrom = (date: string) => {
-    const from = bars.findIndex((b) => b.date === date);
+    // a resume point is used once; left set, the next play after the tune ran to
+    // its end would start at the old pause instead of the selected day. A date
+    // that has scrolled off the staff (a pause from before midnight) falls back
+    // to the selected day rather than to twelve weeks of rests.
+    setResumeAt(null);
+    let from = bars.findIndex((b) => b.date === date);
+    if (from < 0) from = bars.findIndex((b) => b.date === day);
     melody.play(bars.slice(Math.max(0, from)), store.dailyGoal, store.melodyKey);
   };
   const dayLog = store.sessions.filter((x) => x.date === day).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));

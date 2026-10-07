@@ -18,7 +18,8 @@ import type { RampUnit } from './metronome-math';
 import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
-import { applySessionUpdate, type LiveSession } from './session-math';
+import { setActiveRun, useActiveRun, type ActiveRun } from './plan-run-state';
+import { applySessionUpdate, restoreLive, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { stagePct } from './stage-math';
 import { computeBestStreak, computeStreak, dateKey, graceFor, nextBestStreak, type StreakMode } from './streak-math';
@@ -118,6 +119,10 @@ type Settings = {
   fontScale: number;
   radius: RadiusMode;
   reduceMotion: boolean;
+  // the launcher icon follows the accent only when asked: on Android the switch
+  // disables one launcher alias for another and the launcher drops the app's
+  // home-screen shortcut with it (widget-sync.tsx)
+  iconAccent: boolean;
   sounds: boolean; // the two audio-identity cues; see lib/sounds.ts
   showTechniques: boolean; // list techniques alongside pieces in Repertoire
   reminder: string;
@@ -166,6 +171,9 @@ type State = Settings & {
   // the session in flight, if one is: persisted so a process death cannot lose
   // it. Practice restores it on mount (session-math.restoreLive).
   liveSession: LiveSession | null;
+  // the routine in flight, same reason: mirrored from plan-run-state and revived
+  // into it on hydration, so the RunPill offers the way back after a kill
+  activeRun: ActiveRun | null;
 };
 
 const KEY = 'etude-state-v1';
@@ -191,6 +199,7 @@ function seed(): State {
     attachments: [],
     plans: [],
     liveSession: null,
+    activeRun: null,
     // onboarding's goal step starts from this; its copy says start easy, and 30
     // still is — a real session that survives a busy day, so goal-met and the
     // streak keep meaning something
@@ -220,6 +229,7 @@ function seed(): State {
     fontScale: 1,
     radius: 'soft',
     reduceMotion: false,
+    iconAccent: false,
     sounds: true,
     showTechniques: true,
     // 'Off' until onboarding asks — a seeded time would fire the OS permission
@@ -392,10 +402,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } catch {}
       }
       const fresh = seed();
-      const next = migrate(raw, fresh);
+      let next = migrate(raw, fresh);
       // migrate hands back the seed itself for an unreadable blob — keep a copy
       // aside before the first save replaces it, so it can still be rescued
       if (raw && next === fresh) await Storage.setItem(`${KEY}.corrupt-${Date.now()}`, raw).catch(() => {});
+      // a routine the last process left running: back into plan-run-state under the
+      // practice timer's grace rule, if its plan still exists (the unsaved suggested
+      // plan lived only in memory and cannot come back)
+      const saved = next.activeRun;
+      if (saved) {
+        const plan = next.plans.find((p) => p.id === saved.planId);
+        if (plan && plan.segments.length) setActiveRun({ ...saved, ...restoreLive({ startedAt: saved.startedAt, accum: saved.accum, lastSeen: saved.lastSeen ?? 0 }, Date.now()) });
+        else next = { ...next, activeRun: null };
+      }
       canPersist.current = true;
       // first hydration stamps the install; upgrades from before the field count from the upgrade
       setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });
@@ -404,14 +423,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     load().catch(() => setState(seed()));
   }, []);
 
+  // The routine in flight is written with the state (see activeRun on State)
+  // straight from plan-run-state — it is not copied into React state, only into
+  // the saved blob, which is the one place a revive reads it from. While it
+  // runs, a 10 s heartbeat and every AppState change re-write it with a fresh
+  // lastSeen — the same contract as the practice timer's liveSession.
+  const activeRun = useActiveRun();
+  const [runBeat, setRunBeat] = useState(0);
   useEffect(() => {
-    if (state && canPersist.current)
-      Storage.setItem(KEY, JSON.stringify(state)).catch(() => {
+    if (!activeRun || activeRun.startedAt === null) return;
+    const beat = () => setRunBeat((n) => n + 1);
+    const t = setInterval(beat, 10000);
+    const sub = AppState.addEventListener('change', beat);
+    return () => {
+      clearInterval(t);
+      sub.remove();
+    };
+  }, [activeRun]);
+
+  // Writes are chained, latest wins: expo-sqlite runs each setItem as three native
+  // round trips on a concurrent pool, so two commits in flight (a keystroke and
+  // the live-session heartbeat, say) could otherwise land in either order and a
+  // kill right after would keep the older snapshot. Intermediate states a newer
+  // one has already superseded are skipped, not written.
+  const pendingWrite = useRef<Promise<unknown>>(Promise.resolve());
+  const writeSeq = useRef(0);
+  useEffect(() => {
+    if (!state || !canPersist.current) return;
+    const seq = ++writeSeq.current;
+    const blob = JSON.stringify({ ...state, activeRun: activeRun ? { ...activeRun, lastSeen: Date.now() } : null });
+    pendingWrite.current = pendingWrite.current.then(() => {
+      if (writeSeq.current !== seq) return; // superseded while queued
+      return Storage.setItem(KEY, blob).catch(() => {
         setToast(tr('toast.saveFailed'));
         clearTimeout(toastTimer.current);
         toastTimer.current = setTimeout(() => setToast(null), 2400);
       });
-  }, [state]);
+    });
+  }, [state, activeRun, runBeat]);
 
   // keep the scheduled daily notification in sync with the setting; also runs
   // on app start, so a permission granted later in system settings self-heals
@@ -420,13 +469,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // or sound toasts on denial — not the launch resync, not a language switch.
   const reminder = state?.reminder;
   const reminderSound = state?.sounds ?? true;
+  // the reminder stays quiet on a day that already has practice (what onboarding
+  // promises), so the first log of the day and each midnight re-arm it
+  const reminderDay = dateKey(new Date(now));
+  const practisedToday = (state?.minutesByDate[reminderDay] ?? 0) > 0;
   const reminderSynced = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (reminder === undefined) return;
     const key = `${reminder}|${reminderSound}`;
+    // only a setting the user just changed may bring up the OS permission sheet;
+    // the launch resync (and a language switch) merely re-schedules if allowed
     const changed = reminderSynced.current !== undefined && reminderSynced.current !== key;
     reminderSynced.current = key;
-    syncReminder(reminder, reminderSound)
+    syncReminder(reminder, reminderSound, { prompt: changed, practisedToday })
       .then((ok) => {
         if (ok || !changed) return;
         setToast(tr('toast.enableNotifications'));
@@ -434,7 +489,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toastTimer.current = setTimeout(() => setToast(null), 2400);
       })
       .catch(() => {});
-  }, [reminder, reminderSound, lang]);
+  }, [reminder, reminderSound, lang, practisedToday, reminderDay]);
 
   // auto backup, checked once per hydration / foreground / midnight / setting
   // change — not per state change, so it's not a sync dir scan on every edit
@@ -610,7 +665,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateSession: Store['updateSession'] = (id, patch) => {
     setState((s) => {
       if (!s) return s;
-      const next = applySessionUpdate(s, id, patch);
+      const before = s.sessions.find((x) => x.id === id);
+      // re-filed under another piece: the instrument follows the new piece the
+      // way logMinutes would tag it, and a trouble spot or routine link of the
+      // old piece cannot be carried — a spot id is only meaningful on its piece
+      const moved = !!before && patch.title !== undefined && patch.title !== before.title;
+      const piece = moved ? s.pieces.find((p) => p.name === patch.title) : undefined;
+      const refile = moved
+        ? { instrument: (piece ? pieceInstruments(piece)[0] : undefined) || primaryOf(s.instruments, s.primaryInstrument) || undefined, spot: undefined, planId: undefined }
+        : {};
+      const next = applySessionUpdate(s, id, { ...patch, ...refile });
       // any change to the day totals — minutes edited, or a session moved to another
       // date — can complete a streak or break the run that made the best
       if (next === s || next.minutesByDate === s.minutesByDate) return next;
@@ -693,6 +757,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addPiece: Store['addPiece'] = (name, by = '', instrument, artwork) => {
+    // same as addTechnique: adding an archived piece again means bringing it
+    // back, not a dead "already in repertoire" while it sits on the shelf
+    const shelved = state.pieces.find((p) => p.archived && p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (shelved) {
+      setArchived(shelved.id, false);
+      return showToast(t('toast.addedToRepertoire'));
+    }
     const dup = insertPiece('Piece', name, by, instrument, artwork);
     showToast(t(dup ? 'toast.alreadyInRepertoire' : 'toast.addedToRepertoire'));
   };
@@ -980,7 +1051,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     restoreBackup: (stateObj: object) => {
       // a session in flight when the backup was taken is long over — reviving it
       // would log its minutes under today
-      const next = { ...migrate(JSON.stringify(stateObj), seed()), liveSession: null };
+      const next = { ...migrate(JSON.stringify(stateObj), seed()), liveSession: null, activeRun: null };
       // an auto backup carries no files, and anything deleted since is gone from
       // disk: entries pointing at nothing would only show blank players and pages
       const gone = missingFiles([...next.recordings.map((r) => r.uri), ...next.attachments.flatMap((a) => a.files)]);
@@ -991,7 +1062,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState({ ...next, recordings, attachments });
       return next.recordings.length - recordings.length + next.attachments.length - attachments.length;
     },
-    backupState: () => state,
+    // the in-flight timer and routine belong to this phone and this moment, not to a backup
+    backupState: () => ({ ...state, liveSession: null, activeRun: null }),
     addPiece,
     addTechnique,
     removeTechnique,

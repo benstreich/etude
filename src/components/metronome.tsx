@@ -291,7 +291,20 @@ export function MetronomeControls({ active = true }: { active?: boolean }) {
 function VolumeSlider({ value, onChange, label }: { value: number; onChange: (pct: number) => void; label: string }) {
   const s = useS();
   const width = useRef(1);
-  const at = (x: number) => onChange(Math.round((Math.min(width.current, Math.max(0, x)) / width.current) * 100));
+  // onChange writes the whole store (and re-renders every consumer); per move event
+  // that stuttered on a large library. The bar follows the finger from local state,
+  // the click's volume is committed a few times a second and once more on release.
+  const [drag, setDrag] = useState<number | null>(null);
+  const lastCommit = useRef(0);
+  const shown = drag ?? value;
+  const at = (x: number, final = false) => {
+    const pct = Math.round((Math.min(width.current, Math.max(0, x)) / width.current) * 100);
+    setDrag(final ? null : pct);
+    if (final || Date.now() - lastCommit.current > 150) {
+      lastCommit.current = Date.now();
+      onChange(pct);
+    }
+  };
   return (
     // a 44pt touch zone around the 12pt bar; it keeps the drag once it has it, or a
     // slightly diagonal one was handed to the scroll view. The bar inside is inert,
@@ -301,7 +314,7 @@ function VolumeSlider({ value, onChange, label }: { value: number; onChange: (pc
       accessible
       accessibilityRole="adjustable"
       accessibilityLabel={label}
-      accessibilityValue={{ min: 0, max: 100, now: value, text: `${value}%` }}
+      accessibilityValue={{ min: 0, max: 100, now: shown, text: `${shown}%` }}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={(e) => onChange(Math.min(100, Math.max(0, value + (e.nativeEvent.actionName === 'increment' ? 10 : -10))))}
       onLayout={(e) => (width.current = Math.max(1, e.nativeEvent.layout.width))}
@@ -314,9 +327,11 @@ function VolumeSlider({ value, onChange, label }: { value: number; onChange: (pc
         // intercepts past touch slop, whatever onResponderTerminationRequest says
         return true;
       }}
-      onResponderMove={(e) => at(e.nativeEvent.locationX)}>
+      onResponderMove={(e) => at(e.nativeEvent.locationX)}
+      onResponderRelease={(e) => at(e.nativeEvent.locationX, true)}
+      onResponderTerminate={(e) => at(e.nativeEvent.locationX, true)}>
       <View style={[s.volTrack, { pointerEvents: 'none' }]}>
-        <View style={[s.volFill, { width: `${value}%` }]} />
+        <View style={[s.volFill, { width: `${shown}%` }]} />
       </View>
     </View>
   );

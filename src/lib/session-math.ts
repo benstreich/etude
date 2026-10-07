@@ -56,13 +56,13 @@ export const isQuickLog = (s: { title: string; meta?: string }) => s.title === Q
 /** The title to show for a session: a quick log reads in the UI language, not as stored. */
 export const sessionTitle = (s: { title: string; meta?: string }, t: (key: string) => string) => (isQuickLog(s) ? t('home.quickLog') : s.title);
 
-type Sess = { id: string; title: string; meta: string; min: number; date: string; note?: string; rating?: number };
+type Sess = { id: string; title: string; meta: string; min: number; date: string; note?: string; rating?: number; instrument?: string; spot?: string; planId?: string };
 type Totals = { sessions: Sess[]; minutesByDate: Record<string, number>; totalMin: number };
 
 export function applySessionUpdate<S extends Totals>(
   s: S,
   id: string,
-  patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number },
+  patch: { title?: string; meta?: string; min?: number; note?: string; rating?: number; instrument?: string; spot?: string; planId?: string },
 ): S {
   const sess = s.sessions.find((x) => x.id === id);
   if (!sess) return s;

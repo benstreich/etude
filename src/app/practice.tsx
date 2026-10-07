@@ -24,7 +24,7 @@ import { instrumentChoices, instrumentLabel, instrumentName, onInstrument } from
 import { useMetronome } from '@/lib/metronome';
 import { getActiveRun } from '@/lib/plan-run-state';
 import { cancelBreakEnd, scheduleBreakEnd } from '@/lib/reminders';
-import { restoreLive } from '@/lib/session-math';
+import { LIVE_GRACE_MS, restoreLive } from '@/lib/session-math';
 import { hideSessionNotice, showSessionNotice } from '@/lib/session-notice';
 import { dateKey, Piece, useStore } from '@/lib/store';
 import { pickRecordings } from '@/lib/import-recording';
@@ -247,16 +247,32 @@ export default function Practice() {
   useEffect(() => {
     setLive.current = store.setLiveSession;
   });
+  // the last heartbeat's moment, so the live process can apply the same grace
+  // rule restoreLive applies after a death: a session left running overnight
+  // comes back paused at the last heartbeat instead of claiming the night
+  const seenAt = useRef(0); // stamped by write() as the effect arms, never in render
   useEffect(() => {
     if (!running || !focus) return;
-    const write = () =>
-      setLive.current({ name: focus.name, kind: focus.kind, startedAt, accum, startClock: sessionStart.current, inst: sessionInst, breaksSeen, spot: spotId, lastSeen: Date.now() });
+    const write = () => {
+      seenAt.current = Date.now();
+      setLive.current({ name: focus.name, kind: focus.kind, startedAt, accum, startClock: sessionStart.current, inst: sessionInst, breaksSeen, spot: spotId, lastSeen: seenAt.current });
+    };
     write();
     const t = setInterval(write, 10000);
     // Android freezes this interval the moment the screen goes off, so the last
     // heartbeat is otherwise the one before the pocket. The state change itself
     // still reaches JS — stamp it, so a kill hours later banks up to here.
-    const sub = AppState.addEventListener('change', write);
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active' && startedAt !== null && Date.now() - seenAt.current > LIVE_GRACE_MS) {
+        const r = restoreLive({ startedAt, accum, lastSeen: seenAt.current }, Date.now());
+        setAccum(r.accum);
+        setSeconds(r.accum);
+        setStartedAt(null);
+        // the paused state is written by the effect re-running on the new deps
+        return;
+      }
+      write();
+    });
     return () => {
       clearInterval(t);
       sub.remove();

@@ -6,20 +6,21 @@ here changes that, and nothing in LICENSE restricts the components below.
 
 ## Fonts
 
-All three typefaces are licensed under the [SIL Open Font License 1.1](https://openfontlicense.org).
-The first two are bundled via the `@expo-google-fonts` packages; Bravura is
+All four typefaces are licensed under the [SIL Open Font License 1.1](https://openfontlicense.org).
+The first three are bundled via the `@expo-google-fonts` packages; Bravura is
 vendored directly, as `assets/fonts/Bravura.otf`.
 
 | Font | Used for | Copyright |
 |---|---|---|
-| **Space Grotesk** (Regular, Medium, SemiBold) | Everything — headings and body alike | © Florian Karsten |
+| **Space Grotesk** (Regular, Medium, SemiBold) | Everything: headings and body alike | © Florian Karsten |
 | **Newsreader** (Italic, Medium Italic) | The musical voice: tempo terms, "of N min" counters, note placeholders | © Production Type |
+| **Noto Music** (Regular) | Inline music symbols in running text | © The Noto Project Authors |
 | **Bravura** 1.482 | The notation itself: clefs, noteheads, flags, rests, accidentals and time signatures on the practice staff and the full score | © Steinberg Media Technologies GmbH |
 
-The OFL permits bundling in an application. None of the three is sold on its
+The OFL permits bundling in an application. None of the four is sold on its
 own, and none is renamed.
 
-Bravura *does* carry the Reserved Font Name "Bravura" — unlike the other two.
+Bravura *does* carry the Reserved Font Name "Bravura", unlike the other two.
 That is not a conflict here: the OFL reserves the name only against **modified**
 versions, and this app ships the file exactly as Steinberg published it. Should
 the font ever be edited, the copy must be renamed before it is redistributed.
@@ -28,38 +29,52 @@ against its published metrics.
 
 ## Frameworks and libraries
 
-MIT licensed unless noted, and installed from npm — `package.json` is the exact
+MIT licensed unless noted, and installed from npm: `package.json` is the exact
 list, `package-lock.json` the exact versions.
 
-- **React Native** and **React** — Meta
-- **Expo** SDK 57, **Expo Router**, and the `expo-*` modules the app uses:
-  audio, sqlite, file-system, notifications, haptics, localization, updates,
-  document-picker, sharing, store-review, splash-screen, symbols, glass-effect
+- **React Native** and **React** (Meta)
+- **Expo** SDK 57, **Expo Router**, **@expo/ui**, and the `expo-*` modules the
+  app uses: audio, sqlite, file-system, notifications, haptics, localization,
+  updates, document-picker, sharing, store-review, splash-screen, symbols,
+  glass-effect, image, alternate-app-icons, keep-awake, web-browser
 - **react-native-safe-area-context**, **react-native-screens**,
   **react-native-gesture-handler**, **react-native-reanimated**,
-  **react-native-svg**, **react-native-view-shot**
+  **react-native-worklets**, **react-native-svg**, **react-native-view-shot**,
+  **react-native-keyboard-controller**
 - **i18n-js**
 - **@react-native-async-storage/async-storage**
+- **react-native-zip-archive** (the backup archive: zipped and unzipped natively, so recordings never pass through JavaScript)
+- **@bacons/apple-targets** (build time only, the iOS widget extension)
 
 ## Network services
 
 Étude has no backend and no account. Two things leave the device, both
 optional to the app working:
 
-- **iTunes Search API** (`itunes.apple.com/search`) — used only to suggest a
+- **iTunes Search API** (`itunes.apple.com/search`): used only to suggest a
   title and artist while you are typing a piece's name. The query is the text
   you typed, no key, no identifier, nothing stored. Suggestions are a
-  convenience; typing the name by hand works identically.
-- **Expo Updates** (`expo.dev`) — checks for a JavaScript update on launch. It
+  convenience; typing the name by hand works identically. Accepting one
+  downloads its cover image from Apple's image servers (`*.mzstatic.com`) and
+  caches it on the device.
+- **Expo Updates** (`expo.dev`): checks for a JavaScript update on launch. It
   sends the runtime version, platform, and the current update id so the server
   can answer "newer bundle" or "nothing". No practice data, ever.
 
-Everything else — sessions, recordings, statistics — stays in the SQLite file
+Everything else (sessions, recordings, statistics) stays in the SQLite file
 on the device. See [docs/privacy-policy.md](docs/privacy-policy.md).
+
+## Samples
+
+- **Salamander Grand Piano** by Alexander Holm: the piano that plays the
+  practice log back as a tune (`assets/audio/piano/*.mp3`). Licensed
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/); the credit also
+  appears in the app under "How to read the staff".
 
 ## Ours
 
-The audio is generated, not sampled: the two identity cues
-(`scripts/make-cues.py`) and the metronome click sets (`scripts/make-click.py`)
-are synthesised from arithmetic in this repo, so there are no sample-library
-rights to clear. They are part of the app and covered by LICENSE.
+The rest of the audio is generated, not sampled: the two identity cues
+(`scripts/make-cues.py`), the drone (`scripts/make-drone.py`) and the metronome
+click sets (`scripts/make-click.py`) are synthesised from arithmetic in this
+repo, so there are no sample-library rights to clear. They are part of the app
+and covered by LICENSE.

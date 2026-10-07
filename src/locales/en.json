@@ -24,7 +24,7 @@
   },
   "toast": {
     "saved": "Saved",
-    "saveFailed": "Save failed — device storage may be full",
+    "saveFailed": "Save failed: device storage may be full",
     "enableNotifications": "Enable notifications in system settings to get reminders",
     "planDeleted": "Routine deleted",
     "sessionDeleted": "Session deleted",
@@ -71,7 +71,10 @@
     "accentOcean": "Ocean",
     "accentPlum": "Plum",
     "accentSlate": "Slate",
-    "accentHint": "The app icon and the home-screen widgets follow the accent. The icon changes when you leave the app; on some Android phones that takes a moment.",
+    "accentHint": "The home-screen widgets follow the accent. The app icon can too, see below.",
+    "iconAccent": "App icon follows the accent",
+    "iconAccentHintAndroid": "The icon changes when you leave the app. Android then removes Étude from your home screen: add it back from the app list. Widgets stay where they are.",
+    "iconAccentHintIos": "The icon changes when you leave the app; iOS shows a notice each time.",
     "previewSample": "This is how Étude will read."
   },
   "settings": {
@@ -138,7 +141,7 @@
     "errPresets": "Keep at least one preset",
     "errStages": "At least two stages",
     "backupFailed": "Backup failed",
-    "backupTooLarge": "Too large for one backup file — over 150 MB of recordings and scores",
+    "backupTooLarge": "Too large for one backup file: over 150 MB of recordings and scores",
     "preparingBackup": "Preparing backup…",
     "exportFailed": "Export failed",
     "restoreConfirmTitle": "Restore from backup?",
@@ -147,8 +150,8 @@
     "restore": "Restore",
     "backupRestored": "Backup restored",
     "backupRestoredMissing": {
-      "one": "Backup restored — 1 recording or score couldn’t be recovered",
-      "other": "Backup restored — %{count} recordings or scores couldn’t be recovered"
+      "one": "Backup restored, 1 recording or score couldn’t be recovered",
+      "other": "Backup restored, %{count} recordings or scores couldn’t be recovered"
     },
     "notABackup": "That file isn’t an Étude backup",
     "restoreFromBackup": "Restore from backup",
@@ -174,9 +177,9 @@
     "backupEverythingSub": "One file: sessions, pieces, recordings, scores, settings",
     "everyNDays": "Every %{n} days",
     "exportCsv": "Export sessions as CSV",
-    "exportCsvSub": "For spreadsheets — date, focus, minutes, note",
+    "exportCsvSub": "For spreadsheets: date, focus, minutes, note",
     "restoreSub": "Replaces what’s on this device",
-    "privacyFooter": "Étude keeps everything on this device. Back up before switching phones — recordings are included.",
+    "privacyFooter": "Étude keeps everything on this device. Back up before switching phones; recordings are included.",
     "minutesPerDay": "Minutes per day",
     "namePlaceholder": "Name",
     "clearPresetHint": "Clear a field to remove that preset.",
@@ -186,14 +189,15 @@
     "moveDown": "Move down",
     "stagesHint": "In order, first to last. Clear a field to remove it; at least two stages.",
     "streaksHint": "Strict ends the streak after one missed day; Relaxed forgives a single missed day. Break days never count against it, and logging a past day revives it either way.",
-    "notifBlocked": "Notifications are turned off for Étude — tap to open system settings.",
-    "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings and score pages aren’t included — “Back up everything” covers those when switching phones.",
+    "notifBlocked": "Notifications are turned off for Étude. Tap to open system settings.",
+    "remindersBlocked": "Blocked by the system",
+    "autoBackupHint": "Saves your sessions, pieces and settings into the app’s own storage, keeping the last three. Recordings and score pages aren’t included; “Back up everything” covers those when switching phones.",
     "save": "Save",
     "about": "About",
     "howBuilt": "How Étude is built",
     "howBuiltSub": "The stack, the architecture, and what leaves your phone",
     "sourceCode": "Source code",
-    "sourceCodeSub": "Public to read — Étude is still a paid app",
+    "sourceCodeSub": "Public to read. Étude is still a paid app",
     "privacyPolicy": "Privacy policy",
     "privacyPolicySub": "Short, because there is not much to say",
     "linkFailed": "Couldn't open that link",
@@ -235,12 +239,12 @@
       "aboutMin": "about %{min} min",
       "marksHead": "The rest of it",
       "rest": "A day with nothing logged is a rest.",
-      "fermata": "Beat the goal and the last note of the day gets a fermata — held as long as you like.",
+      "fermata": "Beat the goal and the last note of the day gets a fermata, held as long as you like.",
       "meterHead": "The time signature",
-      "meter": "Every bar carries its own. 4/4 is roughly a day that met the goal; 6/4 a day half again as long. Each session is rounded to its nearest note, so a day split into several can come out a beat or so longer. That is deliberate — a bar is a day, not a fixed meter, so it runs exactly as long as the day did, and the signature is written only where it changes. A day that stopped between beats ends on a short rest, so the bar still adds up to what its signature promises.",
+      "meter": "Every bar carries its own. 4/4 is roughly a day that met the goal; 6/4 a day half again as long. Each session is rounded to its nearest note, so a day split into several can come out a beat or so longer. That is deliberate: a bar is a day, not a fixed meter, so it runs exactly as long as the day did, and the signature is written only where it changes. A day that stopped between beats ends on a short rest, so the bar still adds up to what its signature promises.",
       "key": "The whole staff is read and played in %{key}. You can change that in Settings."
     },
-    "staffHint": "Tap a day to see its log — quick log lands there too",
+    "staffHint": "Tap a day to see its log; quick log lands there too",
     "playMelody": "Play this week",
     "fullScore": "Your score, in full",
     "todaysLog": "Today's log",
@@ -263,7 +267,7 @@
     "firstSession": "Your first session",
     "guide1Pre": "Add a piece or pick a technique in ",
     "guide2Pre": "Hit ",
-    "guide2Post": " — the timer runs even with the screen off",
+    "guide2Post": ", the timer runs even with the screen off",
     "guide3Pre": "Practiced away from your phone? ",
     "guide3Post": " it below",
     "quickLogFocus": "Quick log focus",
@@ -272,7 +276,7 @@
   },
   "practice": {
     "session": "Session",
-    "breakDue": "%{min} min — take a break?",
+    "breakDue": "%{min} min. Take a break?",
     "startBreak": "Start break",
     "skip": "Skip",
     "onBreak": "On a break",
@@ -282,6 +286,8 @@
     "breakOverTitle": "Break over",
     "breakOverBody": "Back to practice?",
     "micPermissionNeeded": "Microphone permission needed",
+    "micBlockedBody": "Microphone access for Étude is off. Turn it on in the system settings to record a take.",
+    "takeAlreadyRunning": "A take is already recording on another screen",
     "recordStartFailed": "Couldn’t start recording",
     "paused": "Paused",
     "running": "Practicing",
@@ -333,7 +339,7 @@
     "challengeDays": "Practise on %{target} days in %{month}",
     "challengeMinutes": "Practise %{time} in %{month}",
     "challengeGoalDays": "Hit your daily goal on %{target} days in %{month}",
-    "challengeMet": "Done — see it on your recap",
+    "challengeMet": "Done. See it on your recap",
     "challengeDaysLeft": {
       "one": "1 day left in the month",
       "other": "%{count} days left in the month"
@@ -349,7 +355,7 @@
     "streakSentence": "Your streaks tend to break on day %{day}, mostly on a %{weekday}.",
     "paceSentence": "At the last 8 weeks’ pace you reach %{hours} hours this year.",
     "milestoneSentence": "%{hours} hours of practice land around %{date}.",
-    "dueSentence": "%{piece} hasn’t been played in %{days} days — due for a maintenance pass.",
+    "dueSentence": "%{piece} hasn’t been played in %{days} days, due for a maintenance pass.",
     "goalDailySentence": "You reach your %{goal}-minute goal on %{hitCurrent} % of practice days; at %{suggested} minutes it would be %{hitSuggested} %.",
     "goalWeeklySentence": "Your weekly goal of %{goal} min was met in %{hitCurrent} % of the last %{n} weeks; %{suggested} min would be %{hitSuggested} %.",
     "interleavingSentence": "A practice day touches %{perDay} focuses on average, a week %{perWeek}.",
@@ -376,7 +382,7 @@
     "goal_month": "This month",
     "goal_year": "This year",
     "goalMet": "Goal met",
-    "goalAhead": "%{time} to go — ahead of pace",
+    "goalAhead": "%{time} to go, ahead of pace",
     "goalBehind": "%{time} behind pace",
     "deadlines": "Coming up",
     "daysLeft": {
@@ -410,7 +416,7 @@
     "nothingInPeriod": "Nothing logged in this period",
     "notEnoughRatedInPeriod": "Too few rated sessions in this period to compare.",
     "customise": "Customise",
-    "customHint": "These sections are yours — switch them on and off, and put them in your order.",
+    "customHint": "These sections are yours: switch them on and off, and put them in your order.",
     "hintDismiss": "Got it",
     "ratingSessions": "%{n} rated sessions",
     "section": {
@@ -442,8 +448,8 @@
     "moveDue": "due · %{days} d",
     "moveNew": "new",
     "moveSteady": "steady",
-    "calGradingFeel": "Stars rise, tempo doesn't — grading the feeling?",
-    "calNotSpeed": "Tempo is there, stars aren't — it's not speed.",
+    "calGradingFeel": "Stars rise, tempo doesn't. Grading the feeling?",
+    "calNotSpeed": "Tempo is there, stars aren't. It's not speed.",
     "calHardDays": "Hard-feeling sessions still moved this piece.",
     "hearTitle": "Hear the difference",
     "hearDays": {
@@ -496,11 +502,11 @@
       "challenge": "Practise a couple of weeks to unlock a monthly challenge.",
       "sessions": "Log a session first.",
       "pieces": "Add a piece to your repertoire first.",
-      "rated": "Needs %{need} rated sessions — you have %{have}.",
-      "ratedPiece": "Needs %{need} rated sessions of one piece — you have %{have}.",
-      "history": "Needs %{need} days of practice — you have %{have}.",
-      "driftWeeks": "Needs practice in %{need} of the last 12 weeks — you have %{have}.",
-      "driftFoci": "Needs %{need} different pieces or techniques in the last 12 weeks — you have %{have}.",
+      "rated": "Needs %{need} rated sessions; you have %{have}.",
+      "ratedPiece": "Needs %{need} rated sessions of one piece; you have %{have}.",
+      "history": "Needs %{need} days of practice; you have %{have}.",
+      "driftWeeks": "Needs practice in %{need} of the last 12 weeks; you have %{have}.",
+      "driftFoci": "Needs %{need} different pieces or techniques in the last 12 weeks; you have %{have}.",
       "recordings": "Needs a piece with two recordings.",
       "goals": "Set a daily goal or a piece deadline first.",
       "ready": "Needs a piece at the final stage."
@@ -523,12 +529,12 @@
     "folderOptions": "Folder options",
     "renameFolder": "Rename folder",
     "deleteFolder": "Delete folder",
-    "deleteFolderBody": "The pieces stay in your repertoire — only the grouping goes.",
+    "deleteFolderBody": "The pieces stay in your repertoire; only the grouping goes.",
     "errFolder": "That folder name is taken, empty, or too long",
     "saveFolder": "Save",
-    "dueForReview": "Not played in %{days} days — due for review",
+    "dueForReview": "Not played in %{days} days, due for review",
     "emptyTitle": "What are you working on?",
-    "emptyText": "Add the piece you’re learning — search fills in the artist for you.",
+    "emptyText": "Add the piece you’re learning. Search fills in the artist for you.",
     "addAPiece": "Add a piece",
     "orStartTechnique": "Or start with a technique",
     "invested": "%{min} min invested · last %{day}",
@@ -547,7 +553,7 @@
     "createNamed": "+ Create “%{name}”",
     "addingNamed": "Adding “%{name}”",
     "artistOptional": "Artist (optional)",
-    "techniquesTapToggle": "Techniques — tap to add or remove",
+    "techniquesTapToggle": "Techniques: tap to add or remove",
     "ownTechniquePlaceholder": "Your own technique…",
     "restore": "Restore to repertoire",
     "archive": "Archive",
@@ -565,7 +571,7 @@
       "theory": "Music theory"
     },
     "instrumentsHint": "Tick every instrument you play this on.",
-    "instrumentsAll": "No instrument picked — shows under all of them.",
+    "instrumentsAll": "No instrument picked: shows under all of them.",
     "searchList": "Search your repertoire",
     "noMatchesTitle": "Nothing matches",
     "noMatchesText": "No piece or technique here fits that search and instrument.",
@@ -574,8 +580,8 @@
   },
   "instrumentAsk": {
     "title": "Which instrument?",
-    "subline": "“%{name}” is on more than one. Pick the one you are playing — these minutes count towards it.",
-    "sublineRoutine": "“%{name}” has pieces played on more than one instrument. Pick the one you are playing — this run counts towards it.",
+    "subline": "“%{name}” is on more than one. Pick the one you are playing; these minutes count towards it.",
+    "sublineRoutine": "“%{name}” has pieces played on more than one instrument. Pick the one you are playing; this run counts towards it.",
     "change": "Instrument"
   },
   "compare": {
@@ -591,7 +597,7 @@
       "other": "%{count} months apart"
     },
     "playing": "Playing %{which}",
-    "flipHint": "Tap to flip — playback keeps its position",
+    "flipHint": "Tap to flip; playback keeps its position",
     "pickHint": "Tap A or B to put a take in that slot. Picking the take from the other slot swaps them.",
     "goneTitle": "That take is gone",
     "goneText": "One of the two recordings was deleted, so there is nothing left to compare.",
@@ -601,7 +607,7 @@
   },
   "piece": {
     "forecast": "At this rate: %{target} BPM around %{date}",
-    "plateau": "Plateau — three weeks without a tempo gain. Change the passage, slow down, chunk it.",
+    "plateau": "Plateau: three weeks without a tempo gain. Change the passage, slow down, chunk it.",
     "minPerBpm": "%{n} min per BPM gained",
     "added": "added %{date}",
     "stage": "Stage",
@@ -619,7 +625,7 @@
     "mastered": "Mastered",
     "onTrack": "On track",
     "behind": "Behind",
-    "deadlineDone": "Reached the last stage — nicely done.",
+    "deadlineDone": "Reached the last stage, nicely done.",
     "rename": "Rename",
     "deadlineToday": "That's today.",
     "deadlineIn": {
@@ -653,7 +659,7 @@
     "stopTake": "Stop",
     "instruments": "Instruments",
     "instrumentsHint": "Practised on these. Pick more than one if you play it on several.",
-    "instrumentsAll": "No instrument picked — it shows under all of them.",
+    "instrumentsAll": "No instrument picked: it shows under all of them.",
     "importing": "Importing…",
     "more": "More options"
   },
@@ -684,7 +690,7 @@
     "startPlan": "Start routine",
     "newSegment": "New segment",
     "editSegment": "Edit segment",
-    "notePlaceholder": "Note — e.g. bars 12–24, slow",
+    "notePlaceholder": "Note, e.g. bars 12–24, slow",
     "minutes": "Minutes",
     "metronome": "Metronome",
     "moveUp": "Move up",
@@ -694,7 +700,7 @@
   },
   "planRun": {
     "break": "Break",
-    "breakHint": "Rest — this time isn’t logged",
+    "breakHint": "Rest: this time isn’t logged",
     "end": "End",
     "endTitle": "End routine?",
     "endMessage": "The current segment will be saved as-is.",
@@ -704,7 +710,7 @@
     "metronomeBpm": "Metronome · %{bpm} BPM",
     "next": "Next",
     "finish": "Finish",
-    "inProgress": "%{name} in progress — tap to return",
+    "inProgress": "%{name} in progress, tap to return",
     "timerLabel": "%{min} min %{sec} s",
     "timerLabelBreak": "%{min} min %{sec} s remaining"
   },
@@ -712,9 +718,9 @@
     "skip": "Skip",
     "tagline": "Practice deliberately.",
     "getStarted": "Get started",
-    "privacyNote": "Everything stays on your device — no account needed",
+    "privacyNote": "Everything stays on your device, no account needed",
     "instrumentsTitle": "What do you play?",
-    "instrumentsSubline": "Pick all that apply — you can change this anytime.",
+    "instrumentsSubline": "Pick all that apply; you can change this anytime.",
     "instPiano": "Piano",
     "instGuitar": "Guitar",
     "instViolin": "Violin",
@@ -728,7 +734,7 @@
     "optional": "(optional)",
     "namePlaceholder": "Name",
     "goalTitle": "A goal you can keep",
-    "goalSubline": "Small and daily beats long and rare. Start easy — you can raise it later.",
+    "goalSubline": "Small and daily beats long and rare. Start easy; you can raise it later.",
     "minutesADay": "minutes a day",
     "reminderTitle": "A gentle nudge?",
     "reminderSubline": "One reminder a day, only on days you haven’t practiced yet.",
@@ -877,7 +883,7 @@
     "reopen": "Reopen",
     "solidGroup": "Solid (%{n})",
     "delete": "Delete spot",
-    "deleteBody": "Past sessions keep their minutes — only the spot goes.",
+    "deleteBody": "Past sessions keep their minutes; only the spot goes.",
     "wholePiece": "Whole piece",
     "workingOn": "Working on",
     "lastNever": "not yet",
@@ -896,8 +902,8 @@
     "reason": {
       "spotDue": "Trouble spots due for review",
       "stalled": "No movement in two weeks",
-      "review": "Due for review — it’s been a while",
-      "plateau": "Tempo has plateaued — slow work at %{bpm} BPM",
+      "review": "Due for review, it’s been a while",
+      "plateau": "Tempo has plateaued: slow work at %{bpm} BPM",
       "drift": "Getting less time lately"
     }
   },
@@ -905,9 +911,10 @@
     "namePlaceholder": "Name this take",
     "untitled": "Take",
     "unfiled": "Unfiled take",
+    "fileMissing": "This take’s audio file is no longer on this device",
     "deleteTitle": "Delete this take?",
     "deleteBody": "“%{name}” and its audio file are removed for good. This cannot be undone.",
-    "shareWholeHint": "Sharing sends the whole take — a trim only steers playback here.",
+    "shareWholeHint": "Sharing sends the whole take; a trim only steers playback here.",
     "delete": "Delete",
     "trimmed": "Trimmed",
     "reference": "Reference",
@@ -925,7 +932,10 @@
     "trimSilenceNone": "No silence to trim",
     "in": "In",
     "out": "Out",
-    "here": "Here",
+    "here": "At playhead",
+    "hereHint": "Play the take, then set a bound where you are listening",
+    "hereReady": "Pause where the clip should start or end, then tap At playhead",
+    "noWave": "Imported take: no waveform, so the strip shows time only",
     "clipLength": "Clip %{len}",
     "moveTitle": "Move take to",
     "moveCancel": "Cancel",
@@ -966,7 +976,7 @@
     "piecesFinished": "Pieces finished",
     "bestMonth": "Best month",
     "ofPracticeThisMonth": "of practice this month",
-    "yearSoFarOverline": "%{year} — YEAR SO FAR",
+    "yearSoFarOverline": "%{year} · YEAR SO FAR",
     "hoursCount": {
       "one": "1 hour",
       "other": "%{count} hours"
@@ -1027,7 +1037,7 @@
   "score": {
     "title": "Score",
     "add": "Add",
-    "emptyHint": "Add a PDF or a photo of your sheet music — it opens here and during a session.",
+    "emptyHint": "Add a PDF or a photo of your sheet music; it opens here and during a session.",
     "pages": {
       "one": "%{count} page",
       "other": "%{count} pages"
@@ -1062,7 +1072,7 @@
     },
     "later": "Show fewer weeks",
     "thisIsToday": "This is today",
-    "rest": "A rest — nothing logged"
+    "rest": "A rest: nothing logged"
   },
   "tools": {
     "title": "Tools",
@@ -1087,7 +1097,7 @@
   },
   "learn": {
     "title": "Practice science",
-    "intro": "What the research actually says about practising — including where the popular version overstates it. Every claim links to its source.",
+    "intro": "What the research actually says about practising, including where the popular version overstates it. Every claim links to its source.",
     "groupPractice": "How to practise",
     "groupLearning": "How learning works",
     "groupPeople": "People worth reading",
@@ -1104,12 +1114,12 @@
       "deliberatePractice": {
         "takeaway": "Hours matter, but far less than the legend",
         "finding": "The 1993 violinist study found that the best students had accumulated more solitary practice than the merely good ones. It became the foundation of the idea that expertise is mostly accumulated hours.",
-        "caveat": "The “10,000-hour rule” is not in that paper — Ericsson rejected the phrase, and its own figures are 7,410 hours for the best violinists at age 18. A 2019 replication found the good group had practised more than the best group, and a meta-analysis puts practice at 23% of the variance in music. Practice is necessary, not sufficient."
+        "caveat": "The “10,000-hour rule” is not in that paper: Ericsson rejected the phrase, and its own figures are 7,410 hours for the best violinists at age 18. A 2019 replication found the good group had practised more than the best group, and a meta-analysis puts practice at 23% of the variance in music. Practice is necessary, not sufficient."
       },
       "slowPractice": {
         "takeaway": "Slow practice: universal, and barely studied",
         "finding": "Almost every classical musician surveyed uses slow practice, and expert practicers vary their tempo deliberately instead of grinding at one speed.",
-        "caveat": "There is no adequate controlled evidence that slow practice itself improves learning. The only randomised test of tempo patterns found no effect, and a separate study found that what you learn at one tempo transfers poorly to another. Varying tempo is what strong practicers do — but it rests on habit and observation, not proof."
+        "caveat": "There is no adequate controlled evidence that slow practice itself improves learning. The only randomised test of tempo patterns found no effect, and a separate study found that what you learn at one tempo transfers poorly to another. Varying tempo is what strong practicers do, but it rests on habit and observation, not proof."
       },
       "interleaving": {
         "takeaway": "Mixing pieces may beat drilling one",
@@ -1117,12 +1127,12 @@
         "caveat": "The classic studies are maths problems and lab button presses, not instruments. A 2023 review calls the benefit in sports practice a myth, and the big learning-technique review rates interleaving only moderate."
       },
       "mentalPractice": {
-        "takeaway": "Practising in your head works — alongside the instrument",
+        "takeaway": "Practising in your head works, alongside the instrument",
         "finding": "In the best-powered music study, mental and vocal rehearsal combined with playing improved expressive performance more than playing alone. It costs nothing, makes no noise and cannot strain a tendon.",
         "caveat": "Imagery on its own did not beat no practice in that study. A 24-year follow-up meta-analysis puts mental practice at about 1.7% of the variance, well under the figure still quoted, and none of the pooled numbers come from musicians."
       },
       "externalFocus": {
-        "takeaway": "Think about the sound, not your fingers — perhaps",
+        "takeaway": "Think about the sound, not your fingers, perhaps",
         "finding": "Musicians told to focus on the instrument or the resulting sound were rated higher than those told to focus on their hands, matching two decades of motor-learning reports.",
         "caveat": "A 2024 Bayesian meta-analysis found that literature is shaped by reporting bias. Corrected for it, the average effect on performance, retention and transfer is negligible. Worth trying on yourself; not worth treating as settled."
       },
@@ -1171,7 +1181,7 @@
       "klickstein": {
         "takeaway": "Craft guidance on practice, performance and health",
         "finding": "Gerald Klickstein's book and site cover practice routines, performance preparation and musician wellness.",
-        "caveat": "Experienced craft advice rather than an evidence review — useful at the music stand, not a source of research findings."
+        "caveat": "Experienced craft advice rather than an evidence review: useful at the music stand, not a source of research findings."
       }
     }
   }

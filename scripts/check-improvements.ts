@@ -30,7 +30,8 @@ assert.equal(
 const good = parseBackup(JSON.stringify({ etudeBackup: 1, state: { totalMin: 5 }, files: { 'Audio/a.m4a': 'QQ==', '../x': 'QQ==', bad: 42 } }));
 assert.deepEqual(good, { state: { totalMin: 5 }, files: { 'Audio/a.m4a': 'QQ==' } });
 assert.deepEqual(parseBackup(JSON.stringify({ etudeBackup: 1, state: {} })).files, {});
-for (const bad of ['{}', 'null', '[]', JSON.stringify({ etudeBackup: 2, state: {} }), JSON.stringify({ etudeBackup: 1, state: null }), JSON.stringify({ etudeBackup: 1, state: [] })])
+// version 2 is the zip's state file (check-backup.ts); anything newer is unknown
+for (const bad of ['{}', 'null', '[]', JSON.stringify({ etudeBackup: 3, state: {} }), JSON.stringify({ etudeBackup: 1, state: null }), JSON.stringify({ etudeBackup: 1, state: [] })])
   assert.throws(() => parseBackup(bad));
 
 // --- auto backup: filename parsing, due-ness, and pruning to the newest 3

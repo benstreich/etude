@@ -214,6 +214,13 @@ export function RecordingsList({
       }
       return;
     }
+    // a file that is gone (an OS-level restore that skipped the recordings, a
+    // cleared folder) plays nothing and raises nothing — say so instead
+    try {
+      if (!r.uri.includes(':') && !new File(resolveRecordingUri(r.uri)).exists) return store.showToast(store.t('recordings.fileMissing'));
+    } catch {
+      // can't tell (web) — try to play it anyway
+    }
     applyAudioMode({ playsInSilentMode: true, allowsRecording: false });
     player.replace(resolveRecordingUri(r.uri));
     // expo-audio exposes this as a native setter, not hook state — same exemption
@@ -509,7 +516,10 @@ export function RecordingsList({
         dragging={dragging}
         onNudge={(handle, steps) => trimClip && editTrim(nudgeTrim(trimClip, handle, steps))}
         // the player's own position, not the last (up to 100ms old) status tick
-        onHere={currentId === trimId && trimClip ? (handle) => editTrim(setFromPlayhead(trimClip, handle, player.currentTime)) : undefined}
+        onHere={(handle) => trimClip && editTrim(setFromPlayhead(trimClip, handle, player.currentTime))}
+        // the take has to be loaded in the player before "at playhead" means anything
+        hereEnabled={currentId === trimId}
+        position={currentId === trimId ? status.currentTime : undefined}
         playing={currentId === trimId && status.playing}
         // the native-setter exemption toggle already carries (shouldCorrectPitch)
         // eslint-disable-next-line react-hooks/immutability
@@ -547,6 +557,8 @@ function TrimSheet({
   dragging,
   onNudge,
   onHere,
+  hereEnabled,
+  position,
   playing,
   onTogglePlay,
   loop,
@@ -566,7 +578,10 @@ function TrimSheet({
   onRelease: () => void;
   dragging: boolean;
   onNudge: (handle: TrimHandle, steps: number) => void;
-  onHere?: (handle: TrimHandle) => void;
+  onHere: (handle: TrimHandle) => void;
+  hereEnabled: boolean;
+  /** playback position in seconds, when this take is the one loaded */
+  position?: number;
   playing: boolean;
   onTogglePlay: () => void;
   loop: boolean;
@@ -592,6 +607,8 @@ function TrimSheet({
           onRelease={onRelease}
           onNudge={onNudge}
           onHere={onHere}
+          hereEnabled={hereEnabled}
+          position={position}
           playing={playing}
           onTogglePlay={onTogglePlay}
           loop={loop}
@@ -617,6 +634,8 @@ function TrimEditor({
   onRelease,
   onNudge,
   onHere,
+  hereEnabled,
+  position,
   playing,
   onTogglePlay,
   loop,
@@ -635,7 +654,9 @@ function TrimEditor({
   onMove: (x: number) => void;
   onRelease: () => void;
   onNudge: (handle: TrimHandle, steps: number) => void;
-  onHere?: (handle: TrimHandle) => void;
+  onHere: (handle: TrimHandle) => void;
+  hereEnabled: boolean;
+  position?: number;
   playing: boolean;
   onTogglePlay: () => void;
   loop: boolean;
@@ -668,6 +689,11 @@ function TrimEditor({
         </Text>
       </View>
 
+      {/* The strip: bars (or a plain track for an imported take with no levels),
+          the kept range in accent, the two handles with their grips, and the
+          playhead while the take is loaded. The times live in the rows below,
+          not in pills on the handles: pills overlapped the title at 0:00 and
+          ran off the sheet's edge at the far end. */}
       <View
         style={s.trimWave}
         onLayout={(e) => onLayoutWave(e.nativeEvent.layout.width)}
@@ -678,32 +704,47 @@ function TrimEditor({
         onResponderTerminationRequest={() => false}
         onResponderRelease={onRelease}
         onResponderTerminate={onRelease}>
-        {wave.map((v, j) => {
-          const barAt = ((j + 0.5) / wave.length) * recording.sec;
-          const outside = barAt < inPoint(clip) || barAt > outPoint(clip);
-          return (
+        {hasWave ? (
+          wave.map((v, j) => {
+            const barAt = ((j + 0.5) / wave.length) * recording.sec;
+            const outside = barAt < inPoint(clip) || barAt > outPoint(clip);
+            return (
+              <View
+                key={j}
+                style={{
+                  flex: 1,
+                  height: 8 + v * 56,
+                  borderRadius: 2,
+                  backgroundColor: outside ? C.chartInactive : C.accent,
+                  opacity: outside ? 0.3 : 1,
+                }}
+              />
+            );
+          })
+        ) : (
+          <>
+            <View style={[s.trimTrack, { backgroundColor: C.chartInactive, opacity: 0.3 }]} />
             <View
-              key={j}
-              style={{
-                flex: 1,
-                height: hasWave ? 8 + v * 56 : 4,
-                borderRadius: 2,
-                backgroundColor: outside ? C.chartInactive : C.accent,
-                opacity: outside ? 0.3 : 1,
-              }}
+              style={[
+                s.trimTrack,
+                { backgroundColor: C.accent, left: (inPoint(clip) / recording.sec) * waveW, width: ((outPoint(clip) - inPoint(clip)) / recording.sec) * waveW },
+              ]}
             />
-          );
-        })}
-        <TrimHandleMark x={(inPoint(clip) / recording.sec) * waveW} label={fmtFine(inPoint(clip))} above />
-        <TrimHandleMark x={(outPoint(clip) / recording.sec) * waveW} label={fmtFine(outPoint(clip))} above={false} />
+          </>
+        )}
+        {position !== undefined && <View pointerEvents="none" style={[s.trimPlayhead, { left: (Math.min(position, recording.sec) / recording.sec) * waveW - 1, backgroundColor: C.ink }]} />}
+        <TrimHandleMark x={(inPoint(clip) / recording.sec) * waveW} grip="top" />
+        <TrimHandleMark x={(outPoint(clip) / recording.sec) * waveW} grip="bottom" />
       </View>
+      {!hasWave && <Text style={[s.meta, { marginTop: -10 }]}>{store.t('recordings.noWave')}</Text>}
 
       <View style={{ gap: 8 }}>
         <Bound
           label={store.t('recordings.in')}
           value={fmtFine(inPoint(clip))}
           onNudge={(steps) => onNudge('start', steps)}
-          onHere={onHere && (() => onHere('start'))}
+          onHere={() => onHere('start')}
+          hereEnabled={hereEnabled}
           hereLabel={store.t('recordings.here')}
           a11y={{ earlier: store.t('recordings.inEarlier'), later: store.t('recordings.inLater'), here: store.t('recordings.inHere') }}
         />
@@ -711,14 +752,15 @@ function TrimEditor({
           label={store.t('recordings.out')}
           value={fmtFine(outPoint(clip))}
           onNudge={(steps) => onNudge('end', steps)}
-          onHere={onHere && (() => onHere('end'))}
+          onHere={() => onHere('end')}
+          hereEnabled={hereEnabled}
           hereLabel={store.t('recordings.here')}
           a11y={{ earlier: store.t('recordings.outEarlier'), later: store.t('recordings.outLater'), here: store.t('recordings.outHere') }}
         />
       </View>
 
       <View style={s.trimFooterRow}>
-        {/* the sheet covers the row's own play button; "Here" needs the take playing */}
+        {/* the sheet covers the row's own play button; "at playhead" needs the take loaded */}
         <Pressable
           style={[s.playBtn, playing && { backgroundColor: C.accent }]}
           hitSlop={8}
@@ -730,26 +772,30 @@ function TrimEditor({
           onPress={onTogglePlay}>
           {playing ? <PauseIcon color={C.bg} size={14} /> : <PlayIcon color={C.bg} size={14} />}
         </Pressable>
-        <Text style={s.meta}>{store.t('recordings.clipLength', { len: fmtFine(outPoint(clip) - inPoint(clip)) })}</Text>
-        <View style={{ flex: 1 }} />
-        <ChipRow>
-          <ActionChip icon={(color) => <LoopIcon color={color} />} label={store.t('recordings.loop')} active={loop} onPress={onToggleLoop} />
-          {hasWave && (
-            <ActionChip
-              icon={(color) => <ScissorsIcon color={color} size={18} />}
-              label={store.t('recordings.trimSilence')}
-              disabled={!silence}
-              accessibilityLabel={silence ? undefined : store.t('recordings.trimSilenceNone')}
-              testID="trim-silence"
-              onPress={() => silence && onTrimSilence(silence)}
-            />
-          )}
-          <ActionChip icon={(color) => <UndoIcon color={color} />} label={store.t('recordings.clearTrim')} onPress={onClear} />
-          <ActionChip icon={(color) => <ShareIcon color={color} size={18} />} label={store.t('recordings.share')} onPress={onShare} />
-        </ChipRow>
+        <View style={{ flex: 1 }}>
+          <Text style={s.piece}>{store.t('recordings.clipLength', { len: fmtFine(outPoint(clip) - inPoint(clip)) })}</Text>
+          {/* what the play button is for in here, until the take is loaded and the chips come alive */}
+          <Text style={s.meta}>{hereEnabled ? store.t('recordings.hereReady') : store.t('recordings.hereHint')}</Text>
+        </View>
       </View>
+      {/* the chips get their own full-width row: beside the play button they wrapped and the last one ran off the edge */}
+      <ChipRow>
+        <ActionChip icon={(color) => <LoopIcon color={color} />} label={store.t('recordings.loop')} active={loop} onPress={onToggleLoop} />
+        {hasWave && (
+          <ActionChip
+            icon={(color) => <ScissorsIcon color={color} size={18} />}
+            label={store.t('recordings.trimSilence')}
+            disabled={!silence}
+            accessibilityLabel={silence ? undefined : store.t('recordings.trimSilenceNone')}
+            testID="trim-silence"
+            onPress={() => silence && onTrimSilence(silence)}
+          />
+        )}
+        <ActionChip icon={(color) => <UndoIcon color={color} />} label={store.t('recordings.clearTrim')} disabled={inPoint(clip) <= 0 && outPoint(clip) >= recording.sec} onPress={onClear} />
+        <ActionChip icon={(color) => <ShareIcon color={color} size={18} />} label={store.t('recordings.share')} onPress={onShare} />
+      </ChipRow>
       {/* the share button sits inside the trim sheet, which reads as
-          "share the clip" — it can't be, so say so rather than surprise */}
+          "share the clip"; it can't be, so say so rather than surprise */}
       <Text style={s.meta}>{store.t('recordings.shareWholeHint')}</Text>
 
       <View style={{ gap: 10 }}>
@@ -764,17 +810,17 @@ function TrimEditor({
   );
 }
 
-/** A handle on the trim waveform: the 3px bar itself, plus its own time label riding above (in) or below (out) it. */
-function TrimHandleMark({ x, label, above }: { x: number; label: string; above: boolean }) {
+/**
+ * A handle on the trim strip: the 3px bar plus a round grip that says "drag me",
+ * on top for the in point and at the bottom for the out point so two handles
+ * dragged close together never stack their grips.
+ */
+function TrimHandleMark({ x, grip }: { x: number; grip: 'top' | 'bottom' }) {
   const s = useS();
   const C = useC();
   return (
     <View pointerEvents="none" style={[s.trimHandle, { left: x - 1.5, backgroundColor: C.accent }]}>
-      <View style={[s.trimHandlePillWrap, above ? { bottom: '100%', marginBottom: 6 } : { top: '100%', marginTop: 6 }]}>
-        <View style={s.trimHandlePill}>
-          <Text style={s.trimHandlePillText}>{label}</Text>
-        </View>
-      </View>
+      <View style={[s.trimGrip, { backgroundColor: C.accent, borderColor: C.bg }, grip === 'top' ? { top: -8 } : { bottom: -8 }]} />
     </View>
   );
 }
@@ -785,15 +831,18 @@ function Bound({
   value,
   onNudge,
   onHere,
+  hereEnabled,
   hereLabel,
   a11y,
 }: {
   label: string;
   value: string;
   onNudge: (steps: number) => void;
-  onHere?: () => void;
+  onHere: () => void;
+  /** false until the take is loaded in the player: there is no playhead to set to yet */
+  hereEnabled: boolean;
   hereLabel: string;
-  /** What −, + and Here do to *this* bound — the glyphs alone say nothing to a screen reader. */
+  /** What −, + and the playhead button do to *this* bound: the glyphs alone say nothing to a screen reader. */
   a11y: { earlier: string; later: string; here: string };
 }) {
   const s = useS();
@@ -820,7 +869,17 @@ function Bound({
       <View style={{ flex: 1 }} />
       {nudge(-1, '−', 'd')}
       {nudge(1, '+', 'i')}
-      {onHere && <ActionChip icon={() => null} label={hereLabel} accessibilityLabel={a11y.here} onPress={onHere} />}
+      <ActionChip icon={(color) => <PlayheadIcon color={color} />} label={hereLabel} disabled={!hereEnabled} accessibilityLabel={a11y.here} onPress={onHere} />
+    </View>
+  );
+}
+
+/** The "set this bound where playback is" glyph: a playhead line with a small triangle on top. */
+function PlayheadIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 14, height: 14, alignItems: 'center' }}>
+      <View style={{ width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 5, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: color }} />
+      <View style={{ width: 2, flex: 1, backgroundColor: color, borderRadius: 1 }} />
     </View>
   );
 }
@@ -852,11 +911,13 @@ const useS = themed(({ C, fs, r }: T) =>
     trimTitleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
     trimTitle: { fontFamily: F.head, fontSize: fs(22), color: C.ink },
     trimName: { flexShrink: 1, fontFamily: F.body, fontSize: fs(13), color: C.sub },
-    trimWave: { position: 'relative', flexDirection: 'row', alignItems: 'center', gap: 2, height: 72, marginTop: 12, marginBottom: 20 },
+    // 14px above and below the strip belong to the grips (see trimGrip), so they never clip
+    // ...and 8px either side, or a grip at 0:00 or at the end is cut in half by the sheet's edge
+    trimWave: { position: 'relative', flexDirection: 'row', alignItems: 'center', gap: 2, height: 72, marginVertical: 14, marginHorizontal: 8 },
+    trimTrack: { position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 3 },
+    trimPlayhead: { position: 'absolute', top: -4, bottom: -4, width: 2, borderRadius: 1, opacity: 0.8 },
     trimHandle: { position: 'absolute', top: -6, bottom: -6, width: 3, borderRadius: 1.5 },
-    trimHandlePillWrap: { position: 'absolute', left: -20, width: 43, alignItems: 'center' },
-    trimHandlePill: { minHeight: 20, paddingVertical: 2, paddingHorizontal: 8, borderRadius: r(10), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-    trimHandlePillText: { fontFamily: F.bodyMed, fontSize: fs(11), color: '#fff', fontVariant: ['tabular-nums'] },
+    trimGrip: { position: 'absolute', left: -6.5, width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
     trimFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     trimSaveBtn: { height: 52, borderRadius: r(14), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
     trimSaveBtnText: { fontFamily: F.bodySemi, fontSize: fs(16), color: C.bg },

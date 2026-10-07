@@ -1,8 +1,8 @@
 // A/B recording compare (#17) — two takes seek-locked so flipping keeps the
 // playback position, for hearing progress on the same passage.
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -91,16 +91,16 @@ export default function Compare() {
     playerB.seekTo(inB);
   }, [endB, inB, statusB.playing, statusB.currentTime, playerB]);
 
-  // leaving the screen stops both takes rather than playing on behind you
-  useFocusEffect(
-    useCallback(
-      () => () => {
-        playerA.pause();
-        playerB.pause();
-      },
-      [playerA, playerB]
-    )
-  );
+  // leaving the screen stops both takes rather than playing on behind you. An
+  // effect on focus, not a focus-effect cleanup: the players are released before
+  // an unmount cleanup runs, and pausing a released player throws (recordings.tsx
+  // hit the same crash, #96). An unmount needs no pause — release stops the sound.
+  const focused = useIsFocused();
+  useEffect(() => {
+    if (focused) return;
+    playerA.pause();
+    playerB.pause();
+  }, [focused, playerA, playerB]);
 
   // a take can go while this screen sits in the stack — deleted from the piece page,
   // or reached by a stale link. Rendering null left a blank screen with no way back

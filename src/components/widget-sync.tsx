@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import EtudeWidgets from '../../modules/etude-widgets';
-import { applyAccentIcon } from '@/lib/app-icon';
+import { applyAccentIcon, currentIconName } from '@/lib/app-icon';
 import { mix } from '@/lib/heatmap-math';
 import { useStore } from '@/lib/store';
 import { computeStreak, graceFor } from '@/lib/streak-math';
@@ -58,19 +58,42 @@ export function WidgetSync() {
   useEffect(() => {
     EtudeWidgets?.setWidgetData(JSON.parse(payload));
   }, [payload]);
-  // #80: so does the launcher icon (native build only; a no-op elsewhere). Only
-  // on launch and on leaving the app — some launchers close the app on a switch,
-  // which mid-way through tapping the swatches would throw the user out.
-  const accentRef = useRef(store.accent);
+  // #80: so does the launcher icon, when the user has asked for it (native build
+  // only; a no-op elsewhere). Opt-in because Android swaps the icon by disabling
+  // one launcher alias and enabling another, and the launcher then drops the
+  // app's home-screen shortcut (it pointed at the old alias): the user has to
+  // add Étude back. Only on launch and on leaving the app — some launchers close
+  // the app on a switch, which mid-way through tapping the swatches would throw
+  // the user out. A switch also leaves the widgets' tap intents pointing at the
+  // disabled alias, so they are repainted straight after.
+  const want = store.iconAccent ? store.accent : 'terracotta';
+  const wantRef = useRef(want);
+  const payloadRef = useRef(payload);
   useEffect(() => {
-    accentRef.current = store.accent;
-  }, [store.accent]);
+    wantRef.current = want;
+    payloadRef.current = payload;
+  }, [want, payload]);
+  const apply = () =>
+    applyAccentIcon(wantRef.current).then((changed) => {
+      if (changed) EtudeWidgets?.setWidgetData(JSON.parse(payloadRef.current));
+    });
+  // an install that already runs an accent icon (the feature used to be automatic)
+  // keeps it on, or the upgrade itself would swap the icon and lose the shortcut
+  const adopt = useRef(store.updateSettings);
   useEffect(() => {
-    applyAccentIcon(accentRef.current);
+    adopt.current = store.updateSettings;
+  });
+  useEffect(() => {
+    if (!store.iconAccent && currentIconName() !== null) {
+      adopt.current({ iconAccent: true });
+      return;
+    }
+    apply();
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'background') applyAccentIcon(accentRef.current);
+      if (s === 'background') apply();
     });
     return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 }

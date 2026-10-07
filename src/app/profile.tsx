@@ -1,8 +1,8 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
-import React, { useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, AppState, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Pressable } from '@/components/press';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,7 +12,7 @@ import { TimeWheel } from '@/components/time-wheel';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { BackLink, Overline, RuledStats, Sheet } from '@/components/ui';
 import { filesOf } from '@/lib/attachment-math';
-import { BACKUP_TOO_LARGE, exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreFiles } from '@/lib/backup';
+import { BACKUP_TOO_LARGE, discardPicked, exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreDir, restoreFiles, type PickedBackup } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
@@ -92,6 +92,16 @@ export default function Profile() {
   const [text, setText] = useState('');
   const [time, setTime] = useState({ hour: 19, minute: 0 });
   const [notifAllowed, setNotifAllowed] = useState(true);
+  // a reminder the OS has blocked must not read as a live "7:00 PM" in the list;
+  // re-checked when the app comes back, since the fix lives in system settings
+  useEffect(() => {
+    const check = () => notificationsAllowed().then(setNotifAllowed).catch(() => {});
+    check();
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') check();
+    });
+    return () => sub.remove();
+  }, []);
   const [list, setList] = useState<string[]>([]);
   const [query, setQuery] = useState<string | null>(null); // null = full instrument list collapsed
   // non-default instruments as of opening, so deselecting one leaves its chip to reselect
@@ -189,26 +199,32 @@ export default function Profile() {
   const backup = () => {
     setBackingUp(true);
     // recordings and score pages travel with the state, or a restored phone
-    // shows empty players and blank thumbnails
+    // shows empty players and blank thumbnails. The zip has no size cap; only
+    // the legacy JSON fallback (Expo Go, web) can still be too large.
     exportBackup(store.backupState(), [...store.recordings.map((r) => r.uri), ...filesOf(store.attachments)])
       .catch((e: Error) => store.showToast(store.t(e?.message === BACKUP_TOO_LARGE ? 'settings.backupTooLarge' : 'settings.backupFailed')))
       .finally(() => setBackingUp(false));
   };
   const csv = () => exportCsv(store.sessions).catch(() => store.showToast(store.t('settings.exportFailed')));
-  const confirmRestore = ({ state, files }: { state: object; files: Record<string, string> }) =>
+  // `files` is a legacy backup's embedded base64; `dir` the unzipped staging
+  // directory of a zip backup, dropped whichever button is pressed
+  const confirmRestore = (picked: PickedBackup) =>
     Alert.alert(store.t('settings.restoreConfirmTitle'), store.t('settings.restoreConfirmBody'), [
-      { text: store.t('settings.cancel'), style: 'cancel' },
+      { text: store.t('settings.cancel'), style: 'cancel', onPress: () => discardPicked(picked) },
       {
         text: store.t('settings.restore'),
         style: 'destructive',
         onPress: () => {
           // a throw in here would surface as a fatal error, not a toast
           try {
-            restoreFiles(files);
-            const lost = store.restoreBackup(state);
+            restoreFiles(picked.files);
+            if (picked.dir) restoreDir(picked.dir);
+            const lost = store.restoreBackup(picked.state);
             store.showToast(lost ? store.t('settings.backupRestoredMissing', { count: lost }) : store.t('settings.backupRestored'));
           } catch {
             store.showToast(store.t('settings.backupUnreadable'));
+          } finally {
+            discardPicked(picked);
           }
         },
       },
@@ -275,7 +291,11 @@ export default function Profile() {
     { key: 'quickLogFocus', label: store.t('settings.quickLogFocus'), value: store.quickLogFocus?.name ?? store.t('settings.nothingSpecific') },
     { key: 'breakDays', label: store.t('settings.breakDays'), value: store.breakDays.length ? store.breakDays.map(dayName).join(', ') : store.t('settings.none') },
     { key: 'streaks', label: store.t('settings.streaks'), value: store.t(STREAK_KEYS[store.streakMode]) },
-    { key: 'reminder', label: store.t('settings.reminders'), value: store.reminder === 'Off' ? store.t('settings.off') : reminderDisplay(store.reminder, store.lang) },
+    {
+      key: 'reminder',
+      label: store.t('settings.reminders'),
+      value: store.reminder === 'Off' ? store.t('settings.off') : !notifAllowed ? store.t('settings.remindersBlocked') : reminderDisplay(store.reminder, store.lang),
+    },
     { key: 'weekStart', label: store.t('settings.weekStart'), value: dayName(store.weekStart) },
     { key: 'stages', label: store.t('settings.stages'), value: store.stages.join(' · ') },
     { key: 'melodyKey', label: store.t('settings.melodyKey'), value: store.t('settings.majorKey', { key: keyDisplayName(store.melodyKey, store.lang) }) },

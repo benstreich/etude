@@ -13,6 +13,11 @@ const seed = () => ({
   metroTimeSig: '4/4',
   metroBpm: 90,
   dailyGoal: 45,
+  sessions: [] as object[],
+  minutesByDate: {} as Record<string, number>,
+  instruments: [] as string[],
+  quickLog: [15, 30, 45],
+  metroAccents: [3, 1, 2, 1],
 });
 const save = (s: object) => JSON.stringify(s);
 
@@ -131,5 +136,23 @@ assert.equal('techniques' in tech, false);
 // names that slug alike still get distinct ids; an all-non-ASCII name gets a fallback
 const slugs = migrate(save({ pieces: [], techniques: ['C major', 'C-major', 'Ü', 'ß'] }), seed()) as any;
 assert.deepEqual(slugs.pieces.map((p: any) => p.id), ['tech-c-major', 'tech-c-major-2', 'tech-item', 'tech-item-2']);
+
+// a blob (or restored backup) whose lists and maps are not what they claim must
+// come back usable — the store indexes these on every render, and a persisted
+// null would throw on every launch after
+const broken = migrate(save({ sessions: null, minutesByDate: [], instruments: 'Piano', breakDays: null, stages: 7, quickLog: {}, metroAccents: null, recordings: 'x' }), seed()) as any;
+assert.deepEqual(broken.sessions, []);
+assert.deepEqual(broken.minutesByDate, {});
+assert.deepEqual(broken.instruments, []);
+assert.deepEqual(broken.breakDays, seed().breakDays);
+assert.deepEqual(broken.stages, seed().stages);
+assert.deepEqual(broken.quickLog, seed().quickLog);
+assert.deepEqual(broken.metroAccents, seed().metroAccents);
+assert.deepEqual(broken.recordings, []);
+// …while intact ones pass through untouched
+const intact = migrate(save({ sessions: [{ id: 's', title: 'A', meta: 'Piece', min: 5, date: '2026-09-01' }], minutesByDate: { '2026-09-01': 5 }, quickLog: [10, 20] }), seed()) as any;
+assert.equal(intact.sessions.length, 1);
+assert.deepEqual(intact.minutesByDate, { '2026-09-01': 5 });
+assert.deepEqual(intact.quickLog, [10, 20]);
 
 console.log('check-migrate: all assertions passed');

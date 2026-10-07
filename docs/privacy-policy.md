@@ -1,14 +1,16 @@
-# Privacy Policy — Etude
+# Etude Privacy Policy
 
-_Last updated: 2026-09-17_
+_Last updated: 2026-10-04_
 
 Etude is a music practice app. It is designed to work entirely on your device.
 
 ## Data we collect
 
-**None.** Etude has no backend, no accounts, no analytics, and no ads. Nothing you do in the app — your sessions, recordings, repertoire or settings — is transmitted anywhere, apart from the two narrow exceptions below. The app does check for its own software updates on launch, which tells our update provider only the app version and device platform, never anything about your practice.
+**None.** Etude has no backend, no accounts, no analytics, and no ads. Nothing you do in the app (your sessions, recordings, repertoire or settings) is transmitted anywhere, apart from the two narrow exceptions below. The app does check for its own software updates on launch, which tells our update provider only the app version and device platform, never anything about your practice.
 
-When you add a piece, the title you type is sent to Apple's public iTunes search service to suggest matching songs and cover art. Apple receives that text and your device's IP address; nothing else about your practice is included, and you can add pieces without using the suggestions.
+When you add a piece, the title you type is sent to Apple's public iTunes search service to suggest matching songs and cover art. Apple receives that text and your device's IP address; nothing else about your practice is included, and you can add pieces without using the suggestions. If you accept a suggestion, its cover image is downloaded from Apple's image servers and kept on your device so it can be shown without asking again.
+
+Your phone's own backup (Google's device backup on Android, iCloud or a computer backup on iOS) may include Etude's data like any other app's, under that service's terms and your own settings. Etude itself never uploads anything.
 
 ## Data stored on your device
 
@@ -20,8 +22,8 @@ Uninstalling the app deletes this data.
 
 ## Permissions
 
-- **Microphone / background recording** — to record practice sessions you start, including while the screen is off.
-- **Notifications** — to show an ongoing notification while a recording or the metronome is running, and metronome controls on the lock screen.
+- **Microphone / background recording**: to record practice sessions you start, including while the screen is off.
+- **Notifications**: to show an ongoing notification while a recording or the metronome is running, and metronome controls on the lock screen.
 
 ## Children
 

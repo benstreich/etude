@@ -1,8 +1,8 @@
 # How Étude is built
 
 Étude is a paid app whose source is public to read. This page is the tour: what
-it is made of, why it is made that way, and — the part most apps are vague
-about — exactly what leaves your phone.
+it is made of, why it is made that way, and, the part most apps are vague
+about, exactly what leaves your phone.
 
 ## The stack, and why
 
@@ -10,7 +10,7 @@ about — exactly what leaves your phone.
 
 One person is building this for two platforms, so React Native does the obvious
 thing: one codebase, two stores. Expo carries the parts that would otherwise eat
-months — audio, notifications, file system, over-the-air updates, and a build
+months: audio, notifications, file system, over-the-air updates, and a build
 service that owns the signing keys so no keystore ever sits on a laptop. Expo
 Router means the folder layout under `src/app/` *is* the navigation; there is no
 route table to keep in sync.
@@ -20,19 +20,19 @@ server, and the reason is not cost:
 
 - **Practice data is private and boring to everyone but you.** A backend would
   mean an account, a password reset, a privacy policy with teeth, a breach
-  surface, and a monthly bill — in exchange for nothing you asked for.
+  surface, and a monthly bill, in exchange for nothing you asked for.
 - **A practice app has to work in a rehearsal room with no signal.**
 - **No server means no subscription.** The app is bought once (#55). There is no
   recurring cost to pass on, because there is no recurring cost.
 
 The trade is real and worth saying out loud: your data lives on one device. Back
-it up before you switch phones — Settings does that, recordings included.
+it up before you switch phones; Settings does that, recordings included.
 
 ## The architecture in one screen
 
 ```
 src/app/          screens; the file tree is the navigation (Expo Router)
-src/components/   shared UI — sheets, the metronome sheet, recordings, cards
+src/components/   shared UI: sheets, the metronome sheet, recordings, cards
 src/components/progress/  one file per progress section, picked by src/lib/progress-sections.ts
 src/lib/evidence.ts       the cited reading list behind Tools → Practice science
 src/lib/          the brain: one store, many pure modules
@@ -83,20 +83,20 @@ All of it runs on the device, over your own rows, and every function returns
 (`src/lib/stats-math.ts`, `rating-math.ts`, `movement-math.ts`; surfaced as
 sections the user switches on under Progress, which lives on Home):
 
-- **`tempoForecast`** — a straight-line fit through your logged tempos for a
+- **`tempoForecast`**: a straight-line fit through your logged tempos for a
   piece to its target BPM, plus a plateau flag when the line has gone flat.
-- **`staleness`** — pieces at the last stage you have not touched in a while:
+- **`staleness`**: pieces at the last stage you have not touched in a while:
   "due for review".
-- **`qualityDrivers`** — which time of day, session length, weekday or routine
+- **`qualityDrivers`**: which time of day, session length, weekday or routine
   your *ratings* are highest in. Needs at least 8 rated sessions a side and half
   a star of difference before it says anything.
-- **`concentration`** — what share of your minutes went to your top few focuses.
-- **`streakSurvival`** — how long your streaks usually last, and which weekday
+- **`concentration`**: what share of your minutes went to your top few focuses.
+- **`streakSurvival`**: how long your streaks usually last, and which weekday
   breaks them.
-- **`projection`** — hours by year end, and when the next round-number milestone
+- **`projection`**: hours by year end, and when the next round-number milestone
   lands.
 
-No model, no server, no "AI insight" — arithmetic over your own practice log,
+No model, no server, no "AI insight": arithmetic over your own practice log,
 with the floors written down so a number never appears before it means anything.
 
 ## Native bits
@@ -105,8 +105,8 @@ Three things needed real native code, so they are local Expo modules in
 `modules/`, autolinked, each optional at runtime (`requireOptionalNativeModule`)
 so the app still runs in Expo Go without them:
 
-- **Home-screen widgets** (`etude-widgets`) — see [widgets.md](widgets.md).
-- **Metronome controls** (`metronome-controls`) — a foreground service whose
+- **Home-screen widgets** (`etude-widgets`): see [widgets.md](widgets.md).
+- **Metronome controls** (`metronome-controls`): a foreground service whose
   notification carries slower · play/pause · faster, and which takes over the
   click loop when Android freezes JS timers on lock. See
   [metronome.md](metronome.md).
@@ -116,7 +116,7 @@ so the app still runs in Expo Go without them:
 ## The sound
 
 Every sound in the app is synthesised by a Python script in `scripts/`, not
-sampled — so there is nothing to license and each one is a few KB. Two identity
+sampled, so there is nothing to license and each one is a few KB. Two identity
 cues built on one interval, a rising perfect fourth, and five metronome click
 sets. See [audio-identity.md](audio-identity.md).
 
@@ -129,10 +129,10 @@ sets. See [audio-identity.md](audio-identity.md).
 Exactly two things touch the network, both listed in
 [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md):
 
-1. **Title suggestions** — when you type a piece name, the text you typed goes
+1. **Title suggestions**: when you type a piece name, the text you typed goes
    to Apple's public iTunes Search API to offer a title and artist. No key, no
    identifier, nothing kept. Type the name yourself and nothing is sent.
-2. **Over-the-air updates** — on launch, expo-updates asks expo.dev whether a
+2. **Over-the-air updates**: on launch, expo-updates asks expo.dev whether a
    newer JavaScript bundle exists, sending the runtime version, the platform and
    the current update id. Nothing else.
 
@@ -142,7 +142,7 @@ The privacy policy says the same thing in fewer words:
 ## Reading the code
 
 Start at `src/lib/store.tsx` (the data), then `src/app/practice.tsx` (the timer,
-the busiest screen), then whichever `*-math.ts` file sounds interesting — each
+the busiest screen), then whichever `*-math.ts` file sounds interesting; each
 has a check script next to it that shows what it promises. The docs in this
 folder cover the parts with a story:
 [metronome.md](metronome.md), [widgets.md](widgets.md),

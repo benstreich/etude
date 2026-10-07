@@ -39,7 +39,11 @@ export const noiseFloor = (peak: number) => Math.max(FLOOR_MIN, FLOOR_RATIO * pe
  */
 export function detectSilence(levels: number[], durationSec: number): SilenceTrim {
   if (!levels.length || durationSec <= 0) return null;
-  const floor = noiseFloor(Math.max(...levels));
+  // a loop, not Math.max(...levels): an hour-long take is ~40k samples, past the
+  // argument limit a spread can hit — and this runs inside the take's stop path
+  let peak = -Infinity;
+  for (const l of levels) if (l > peak) peak = l;
+  const floor = noiseFloor(peak);
 
   let first = -1;
   let last = -1;

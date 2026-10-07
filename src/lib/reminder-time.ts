@@ -18,6 +18,21 @@ export const parseReminderTime = (label: string): { hour: number; minute: number
   return { hour, minute };
 };
 
+/** How many one-off reminders are armed when today's is skipped (see reminderFireDates). */
+export const REMINDER_DAYS = 30;
+
+/**
+ * The next `days` moments the reminder fires, as local Dates, when today has
+ * already been practised: a repeating daily trigger cannot skip a day, so the
+ * reminder is armed as one-offs from tomorrow and re-armed on every sync.
+ * Today is skipped — that is the whole point — and so is a time already past.
+ */
+export const reminderFireDates = (now: Date, time: { hour: number; minute: number }, days = REMINDER_DAYS): Date[] => {
+  const out: Date[] = [];
+  for (let i = 1; out.length < days; i++) out.push(new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, time.hour, time.minute, 0, 0));
+  return out;
+};
+
 /** Canonical display label matching the presets: "5:45 PM". */
 export const reminderLabel = ({ hour, minute }: { hour: number; minute: number }) =>
   `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;

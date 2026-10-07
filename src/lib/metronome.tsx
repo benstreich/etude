@@ -8,7 +8,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Platform } from 'react-native';
 
 import Controls from '../../modules/metronome-controls';
-import { applyAudioMode } from './audio-mode';
+import { applyAudioMode, setMetronomeMode } from './audio-mode';
 import { tr } from './i18n';
 import {
   accentLevel,
@@ -110,8 +110,13 @@ const cursor = [0, 0, 0, 0];
 function ensurePool(set: SoundSet) {
   if (nativeEngine) return Controls!.preloadClicks!();
   if (pools[set]) return;
+  // keepAudioSessionActive: without it expo-audio deactivates the iOS audio session
+  // 100 ms after every 30 ms click ends — between beats at any tempo. Each tick then
+  // re-interrupts other apps' audio (a backing track stutters per beat), Now Playing
+  // loses the session, and iOS has grounds to suspend the app on lock, which is
+  // exactly when the metronome promises to keep clicking.
   pools[set] = SAMPLES[set].map((source, bank) =>
-    Array.from({ length: bank === SUB_BANK ? 4 : 2 }, () => createAudioPlayer(source))
+    Array.from({ length: bank === SUB_BANK ? 4 : 2 }, () => createAudioPlayer(source, { keepAudioSessionActive: true }))
   );
 }
 
@@ -325,7 +330,11 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     // Android: the native engine holds audio focus itself (and pauses when it loses it).
     // Left at doNotMix, a melody played over the click took transient focus through
     // expo-audio and paused the metronome it meant to play along with.
-    applyAudioMode({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: nativeEngine ? 'mixWithOthers' : 'doNotMix' });
+    // Registered with audio-mode first: any other screen's mode change made while
+    // the click runs (playing a take, the drone) keeps these two flags, or iOS
+    // drops the lock-screen controls and pauses the pool on the next background.
+    setMetronomeMode({ shouldPlayInBackground: true, interruptionMode: nativeEngine ? 'mixWithOthers' : 'doNotMix' });
+    applyAudioMode({ playsInSilentMode: true });
     if (Platform.OS === 'android')
       requestNotificationPermissionsAsync()
         .then(() => {
@@ -339,6 +348,7 @@ export function MetronomeProvider({ children }: { children: React.ReactNode }) {
     if (run.current?.timer) clearTimeout(run.current.timer);
     run.current = null;
     metroRunning = false;
+    setMetronomeMode(null);
     controlsUp.current = false;
     setRunning(false);
     emitBeat(-1);

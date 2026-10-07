@@ -164,8 +164,12 @@ export default function Repertoire() {
     let stale = false;
     const t = setTimeout(async () => {
       let list: Suggestion[] = [];
+      // a stalled link (captive portal, one bar of signal) would otherwise spin
+      // until the OS gives up on the socket; five seconds and the row stops waiting
+      const abort = new AbortController();
+      const giveUp = setTimeout(() => abort.abort(), 5000);
       try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`);
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`, { signal: abort.signal });
         const data = await res.json();
         const seen = new Set<string>();
         for (const r of data.results ?? []) {
@@ -179,6 +183,8 @@ export default function Repertoire() {
       } catch {
         // offline or blocked — manual entry still works, and an empty answer
         // still has to be recorded or the spinner below would never stop
+      } finally {
+        clearTimeout(giveUp);
       }
       if (!stale) setSuggestions({ q, list });
     }, 400);
