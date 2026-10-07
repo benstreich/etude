@@ -6,7 +6,7 @@ so it is written for the person practising, not for the person committing.
 Étude is versioned by store release. JavaScript-only fixes ship as over-the-air
 updates under the same version number.
 
-## 1.0.0: unreleased (first store release)
+## 1.0: first store release
 
 The first version. Everything below is new.
 

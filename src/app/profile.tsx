@@ -437,7 +437,7 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* Which bundle is actually running. The app version stays 1.0.0 across
+      {/* Which bundle is actually running. The app version stays the same across
           every OTA update, so the update id is the only part that moves. */}
       <Text style={s.version}>
         {`Étude ${Constants.expoConfig?.version ?? '?'}${
