@@ -344,7 +344,7 @@ function ZoomablePage({ uri, width, height }: { uri: string; width: number; heig
 }
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
-  headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 12 },
   headCount: { fontFamily: F.body, fontSize: fs(12.5), color: C.tertiary },
   thumb: { width: 92, borderRadius: r(10), overflow: 'hidden', backgroundColor: C.track },
   thumbImg: { width: 92, height: 108, backgroundColor: '#fff' },

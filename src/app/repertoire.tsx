@@ -806,7 +806,8 @@ const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   plusText: { color: C.ink, fontSize: fs(22), lineHeight: fs(24), fontFamily: F.body },
   saveBtn: { height: 44, paddingHorizontal: 16, borderRadius: r(12), backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   saveBtnText: { fontFamily: F.bodySemi, fontSize: fs(14.5), color: '#FFFFFF' },
-  headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
+  // wraps rather than overlaps at large system font sizes (German counts run long)
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', minHeight: 36, columnGap: 12 },
   headMeta: { marginLeft: 'auto', fontFamily: F.body, fontSize: fs(16), color: C.subStrong },
   titleRow: { marginTop: 28, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   title: { fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },

@@ -73,7 +73,8 @@ export default function Tools() {
 
 const useS = themed(({ C, fs }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 40 },
-  headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
+  // wraps rather than overlaps at large system font sizes (German counts run long)
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', minHeight: 36, columnGap: 12 },
   headTempo: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
   headTempoText: { fontFamily: F.bodySemi, fontSize: fs(14), color: C.accent },
