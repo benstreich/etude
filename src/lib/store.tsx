@@ -9,7 +9,7 @@ import { removeFolderIn, renameFolderIn, validFolderName } from './folder-math';
 import type { LadderConfig } from './ladder-math';
 import { keepInstruments, pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
-import { missingFiles, runAutoBackup } from './backup';
+import { missingFiles, pruneBackupCache, runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
 import { success } from './haptics';
 import { resolveRecordingUri, toStoredUri } from './doc-path';
@@ -18,10 +18,10 @@ import type { RampUnit } from './metronome-math';
 import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
-import { setActiveRun, useActiveRun, type ActiveRun } from './plan-run-state';
+import { getTransientPlan, setActiveRun, setTransientPlan, TRANSIENT_PLAN_ID, useActiveRun, type ActiveRun } from './plan-run-state';
 import { applySessionUpdate, restoreLive, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
-import { stagePct } from './stage-math';
+import { localizeDefaultStages, stagePct } from './stage-math';
 import { computeBestStreak, computeStreak, dateKey, graceFor, nextBestStreak, type StreakMode } from './streak-math';
 import type { AccentName, RadiusMode, ThemeMode } from './theme';
 
@@ -180,6 +180,14 @@ const KEY = 'etude-state-v1';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+// the seeded stage names in one language, and in every language (stage-math.localizeDefaultStages)
+const defaultStages = (lang: Lang) => [1, 2, 3].map((n) => i18n.t(`settings.defaultStage${n}`, { locale: lang }));
+const ALL_DEFAULT_STAGES = (['en', 'de'] as const).map(defaultStages);
+const withLocalStages = <S extends { stages: string[]; language: LanguageSetting }>(s: S): S => {
+  const stages = localizeDefaultStages(s.stages, ALL_DEFAULT_STAGES, defaultStages(resolveLang(s.language)));
+  return stages === s.stages ? s : { ...s, stages };
+};
+
 // The user's data starts empty — a fresh install must never show someone else's
 // stats. Only settings carry real defaults (migrate backfills them on upgrades).
 function seed(): State {
@@ -238,7 +246,7 @@ function seed(): State {
     weekStart: 'Monday',
     quickLog: [15, 30, 45],
     quickLogFocus: null,
-    stages: ['Learning', 'Polishing', 'Ready'],
+    stages: defaultStages(resolveLang('system')),
     folders: [],
     collapsedFolders: [],
     metroBpm: 90,
@@ -402,19 +410,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } catch {}
       }
       const fresh = seed();
-      let next = migrate(raw, fresh);
+      // an install seeded before the stage names were translated still carries the
+      // English ones; they follow the app language until the user renames one
+      let next = withLocalStages(migrate(raw, fresh));
       // migrate hands back the seed itself for an unreadable blob — keep a copy
       // aside before the first save replaces it, so it can still be rescued
       if (raw && next === fresh) await Storage.setItem(`${KEY}.corrupt-${Date.now()}`, raw).catch(() => {});
       // a routine the last process left running: back into plan-run-state under the
-      // practice timer's grace rule, if its plan still exists (the unsaved suggested
-      // plan lived only in memory and cannot come back)
+      // practice timer's grace rule, if its plan still exists. The unsaved suggested
+      // plan travels inside the saved run (ActiveRun.plan) and comes back with it.
       const saved = next.activeRun;
       if (saved) {
-        const plan = next.plans.find((p) => p.id === saved.planId);
-        if (plan && plan.segments.length) setActiveRun({ ...saved, ...restoreLive({ startedAt: saved.startedAt, accum: saved.accum, lastSeen: saved.lastSeen ?? 0 }, Date.now()) });
-        else next = { ...next, activeRun: null };
+        const { plan: snapshot, ...run } = saved;
+        const transient = run.planId === TRANSIENT_PLAN_ID && Array.isArray(snapshot?.segments) ? snapshot : undefined;
+        const plan = transient ?? next.plans.find((p) => p.id === run.planId);
+        if (plan && plan.segments.length) {
+          if (transient) setTransientPlan(transient);
+          setActiveRun({ ...run, ...restoreLive({ startedAt: run.startedAt, accum: run.accum, lastSeen: run.lastSeen ?? 0 }, Date.now()) });
+        } else next = { ...next, activeRun: null };
       }
+      pruneBackupCache();
       canPersist.current = true;
       // first hydration stamps the install; upgrades from before the field count from the upgrade
       setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });
@@ -451,7 +466,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!state || !canPersist.current) return;
     const seq = ++writeSeq.current;
-    const blob = JSON.stringify({ ...state, activeRun: activeRun ? { ...activeRun, lastSeen: Date.now() } : null });
+    const plan = activeRun?.planId === TRANSIENT_PLAN_ID ? (getTransientPlan() ?? undefined) : undefined;
+    const blob = JSON.stringify({ ...state, activeRun: activeRun ? { ...activeRun, lastSeen: Date.now(), plan } : null });
     pendingWrite.current = pendingWrite.current.then(() => {
       if (writeSeq.current !== seq) return; // superseded while queued
       return Storage.setItem(KEY, blob).catch(() => {
@@ -985,7 +1001,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateSettings: Store['updateSettings'] = (patch, stageMap) => {
     setState((s) => {
       if (!s) return s;
-      const next = { ...s, ...patch };
+      // a language switch takes the default stage names along (only while untouched)
+      const next = patch.language ? withLocalStages({ ...s, ...patch }) : { ...s, ...patch };
       // a removed instrument must not linger as a piece tag: it would hide the piece
       // from every remaining tab with no chip left to untick it
       if (patch.instruments) {
@@ -1051,7 +1068,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     restoreBackup: (stateObj: object) => {
       // a session in flight when the backup was taken is long over — reviving it
       // would log its minutes under today
-      const next = { ...migrate(JSON.stringify(stateObj), seed()), liveSession: null, activeRun: null };
+      const next = withLocalStages({ ...migrate(JSON.stringify(stateObj), seed()), liveSession: null, activeRun: null });
       // an auto backup carries no files, and anything deleted since is gone from
       // disk: entries pointing at nothing would only show blank players and pages
       const gone = missingFiles([...next.recordings.map((r) => r.uri), ...next.attachments.flatMap((a) => a.files)]);

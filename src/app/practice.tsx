@@ -795,7 +795,8 @@ export default function Practice() {
 
 const useS = themed(({ C, fs }: T) => StyleSheet.create({
   page: { paddingHorizontal: 24, paddingBottom: 24 },
-  headRow: { flexDirection: 'row', alignItems: 'center', height: 36 },
+  // wraps rather than overlaps at large system font sizes (German counts run long)
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', minHeight: 36, columnGap: 12 },
   title: { marginTop: 28, fontFamily: F.head, fontSize: fs(34), lineHeight: fs(40), letterSpacing: -0.4, color: C.ink },
   manualLink: { fontFamily: F.bodyMed, fontSize: fs(13), color: C.sub },
   filterRow: { marginTop: 14, marginBottom: 6 },

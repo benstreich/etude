@@ -169,7 +169,7 @@ export default function Home() {
         <View style={{ marginTop: 32 }}>
           <View style={s.overlineRow}>
             <Text style={s.overline}>{store.t('progress.last7Days')}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {/* the key lives in Settings; shown here so the accidentals on the staff have a reason */}
               <Pressable hitSlop={8} accessibilityRole="button" onPress={() => router.push('/profile')}>
                 <Text style={[s.overlineMeta, { color: C.tertiary }]}>{store.t('settings.majorKey', { key: keyDisplayName(store.melodyKey, store.lang) })}</Text>
@@ -402,7 +402,8 @@ const useS = themed(({ C, fs }: T) => StyleSheet.create({
   streakRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
   streakText: { fontFamily: F.body, fontSize: fs(17), lineHeight: fs(24), color: C.subStrong },
   iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  overlineRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  // wraps rather than overlaps at large system font sizes; the right-hand cluster keeps right
+  overlineRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 12, rowGap: 6 },
   overline: { fontFamily: F.bodySemi, fontSize: fs(11), letterSpacing: 1.6, textTransform: 'uppercase', color: C.tertiary },
   overlineMeta: { fontFamily: F.body, fontSize: fs(15), color: C.subStrong },
   playGlyph: { fontSize: fs(14), lineHeight: fs(18), color: C.accent },

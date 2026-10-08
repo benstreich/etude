@@ -1,7 +1,7 @@
 // The repertoire bar must agree with the stage label on any number of stages.
 import assert from 'node:assert';
 
-import { stagePct, stageRemap } from '../src/lib/stage-math.ts';
+import { localizeDefaultStages, stagePct, stageRemap } from '../src/lib/stage-math.ts';
 
 // clearing a middle stage moves later pieces down with it, not a stage ahead
 assert.deepEqual(stageRemap(['Learning', '', 'Polishing', 'Ready']), [0, 0, 1, 2]);
@@ -30,3 +30,17 @@ for (let n = 2; n <= 8; n++) {
 }
 
 console.log('stage ok');
+
+// default stage names follow the language until the user makes them their own
+{
+  const en = ['Learning', 'Polishing', 'Ready'];
+  const de = ['Einstudieren', 'Ausfeilen', 'Bühnenreif'];
+  assert.deepEqual(localizeDefaultStages(en, [en, de], de), de, 'English defaults become German');
+  assert.deepEqual(localizeDefaultStages(de, [en, de], en), en, 'and back on a switch');
+  const same = localizeDefaultStages(de, [en, de], de);
+  assert.equal(same, localizeDefaultStages(same, [en, de], de), 'already localized: same reference, no write');
+  const own = ['Learning', 'Polishing', 'Gig-ready'];
+  assert.equal(localizeDefaultStages(own, [en, de], de), own, 'a renamed stage is the user’s, never touched');
+  const four = [...en, 'Memorized'];
+  assert.equal(localizeDefaultStages(four, [en, de], de), four, 'an added stage too');
+}

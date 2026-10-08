@@ -186,7 +186,7 @@ function RunPill({ bottom }: { bottom: number }) {
   );
 }
 
-function Shell({ insets }: { insets: { bottom: number } }) {
+function Shell({ insets }: { insets: { top: number; bottom: number } }) {
   const { C, dark, reduceMotion } = useTheme();
   const { onboarded, t } = useStore();
   const router = useRouter();
@@ -242,6 +242,9 @@ function Shell({ insets }: { insets: { bottom: number } }) {
             <Tabs.Screen name="tuner" options={{ href: null }} />
             <Tabs.Screen name="score" options={{ href: null }} />
           </Tabs>
+          {/* edge-to-edge draws the status bar over the scene: without a strip of
+              page colour behind it, scrolled text runs under the clock and icons */}
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: C.bg }} />
           <RunPill bottom={navH + insets.bottom + 12} />
           {/* clears the RunPill too, whether or not a routine is running */}
           <Toast bottom={navH + insets.bottom + 64} />

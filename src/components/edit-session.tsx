@@ -185,7 +185,7 @@ function Editor({
 
 const useS = themed(({ C, fs, r }: T) => StyleSheet.create({
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: r(22), borderTopRightRadius: r(22), padding: 24, paddingTop: 10, paddingBottom: 40 },
-  headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 12 },
   title: { fontFamily: F.head, fontSize: fs(19), color: C.ink },
   stamp: { fontFamily: F.body, fontSize: fs(13), color: C.sub },
   label: { fontFamily: F.bodySemi, fontSize: fs(13), color: C.sub, marginBottom: 8 },

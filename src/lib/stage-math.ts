@@ -11,3 +11,13 @@ export const stageRemap = (slots: string[]): number[] => {
   let kept = 0;
   return slots.map((name) => (name.trim() ? kept++ : Math.max(0, kept - 1)));
 };
+
+// The seeded stage names are the app's words, not the user's: while they are
+// still exactly one language's defaults, they follow the app language. Any
+// edit (a rename, a fourth stage) makes them the user's own and they stay put.
+// Returns `stages` itself when nothing changes, so callers can skip a write.
+export const localizeDefaultStages = (stages: string[], defaults: string[][], target: string[]) =>
+  defaults.some((d) => d.length === stages.length && d.every((n, i) => n === stages[i])) &&
+  !target.every((n, i) => n === stages[i])
+    ? target
+    : stages;

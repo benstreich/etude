@@ -12,7 +12,7 @@ import { TimeWheel } from '@/components/time-wheel';
 import { ProgressLayoutSheet } from '@/components/progress-layout-sheet';
 import { BackLink, Overline, RuledStats, Sheet } from '@/components/ui';
 import { filesOf } from '@/lib/attachment-math';
-import { BACKUP_TOO_LARGE, discardPicked, exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreDir, restoreFiles, type PickedBackup } from '@/lib/backup';
+import { BACKUP_NO_SPACE, BACKUP_TOO_LARGE, discardPicked, exportBackup, exportCsv, latestAutoBackup, pickBackup, restoreDir, restoreFiles, type PickedBackup } from '@/lib/backup';
 import { autoBackupDate, parseBackup } from '@/lib/backup-math';
 import { primaryOf } from '@/lib/cue-voice';
 import { goalProgress, type GoalPeriod } from '@/lib/goal-math';
@@ -202,9 +202,14 @@ export default function Profile() {
     // shows empty players and blank thumbnails. The zip has no size cap; only
     // the legacy JSON fallback (Expo Go, web) can still be too large.
     exportBackup(store.backupState(), [...store.recordings.map((r) => r.uri), ...filesOf(store.attachments)])
-      .catch((e: Error) => store.showToast(store.t(e?.message === BACKUP_TOO_LARGE ? 'settings.backupTooLarge' : 'settings.backupFailed')))
+      .catch((e: Error & { mb?: number }) => store.showToast(backupError(e, 'settings.backupFailed')))
       .finally(() => setBackingUp(false));
   };
+  // the two failures worth naming; anything else gets the caller's generic message
+  const backupError = (e: (Error & { mb?: number }) | undefined, fallback: string) =>
+    e?.message === BACKUP_NO_SPACE
+      ? store.t('settings.backupNoSpace', { mb: e.mb })
+      : store.t(e?.message === BACKUP_TOO_LARGE ? 'settings.backupTooLarge' : fallback);
   const csv = () => exportCsv(store.sessions).catch(() => store.showToast(store.t('settings.exportFailed')));
   // `files` is a legacy backup's embedded base64; `dir` the unzipped staging
   // directory of a zip backup, dropped whichever button is pressed
@@ -234,7 +239,7 @@ export default function Profile() {
     try {
       picked = await pickBackup();
     } catch (e) {
-      return store.showToast(store.t((e as Error)?.message === BACKUP_TOO_LARGE ? 'settings.backupTooLarge' : 'settings.notABackup'));
+      return store.showToast(backupError(e as Error & { mb?: number }, 'settings.notABackup'));
     }
     if (picked) confirmRestore(picked);
   };
