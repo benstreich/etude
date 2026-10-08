@@ -84,3 +84,33 @@ export function restorePlan(entries: string[]): string[] {
 /** A picked file is a zip backup by extension or by what the picker says it is; anything else is read as legacy JSON. */
 export const isBackupZip = (name: string | undefined, mimeType: string | undefined) =>
   /\.zip$/i.test(name ?? '') || /zip/i.test(mimeType ?? '');
+
+const MB = 1024 * 1024;
+// headroom left over after a backup or restore, so the phone is never filled to the last byte
+const SPACE_MARGIN = 50 * MB;
+
+/**
+ * Free bytes a zip backup needs: the staged copy of every file, then the archive
+ * of about the same size beside it (recordings are AAC and barely compress).
+ */
+export const spaceForBackup = (mediaBytes: number) => 2 * mediaBytes + SPACE_MARGIN;
+
+/** Free bytes a zip restore needs once the picker's copy exists: the unzipped staging dir, then the copies into documents. */
+export const spaceForRestore = (zipBytes: number) => 2 * zipBytes + SPACE_MARGIN;
+
+/** Whole megabytes, rounded up, for the "needs about N MB" toast. */
+export const toMb = (bytes: number) => Math.ceil(bytes / MB);
+
+const STAGING_RE = /^(backup|restore)-/;
+const ARCHIVE_RE = /^etude-backup-.*\.zip$/;
+
+/**
+ * Which cache entries a fresh launch may drop: every staging dir (a backup or
+ * restore in flight never outlives its process) and archives older than a day
+ * (a share target such as a mail draft may still read a recent one).
+ */
+export function staleCacheEntries(entries: { name: string; dir: boolean; mtime: number | null }[], now: number): string[] {
+  return entries
+    .filter((e) => (e.dir ? STAGING_RE.test(e.name) : ARCHIVE_RE.test(e.name) && e.mtime !== null && now - e.mtime > 86400000))
+    .map((e) => e.name);
+}

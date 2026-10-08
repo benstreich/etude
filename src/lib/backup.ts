@@ -12,7 +12,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
-import { autoBackupDate, autoBackupPlan, backupFiles, buildCsv, isBackupZip, parseBackup, restorePlan, STATE_FILE } from './backup-math';
+import { autoBackupDate, autoBackupPlan, backupFiles, buildCsv, isBackupZip, parseBackup, restorePlan, spaceForBackup, spaceForRestore, staleCacheEntries, STATE_FILE, toMb } from './backup-math';
 import type { Session } from './store';
 import { dateKey } from './streak-math';
 
@@ -32,6 +32,13 @@ const zipAvailable = () => !!Zip && Platform.OS !== 'web' && Constants.appOwners
 // path has no such limit.
 const MAX_FILE_BYTES = 150 * 1024 * 1024;
 export const BACKUP_TOO_LARGE = 'backup-too-large';
+
+// Thrown before a zip backup or restore starts when the phone is short of room for
+// it, with the megabytes it needs in `mb`, instead of failing halfway through a copy.
+export const BACKUP_NO_SPACE = 'backup-no-space';
+const ensureSpace = (needed: number) => {
+  if (Paths.availableDiskSpace < needed) throw Object.assign(new Error(BACKUP_NO_SPACE), { mb: toMb(needed) });
+};
 
 const b64ToBytes = (b64: string) => {
   const bin = atob(b64);
@@ -85,11 +92,13 @@ async function writeZipBackup(state: object, paths: string[]) {
   const archive = new File(Paths.cache, `etude-backup-${date}.zip`);
   try {
     tryDelete(staging);
+    const found = backupFiles(paths)
+      .map((rel) => [rel, new File(Paths.document, rel)] as const)
+      .filter(([, f]) => f.exists);
+    ensureSpace(spaceForBackup(found.reduce((n, [, f]) => n + (f.size ?? 0), 0)));
     staging.create({ intermediates: true });
     new File(staging, STATE_FILE).write(JSON.stringify({ etudeBackup: 2, state }));
-    for (const rel of backupFiles(paths)) {
-      const src = new File(Paths.document, rel);
-      if (!src.exists) continue;
+    for (const [rel, src] of found) {
       ensureParent(staging, rel);
       src.copy(new File(staging, rel));
     }
@@ -150,6 +159,7 @@ export async function pickBackup(): Promise<PickedBackup | null> {
       return parseBackup(await picked.text());
     }
     if (!zipAvailable()) throw new Error('not a backup'); // Expo Go / web cannot open a zip
+    ensureSpace(spaceForRestore(asset.size ?? picked.size ?? 0));
     const dir = new Directory(Paths.cache, `restore-${Math.random().toString(36).slice(2, 10)}`);
     tryDelete(dir);
     dir.create({ intermediates: true });
@@ -283,6 +293,26 @@ export function restoreDir(dir: Directory) {
     } catch {
       // one unwritable file must not abort the whole restore
     }
+  }
+}
+
+/**
+ * Clears what a backup or restore left in the cache: staging dirs a killed process
+ * never removed, and archives older than a day (each is also replaced by the next
+ * backup). Called once per launch; never throws.
+ */
+export function pruneBackupCache() {
+  try {
+    const entries = Paths.cache.list();
+    const stale = new Set(
+      staleCacheEntries(
+        entries.map((e) => ({ name: e.name, dir: e instanceof Directory, mtime: e instanceof File ? e.modificationTime : null })),
+        Date.now(),
+      ),
+    );
+    for (const e of entries) if (stale.has(e.name)) tryDelete(e);
+  } catch {
+    // the OS reclaims the cache dir on its own; this only gets there sooner
   }
 }
 

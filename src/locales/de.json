@@ -142,6 +142,7 @@
     "errStages": "Mindestens zwei Phasen",
     "backupFailed": "Backup fehlgeschlagen",
     "backupTooLarge": "Zu groß für eine Backup-Datei: über 150 MB an Aufnahmen und Noten",
+    "backupNoSpace": "Nicht genug freier Speicher: Dafür braucht es etwa %{mb} MB",
     "preparingBackup": "Backup wird erstellt …",
     "exportFailed": "Export fehlgeschlagen",
     "restoreConfirmTitle": "Aus Backup wiederherstellen?",

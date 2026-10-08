@@ -9,7 +9,7 @@ import { removeFolderIn, renameFolderIn, validFolderName } from './folder-math';
 import type { LadderConfig } from './ladder-math';
 import { keepInstruments, pieceInstruments } from './instrument-math';
 import { deleteAttachmentFiles } from './attachments';
-import { missingFiles, runAutoBackup } from './backup';
+import { missingFiles, pruneBackupCache, runAutoBackup } from './backup';
 import { primaryOf } from './cue-voice';
 import { success } from './haptics';
 import { resolveRecordingUri, toStoredUri } from './doc-path';
@@ -429,6 +429,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setActiveRun({ ...run, ...restoreLive({ startedAt: run.startedAt, accum: run.accum, lastSeen: run.lastSeen ?? 0 }, Date.now()) });
         } else next = { ...next, activeRun: null };
       }
+      pruneBackupCache();
       canPersist.current = true;
       // first hydration stamps the install; upgrades from before the field count from the upgrade
       setState(next.installedAt > 0 ? next : { ...next, installedAt: Date.now() });

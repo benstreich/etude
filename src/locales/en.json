@@ -142,6 +142,7 @@
     "errStages": "At least two stages",
     "backupFailed": "Backup failed",
     "backupTooLarge": "Too large for one backup file: over 150 MB of recordings and scores",
+    "backupNoSpace": "Not enough free space: this needs about %{mb} MB",
     "preparingBackup": "Preparing backup…",
     "exportFailed": "Export failed",
     "restoreConfirmTitle": "Restore from backup?",

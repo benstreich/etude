@@ -2,7 +2,7 @@
 // which entries of an untrusted archive may be written back under Documents.
 import assert from 'node:assert/strict';
 
-import { backupFiles, isBackupZip, isSafeRelPath, parseBackup, restorePlan, STATE_FILE } from '../src/lib/backup-math.ts';
+import { backupFiles, isBackupZip, isSafeRelPath, parseBackup, restorePlan, spaceForBackup, spaceForRestore, staleCacheEntries, STATE_FILE, toMb } from '../src/lib/backup-math.ts';
 
 // --- parseBackup: both versions in, garbage out ----------------------------
 const v1 = parseBackup(JSON.stringify({ etudeBackup: 1, state: { sessions: [] }, files: { 'Audio/a.m4a': 'AAAA', '../etc/passwd': 'x', '/abs': 'x', 'c:/win': 'x', 'ok/but': 7 } }));
@@ -40,4 +40,32 @@ assert.equal(isBackupZip('backup', 'application/x-zip-compressed'), true);
 assert.equal(isBackupZip('etude-backup-2026-09-17.json', 'application/json'), false);
 assert.equal(isBackupZip(undefined, undefined), false);
 
+
+// --- free space: a 317 MB library needs room for the staged copy and the archive
+const MB = 1024 * 1024;
+assert.equal(spaceForBackup(317 * MB), 684 * MB, 'twice the media plus 50 MB headroom');
+assert.equal(spaceForRestore(317 * MB), 684 * MB);
+assert.equal(spaceForBackup(0), 50 * MB, 'an empty library still keeps the headroom');
+assert.equal(toMb(684 * MB), 684);
+assert.equal(toMb(MB + 1), 2, 'rounded up: never promise less than is needed');
+
+// --- cache cleanup at launch: staging dirs always, archives once a day old
+const now = Date.parse('2026-10-08T12:00:00Z');
+const day = 86400000;
+assert.deepEqual(
+  staleCacheEntries(
+    [
+      { name: 'backup-2026-10-07', dir: true, mtime: now },
+      { name: 'restore-ab12cd34', dir: true, mtime: null },
+      { name: 'etude-backup-2026-10-06.zip', dir: false, mtime: now - 2 * day },
+      { name: 'etude-backup-2026-10-08.zip', dir: false, mtime: now - 60000 },
+      { name: 'etude-backup-old.zip', dir: false, mtime: null },
+      { name: 'etude-sessions-2026-10-01.csv', dir: false, mtime: now - 9 * day },
+      { name: 'ImagePicker', dir: true, mtime: now - 9 * day },
+    ],
+    now,
+  ),
+  ['backup-2026-10-07', 'restore-ab12cd34', 'etude-backup-2026-10-06.zip'],
+  'a fresh archive may still be read by a share target; other apps’ cache is not ours to sweep',
+);
 console.log('check-backup ok');
