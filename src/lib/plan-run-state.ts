@@ -22,6 +22,8 @@ export type ActiveRun = {
   lastId: string;
   /** heartbeat: the last moment the app was alive with this run going (session-math.restoreLive) */
   lastSeen: number;
+  /** Saved blob only: the unsaved suggested plan this run follows, so a kill can revive it too. */
+  plan?: Plan;
 };
 
 let run: ActiveRun | null = null;
@@ -48,8 +50,9 @@ export const newRunToken = () => String(++runSeq);
 
 // A plan that is run without ever being saved (#95: "Suggested for today").
 // It lives here, beside the run, so the runner and the RunPill resolve it the
-// same way from any screen; it is never persisted, and renamePiece never has to
-// rewrite it because it is dropped the moment it is not mid-run.
+// same way from any screen. It is persisted only inside a run in flight (as
+// ActiveRun.plan), so a process death mid-run revives it with the run; renamePiece
+// never has to rewrite it because it is dropped the moment it is not mid-run.
 export const TRANSIENT_PLAN_ID = 'suggested';
 let transient: Plan | null = null;
 export const getTransientPlan = () => transient;

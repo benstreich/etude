@@ -18,7 +18,7 @@ import type { RampUnit } from './metronome-math';
 import type { MelodyKey } from './melody';
 import { migrate } from './migrate';
 import { syncReminder } from './reminders';
-import { setActiveRun, useActiveRun, type ActiveRun } from './plan-run-state';
+import { getTransientPlan, setActiveRun, setTransientPlan, TRANSIENT_PLAN_ID, useActiveRun, type ActiveRun } from './plan-run-state';
 import { applySessionUpdate, restoreLive, type LiveSession } from './session-math';
 import { appendStageLog } from './movement-math';
 import { localizeDefaultStages, stagePct } from './stage-math';
@@ -417,13 +417,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // aside before the first save replaces it, so it can still be rescued
       if (raw && next === fresh) await Storage.setItem(`${KEY}.corrupt-${Date.now()}`, raw).catch(() => {});
       // a routine the last process left running: back into plan-run-state under the
-      // practice timer's grace rule, if its plan still exists (the unsaved suggested
-      // plan lived only in memory and cannot come back)
+      // practice timer's grace rule, if its plan still exists. The unsaved suggested
+      // plan travels inside the saved run (ActiveRun.plan) and comes back with it.
       const saved = next.activeRun;
       if (saved) {
-        const plan = next.plans.find((p) => p.id === saved.planId);
-        if (plan && plan.segments.length) setActiveRun({ ...saved, ...restoreLive({ startedAt: saved.startedAt, accum: saved.accum, lastSeen: saved.lastSeen ?? 0 }, Date.now()) });
-        else next = { ...next, activeRun: null };
+        const { plan: snapshot, ...run } = saved;
+        const transient = run.planId === TRANSIENT_PLAN_ID && Array.isArray(snapshot?.segments) ? snapshot : undefined;
+        const plan = transient ?? next.plans.find((p) => p.id === run.planId);
+        if (plan && plan.segments.length) {
+          if (transient) setTransientPlan(transient);
+          setActiveRun({ ...run, ...restoreLive({ startedAt: run.startedAt, accum: run.accum, lastSeen: run.lastSeen ?? 0 }, Date.now()) });
+        } else next = { ...next, activeRun: null };
       }
       canPersist.current = true;
       // first hydration stamps the install; upgrades from before the field count from the upgrade
@@ -461,7 +465,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!state || !canPersist.current) return;
     const seq = ++writeSeq.current;
-    const blob = JSON.stringify({ ...state, activeRun: activeRun ? { ...activeRun, lastSeen: Date.now() } : null });
+    const plan = activeRun?.planId === TRANSIENT_PLAN_ID ? (getTransientPlan() ?? undefined) : undefined;
+    const blob = JSON.stringify({ ...state, activeRun: activeRun ? { ...activeRun, lastSeen: Date.now(), plan } : null });
     pendingWrite.current = pendingWrite.current.then(() => {
       if (writeSeq.current !== seq) return; // superseded while queued
       return Storage.setItem(KEY, blob).catch(() => {
